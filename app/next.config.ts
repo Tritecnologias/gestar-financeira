@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   // Prisma precisa rodar no servidor
-  serverExternalPackages: ["@prisma/client", "bcryptjs"],
+  serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg", "bcryptjs"],
 
   // Disable x-powered-by header por segurança
   poweredByHeader: false,

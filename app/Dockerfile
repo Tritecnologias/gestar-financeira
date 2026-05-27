@@ -1,6 +1,6 @@
 # ============================================================
-# GESTAR FINANCEIRA – Dockerfile para Next.js 14
-# Multi-stage build: builder + runner (imagem leve)
+# GESTAR FINANCEIRA – Dockerfile para Next.js (produção)
+# Multi-stage build: builder + runner
 # ============================================================
 
 # ── Stage 1: Builder ─────────────────────────────────────────
@@ -8,20 +8,15 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Instalar dependências de build
 RUN apk add --no-cache libc6-compat
 
-# Copiar package files e instalar dependências
 COPY package.json package-lock.json ./
 RUN npm ci --prefer-offline
 
-# Copiar código-fonte
 COPY . .
 
-# Gerar Prisma Client
 RUN npx prisma generate
 
-# Build do Next.js (standalone output)
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 RUN npm run build
@@ -34,16 +29,17 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Criar usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copiar arquivos necessários do builder
+# Copiar standalone build + dependências completas
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+# Copiar node_modules completo (necessário para prisma adapter-pg, pg, bcryptjs)
+COPY --from=builder /app/node_modules ./node_modules
 
 USER nextjs
 
