@@ -264,6 +264,41 @@ export default function LancamentosClient() {
     setDragOverKey(null);
   };
 
+  // ── Resize de colunas ─────────────────────────────────────
+  const resizingKey = useRef<string | null>(null);
+  const resizeStartX = useRef(0);
+  const resizeStartW = useRef(0);
+
+  const handleResizeStart = (e: React.MouseEvent, key: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingKey.current = key;
+    resizeStartX.current = e.clientX;
+    const cfg = colConfig.find(c => c.key === key);
+    const def = COLUNAS_DEF.find(d => d.key === key);
+    resizeStartW.current = cfg?.width ?? def?.width ?? 100;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!resizingKey.current) return;
+      const diff = ev.clientX - resizeStartX.current;
+      const newWidth = Math.max(40, resizeStartW.current + diff);
+      setColConfig(prev => prev.map(c => c.key === resizingKey.current ? { ...c, width: newWidth } : c));
+    };
+
+    const handleMouseUp = () => {
+      resizingKey.current = null;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
+
   // ── Toggle sort ao clicar no header ────────────────────────────────
   const handleSortClick = (key: string) => {
     // Se está sendo arrastado, não aciona sort
@@ -342,11 +377,6 @@ export default function LancamentosClient() {
         </div>
 
         {/* KPIs */}
-        <div className="kpi-grid">
-          <div className="kpi kpi-green"><div className="kpi-label">Entradas</div><div className="kpi-value">{formatCurrency(entradas)}</div><div className="kpi-sub">Período filtrado</div></div>
-          <div className="kpi kpi-red"><div className="kpi-label">Saídas</div><div className="kpi-value">{formatCurrency(saidas)}</div><div className="kpi-sub">Período filtrado</div></div>
-          <div className="kpi kpi-blue"><div className="kpi-label">Saldo do Período</div><div className="kpi-value">{formatCurrency(entradas - saidas)}</div><div className="kpi-sub">Saldo acumulado</div></div>
-        </div>
 
         {/* Filtros e Atalhos */}
         <div className="filters-section">
@@ -358,6 +388,11 @@ export default function LancamentosClient() {
             </button>
             {filtrosOpen && (
               <div className="accordion-content">
+                <div className="kpi-grid" style={{ padding: 0, marginBottom: 12 }}>
+                  <div className="kpi kpi-green"><div className="kpi-label">Entradas</div><div className="kpi-value">{formatCurrency(entradas)}</div><div className="kpi-sub">Período filtrado</div></div>
+                  <div className="kpi kpi-red"><div className="kpi-label">Saídas</div><div className="kpi-value">{formatCurrency(saidas)}</div><div className="kpi-sub">Período filtrado</div></div>
+                  <div className="kpi kpi-blue"><div className="kpi-label">Saldo do Período</div><div className="kpi-value">{formatCurrency(entradas - saidas)}</div><div className="kpi-sub">Saldo acumulado</div></div>
+                </div>
                 <div className="filters-row">
                   <div className="filter-group"><label className="filter-label">De</label><input type="date" className="filter-input" value={filtros.dataInicio} onChange={e => { setFiltros(f => ({ ...f, dataInicio: e.target.value })); setPagina(1); }} /></div>
                   <div className="filter-group"><label className="filter-label">Até</label><input type="date" className="filter-input" value={filtros.dataFim} onChange={e => { setFiltros(f => ({ ...f, dataFim: e.target.value })); setPagina(1); }} /></div>
@@ -423,6 +458,7 @@ export default function LancamentosClient() {
                         opacity: dragKey.current === def.key ? 0.45 : 1,
                         transition: "opacity 0.15s, border-left 0.1s, background 0.15s",
                         background: isSorted ? "rgba(37,99,235,0.08)" : undefined,
+                        ...(!getThStyle(def).position && { position: "relative" }),
                       }}
                       draggable={!isSticky}
                       onDragStart={() => handleDragStart(def.key)}
@@ -469,6 +505,23 @@ export default function LancamentosClient() {
                           <span style={{ fontSize: 9, opacity: 0.5 }} title="Ordenação na página atual">*</span>
                         )}
                       </span>
+                      {/* Handle de resize */}
+                      <span
+                        onMouseDown={e => handleResizeStart(e, def.key)}
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          position: "absolute",
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: 5,
+                          cursor: "col-resize",
+                          background: "transparent",
+                          zIndex: 3,
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "var(--accent-blue)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                      />
                     </th>
                   );
                 })}
