@@ -48,6 +48,7 @@ services:
       DATABASE_URL: postgresql://gestar_admin:gestar@2024_secure@postgres:5432/gestar_financeira
       NEXTAUTH_URL: http://187.77.202.129:3000
       NEXTAUTH_SECRET: gestar-prod-secret-troque-depois-2024
+      AUTH_TRUST_HOST: "true"
     ports:
       - "3000:3000"
     depends_on:
