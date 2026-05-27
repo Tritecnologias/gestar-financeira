@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma, getTenantPrisma } from "@/lib/db";
-import type { UserSession } from "@/types";
+import type { UserSession, Papel } from "@/types";
 
 /**
  * Valida a sessão e retorna o Prisma Client já escopado ao tenant.
@@ -26,7 +26,7 @@ export async function requireSession() {
       id:         user.id        as string,
       nome:       user.name      as string ?? "",
       email:      user.email     as string ?? "",
-      papel:      user.papel     as string,
+      papel:      user.papel     as Papel,
       tenantId:   user.tenantId  as string,
       tenantNome: user.tenantNome as string,
     } satisfies UserSession,
