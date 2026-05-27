@@ -1,0 +1,42 @@
+# ══════════════════════════════════════════════════════════
+# GESTAR FINANCEIRA – .gitignore (raiz do projeto)
+# ══════════════════════════════════════════════════════════
+
+# ── Pastas excluídas ──────────────────────────────────────
+Materiais/
+prototipo/
+
+# ── Arquivos sensíveis ────────────────────────────────────
+autenticação.txt
+*.env
+*.env.*
+!.env.example
+
+# ── Documentos internos ───────────────────────────────────
+*.xlsx
+*.pdf
+implementation_plan.md
+
+# ── IDE / OS ──────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── Node / Next.js (redundante com app/.gitignore) ────────
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# ── Docker volumes (dados locais) ─────────────────────────
+postgres_data/
+pgadmin_data/
+
+# ── Logs ──────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*

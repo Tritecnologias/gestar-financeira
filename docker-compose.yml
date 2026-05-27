@@ -1,0 +1,77 @@
+services:
+  # ── PostgreSQL ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: gestar_financeira_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gestar_admin
+      POSTGRES_PASSWORD: gestar@2024_secure
+      POSTGRES_DB: gestar_financeira
+    ports:
+      - "5433:5432"  # 5433 no host → 5432 no container
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gestar_admin -d gestar_financeira"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── pgAdmin ────────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: gestar_financeira_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gestarfinanceira.com.br
+      PGADMIN_DEFAULT_PASSWORD: gestar@2024_secure
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Next.js App ─────────────────────────────────────────── (produção)
+  # Descomente em produção (na VPS). Em dev, rode "npm run dev" localmente.
+  # app:
+  #   build:
+  #     context: ./app
+  #     dockerfile: Dockerfile
+  #   container_name: gestar_app
+  #   restart: unless-stopped
+  #   environment:
+  #     DATABASE_URL: postgresql://gestar_admin:gestar@2024_secure@postgres:5432/gestar_financeira
+  #     NEXTAUTH_URL: ${NEXTAUTH_URL}
+  #     NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   expose:
+  #     - "3000"
+
+  # ── Nginx (Reverse Proxy + SSL) ─────────────────────────── (produção)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: gestar_nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+  #     - /etc/letsencrypt:/etc/letsencrypt:ro
+  #     - /var/www/certbot:/var/www/certbot:ro
+  #   depends_on:
+  #     - app
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local

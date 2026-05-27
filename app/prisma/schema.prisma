@@ -1,0 +1,201 @@
+// ============================================================
+// GESTAR FINANCEIRA – Prisma Schema v3
+// Expansão: 32 colunas + tabelas de apoio (fornecedores,
+// status_manual_tipos, layouts_colunas)
+// ============================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  // URL definida em prisma.config.ts (Prisma v7)
+}
+
+// ── Tenant (empresa cliente) ──────────────────────────────────
+model Tenant {
+  id           String   @id @default(uuid())
+  nome         String
+  slug         String   @unique
+  email        String   @unique
+  // plano: 'trial' | 'mensal' | 'anual'
+  plano        String   @default("trial")
+  ativo        Boolean  @default(true)
+  logoUrl      String?  @map("logo_url")  // URL ou base64 do logo personalizado
+  // Título personalizável da tabela de apoio de status (ex: "VALOR PREVISTO")
+  tituloTabelaStatus String? @default("VALOR PREVISTO") @map("titulo_tabela_status")
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  usuarios          Usuario[]
+  lancamentos       Lancamento[]
+  planoContas       PlanoContas[]
+  fornecedores      Fornecedor[]
+  statusManualTipos StatusManualTipo[]
+
+  @@map("tenants")
+}
+
+// ── Usuário ───────────────────────────────────────────────────
+model Usuario {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  nome       String
+  email      String
+  senhaHash  String   @map("senha_hash")
+  // papel: 'admin_global' | 'admin' | 'membro'
+  papel      String   @default("membro")
+  ativo      Boolean  @default(true)
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lancamentos   Lancamento[]
+  layoutsColunas LayoutColunas[]
+
+  @@unique([tenantId, email])
+  @@map("usuarios")
+}
+
+// ── Plano de Contas ───────────────────────────────────────────
+model PlanoContas {
+  id        String  @id @default(uuid())
+  tenantId  String  @map("tenant_id")
+  codigo    String?
+  descricao String
+  // tipo: 'RECEITA' | 'DESPESA' | 'TRANSFERENCIA'
+  tipo      String
+  paiId     String? @map("pai_id")
+  ativo     Boolean @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pai         PlanoContas?  @relation("PlanoContasPai", fields: [paiId], references: [id])
+  filhos      PlanoContas[] @relation("PlanoContasPai")
+  lancamentos Lancamento[]
+
+  @@map("plano_contas")
+}
+
+// ── Fornecedor (tabela de apoio – Fantasia Padrão n4) ─────────
+model Fornecedor {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  codigo    String   @db.VarChar(20)
+  nome      String
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lancamentos Lancamento[]
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_fornecedores_tenant")
+  @@map("fornecedores")
+}
+
+// ── Status Manual Tipos (tabela de apoio) ─────────────────────
+model StatusManualTipo {
+  id        String  @id @default(uuid())
+  tenantId  String  @map("tenant_id")
+  codigo    String
+  nome      String
+  cor       String? // hex color ex: #22c55e
+  ordem     Int     @default(0)
+  ativo     Boolean @default(true)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_status_manual_tenant")
+  @@map("status_manual_tipos")
+}
+
+// ── Layout de Colunas (por usuário) ───────────────────────────
+model LayoutColunas {
+  id          String   @id @default(uuid())
+  usuarioId   String   @map("usuario_id")
+  tenantId    String   @map("tenant_id")
+  nome        String
+  // colunas: [{key, visible, order, width}]
+  colunas     Json
+  isDefault   Boolean  @default(false) @map("is_default")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId], map: "idx_layouts_usuario")
+  @@map("layouts_colunas")
+}
+
+// ── Lançamento ────────────────────────────────────────────────
+model Lancamento {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+
+  // SEQ: imutável, auto-incremento (SERIAL no banco)
+  seq          Int      @default(autoincrement())
+
+  // ── Datas ────────────────────────────────────────────────
+  dataLanc          DateTime  @map("data_lanc") @db.Date
+  dataEmissao       DateTime? @map("data_emissao") @db.Date
+  dataVencOriginal  DateTime? @map("data_venc_original") @db.Date
+  dataVencPlano     DateTime? @map("data_venc_plano") @db.Date
+  dataEvento        DateTime? @map("data_evento") @db.Date
+  dataPagamento     DateTime? @map("data_pagamento") @db.Date
+
+  // ── Descrição ─────────────────────────────────────────────
+  descricao    String
+
+  // ── Financeiro ────────────────────────────────────────────
+  valor          Decimal  @db.Decimal(15, 2)
+  valorPrevisto  Decimal? @map("valor_previsto") @db.Decimal(15, 2)
+  banco          String?
+
+  // ── Classificação ─────────────────────────────────────────
+  // tipo:   'ENTRADA' | 'SAIDA'
+  tipo         String
+  // status: 'realizado' | 'previsto' | 'cancelado'  (Status Auto base)
+  status       String   @default("realizado")
+  // statusManual: código de status_manual_tipos (ex: PAGO, PENDENTE)
+  statusManual  String?  @map("status_manual")
+  // statusExtrato: conferência com extrato bancário (ex: A)
+  statusExtrato String?  @map("status_extrato")
+
+  // ── Vínculos ──────────────────────────────────────────────
+  contaId      String?  @map("conta_id")
+  fornecedorId String?  @map("fornecedor_id")
+
+  // ── Campos de texto ───────────────────────────────────────
+  fornecedor     String?  // texto livre (legado / fallback)
+  centroCusto    String?  @map("centro_custo")
+  referencia     String?
+  fantasiaPadrao String?  @map("fantasia_padrao")  // cache display fornecedor
+  categoria      String?  // código categoria n5
+  dre            String?  // código DRE
+  cont           String?  // conta contábil
+  anotacao       String?  // anotações livres
+
+  // ── Metadados ─────────────────────────────────────────────
+  metadados    Json     @default("{}")
+  importado    Boolean  @default(false)
+  importadoEm DateTime? @map("importado_em")
+  criadoPor   String?  @map("criado_por")
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  // ── Relações ──────────────────────────────────────────────
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conta       PlanoContas? @relation(fields: [contaId], references: [id])
+  criador     Usuario?     @relation(fields: [criadoPor], references: [id])
+  fornecedorRef Fornecedor? @relation(fields: [fornecedorId], references: [id])
+
+  @@index([tenantId, dataLanc(sort: Desc)], map: "idx_lancamentos_tenant_data")
+  @@index([tenantId, status], map: "idx_lancamentos_tenant_status")
+  @@index([tenantId, tipo], map: "idx_lancamentos_tenant_tipo")
+  @@index([fornecedorId], map: "idx_lancamentos_fornecedor")
+  @@index([tenantId, dataVencPlano], map: "idx_lancamentos_venc_plano")
+  @@map("lancamentos")
+}
