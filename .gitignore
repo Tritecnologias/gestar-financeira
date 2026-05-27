@@ -8,9 +8,10 @@ prototipo/
 
 # ── Arquivos sensíveis ────────────────────────────────────
 autenticação.txt
-*.env
-*.env.*
+.env
+.env.*
 !.env.example
+!app/.env.example
 
 # ── Documentos internos ───────────────────────────────────
 *.xlsx
