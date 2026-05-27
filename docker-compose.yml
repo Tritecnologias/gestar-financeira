@@ -38,22 +38,21 @@ services:
         condition: service_healthy
 
   # ── Next.js App ─────────────────────────────────────────── (produção)
-  # Descomente em produção (na VPS). Em dev, rode "npm run dev" localmente.
-  # app:
-  #   build:
-  #     context: ./app
-  #     dockerfile: Dockerfile
-  #   container_name: gestar_app
-  #   restart: unless-stopped
-  #   environment:
-  #     DATABASE_URL: postgresql://gestar_admin:gestar@2024_secure@postgres:5432/gestar_financeira
-  #     NEXTAUTH_URL: ${NEXTAUTH_URL}
-  #     NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   expose:
-  #     - "3000"
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: gestar_app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://gestar_admin:gestar@2024_secure@postgres:5432/gestar_financeira
+      NEXTAUTH_URL: http://187.77.202.129:3000
+      NEXTAUTH_SECRET: gestar-prod-secret-troque-depois-2024
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # ── Nginx (Reverse Proxy + SSL) ─────────────────────────── (produção)
   # nginx:
