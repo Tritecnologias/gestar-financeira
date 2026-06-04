@@ -157,10 +157,9 @@ export default function LancamentosClient() {
 
   const saveInlineNew = async () => {
     const { dataLanc, descricao, valor, tipo } = inlineNewValues;
-    if (!dataLanc || !descricao?.trim() || !valor) {
-      showToast("❌ Preencha data, descrição e valor");
-      return;
-    }
+    if (!dataLanc) { showToast("❌ Preencha a Data Lanç."); return; }
+    if (!descricao?.trim()) { showToast("❌ Preencha a Descrição"); return; }
+    if (!valor) { showToast("❌ Preencha o Vl. Realizado"); return; }
     setInlineNewSaving(true);
     try {
       const res = await fetch("/api/lancamentos", {
@@ -637,8 +636,8 @@ export default function LancamentosClient() {
                         <span style={{ color: "var(--accent-green)", fontWeight: 700, fontSize: 11 }}>+</span>
                       ) : def.key === "acoes" ? (
                         <div className="actions-cell">
-                          <button className="action-btn" style={{ color: "var(--accent-green)" }} onClick={saveInlineNew} title="Salvar (Enter)" disabled={inlineNewSaving}>✓</button>
-                          <button className="action-btn" onClick={cancelInlineNew} title="Cancelar (Esc)">✕</button>
+                          <button className="action-btn" style={{ color: "#fff", background: "var(--accent-green)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }} onClick={saveInlineNew} title="Salvar (Enter)" disabled={inlineNewSaving}>✓</button>
+                          <button className="action-btn" style={{ color: "#fff", background: "var(--accent-red)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }} onClick={cancelInlineNew} title="Cancelar (Esc)">✕</button>
                         </div>
                       ) : def.editavel === false ? (
                         <span style={{ color: "var(--text-muted)" }}>—</span>

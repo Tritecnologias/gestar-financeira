@@ -34,6 +34,9 @@ model Tenant {
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
   statusManualTipos StatusManualTipo[]
+  centrosCusto      CentroCusto[]
+  categorias        Categoria[]
+  dres              Dre[]
 
   @@map("tenants")
 }
@@ -76,6 +79,56 @@ model PlanoContas {
   lancamentos Lancamento[]
 
   @@map("plano_contas")
+}
+
+// ── Centro de Custo ───────────────────────────────────────────
+model CentroCusto {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  codigo    String
+  nome      String
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_centro_custo_tenant")
+  @@map("centros_custo")
+}
+
+// ── Categoria (classificação gerencial n5) ────────────────────
+model Categoria {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  codigo    String
+  nome      String
+  tipo      String?  // RECEITA | DESPESA
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_categoria_tenant")
+  @@map("categorias")
+}
+
+// ── DRE (Demonstrativo de Resultado) ──────────────────────────
+model Dre {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  codigo    String
+  nome      String
+  ordem     Int      @default(0)
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_dre_tenant")
+  @@map("dre")
 }
 
 // ── Fornecedor (tabela de apoio – Fantasia Padrão n4) ─────────
