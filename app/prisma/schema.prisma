@@ -33,6 +33,7 @@ model Tenant {
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
+  clientes          Cliente[]
   statusManualTipos StatusManualTipo[]
   centrosCusto      CentroCusto[]
   categorias        Categoria[]
@@ -146,6 +147,26 @@ model Fornecedor {
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_fornecedores_tenant")
   @@map("fornecedores")
+}
+
+// ── Cliente ───────────────────────────────────────────────────
+model Cliente {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  codigo    String   @db.VarChar(20)
+  nome      String
+  email     String?
+  telefone  String?
+  documento String?  // CPF ou CNPJ
+  endereco  String?
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_clientes_tenant")
+  @@map("clientes")
 }
 
 // ── Status Manual Tipos (tabela de apoio) ─────────────────────
