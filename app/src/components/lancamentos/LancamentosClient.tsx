@@ -121,6 +121,12 @@ export default function LancamentosClient() {
   const [filtrosOpen, setFiltrosOpen] = useState(true);
   const [atalhosOpen, setAtalhosOpen] = useState(true);
 
+  // Inserção rápida (linha no final da tabela)
+  const [inlineNewOpen, setInlineNewOpen] = useState(false);
+  const [inlineNewValues, setInlineNewValues] = useState<Record<string, string>>({});
+  const [inlineNewSaving, setInlineNewSaving] = useState(false);
+  const inlineNewFirstRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
+
   // Toast
   const [toast, setToast] = useState({ msg: "", show: false });
   const showToast = (msg: string) => { setToast({ msg, show: true }); setTimeout(() => setToast(t => ({ ...t, show: false })), 2500); };
@@ -133,6 +139,65 @@ export default function LancamentosClient() {
 
   const reloadStatusTipos = () => {
     fetch("/api/status-tipos").then(r => r.json()).then(d => Array.isArray(d) && setStatusTipos(d)).catch(() => {});
+  };
+
+  // ── Inserção rápida: atalho Alt+N ─────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setInlineNewOpen(true);
+        setInlineNewValues({ dataLanc: new Date().toISOString().split("T")[0], tipo: "SAIDA" });
+        setTimeout(() => inlineNewFirstRef.current?.focus(), 50);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  const saveInlineNew = async () => {
+    const { dataLanc, descricao, valor, tipo } = inlineNewValues;
+    if (!dataLanc || !descricao?.trim() || !valor) {
+      showToast("❌ Preencha data, descrição e valor");
+      return;
+    }
+    setInlineNewSaving(true);
+    try {
+      const res = await fetch("/api/lancamentos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...inlineNewValues,
+          valor: parseFloat(valor.replace(",", ".")),
+          valorPrevisto: inlineNewValues.valorPrevisto ? parseFloat(inlineNewValues.valorPrevisto.replace(",", ".")) : null,
+          tipo: tipo || "SAIDA",
+          status: "realizado",
+          statusManual: inlineNewValues.statusManual || null,
+          fornecedorId: inlineNewValues.fornecedorId || null,
+          dataEmissao: inlineNewValues.dataEmissao || null,
+          dataVencOriginal: inlineNewValues.dataVencOriginal || null,
+          dataVencPlano: inlineNewValues.dataVencPlano || null,
+          dataEvento: inlineNewValues.dataEvento || null,
+          dataPagamento: inlineNewValues.dataPagamento || null,
+        }),
+      });
+      if (res.ok) {
+        showToast("✅ Lançamento criado");
+        setInlineNewValues({ dataLanc: new Date().toISOString().split("T")[0], tipo: "SAIDA" });
+        loadData();
+        setTimeout(() => inlineNewFirstRef.current?.focus(), 50);
+      } else {
+        const err = await res.json();
+        showToast(`❌ ${err.error || "Erro ao criar"}`);
+      }
+    } finally {
+      setInlineNewSaving(false);
+    }
+  };
+
+  const cancelInlineNew = () => {
+    setInlineNewOpen(false);
+    setInlineNewValues({});
   };
 
   // Carregar lançamentos
@@ -430,7 +495,7 @@ export default function LancamentosClient() {
           </div>
 
           <div className="filter-hint">
-            💡 Clique em uma linha para editar · <kbd>Enter</kbd> salva · <kbd>Esc</kbd> cancela · salva automático ao sair da linha
+            💡 Clique em uma linha para editar · <kbd>Enter</kbd> salva · <kbd>Esc</kbd> cancela · <kbd>Alt+N</kbd> nova linha rápida
           </div>
         </div>
 
@@ -563,6 +628,51 @@ export default function LancamentosClient() {
                   </tr>
                 );
               })}
+              {/* Linha de inserção rápida (Alt+N) */}
+              {inlineNewOpen && (
+                <tr className="editing" style={{ background: "rgba(5,150,105,0.06)" }}>
+                  {visibleCols.map((def, idx) => (
+                    <td key={def.key} style={getTdStyle(def, true)}>
+                      {def.key === "seq" ? (
+                        <span style={{ color: "var(--accent-green)", fontWeight: 700, fontSize: 11 }}>+</span>
+                      ) : def.key === "acoes" ? (
+                        <div className="actions-cell">
+                          <button className="action-btn" style={{ color: "var(--accent-green)" }} onClick={saveInlineNew} title="Salvar (Enter)" disabled={inlineNewSaving}>✓</button>
+                          <button className="action-btn" onClick={cancelInlineNew} title="Cancelar (Esc)">✕</button>
+                        </div>
+                      ) : def.editavel === false ? (
+                        <span style={{ color: "var(--text-muted)" }}>—</span>
+                      ) : (() => {
+                        const val = inlineNewValues[def.key] ?? "";
+                        const commonProps = {
+                          className: "cell-input",
+                          value: val,
+                          onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setInlineNewValues(p => ({ ...p, [def.key]: e.target.value })),
+                          onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") saveInlineNew(); if (e.key === "Escape") cancelInlineNew(); },
+                          ...(idx === 1 ? { ref: inlineNewFirstRef as any } : {}),
+                        };
+                        if (def.tipo === "date") return <input {...commonProps} type="date" />;
+                        if (def.tipo === "number") return <input {...commonProps} type="number" step="0.01" className="cell-input num" />;
+                        if (def.tipo === "select" && def.options) return (
+                          <select {...commonProps}>
+                            {def.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        );
+                        if (def.tipo === "select-api") {
+                          const opts = def.source === "fornecedores" ? fornecedores : statusTipos;
+                          return (
+                            <select {...commonProps}>
+                              <option value="">—</option>
+                              {(opts as any[]).map(o => <option key={o.id} value={def.source === "fornecedores" ? o.display : o.codigo}>{def.source === "fornecedores" ? o.display : o.nome}</option>)}
+                            </select>
+                          );
+                        }
+                        return <input {...commonProps} type="text" />;
+                      })()}
+                    </td>
+                  ))}
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
