@@ -34,6 +34,9 @@ model Tenant {
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
   clientes          Cliente[]
+  pessoas           Pessoa[]
+  empresas          Empresa[]
+  produtos          Produto[]
   statusManualTipos StatusManualTipo[]
   centrosCusto      CentroCusto[]
   categorias        Categoria[]
@@ -167,6 +170,75 @@ model Cliente {
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_clientes_tenant")
   @@map("clientes")
+}
+
+// ── Pessoa (colaborador/equipe) ───────────────────────────────
+model Pessoa {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  codigo     String   @db.VarChar(20)
+  nome       String
+  cargo      String?
+  departamento String?
+  email      String?
+  telefone   String?
+  documento  String?  // CPF
+  dataAdmissao DateTime? @map("data_admissao") @db.Date
+  salario    Decimal? @db.Decimal(15, 2)
+  ativo      Boolean  @default(true)
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_pessoas_tenant")
+  @@map("pessoas")
+}
+
+// ── Empresa (dimensão da empresa) ─────────────────────────────
+model Empresa {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  razaoSocial String  @map("razao_social")
+  nomeFantasia String? @map("nome_fantasia")
+  cnpj       String?
+  inscEstadual String? @map("insc_estadual")
+  telefone   String?
+  email      String?
+  endereco   String?
+  cidade     String?
+  estado     String?
+  cep        String?
+  segmento   String?
+  porte      String?  // MEI, ME, EPP, Médio, Grande
+  dataFundacao DateTime? @map("data_fundacao") @db.Date
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_empresa_tenant")
+  @@map("empresas")
+}
+
+// ── Produto/Serviço ───────────────────────────────────────────
+model Produto {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  codigo     String   @db.VarChar(30)
+  nome       String
+  tipo       String?  // PRODUTO | SERVICO
+  unidade    String?  // UN, KG, HR, etc
+  precoVenda Decimal? @map("preco_venda") @db.Decimal(15, 2)
+  precoCusto Decimal? @map("preco_custo") @db.Decimal(15, 2)
+  categoria  String?
+  ativo      Boolean  @default(true)
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_produtos_tenant")
+  @@map("produtos")
 }
 
 // ── Status Manual Tipos (tabela de apoio) ─────────────────────
