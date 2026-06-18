@@ -49,6 +49,7 @@ const MENU: MenuGroup[] = [
     { letra: "a", label: "Lançamento", href: "/lancamentos"             },
     { letra: "b", label: "Relatórios", href: "/fluxo-caixa/relatorios" },
     { letra: "c", label: "Dashboards", href: "/fluxo-caixa/dashboards" },
+    { letra: "—", label: "—", href: "---" },
     { letra: "d", label: "Investimentos", href: "/fluxo-caixa/investimentos" },
     { letra: "e", label: "Endividamento", href: "/fluxo-caixa/endividamento" },
   ]},
@@ -276,6 +277,8 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                   style={{ maxHeight: (!(mounted && collapsed) && isOpen) ? `${g.sub!.length * 34}px` : "0" }}
                 >
                   {g.sub!.map((item) => {
+                    // Divisória
+                    if (item.href === "---") return <div key="divider" className="sb-divider" style={{ margin: "4px 8px" }} />;
                     const isDisabled = DISABLED_HREFS.has(item.href);
                     const isActive   = pathname.startsWith(item.href);
                     return isDisabled ? (
