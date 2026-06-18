@@ -63,6 +63,10 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
   const val = (row as any)[key];
   if (val === null || val === undefined || val === "") return <span style={{ color: "var(--text-muted)" }}>—</span>;
 
+  // Colunas de data → formato BR
+  const DATE_KEYS = new Set(["dataLanc", "dataEmissao", "dataVencOriginal", "dataVencPlano", "dataEvento", "dataPagamento"]);
+  if (DATE_KEYS.has(key)) return <span>{formatDate(val)}</span>;
+
   switch (key) {
     case "tipo":        return <ChipTipo tipo={val} />;
     case "status":      return <ChipStatus status={val} />;
@@ -409,7 +413,17 @@ export default function LancamentosClient() {
       onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") saveEdit(rowId); if (e.key === "Escape") cancelEdit(); },
     };
 
-    if (def.tipo === "date") return <input {...common} type="date" value={val?.slice(0, 10) ?? ""} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} />;
+    if (def.tipo === "date") return <input {...common} type="date" value={val?.slice(0, 10) ?? ""} onChange={e => {
+      const newVal = e.target.value;
+      setEditValues(p => {
+        const updated = { ...p, [def.key]: newVal };
+        // Espelhar Venc. Original → Venc. Plano (se plano está vazio)
+        if (def.key === "dataVencOriginal" && !p.dataVencPlano) {
+          updated.dataVencPlano = newVal;
+        }
+        return updated;
+      });
+    }} />;
     if (def.tipo === "number") return <input {...common} type="number" step="0.01" value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className="cell-input num" />;
     if (def.tipo === "select" && def.options) return (
       <select {...common} value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className="cell-input">
@@ -650,7 +664,14 @@ export default function LancamentosClient() {
                           onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") saveInlineNew(); if (e.key === "Escape") cancelInlineNew(); },
                           ...(idx === 1 ? { ref: inlineNewFirstRef as any } : {}),
                         };
-                        if (def.tipo === "date") return <input {...commonProps} type="date" />;
+                        if (def.tipo === "date") return <input {...commonProps} type="date" onChange={e => {
+                          const newVal = e.target.value;
+                          setInlineNewValues(p => {
+                            const updated = { ...p, [def.key]: newVal };
+                            if (def.key === "dataVencOriginal" && !p.dataVencPlano) updated.dataVencPlano = newVal;
+                            return updated;
+                          });
+                        }} value={inlineNewValues[def.key] ?? ""} />;
                         if (def.tipo === "number") return <input {...commonProps} type="number" step="0.01" className="cell-input num" />;
                         if (def.tipo === "select" && def.options) return (
                           <select {...commonProps}>
