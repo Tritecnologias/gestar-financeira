@@ -49,6 +49,8 @@ const MENU: MenuGroup[] = [
     { letra: "a", label: "Lançamento", href: "/lancamentos"             },
     { letra: "b", label: "Relatórios", href: "/fluxo-caixa/relatorios" },
     { letra: "c", label: "Dashboards", href: "/fluxo-caixa/dashboards" },
+    { letra: "d", label: "Investimentos", href: "/fluxo-caixa/investimentos" },
+    { letra: "e", label: "Endividamento", href: "/fluxo-caixa/endividamento" },
   ]},
   { num: 4,  icon: "📊", label: "Orçamento Empresarial",   sub: [
     { letra: "a", label: "Vendas por Produto", href: "/orcamento/vendas-produto" },
@@ -81,6 +83,7 @@ const MENU: MenuGroup[] = [
 
 const DISABLED_HREFS = new Set([
   "/fluxo-caixa/relatorios", "/fluxo-caixa/dashboards",
+  "/fluxo-caixa/investimentos", "/fluxo-caixa/endividamento",
   "/acao/tarefas", "/acao/5w2h", "/acao/calendario", "/acao/cronograma",
   "/orcamento/vendas-produto", "/orcamento/folha", "/orcamento/opex", "/orcamento/capex",
   "/relacionamento/fornecedores", "/relacionamento/clientes",
@@ -114,6 +117,9 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
     setMounted(true);
     const saved = localStorage.getItem("sidebar-collapsed");
     if (saved === "true") setCollapsed(true);
+    // Carregar tema salvo
+    const theme = localStorage.getItem("theme");
+    if (theme === "dark") document.documentElement.setAttribute("data-theme", "dark");
   }, []);
 
   // Persiste mudanças (só após mount para não rodar no SSR)
@@ -337,6 +343,20 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
             <div className="user-name">{userNome}</div>
             <div className="user-role">{tenantNome}</div>
           </div>
+          <button
+            onClick={() => {
+              const html = document.documentElement;
+              const current = html.getAttribute("data-theme");
+              const next = current === "dark" ? "light" : "dark";
+              html.setAttribute("data-theme", next);
+              localStorage.setItem("theme", next);
+            }}
+            title="Alternar tema claro/escuro"
+            className="logout-btn"
+            style={{ marginRight: 2 }}
+          >
+            🌙
+          </button>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             title="Sair"

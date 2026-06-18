@@ -122,8 +122,8 @@ export default function LancamentosClient() {
   const [atalhosOpen, setAtalhosOpen] = useState(true);
 
   // Inserção rápida (linha no final da tabela)
-  const [inlineNewOpen, setInlineNewOpen] = useState(false);
-  const [inlineNewValues, setInlineNewValues] = useState<Record<string, string>>({});
+  const [inlineNewOpen, setInlineNewOpen] = useState(true);
+  const [inlineNewValues, setInlineNewValues] = useState<Record<string, string>>({ dataLanc: new Date().toISOString().split("T")[0], tipo: "SAIDA" });
   const [inlineNewSaving, setInlineNewSaving] = useState(false);
   const inlineNewFirstRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
 
@@ -494,7 +494,7 @@ export default function LancamentosClient() {
           </div>
 
           <div className="filter-hint">
-            💡 Clique em uma linha para editar · <kbd>Enter</kbd> salva · <kbd>Esc</kbd> cancela · <kbd>Alt+N</kbd> nova linha rápida
+            💡 Clique em uma linha para editar · <kbd>Enter</kbd> salva · <kbd>Esc</kbd> cancela · Use a linha <strong>+</strong> no final da tabela para inserir
           </div>
         </div>
 
@@ -686,7 +686,6 @@ export default function LancamentosClient() {
               <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina >= Math.ceil(total / 50)} onClick={() => setPagina(p => p + 1)}>Próx. →</button>
             </div>
           )}
-          <span style={{ cursor: "pointer", color: "var(--accent-blue)", fontSize: 12 }}>Clique na linha para editar inline</span>
         </div>
 
         {/* Toast */}
