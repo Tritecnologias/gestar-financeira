@@ -39,6 +39,8 @@ model Tenant {
   produtos          Produto[]
   statusManualTipos StatusManualTipo[]
   centrosCusto      CentroCusto[]
+  areasNegocio      AreaNegocio[]
+  dadosBancarios    DadoBancario[]
   categorias        Categoria[]
   dres              Dre[]
 
@@ -91,14 +93,51 @@ model CentroCusto {
   tenantId  String   @map("tenant_id")
   codigo    String
   nome      String
+  areaId    String?  @map("area_id")
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  area   AreaNegocio? @relation(fields: [areaId], references: [id])
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_centro_custo_tenant")
+  @@map("centros_custo")
+}
+
+// ── Área de Negócio ───────────────────────────────────────────
+model AreaNegocio {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  codigo    String
+  nome      String
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  centrosCusto CentroCusto[]
+
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_area_negocio_tenant")
+  @@map("areas_negocio")
+}
+
+// ── Dado Bancário ─────────────────────────────────────────────
+model DadoBancario {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  banco     String
+  agencia   String?
+  conta     String?
+  tipo      String?  // Corrente, Poupança, Investimento
+  titular   String?
   ativo     Boolean  @default(true)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, codigo])
-  @@index([tenantId], map: "idx_centro_custo_tenant")
-  @@map("centros_custo")
+  @@index([tenantId], map: "idx_dados_bancarios_tenant")
+  @@map("dados_bancarios")
 }
 
 // ── Categoria (classificação gerencial n5) ────────────────────
