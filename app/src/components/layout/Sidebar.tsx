@@ -52,6 +52,7 @@ const MENU: MenuGroup[] = [
     { letra: "—", label: "—", href: "---" },
     { letra: "d", label: "Investimentos", href: "/fluxo-caixa/investimentos" },
     { letra: "e", label: "Endividamento", href: "/fluxo-caixa/endividamento" },
+    { letra: "f", label: "Cartão de Crédito", href: "/fluxo-caixa/cartao-credito" },
   ]},
   { num: 4,  icon: "📊", label: "Orçamento Empresarial",   sub: [
     { letra: "a", label: "Vendas por Produto", href: "/orcamento/vendas-produto" },
@@ -84,7 +85,7 @@ const MENU: MenuGroup[] = [
 
 const DISABLED_HREFS = new Set([
   "/fluxo-caixa/relatorios", "/fluxo-caixa/dashboards",
-  "/fluxo-caixa/investimentos", "/fluxo-caixa/endividamento",
+  "/fluxo-caixa/investimentos", "/fluxo-caixa/endividamento", "/fluxo-caixa/cartao-credito",
   "/acao/tarefas", "/acao/5w2h", "/acao/calendario", "/acao/cronograma",
   "/orcamento/vendas-produto", "/orcamento/folha", "/orcamento/opex", "/orcamento/capex",
   "/relacionamento/fornecedores", "/relacionamento/clientes",

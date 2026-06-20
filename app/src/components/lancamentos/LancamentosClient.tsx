@@ -72,7 +72,7 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
     case "status":      return <ChipStatus status={val} />;
     case "statusAuto":  return <ChipStatusAuto s={val} />;
     case "valor":
-    case "valorPrevisto": return <span className={key === "valor" ? (row.tipo === "ENTRADA" ? "val-entrada" : "val-saida") : ""}>{formatCurrency(val)}</span>;
+    case "valorPrevisto": return <span className={row.tipo === "ENTRADA" ? "val-entrada" : "val-saida"}>{formatCurrency(val)}</span>;
     case "statusManual": {
       const tipo = statusTipos?.find(st => st.codigo === val);
       const label = tipo ? tipo.nome : val;
@@ -109,8 +109,8 @@ export default function LancamentosClient() {
   const [pagina, setPagina] = useState(1);
 
   // Ordenação
-  const [sortKey, setSortKey] = useState("");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortKey, setSortKey] = useState("seq");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Campos calculados no JS (não mapeados no banco)
   const SORT_COMPUTED = new Set(["statusAuto", "diasAtrasoOriginal", "diasAtrasoPlano", "rangeAtraso", "vencA", "vencM", "vencD", "vencAM", "emissaoAM"]);
@@ -160,10 +160,10 @@ export default function LancamentosClient() {
   }, []);
 
   const saveInlineNew = async () => {
-    const { dataLanc, descricao, valor, tipo } = inlineNewValues;
+    const { dataLanc, descricao, valor, valorPrevisto, tipo } = inlineNewValues;
     if (!dataLanc) { showToast("❌ Preencha a Data Lanç."); return; }
     if (!descricao?.trim()) { showToast("❌ Preencha a Descrição"); return; }
-    if (!valor) { showToast("❌ Preencha o Vl. Realizado"); return; }
+    if (!valor && !valorPrevisto) { showToast("❌ Preencha o Vl. Realizado ou Vl. Previsto"); return; }
     setInlineNewSaving(true);
     try {
       const res = await fetch("/api/lancamentos", {
@@ -171,7 +171,7 @@ export default function LancamentosClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...inlineNewValues,
-          valor: parseFloat(valor.replace(",", ".")),
+          valor: valor ? parseFloat(valor.replace(",", ".")) : (valorPrevisto ? parseFloat(valorPrevisto.replace(",", ".")) : 0),
           valorPrevisto: inlineNewValues.valorPrevisto ? parseFloat(inlineNewValues.valorPrevisto.replace(",", ".")) : null,
           tipo: tipo || "SAIDA",
           status: "realizado",
@@ -359,6 +359,8 @@ export default function LancamentosClient() {
       document.removeEventListener("mouseup", handleMouseUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      // Persistir no localStorage
+      setColConfig(prev => { localStorage.setItem("gestar_col_config", JSON.stringify(prev)); return prev; });
     };
 
     document.addEventListener("mousemove", handleMouseMove);
@@ -512,8 +514,8 @@ export default function LancamentosClient() {
           </div>
         </div>
 
-        {/* Tabela com scroll horizontal */}
-        <div className="table-wrapper" style={{ overflow: "auto", margin: "14px 28px", position: "relative" }}>
+        {/* Tabela com scroll horizontal e vertical */}
+        <div className="table-wrapper" style={{ overflow: "auto", margin: "14px 28px", position: "relative", maxHeight: "calc(100vh - 340px)" }}>
           <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0) }}>
             <thead>
               <tr>
