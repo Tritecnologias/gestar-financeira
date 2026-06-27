@@ -67,6 +67,9 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
   const DATE_KEYS = new Set(["dataLanc", "dataEmissao", "dataVencOriginal", "dataVencPlano", "dataEvento", "dataPagamento"]);
   if (DATE_KEYS.has(key)) return <span>{formatDate(val)}</span>;
 
+  // SEQ — discreto
+  if (key === "seq") return <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{val}</span>;
+
   switch (key) {
     case "tipo":        return <ChipTipo tipo={val} />;
     case "status":      return <ChipStatus status={val} />;
