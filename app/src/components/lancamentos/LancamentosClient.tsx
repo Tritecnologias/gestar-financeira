@@ -131,9 +131,14 @@ export default function LancamentosClient() {
 
   // Inserção rápida (linha no final da tabela)
   const [inlineNewOpen, setInlineNewOpen] = useState(true);
-  const [inlineNewValues, setInlineNewValues] = useState<Record<string, string>>({ dataLanc: new Date().toISOString().split("T")[0], tipo: "SAIDA" });
+  const [inlineNewValues, setInlineNewValues] = useState<Record<string, string>>({ tipo: "SAIDA" });
   const [inlineNewSaving, setInlineNewSaving] = useState(false);
   const inlineNewFirstRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
+
+  // Setar data de hoje no cliente (evita hydration mismatch)
+  useEffect(() => {
+    setInlineNewValues(v => ({ ...v, dataLanc: new Date().toISOString().split("T")[0] }));
+  }, []);
 
   // Toast
   const [toast, setToast] = useState({ msg: "", show: false });
