@@ -464,7 +464,7 @@ export default function LancamentosClient() {
 
   return (
     <div className="layout">
-      <main className="main">
+      <main className="main" style={{ overflow: "hidden" }}>
         {/* Topbar */}
         <div className="topbar">
           <div><h1 className="page-title">Lançamentos</h1><p className="page-sub">Fluxo de Caixa — clique em qualquer linha para editar</p></div>
@@ -533,7 +533,7 @@ export default function LancamentosClient() {
         </div>
 
         {/* Tabela com scroll horizontal e vertical */}
-        <div className="table-wrapper" style={{ overflow: "auto", margin: "14px 28px", position: "relative", maxHeight: "calc(100vh - 320px)" }}>
+        <div className="table-wrapper" style={{ overflow: "auto", margin: "14px 28px", flex: 1, minHeight: 0 }}>
           <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
             <thead>
               <tr>
