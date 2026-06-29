@@ -92,6 +92,7 @@ body {
 
 [data-theme="dark"] .data-table thead th {
   background: #1E293B;
+  border-bottom: 1px solid var(--border);
 }
 
 [data-theme="dark"] .table-footer {
@@ -646,7 +647,8 @@ body {
 
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
 }
 .data-table thead th {
