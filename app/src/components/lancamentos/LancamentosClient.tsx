@@ -755,7 +755,6 @@ export default function LancamentosClient() {
           fornecedores={fornecedores}
           statusTipos={statusTipos}
         />
-      </div>
     </div>
   );
 }
