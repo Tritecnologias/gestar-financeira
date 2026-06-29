@@ -120,6 +120,7 @@ export default function LancamentosClient() {
 
   // Tabelas de apoio
   const [fornecedores, setFornecedores] = useState<FornecedorDTO[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
   const [statusTipos, setStatusTipos] = useState<StatusManualTipoDTO[]>([]);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [novoModalOpen, setNovoModalOpen] = useState(false);
@@ -141,6 +142,7 @@ export default function LancamentosClient() {
   // Carregar dados de apoio
   useEffect(() => {
     fetch("/api/fornecedores").then(r => r.json()).then(d => Array.isArray(d) && setFornecedores(d)).catch(() => {});
+    fetch("/api/clientes").then(r => r.json()).then(d => Array.isArray(d) && setClientes(d)).catch(() => {});
     fetch("/api/status-tipos").then(r => r.json()).then(d => Array.isArray(d) && setStatusTipos(d)).catch(() => {});
   }, []);
 
@@ -436,11 +438,24 @@ export default function LancamentosClient() {
       </select>
     );
     if (def.tipo === "select-api") {
-      const opts = def.source === "fornecedores" ? fornecedores : statusTipos;
+      if (def.source === "fornecedores") {
+        // Combinar fornecedores + clientes em uma lista pesquisável
+        const allOpts = [...fornecedores.map(f => f.display || `${f.codigo} – ${f.nome}`), ...clientes.map((c: any) => `${c.codigo} – ${c.nome}`)];
+        const listId = `datalist-${def.key}-${rowId}`;
+        return (
+          <>
+            <input {...common} list={listId} value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className="cell-input" placeholder="Digite para buscar..." />
+            <datalist id={listId}>
+              {allOpts.map((o, i) => <option key={i} value={o} />)}
+            </datalist>
+          </>
+        );
+      }
+      // Status tipos — manter select
       return (
         <select {...common} value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className="cell-input">
           <option value="">—</option>
-          {(opts as any[]).map(o => <option key={o.id} value={def.source === "fornecedores" ? o.display : o.codigo}>{def.source === "fornecedores" ? o.display : o.nome}</option>)}
+          {statusTipos.map(o => <option key={o.id} value={o.codigo}>{o.nome}</option>)}
         </select>
       );
     }
@@ -684,11 +699,20 @@ export default function LancamentosClient() {
                           </select>
                         );
                         if (def.tipo === "select-api") {
-                          const opts = def.source === "fornecedores" ? fornecedores : statusTipos;
+                          if (def.source === "fornecedores") {
+                            const allOpts = [...fornecedores.map(f => f.display || `${f.codigo} – ${f.nome}`), ...clientes.map((c: any) => `${c.codigo} – ${c.nome}`)];
+                            const listId = `datalist-inline-${def.key}`;
+                            return (
+                              <>
+                                <input {...commonProps} list={listId} placeholder="Digite para buscar..." />
+                                <datalist id={listId}>{allOpts.map((o, i) => <option key={i} value={o} />)}</datalist>
+                              </>
+                            );
+                          }
                           return (
                             <select {...commonProps}>
                               <option value="">—</option>
-                              {(opts as any[]).map(o => <option key={o.id} value={def.source === "fornecedores" ? o.display : o.codigo}>{def.source === "fornecedores" ? o.display : o.nome}</option>)}
+                              {statusTipos.map(o => <option key={o.id} value={o.codigo}>{o.nome}</option>)}
                             </select>
                           );
                         }
