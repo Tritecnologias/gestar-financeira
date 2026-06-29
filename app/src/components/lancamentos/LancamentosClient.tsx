@@ -533,7 +533,7 @@ export default function LancamentosClient() {
         </div>
 
         {/* Tabela com scroll horizontal e vertical */}
-        <div className="table-wrapper" style={{ overflow: "auto", margin: "14px 28px", position: "relative", maxHeight: "calc(100vh - 300px)" }}>
+        <div className="table-wrapper" style={{ overflow: "auto", margin: "14px 28px", position: "relative", maxHeight: "calc(100vh - 320px)" }}>
           <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
             <thead>
               <tr>
