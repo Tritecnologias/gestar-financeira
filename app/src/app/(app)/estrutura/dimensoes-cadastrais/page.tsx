@@ -97,21 +97,23 @@ export default function DimensoesCadastraisPage() {
             <div className="form-group" style={{ marginBottom: 0, flex: 1, maxWidth: 300 }}><label>Nome</label><input type="text" value={fNome} onChange={e => setFNome(e.target.value)} placeholder="Suprimentos ABC" /></div>
             <button className="btn btn-primary btn-sm" onClick={criarFornecedor} disabled={saving}>+ Adicionar</button>
           </div>
-          <table className="data-table" style={{ fontSize: 12 }}>
-            <thead><tr><th style={{ width: 70 }}>Código</th><th>Nome</th><th style={{ width: 80, textAlign: "center" }}>Ações</th></tr></thead>
-            <tbody>
-              {filteredF.map(f => (
-                <tr key={f.id}>
-                  {editingId === f.id && editSection === "f" ? (
-                    <><td><input className="cell-input" value={editData.codigo||""} onChange={e=>setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{width:60}} /></td><td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td></>
-                  ) : (
-                    <><td><span style={{fontWeight:600,fontSize:12}}>{f.codigo}</span></td><td>{f.nome}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(f.id);setEditSection("f");setEditData({...f});}}>✏️</button><button className="action-btn" onClick={()=>excluir(f.id,"f")}>🗑️</button></td></>
-                  )}
-                </tr>
-              ))}
-              {filteredF.length === 0 && <tr><td colSpan={3} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhum fornecedor</td></tr>}
-            </tbody>
-          </table>
+          <div style={{ maxHeight: 280, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+            <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead><tr><th style={{ width: 70, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Código</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Nome</th><th style={{ width: 80, textAlign: "center", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Ações</th></tr></thead>
+              <tbody>
+                {filteredF.map(f => (
+                  <tr key={f.id}>
+                    {editingId === f.id && editSection === "f" ? (
+                      <><td><input className="cell-input" value={editData.codigo||""} onChange={e=>setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{width:60}} /></td><td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td></>
+                    ) : (
+                      <><td><span style={{fontWeight:600,fontSize:12}}>{f.codigo}</span></td><td>{f.nome}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(f.id);setEditSection("f");setEditData({...f});}}>✏️</button><button className="action-btn" onClick={()=>excluir(f.id,"f")}>🗑️</button></td></>
+                    )}
+                  </tr>
+                ))}
+                {filteredF.length === 0 && <tr><td colSpan={3} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhum fornecedor</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* BLOCO 2: CLIENTES */}
@@ -124,21 +126,23 @@ export default function DimensoesCadastraisPage() {
             <div className="form-group" style={{ marginBottom: 0 }}><label>Telefone</label><input type="text" value={cTelefone} onChange={e => setCTelefone(e.target.value)} placeholder="(00)..." style={{ width: 120 }} /></div>
             <button className="btn btn-primary btn-sm" onClick={criarCliente} disabled={saving}>+ Adicionar</button>
           </div>
-          <table className="data-table" style={{ fontSize: 12 }}>
-            <thead><tr><th style={{ width: 60 }}>Código</th><th>Nome</th><th>Email</th><th>Telefone</th><th style={{ width: 80, textAlign: "center" }}>Ações</th></tr></thead>
-            <tbody>
-              {filteredC.map(c => (
-                <tr key={c.id}>
-                  {editingId === c.id && editSection === "c" ? (
-                    <><td><input className="cell-input" value={editData.codigo||""} onChange={e=>setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{width:50}} /></td><td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td><td><input className="cell-input" value={editData.email||""} onChange={e=>setEditData((d:any)=>({...d,email:e.target.value}))} /></td><td><input className="cell-input" value={editData.telefone||""} onChange={e=>setEditData((d:any)=>({...d,telefone:e.target.value}))} /></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td></>
-                  ) : (
-                    <><td><span style={{fontWeight:600,fontSize:12}}>{c.codigo}</span></td><td>{c.nome}</td><td style={{fontSize:11,color:"var(--text-secondary)"}}>{c.email||"—"}</td><td style={{fontSize:11}}>{c.telefone||"—"}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(c.id);setEditSection("c");setEditData({...c});}}>✏️</button><button className="action-btn" onClick={()=>excluir(c.id,"c")}>🗑️</button></td></>
-                  )}
-                </tr>
-              ))}
-              {filteredC.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhum cliente</td></tr>}
-            </tbody>
-          </table>
+          <div style={{ maxHeight: 280, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+            <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead><tr><th style={{ width: 60, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Código</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Nome</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Email</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Telefone</th><th style={{ width: 80, textAlign: "center", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Ações</th></tr></thead>
+              <tbody>
+                {filteredC.map(c => (
+                  <tr key={c.id}>
+                    {editingId === c.id && editSection === "c" ? (
+                      <><td><input className="cell-input" value={editData.codigo||""} onChange={e=>setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{width:50}} /></td><td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td><td><input className="cell-input" value={editData.email||""} onChange={e=>setEditData((d:any)=>({...d,email:e.target.value}))} /></td><td><input className="cell-input" value={editData.telefone||""} onChange={e=>setEditData((d:any)=>({...d,telefone:e.target.value}))} /></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td></>
+                    ) : (
+                      <><td><span style={{fontWeight:600,fontSize:12}}>{c.codigo}</span></td><td>{c.nome}</td><td style={{fontSize:11,color:"var(--text-secondary)"}}>{c.email||"—"}</td><td style={{fontSize:11}}>{c.telefone||"—"}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(c.id);setEditSection("c");setEditData({...c});}}>✏️</button><button className="action-btn" onClick={()=>excluir(c.id,"c")}>🗑️</button></td></>
+                    )}
+                  </tr>
+                ))}
+                {filteredC.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhum cliente</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
