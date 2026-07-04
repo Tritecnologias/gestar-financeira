@@ -536,17 +536,19 @@ export default function LancamentosClient() {
           </div>
         </div>
 
-        {/* Tabela com scroll horizontal e vertical */}
-        <div className="table-wrapper" style={{ overflow: "auto", margin: "14px 28px", flex: 1, minHeight: 0 }}>
-          <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
-            <thead>
-              <tr>
-                {visibleCols.map(def => {
-                  const isSticky   = STICKY_KEYS.has(def.key);   // bloqueia drag
-                  const isNoSort   = NO_SORT_KEYS.has(def.key);  // bloqueia sort (só "acoes")
-                  const isDragOver = dragOverKey === def.key;
-                  const isSorted   = sortKey === def.key;
-                  const isComputed = SORT_COMPUTED.has(def.key);
+        {/* Tabela — Header fixo + Body scrollável */}
+        <div style={{ margin: "14px 28px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)" }}>
+          {/* Header fixo */}
+          <div style={{ overflowX: "auto", flexShrink: 0 }}>
+            <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead>
+                <tr>
+                  {visibleCols.map(def => {
+                    const isSticky   = STICKY_KEYS.has(def.key);
+                    const isNoSort   = NO_SORT_KEYS.has(def.key);
+                    const isDragOver = dragOverKey === def.key;
+                    const isSorted   = sortKey === def.key;
+                    const isComputed = SORT_COMPUTED.has(def.key);
 
                   return (
                     <th
@@ -628,7 +630,12 @@ export default function LancamentosClient() {
                   );
                 })}
               </tr>
-            </thead>
+              </thead>
+            </table>
+          </div>
+          {/* Body scrollável */}
+          <div style={{ overflowY: "auto", overflowX: "auto", flex: 1, minHeight: 0 }}>
+            <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
             <tbody>
               {loading ? (
                 <tr><td colSpan={visibleCols.length} style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>Carregando...</td></tr>
@@ -727,7 +734,8 @@ export default function LancamentosClient() {
                 </tr>
               )}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
 
         {/* Footer */}
