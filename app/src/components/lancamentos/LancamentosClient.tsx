@@ -468,7 +468,7 @@ export default function LancamentosClient() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
         {/* Topbar */}
         <div className="topbar">
           <div><h1 className="page-title">Lançamentos</h1><p className="page-sub">Fluxo de Caixa — clique em qualquer linha para editar</p></div>
