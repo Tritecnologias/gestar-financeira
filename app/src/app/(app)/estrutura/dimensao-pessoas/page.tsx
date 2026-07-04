@@ -58,7 +58,7 @@ export default function DimensaoPessoasPage() {
   const filtered = items.filter(p => !busca || p.nome.toLowerCase().includes(busca.toLowerCase()) || p.codigo.includes(busca) || (p.cargo||"").toLowerCase().includes(busca.toLowerCase())).sort((a, b) => a.nome.localeCompare(b.nome));
 
   return (
-    <div>
+    <div style={{ height: "100%", overflowY: "auto" }}>
       <header className="topbar"><div><h1 className="page-title">Dimensão de Pessoas</h1><p className="page-sub">Estrutura Empresa — Colaboradores e Equipe</p></div></header>
       <div style={{ padding: "16px 28px" }}>
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}

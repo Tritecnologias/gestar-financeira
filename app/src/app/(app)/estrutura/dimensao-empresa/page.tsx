@@ -63,7 +63,7 @@ export default function DimensaoEmpresaPage() {
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Carregando...</div>;
 
   return (
-    <div>
+    <div style={{ height: "100%", overflowY: "auto" }}>
       <header className="topbar"><div><h1 className="page-title">Dimensão da Empresa</h1><p className="page-sub">Estrutura Empresa — Dados cadastrais, bancários, áreas e centros de custo</p></div></header>
       <div style={{ padding: "16px 28px" }}>
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}

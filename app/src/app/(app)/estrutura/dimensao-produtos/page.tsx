@@ -62,7 +62,7 @@ export default function DimensaoProdutosPage() {
   }).sort((a, b) => a.nome.localeCompare(b.nome));
 
   return (
-    <div>
+    <div style={{ height: "100%", overflowY: "auto" }}>
       <header className="topbar"><div><h1 className="page-title">Dimensão de Produtos/Serviços</h1><p className="page-sub">Estrutura Empresa — Catálogo de produtos e serviços</p></div></header>
       <div style={{ padding: "16px 28px" }}>
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}

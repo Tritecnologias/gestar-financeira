@@ -79,7 +79,7 @@ export default function DimensoesCadastraisPage() {
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Carregando...</div>;
 
   return (
-    <div>
+    <div style={{ height: "100%", overflowY: "auto" }}>
       <header className="topbar"><div><h1 className="page-title">Dimensões Cadastrais</h1><p className="page-sub">Estrutura Empresa — Fornecedores e Clientes</p></div></header>
       <div style={{ padding: "16px 28px" }}>
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}

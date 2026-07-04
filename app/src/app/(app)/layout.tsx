@@ -23,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         tenantNome={user.tenantNome ?? ""}
         tenantLogoUrl={tenant?.logoUrl ?? null}
       />
-      <main className="main">{children}</main>
+      <main className="main" style={{ overflow: "hidden" }}>{children}</main>
     </div>
   );
 }

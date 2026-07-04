@@ -88,7 +88,7 @@ export default function DimensoesFinanceirasPage() {
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Carregando...</div>;
 
   return (
-    <div>
+    <div style={{ height: "100%", overflowY: "auto" }}>
       <header className="topbar">
         <div>
           <h1 className="page-title">Dimensões Financeiras</h1>
