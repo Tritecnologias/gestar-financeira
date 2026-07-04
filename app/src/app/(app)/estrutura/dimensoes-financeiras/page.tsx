@@ -108,8 +108,9 @@ export default function DimensoesFinanceirasPage() {
               <div className="form-group" style={{ marginBottom: 0, flex: 1 }}><label>Nome</label><input type="text" value={catNome} onChange={e => setCatNome(e.target.value)} placeholder="RECEITA OPERACIONAL" /></div>
               <button className="btn btn-primary btn-sm" onClick={criarCategoria} disabled={saving}>+</button>
             </div>
-            <table className="data-table" style={{ fontSize: 12 }}>
-              <thead><tr><th style={{ width: 40 }}>#</th><th style={{ width: 50 }}>Cód</th><th>Nome</th><th style={{ width: 140 }}>Código | Nome</th><th style={{ width: 70, textAlign: "center" }}>Ações</th></tr></thead>
+            <div style={{ maxHeight: 340, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+            <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead><tr><th style={{ width: 40, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>#</th><th style={{ width: 50, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Cód</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Nome</th><th style={{ width: 140, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Código | Nome</th><th style={{ width: 70, textAlign: "center", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Ações</th></tr></thead>
               <tbody>
                 {categorias.map((c, i) => (
                   <tr key={c.id}>
@@ -135,6 +136,7 @@ export default function DimensoesFinanceirasPage() {
                 {categorias.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhuma categoria cadastrada</td></tr>}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* BLOCO 2: CONTA N2 */}
@@ -151,8 +153,9 @@ export default function DimensoesFinanceirasPage() {
               </div>
               <button className="btn btn-primary btn-sm" onClick={criarConta} disabled={saving}>+</button>
             </div>
-            <table className="data-table" style={{ fontSize: 12 }}>
-              <thead><tr><th style={{ width: 40 }}>#</th><th style={{ width: 60 }}>Cód</th><th>Descrição</th><th style={{ width: 90 }}>Tipo</th><th style={{ width: 70, textAlign: "center" }}>Ações</th></tr></thead>
+            <div style={{ maxHeight: 340, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+            <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead><tr><th style={{ width: 40, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>#</th><th style={{ width: 60, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Cód</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Descrição</th><th style={{ width: 90, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Tipo</th><th style={{ width: 70, textAlign: "center", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Ações</th></tr></thead>
               <tbody>
                 {contas.map((c, i) => (
                   <tr key={c.id}>
@@ -178,6 +181,7 @@ export default function DimensoesFinanceirasPage() {
                 {contas.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhuma conta cadastrada</td></tr>}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       </div>
