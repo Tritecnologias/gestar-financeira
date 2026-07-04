@@ -649,6 +649,7 @@ body {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13px;
+  table-layout: auto;
 }
 .data-table thead th {
   background: #F8FAFC;

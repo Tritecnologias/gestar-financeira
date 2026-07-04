@@ -75,7 +75,7 @@ export default function DimensaoEmpresaPage() {
             {/* DADOS EMPRESARIAIS */}
             <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>🏢 DADOS EMPRESARIAIS</h3>
             <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)", marginBottom: 20 }}>
-              <table className="data-table" style={{ fontSize: 11 }}>
+              <table className="data-table" style={{ width: "100%", fontSize: 11 }}>
                 <thead><tr><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2}}>Razão Social</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:100}}>Fantasia</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:110}}>CNPJ</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:60,textAlign:"center"}}>Ações</th></tr></thead>
                 <tbody>
                   {empresas.filter(e => !busca || e.razaoSocial.toLowerCase().includes(busca.toLowerCase())).map(e=>(
@@ -91,7 +91,7 @@ export default function DimensaoEmpresaPage() {
             {/* DADOS BANCÁRIOS */}
             <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>🏦 DADOS BANCÁRIOS</h3>
             <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-              <table className="data-table" style={{ fontSize: 11 }}>
+              <table className="data-table" style={{ width: "100%", fontSize: 11 }}>
                 <thead><tr><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2}}>Banco</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:70}}>Agência</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:80}}>Conta</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:80}}>Tipo</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:60,textAlign:"center"}}>Ações</th></tr></thead>
                 <tbody>
                   {bancos.filter(b=>!busca||b.banco.toLowerCase().includes(busca.toLowerCase())||(b.agencia||"").includes(busca)||(b.conta||"").includes(busca)).map(b=>(
@@ -110,7 +110,7 @@ export default function DimensaoEmpresaPage() {
             {/* ÁREA DE NEGÓCIO */}
             <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>📊 ÁREA DE NEGÓCIO</h3>
             <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)", marginBottom: 20 }}>
-              <table className="data-table" style={{ fontSize: 11 }}>
+              <table className="data-table" style={{ width: "100%", fontSize: 11 }}>
                 <thead><tr><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:60}}>Código</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2}}>Descrição</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:60,textAlign:"center"}}>Ações</th></tr></thead>
                 <tbody>
                   {areas.filter(a=>!busca||a.nome.toLowerCase().includes(busca.toLowerCase())||a.codigo.includes(busca)).map(a=>(
@@ -126,7 +126,7 @@ export default function DimensaoEmpresaPage() {
             {/* CENTRO DE CUSTO */}
             <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>🏷️ CENTRO DE CUSTO</h3>
             <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-              <table className="data-table" style={{ fontSize: 11 }}>
+              <table className="data-table" style={{ width: "100%", fontSize: 11 }}>
                 <thead><tr><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:60}}>Código</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2}}>Descrição</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:120}}>Área</th><th style={{position:"sticky",top:0,background:"#F8FAFC",zIndex:2,width:60,textAlign:"center"}}>Ações</th></tr></thead>
                 <tbody>
                   {centros.filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase())||c.codigo.includes(busca)).map(c=>(
