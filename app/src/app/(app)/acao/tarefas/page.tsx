@@ -69,7 +69,7 @@ export default function TarefasPage() {
   // Adicionar linha
   const addLinha = () => {
     if (!openTarefa) return;
-    const novaLinha: Linha = { id: crypto.randomUUID(), valores: {}, ok: false };
+    const novaLinha: Linha = { id: Math.random().toString(36).slice(2) + Date.now().toString(36), valores: {}, ok: false };
     const novasLinhas = [...(openTarefa.linhas || []), novaLinha];
     updateTarefa(openTarefa.id, { linhas: novasLinhas as any });
     setOpenTarefa(prev => prev ? { ...prev, linhas: novasLinhas } : null);
