@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface TarefaStatus { id: string; nome: string; cor: string; ordem: number; }
 interface Coluna { nome: string; tipo: string; ordem: number; }
@@ -75,13 +75,17 @@ export default function TarefasPage() {
     setOpenTarefa(prev => prev ? { ...prev, linhas: novasLinhas } : null);
   };
 
-  // Atualizar valor de célula
+  // Atualizar valor de célula (local + debounce save)
+  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const updateCelula = (linhaId: string, colNome: string, valor: any) => {
     if (!openTarefa) return;
     const novasLinhas = openTarefa.linhas.map(l => l.id === linhaId ? { ...l, valores: { ...l.valores, [colNome]: valor } } : l);
     setOpenTarefa(prev => prev ? { ...prev, linhas: novasLinhas } : null);
-    // Debounce save
-    setTimeout(() => updateTarefa(openTarefa.id, { linhas: novasLinhas as any }), 500);
+    // Debounce: salvar no servidor após 800ms de inatividade
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(() => {
+      fetch(`/api/tarefas/${openTarefa.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ linhas: novasLinhas }) });
+    }, 800);
   };
 
   // Toggle OK
