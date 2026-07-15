@@ -15,6 +15,7 @@ export default function TarefasPage() {
   const [showColModal, setShowColModal] = useState(false);
   const [newColNome, setNewColNome] = useState("");
   const [newColTipo, setNewColTipo] = useState("Texto");
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTarefaNome, setNewTarefaNome] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -216,7 +217,7 @@ export default function TarefasPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div><h3 style={{ fontSize: 15, fontWeight: 700 }}>Listas de Tarefas</h3><p style={{ fontSize: 12, color: "var(--text-muted)" }}>Crie listas de acompanhamento e abra cada tarefa para montar a tabela do jeito que precisar.</p></div>
             <div style={{ display: "flex", gap: 6 }}>
-              <button className="btn btn-primary btn-sm" onClick={() => { const nome = prompt("Nome da tarefa:"); if (nome) { setNewTarefaNome(nome); setTimeout(async () => { await fetch("/api/tarefas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nome }) }); load(); }, 0); } }}>Criar Tarefa</button>
+              <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>Criar Tarefa</button>
               <button className="btn btn-outline btn-sm" onClick={() => setShowStatusModal(true)}>Status</button>
             </div>
           </div>
@@ -267,6 +268,28 @@ export default function TarefasPage() {
               <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
                 <button className="btn btn-primary btn-sm" onClick={async () => { await fetch("/api/tarefas/status", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: statusList }) }); setShowStatusModal(false); }}>Salvar</button>
                 <button className="btn btn-outline btn-sm" onClick={async () => { const nome = prompt("Nome do novo status:"); if (nome) { await fetch("/api/tarefas/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nome }) }); load(); } }}>+ Novo</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Criar Tarefa */}
+        {showCreateModal && (
+          <div className="modal-overlay" style={{ opacity: 1, pointerEvents: "all" }} onClick={() => setShowCreateModal(false)}>
+            <div className="modal-content" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">Criar Tarefa</h2>
+                <button className="modal-close" onClick={() => setShowCreateModal(false)}>✕</button>
+              </div>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Nome da tarefa</label>
+                  <input type="text" value={newTarefaNome} onChange={e => setNewTarefaNome(e.target.value)} placeholder="Ex: Implantação 10S (SaaS)" autoFocus onKeyDown={e => { if (e.key === "Enter" && newTarefaNome.trim()) { criarTarefa(); setShowCreateModal(false); } }} />
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button className="btn btn-outline" onClick={() => setShowCreateModal(false)}>Cancelar</button>
+                <button className="btn btn-primary" onClick={() => { criarTarefa(); setShowCreateModal(false); }} disabled={!newTarefaNome.trim() || saving}>Criar</button>
               </div>
             </div>
           </div>
