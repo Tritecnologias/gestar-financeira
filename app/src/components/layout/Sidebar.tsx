@@ -86,7 +86,7 @@ const MENU: MenuGroup[] = [
 const DISABLED_HREFS = new Set([
   "/fluxo-caixa/relatorios", "/fluxo-caixa/dashboards",
   "/fluxo-caixa/investimentos", "/fluxo-caixa/endividamento", "/fluxo-caixa/cartao-credito",
-  "/acao/tarefas", "/acao/5w2h", "/acao/calendario", "/acao/cronograma",
+  "/acao/5w2h", "/acao/calendario", "/acao/cronograma",
   "/orcamento/vendas-produto", "/orcamento/folha", "/orcamento/opex", "/orcamento/capex",
   "/relacionamento/fornecedores", "/relacionamento/clientes",
   "/compras/estoque", "/compras/solicitacao",

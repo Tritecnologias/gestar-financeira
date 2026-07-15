@@ -37,6 +37,8 @@ model Tenant {
   pessoas           Pessoa[]
   empresas          Empresa[]
   produtos          Produto[]
+  tarefas           Tarefa[]
+  tarefaStatus      TarefaStatus[]
   statusManualTipos StatusManualTipo[]
   centrosCusto      CentroCusto[]
   areasNegocio      AreaNegocio[]
@@ -278,6 +280,39 @@ model Produto {
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_produtos_tenant")
   @@map("produtos")
+}
+
+// ── Tarefa (lista de tarefas — Ação) ──────────────────────────
+model Tarefa {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  seq       Int      @default(autoincrement())
+  nome      String
+  status    String   @default("A Fazer!")
+  statusCor String?  @map("status_cor")
+  colunas   Json     @default("[]")  // [{nome, tipo, ordem}]
+  linhas    Json     @default("[]")  // [{id, valores: {coluna: valor}, ok: bool}]
+  criadoEm  DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_tarefas_tenant")
+  @@map("tarefas")
+}
+
+// ── Status de Tarefas (opções configuráveis) ──────────────────
+model TarefaStatus {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  nome      String
+  cor       String   @default("#3b82f6")
+  ordem     Int      @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_tarefa_status_tenant")
+  @@map("tarefa_status")
 }
 
 // ── Status Manual Tipos (tabela de apoio) ─────────────────────
