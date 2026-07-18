@@ -1,25 +1,39 @@
 import { auth } from "@/lib/auth";
 import { prisma, getTenantPrisma } from "@/lib/db";
+import { cookies } from "next/headers";
 import type { UserSession, Papel } from "@/types";
 
 /**
  * Valida a sessão e retorna o Prisma Client já escopado ao tenant.
- * Use em todas as rotas de API para garantir isolamento de dados.
- *
- * @example
- * const { db, session } = await requireSession();
- * const rows = await db.lancamento.findMany(); // ← tenantId já injetado!
- *
- * @throws NextResponse 401 se não autenticado — capture e retorne diretamente.
+ * Para admin_global: verifica se há um "tenant override" via cookie,
+ * permitindo visualizar dados de qualquer tenant.
  */
 export async function requireSession() {
   const session = await auth();
   const user = session?.user as any;
   if (!user?.tenantId) {
-    // Lança um objeto que pode ser retornado direto na rota
     throw Object.assign(new Error("Não autenticado"), { status: 401 });
   }
-  const db = getTenantPrisma(user.tenantId as string);
+
+  // Admin global pode operar em qualquer tenant via cookie
+  let activeTenantId = user.tenantId as string;
+  let activeTenantNome = user.tenantNome as string;
+
+  if (user.papel === "admin_global") {
+    try {
+      const cookieStore = await cookies();
+      const override = cookieStore.get("tenant_override")?.value;
+      if (override) {
+        const tenant = await prisma.tenant.findUnique({ where: { id: override }, select: { id: true, nome: true, ativo: true } });
+        if (tenant && tenant.ativo) {
+          activeTenantId = tenant.id;
+          activeTenantNome = tenant.nome;
+        }
+      }
+    } catch {}
+  }
+
+  const db = getTenantPrisma(activeTenantId);
   return {
     db,
     session: {
@@ -27,12 +41,11 @@ export async function requireSession() {
       nome:       user.name      as string ?? "",
       email:      user.email     as string ?? "",
       papel:      user.papel     as Papel,
-      tenantId:   user.tenantId  as string,
-      tenantNome: user.tenantNome as string,
+      tenantId:   activeTenantId,
+      tenantNome: activeTenantNome,
     } satisfies UserSession,
   };
 }
-
 /**
  * Retorna o tenant_id do usuário logado a partir da session.
  * Use em qualquer Server Component ou API Route para garantir

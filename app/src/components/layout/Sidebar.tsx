@@ -95,6 +95,58 @@ const DISABLED_HREFS = new Set([
   "/plano-negocios/analise-situacional", "/plano-negocios/analise-swot",
 ]);
 
+// ── Tenant Selector (admin_global) ────────────────────────────
+function TenantSelector() {
+  const [tenants, setTenants] = useState<{ id: string; nome: string }[]>([]);
+  const [active, setActive] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/tenants").then(r => r.json()).then(d => { if (Array.isArray(d)) setTenants(d); }).catch(() => {});
+  }, []);
+
+  const switchTenant = async (tenantId: string) => {
+    await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) });
+    setActive(tenantId);
+    setOpen(false);
+    window.location.reload(); // Recarregar para aplicar o novo tenant
+  };
+
+  const resetTenant = async () => {
+    await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId: null }) });
+    setActive("");
+    setOpen(false);
+    window.location.reload();
+  };
+
+  if (tenants.length <= 1) return null;
+
+  return (
+    <div style={{ padding: "6px 10px", borderTop: "1px solid var(--border)", position: "relative" }}>
+      <button
+        onClick={() => setOpen(p => !p)}
+        style={{ background: active ? "rgba(124,58,237,0.1)" : "var(--bg-hover)", border: "1px solid var(--border)", borderRadius: 5, padding: "5px 10px", fontSize: 11, cursor: "pointer", width: "100%", textAlign: "left", color: "var(--text-primary)", fontWeight: 500 }}
+      >
+        🏢 {active ? tenants.find(t => t.id === active)?.nome || "Outro tenant" : "Trocar Tenant"}
+      </button>
+      {open && (
+        <div style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 6, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", padding: 6, zIndex: 100, marginBottom: 4 }}>
+          {active && (
+            <button onClick={resetTenant} style={{ width: "100%", padding: "6px 8px", fontSize: 11, background: "rgba(220,38,38,0.08)", border: "none", borderRadius: 4, cursor: "pointer", color: "var(--accent-red)", marginBottom: 4, textAlign: "left" }}>
+              ↩ Voltar ao meu tenant
+            </button>
+          )}
+          {tenants.map(t => (
+            <button key={t.id} onClick={() => switchTenant(t.id)} style={{ width: "100%", padding: "6px 8px", fontSize: 11, background: active === t.id ? "rgba(37,99,235,0.1)" : "transparent", border: "none", borderRadius: 4, cursor: "pointer", color: "var(--text-primary)", textAlign: "left", marginBottom: 2 }}>
+              {t.nome}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl }: SidebarProps) {
   const pathname = usePathname();
 
@@ -339,6 +391,11 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
             </Link>
           </div>
         </nav>
+
+        {/* ── Tenant Selector (admin_global only) ────────────── */}
+        {userPapel === "admin_global" && (
+          <TenantSelector />
+        )}
 
         {/* ── Footer ────────────────────────────────────────── */}
         <div className="sidebar-footer">
