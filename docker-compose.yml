@@ -5,39 +5,22 @@ services:
     container_name: gestar_financeira_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: gestar_admin
-      POSTGRES_PASSWORD: gestar@2024_secure
-      POSTGRES_DB: gestar_financeira
+      POSTGRES_USER: ${DB_USER:-gestar_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gestar@2024_secure}
+      POSTGRES_DB: ${DB_NAME:-gestar_financeira}
     ports:
-      - "5433:5432"  # 5433 no host → 5432 no container
+      - "127.0.0.1:5433:5432"  # Apenas localhost — não acessível externamente
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/01_init.sql
       - ./database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gestar_admin -d gestar_financeira"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gestar_admin} -d ${DB_NAME:-gestar_financeira}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ── pgAdmin ────────────────────────────────────────────────
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: gestar_financeira_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@gestarfinanceira.com.br
-      PGADMIN_DEFAULT_PASSWORD: gestar@2024_secure
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # ── Next.js App ─────────────────────────────────────────── (produção)
+  # ── Next.js App ─────────────────────────────────────────────
   app:
     build:
       context: ./app
@@ -45,17 +28,18 @@ services:
     container_name: gestar_app
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://gestar_admin:gestar@2024_secure@postgres:5432/gestar_financeira
-      NEXTAUTH_URL: http://187.77.202.129:3000
-      NEXTAUTH_SECRET: gestar-prod-secret-troque-depois-2024
+      DATABASE_URL: postgresql://${DB_USER:-gestar_admin}:${DB_PASSWORD:-gestar@2024_secure}@postgres:5432/${DB_NAME:-gestar_financeira}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-TROQUE_ESTE_SECRET_EM_PRODUCAO}
       AUTH_TRUST_HOST: "true"
+      NODE_ENV: production
     ports:
       - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
 
-  # ── Nginx (Reverse Proxy + SSL) ─────────────────────────── (produção)
+  # ── Nginx (HTTPS — descomente em produção com domínio) ──────
   # nginx:
   #   image: nginx:alpine
   #   container_name: gestar_nginx
@@ -72,6 +56,4 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  pgadmin_data:
     driver: local

@@ -88,15 +88,19 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
 // ── DELETE /api/lancamentos/[id] ────────────────────────────
 export async function DELETE(req: NextRequest, { params }: Params) {
-  let db: any;
+  let db: any, session: any;
   try {
-    ({ db } = await requireSession());
+    ({ db, session } = await requireSession());
   } catch {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
-  const { id } = await params;
 
-  // findFirst já injeta tenantId — garante que só apaga registro do próprio tenant
+  // Apenas admin pode excluir lançamentos
+  if (session.papel === "membro") {
+    return NextResponse.json({ error: "Sem permissão para excluir" }, { status: 403 });
+  }
+
+  const { id } = await params;
   const existente = await db.lancamento.findFirst({ where: { id } });
   if (!existente) return NextResponse.json({ error: "Lançamento não encontrado" }, { status: 404 });
 

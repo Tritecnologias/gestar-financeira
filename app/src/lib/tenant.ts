@@ -66,6 +66,18 @@ export async function getSession(): Promise<UserSession> {
 }
 
 /**
+ * Verifica se o usuário tem papel de admin ou admin_global.
+ * Use em rotas que só admins devem acessar.
+ */
+export async function requireAdmin() {
+  const { db, session } = await requireSession();
+  if (session.papel !== "admin" && session.papel !== "admin_global") {
+    throw Object.assign(new Error("Acesso negado"), { status: 403 });
+  }
+  return { db, session };
+}
+
+/**
  * Verifica se o usuário logado é admin global (o Ricardo).
  */
 export async function isAdminGlobal(): Promise<boolean> {

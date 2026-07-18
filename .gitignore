@@ -11,7 +11,10 @@ autenticação.txt
 .env
 .env.*
 !.env.example
+!.env.production.example
 !app/.env.example
+scripts/reset-passwords.js
+scripts/generate-seed-hashes.js
 
 # ── Documentos internos ───────────────────────────────────
 *.xlsx

@@ -58,7 +58,7 @@ function toLancamentoDTO(l: any, seq: number): LancamentoDTO {
   return {
     id:          l.id,
     seq:         l.seq ?? seq,
-    tenantId:    l.tenantId,
+    tenantId:    "", // Não expor internamente
     dataLanc:         fmt(l.dataLanc)!,
     dataEmissao:      fmt(l.dataEmissao),
     dataVencOriginal: fmt(l.dataVencOriginal),
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
   const dataInicio  = searchParams.get("dataInicio") || "";
   const dataFim     = searchParams.get("dataFim") || "";
   const pagina      = parseInt(searchParams.get("pagina") || "1");
-  const porPagina   = parseInt(searchParams.get("porPagina") || "50");
+  const porPagina   = Math.min(200, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
   const sortKey     = searchParams.get("sortKey") || "";
   const sortDir     = (searchParams.get("sortDir") || "desc") as "asc" | "desc";
 
