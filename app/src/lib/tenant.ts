@@ -19,18 +19,20 @@ export async function requireSession() {
   let activeTenantId = user.tenantId as string;
   let activeTenantNome = user.tenantNome as string;
 
-  if (user.papel === "admin_global") {
-    try {
-      const cookieStore = await cookies();
-      const override = cookieStore.get("tenant_override")?.value;
-      if (override) {
-        const tenant = await prisma.tenant.findUnique({ where: { id: override }, select: { id: true, nome: true, ativo: true } });
-        if (tenant && tenant.ativo) {
-          activeTenantId = tenant.id;
-          activeTenantNome = tenant.nome;
-        }
+  // Verificar papel direto do banco (JWT pode estar desatualizado)
+  const dbUser = await prisma.usuario.findUnique({ where: { id: user.id }, select: { papel: true } });
+  const papelAtual = (dbUser?.papel || user.papel) as string;
+
+  if (papelAtual === "admin_global") {
+    const cookieStore = await cookies();
+    const override = cookieStore.get("tenant_override")?.value;
+    if (override) {
+      const tenant = await prisma.tenant.findUnique({ where: { id: override }, select: { id: true, nome: true, ativo: true } });
+      if (tenant && tenant.ativo) {
+        activeTenantId = tenant.id;
+        activeTenantNome = tenant.nome;
       }
-    } catch {}
+    }
   }
 
   const db = getTenantPrisma(activeTenantId);
