@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
   }
 
-  const { nome, email, senha, papel } = await req.json();
+  const { nome, email, senha, papel, tenantId: targetTenantId } = await req.json();
 
   if (!nome?.trim() || !email?.trim() || !senha?.trim()) {
     return NextResponse.json({ error: "Nome, email e senha são obrigatórios" }, { status: 400 });
@@ -41,8 +41,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Senha deve ter pelo menos 6 caracteres" }, { status: 400 });
   }
 
+  // Admin global pode criar em qualquer tenant; admin só no próprio
+  const tenantIdFinal = (session.papel === "admin_global" && targetTenantId) ? targetTenantId : session.tenantId;
+
   // Verificar se email já existe no tenant
-  const existente = await prisma.usuario.findFirst({ where: { email: email.trim(), tenantId: session.tenantId } });
+  const existente = await prisma.usuario.findFirst({ where: { email: email.trim(), tenantId: tenantIdFinal } });
   if (existente) return NextResponse.json({ error: "Email já cadastrado neste tenant" }, { status: 409 });
 
   // Apenas admin_global pode criar outro admin_global
@@ -52,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   const usuario = await prisma.usuario.create({
     data: {
-      tenantId: session.tenantId,
+      tenantId: tenantIdFinal,
       nome: nome.trim(),
       email: email.trim().toLowerCase(),
       senhaHash,

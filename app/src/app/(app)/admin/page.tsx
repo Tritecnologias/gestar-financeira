@@ -1,28 +1,35 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 
-interface Usuario { id: string; nome: string; email: string; papel: string; ativo: boolean; criadoEm: string; tenant?: { nome: string }; }
+interface Usuario { id: string; nome: string; email: string; papel: string; ativo: boolean; criadoEm: string; tenant?: { nome: string }; tenantId?: string; }
+interface TenantItem { id: string; nome: string; slug: string; email: string; plano: string; }
 
 export default function AdminPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateTenant, setShowCreateTenant] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [busca, setBusca] = useState("");
 
-  // Form criar
-  const [form, setForm] = useState({ nome: "", email: "", senha: "", papel: "membro" });
+  // Form criar usuário
+  const [form, setForm] = useState({ nome: "", email: "", senha: "", papel: "membro", tenantId: "" });
+  // Form criar tenant
+  const [tenantForm, setTenantForm] = useState({ nome: "", email: "", plano: "trial" });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/usuarios");
-      if (res.status === 403) { setError("Acesso negado — apenas administradores."); return; }
-      const data = await res.json();
-      if (Array.isArray(data)) setUsuarios(data);
+      const [uRes, tRes] = await Promise.all([fetch("/api/usuarios"), fetch("/api/tenants")]);
+      if (uRes.status === 403) { setError("Acesso negado — apenas administradores."); return; }
+      const uData = await uRes.json();
+      const tData = await tRes.json();
+      if (Array.isArray(uData)) setUsuarios(uData);
+      if (Array.isArray(tData)) setTenants(tData);
     } catch { setError("Erro ao carregar"); }
     finally { setLoading(false); }
   }, []);
@@ -31,10 +38,11 @@ export default function AdminPage() {
   const criar = async () => {
     if (!form.nome.trim() || !form.email.trim() || !form.senha.trim()) { setError("Preencha todos os campos"); return; }
     if (form.senha.length < 6) { setError("Senha deve ter pelo menos 6 caracteres"); return; }
+    if (!form.tenantId) { setError("Selecione o tenant (empresa)"); return; }
     setError(""); setSaving(true);
     try {
       const res = await fetch("/api/usuarios", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      if (res.ok) { setForm({ nome: "", email: "", senha: "", papel: "membro" }); setShowCreateModal(false); load(); }
+      if (res.ok) { setForm({ nome: "", email: "", senha: "", papel: "membro", tenantId: "" }); setShowCreateModal(false); load(); }
       else { const e = await res.json(); setError(e.error); }
     } finally { setSaving(false); }
   };
@@ -59,6 +67,16 @@ export default function AdminPage() {
     load();
   };
 
+  const criarTenant = async () => {
+    if (!tenantForm.nome.trim() || !tenantForm.email.trim()) { setError("Nome e email do tenant são obrigatórios"); return; }
+    setError(""); setSaving(true);
+    try {
+      const res = await fetch("/api/tenants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(tenantForm) });
+      if (res.ok) { setTenantForm({ nome: "", email: "", plano: "trial" }); setShowCreateTenant(false); load(); }
+      else { const e = await res.json(); setError(e.error); }
+    } finally { setSaving(false); }
+  };
+
   const filtered = usuarios.filter(u => !busca || u.nome.toLowerCase().includes(busca.toLowerCase()) || u.email.toLowerCase().includes(busca.toLowerCase()));
 
   const papelLabel: Record<string, string> = { admin_global: "🛡️ Admin Global", admin: "👑 Admin", membro: "👤 Membro" };
@@ -68,7 +86,10 @@ export default function AdminPage() {
     <div style={{ height: "100%", overflowY: "auto" }}>
       <header className="topbar">
         <div><h1 className="page-title">🛡️ Administração de Usuários</h1><p className="page-sub">Gerenciar acessos, papéis e permissões</p></div>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ Novo Usuário</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-outline" onClick={() => setShowCreateTenant(true)}>+ Novo Tenant</button>
+          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ Novo Usuário</button>
+        </div>
       </header>
 
       <div style={{ padding: "16px 28px" }}>
@@ -138,6 +159,12 @@ export default function AdminPage() {
                 <button className="modal-close" onClick={() => setShowCreateModal(false)}>✕</button>
               </div>
               <div className="modal-body">
+                <div className="form-group"><label>Tenant (Empresa) *</label>
+                  <select value={form.tenantId} onChange={e => setForm(f=>({...f,tenantId:e.target.value}))}>
+                    <option value="">— Selecione o tenant —</option>
+                    {tenants.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                  </select>
+                </div>
                 <div className="form-group"><label>Nome *</label><input type="text" value={form.nome} onChange={e => setForm(f=>({...f,nome:e.target.value}))} placeholder="Nome completo" /></div>
                 <div className="form-group"><label>Email *</label><input type="email" value={form.email} onChange={e => setForm(f=>({...f,email:e.target.value}))} placeholder="usuario@email.com" /></div>
                 <div className="form-group"><label>Senha * (mín. 6 caracteres)</label><input type="password" value={form.senha} onChange={e => setForm(f=>({...f,senha:e.target.value}))} placeholder="••••••" /></div>
@@ -152,6 +179,33 @@ export default function AdminPage() {
               <div className="modal-actions">
                 <button className="btn btn-outline" onClick={() => setShowCreateModal(false)}>Cancelar</button>
                 <button className="btn btn-primary" onClick={criar} disabled={saving}>{saving ? "Criando..." : "Criar Usuário"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Criar Tenant */}
+        {showCreateTenant && (
+          <div className="modal-overlay" style={{ opacity: 1, pointerEvents: "all" }} onClick={() => setShowCreateTenant(false)}>
+            <div className="modal-content" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">Novo Tenant (Empresa)</h2>
+                <button className="modal-close" onClick={() => setShowCreateTenant(false)}>✕</button>
+              </div>
+              <div className="modal-body">
+                <div className="form-group"><label>Nome da Empresa *</label><input type="text" value={tenantForm.nome} onChange={e => setTenantForm(f=>({...f,nome:e.target.value}))} placeholder="Ex: Empresa XYZ Ltda" /></div>
+                <div className="form-group"><label>Email do Tenant *</label><input type="email" value={tenantForm.email} onChange={e => setTenantForm(f=>({...f,email:e.target.value}))} placeholder="financeiro@empresa.com" /></div>
+                <div className="form-group"><label>Plano</label>
+                  <select value={tenantForm.plano} onChange={e => setTenantForm(f=>({...f,plano:e.target.value}))}>
+                    <option value="trial">Trial</option>
+                    <option value="mensal">Mensal</option>
+                    <option value="anual">Anual</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button className="btn btn-outline" onClick={() => setShowCreateTenant(false)}>Cancelar</button>
+                <button className="btn btn-primary" onClick={criarTenant} disabled={saving}>{saving ? "Criando..." : "Criar Tenant"}</button>
               </div>
             </div>
           </div>
