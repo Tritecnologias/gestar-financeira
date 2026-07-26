@@ -6,6 +6,7 @@ import { COLUNAS_DEF, DEFAULT_COLUNAS_CONFIG } from "./colunasConfig";
 import LayoutManager from "./LayoutManager";
 import StatusTiposModal from "./StatusTiposModal";
 import NovoLancamentoModal from "./NovoLancamentoModal";
+import ImportModal from "./ImportModal";
 
 // ── Chip helpers ─────────────────────────────────────────────
 function ChipTipo({ tipo }: { tipo: string }) {
@@ -124,6 +125,7 @@ export default function LancamentosClient() {
   const [statusTipos, setStatusTipos] = useState<StatusManualTipoDTO[]>([]);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [novoModalOpen, setNovoModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   // Accordion
   const [filtrosOpen, setFiltrosOpen] = useState(true);
@@ -473,7 +475,21 @@ export default function LancamentosClient() {
         <div className="topbar">
           <div><h1 className="page-title">Lançamentos</h1><p className="page-sub">Fluxo de Caixa — clique em qualquer linha para editar</p></div>
           <div className="topbar-actions">
-            <button className="btn btn-outline">📊 Exportar CSV</button>
+            <button className="btn btn-outline" onClick={() => setImportModalOpen(true)}>📥 Importar</button>
+            <button className="btn btn-outline" onClick={() => {
+              const headers = visibleCols.filter(d => d.key !== "acoes").map(d => d.label);
+              const rows = lancamentos.map(row => visibleCols.filter(d => d.key !== "acoes").map(d => {
+                const val = (row as any)[d.key];
+                if (val === null || val === undefined) return "";
+                return String(val);
+              }));
+              const csv = [headers.join(";"), ...rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(";"))].join("\n");
+              const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a"); a.href = url; a.download = `lancamentos_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+              URL.revokeObjectURL(url);
+              showToast("✅ CSV exportado");
+            }}>📊 Exportar CSV</button>
             <button className="btn btn-primary" onClick={() => setNovoModalOpen(true)}>+ Novo</button>
           </div>
         </div>
@@ -759,6 +775,13 @@ export default function LancamentosClient() {
           onCreated={loadData}
           fornecedores={fornecedores}
           statusTipos={statusTipos}
+        />
+
+        {/* Modal de importação */}
+        <ImportModal
+          open={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          onImported={loadData}
         />
     </div>
   );
