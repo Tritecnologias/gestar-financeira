@@ -8,22 +8,24 @@ interface Props {
 }
 
 const COLUNAS_MAPEAMENTO = [
-  { csv: "data", campo: "dataLanc", label: "Data Lançamento" },
-  { csv: "descricao", campo: "descricao", label: "Descrição" },
-  { csv: "valor", campo: "valor", label: "Valor" },
-  { csv: "tipo", campo: "tipo", label: "Tipo (ENTRADA/SAIDA)" },
-  { csv: "status", campo: "status", label: "Status" },
-  { csv: "status_manual", campo: "statusManual", label: "Status Manual" },
-  { csv: "fornecedor", campo: "fornecedor", label: "Fornecedor/Empresa" },
-  { csv: "banco", campo: "banco", label: "Banco" },
-  { csv: "centro_custo", campo: "centroCusto", label: "Centro de Custo" },
-  { csv: "categoria", campo: "categoria", label: "Categoria" },
-  { csv: "anotacao", campo: "anotacao", label: "Anotação" },
-  { csv: "data_emissao", campo: "dataEmissao", label: "Data Emissão" },
-  { csv: "venc_original", campo: "dataVencOriginal", label: "Venc. Original" },
-  { csv: "venc_plano", campo: "dataVencPlano", label: "Venc. Plano" },
-  { csv: "data_pagamento", campo: "dataPagamento", label: "Data Pagamento" },
-  { csv: "valor_previsto", campo: "valorPrevisto", label: "Valor Previsto" },
+  { csv: ["data_lanc", "data_lan_", "data"], campo: "dataLanc", label: "Data Lançamento" },
+  { csv: ["descri__o", "descricao", "descrição"], campo: "descricao", label: "Descrição" },
+  { csv: ["vl__realizado", "valor_realizado", "realizado", "valor"], campo: "valor", label: "Valor Realizado" },
+  { csv: ["dire__o", "direcao", "tipo", "direção"], campo: "tipo", label: "Tipo (ENTRADA/SAIDA)" },
+  { csv: ["status_manual", "status_manual"], campo: "statusManual", label: "Status Manual" },
+  { csv: ["empresa", "fornecedor"], campo: "fornecedor", label: "Fornecedor/Empresa" },
+  { csv: ["banco"], campo: "banco", label: "Banco" },
+  { csv: ["c__custo", "centro_custo", "c_custo"], campo: "centroCusto", label: "Centro de Custo" },
+  { csv: ["categoria"], campo: "categoria", label: "Categoria" },
+  { csv: ["anota__o", "anotacao", "anotação"], campo: "anotacao", label: "Anotação" },
+  { csv: ["dt__emiss_o", "data_emissao", "dt_emissao", "emissao"], campo: "dataEmissao", label: "Data Emissão" },
+  { csv: ["venc__original", "venc_original"], campo: "dataVencOriginal", label: "Venc. Original" },
+  { csv: ["venc__plano", "venc_plano"], campo: "dataVencPlano", label: "Venc. Plano" },
+  { csv: ["dt__pagamento", "data_pagamento", "pagamento"], campo: "dataPagamento", label: "Data Pagamento" },
+  { csv: ["vl__previsto", "valor_previsto", "previsto"], campo: "valorPrevisto", label: "Valor Previsto" },
+  { csv: ["conta__n5_", "conta_n5", "conta"], campo: "cont", label: "Conta (n5)" },
+  { csv: ["dre"], campo: "dre", label: "DRE" },
+  { csv: ["fantasia__n4_", "fantasia_n4", "fantasia"], campo: "fantasiaPadrao", label: "Fantasia (n4)" },
 ];
 
 export default function ImportModal({ open, onClose, onImported }: Props) {
@@ -89,7 +91,7 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
           const lancamento: any = { tipo: "SAIDA", status: "realizado" };
 
           for (const map of COLUNAS_MAPEAMENTO) {
-            const idx = csvHeaders.findIndex(h => h.includes(map.csv) || h === map.csv);
+            const idx = csvHeaders.findIndex(h => map.csv.some(variant => h.includes(variant) || h === variant));
             if (idx >= 0 && row[idx]) {
               let val: any = row[idx];
               // Conversões de tipo
@@ -181,7 +183,7 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
           <details style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
             <summary style={{ cursor: "pointer", fontWeight: 600 }}>Colunas reconhecidas automaticamente</summary>
             <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-              {COLUNAS_MAPEAMENTO.map(m => <div key={m.csv}><code>{m.csv}</code> → {m.label}</div>)}
+              {COLUNAS_MAPEAMENTO.map(m => <div key={m.campo}><code>{m.csv[0]}</code> → {m.label}</div>)}
             </div>
             <p style={{ marginTop: 8 }}>Datas aceitas: dd/mm/aaaa ou aaaa-mm-dd. Separador: ; ou , </p>
           </details>
