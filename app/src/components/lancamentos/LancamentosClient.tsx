@@ -476,19 +476,24 @@ export default function LancamentosClient() {
           <div><h1 className="page-title">Lançamentos</h1><p className="page-sub">Fluxo de Caixa — clique em qualquer linha para editar</p></div>
           <div className="topbar-actions">
             <button className="btn btn-outline" onClick={() => setImportModalOpen(true)}>📥 Importar</button>
-            <button className="btn btn-outline" onClick={() => {
-              const headers = visibleCols.filter(d => d.key !== "acoes").map(d => d.label);
-              const rows = lancamentos.map(row => visibleCols.filter(d => d.key !== "acoes").map(d => {
-                const val = (row as any)[d.key];
-                if (val === null || val === undefined) return "";
-                return String(val);
-              }));
-              const csv = [headers.join(";"), ...rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(";"))].join("\n");
-              const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a"); a.href = url; a.download = `lancamentos_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-              URL.revokeObjectURL(url);
-              showToast("✅ CSV exportado");
+            <button className="btn btn-outline" onClick={async () => {
+              showToast("⏳ Gerando CSV completo...");
+              try {
+                const params = new URLSearchParams({
+                  ...Object.fromEntries(Object.entries(filtros).filter(([, v]) => v)),
+                  ...(sortKey ? { sortKey, sortDir } : {}),
+                });
+                const res = await fetch(`/api/lancamentos/exportar?${params}`);
+                if (!res.ok) { showToast("❌ Erro ao exportar"); return; }
+                const totalReg = res.headers.get("X-Total-Registros") || "?";
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url; a.download = `lancamentos_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+                URL.revokeObjectURL(url);
+                showToast(`✅ CSV exportado (${totalReg} registros)`);
+              } catch {
+                showToast("❌ Erro ao exportar CSV");
+              }
             }}>📊 Exportar CSV</button>
             <button className="btn btn-primary" onClick={() => setNovoModalOpen(true)}>+ Novo</button>
           </div>

@@ -28,14 +28,20 @@ const COLUNAS_MAPEAMENTO = [
   { csv: ["fantasia__n4_", "fantasia_n4", "fantasia"], campo: "fantasiaPadrao", label: "Fantasia (n4)" },
 ];
 
+// Tamanho do lote enviado ao servidor por vez
+const BATCH_SIZE = 100;
+
 export default function ImportModal({ open, onClose, onImported }: Props) {
   const [file, setFile] = useState<File | null>(null);
+  const [totalLinhas, setTotalLinhas] = useState(0);
   const [preview, setPreview] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ ok: number; erro: number } | null>(null);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [result, setResult] = useState<{ ok: number; erro: number; duplicados: number } | null>(null);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef(false);
 
   const parseCSV = (text: string): string[][] => {
     const lines = text.split(/\r?\n/).filter(l => l.trim());
@@ -50,6 +56,7 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
     setFile(f);
     setResult(null);
     setError("");
+    setProgress({ current: 0, total: 0 });
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
@@ -57,6 +64,7 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
       if (rows.length > 0) {
         setHeaders(rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9_]/g, "_")));
         setPreview(rows.slice(0, 6)); // Mostrar até 5 linhas de preview
+        setTotalLinhas(rows.length - 1); // Total de linhas de dados (excluindo header)
       }
     };
     reader.readAsText(f, "UTF-8");
@@ -69,11 +77,39 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
     else setError("Apenas arquivos .csv são suportados");
   };
 
+  const mapRowToLancamento = (row: string[], csvHeaders: string[]) => {
+    const lancamento: any = { tipo: "SAIDA", status: "realizado" };
+
+    for (const map of COLUNAS_MAPEAMENTO) {
+      const idx = csvHeaders.findIndex(h => map.csv.some(variant => h.includes(variant) || h === variant));
+      if (idx >= 0 && row[idx]) {
+        let val: any = row[idx];
+        // Conversões de tipo
+        if (map.campo === "valor" || map.campo === "valorPrevisto") {
+          val = parseFloat(val.replace(/[^\d,.-]/g, "").replace(",", "."));
+          if (isNaN(val)) val = null;
+        }
+        if (map.campo.startsWith("data") && val) {
+          // Tentar dd/mm/yyyy → yyyy-mm-dd
+          const parts = val.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+          if (parts) val = `${parts[3]}-${parts[2]}-${parts[1]}`;
+        }
+        if (map.campo === "tipo" && val) {
+          val = val.toUpperCase().includes("ENTRADA") ? "ENTRADA" : "SAIDA";
+        }
+        if (val !== null && val !== undefined && val !== "") lancamento[map.campo] = val;
+      }
+    }
+
+    return lancamento;
+  };
+
   const importar = async () => {
     if (!file) return;
     setImporting(true);
     setError("");
     setResult(null);
+    abortRef.current = false;
 
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -83,56 +119,63 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
 
       const csvHeaders = rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9_]/g, "_"));
       const dataRows = rows.slice(1);
+      const totalRows = dataRows.length;
 
-      let ok = 0, erro = 0;
+      setProgress({ current: 0, total: totalRows });
 
-      for (const row of dataRows) {
-        try {
-          const lancamento: any = { tipo: "SAIDA", status: "realizado" };
+      let ok = 0, erro = 0, duplicados = 0;
 
-          for (const map of COLUNAS_MAPEAMENTO) {
-            const idx = csvHeaders.findIndex(h => map.csv.some(variant => h.includes(variant) || h === variant));
-            if (idx >= 0 && row[idx]) {
-              let val: any = row[idx];
-              // Conversões de tipo
-              if (map.campo === "valor" || map.campo === "valorPrevisto") {
-                val = parseFloat(val.replace(/[^\d,.-]/g, "").replace(",", "."));
-                if (isNaN(val)) val = null;
-              }
-              if (map.campo.startsWith("data") && val) {
-                // Tentar dd/mm/yyyy → yyyy-mm-dd
-                const parts = val.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-                if (parts) val = `${parts[3]}-${parts[2]}-${parts[1]}`;
-              }
-              if (map.campo === "tipo" && val) {
-                val = val.toUpperCase().includes("ENTRADA") ? "ENTRADA" : "SAIDA";
-              }
-              if (val !== null && val !== undefined && val !== "") lancamento[map.campo] = val;
-            }
-          }
+      // Processar em lotes
+      for (let i = 0; i < totalRows; i += BATCH_SIZE) {
+        if (abortRef.current) break;
 
+        const batch = dataRows.slice(i, i + BATCH_SIZE);
+        const lancamentos: any[] = [];
+
+        for (const row of batch) {
+          const lancamento = mapRowToLancamento(row, csvHeaders);
           // Validações mínimas
           if (!lancamento.dataLanc || !lancamento.descricao) { erro++; continue; }
           if (!lancamento.valor && !lancamento.valorPrevisto) { erro++; continue; }
           if (!lancamento.valor) lancamento.valor = lancamento.valorPrevisto || 0;
+          lancamentos.push(lancamento);
+        }
 
-          const res = await fetch("/api/lancamentos", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(lancamento),
-          });
+        if (lancamentos.length > 0) {
+          try {
+            const res = await fetch("/api/lancamentos/importar", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ lancamentos }),
+            });
 
-          if (res.ok) ok++;
-          else erro++;
-        } catch { erro++; }
+            if (res.ok) {
+              const data = await res.json();
+              ok += data.inseridos ?? lancamentos.length;
+              duplicados += data.duplicados ?? 0;
+            } else {
+              erro += lancamentos.length;
+            }
+          } catch {
+            erro += lancamentos.length;
+          }
+        }
+
+        setProgress({ current: Math.min(i + BATCH_SIZE, totalRows), total: totalRows });
       }
 
-      setResult({ ok, erro });
+      setResult({ ok, erro, duplicados });
       setImporting(false);
       if (ok > 0) onImported();
     };
     reader.readAsText(file, "UTF-8");
   };
+
+  const cancelImport = () => {
+    abortRef.current = true;
+  };
+
+  const porcentagem = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
 
   if (!open) return null;
 
@@ -148,7 +191,37 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
 
           {result && (
             <div style={{ marginBottom: 16, padding: 12, borderRadius: 8, background: result.erro > 0 ? "var(--kpi-red-bg)" : "var(--kpi-green-bg)", border: `1px solid ${result.erro > 0 ? "var(--kpi-red-border)" : "var(--kpi-green-border)"}` }}>
-              <strong>Resultado:</strong> {result.ok} importados com sucesso{result.erro > 0 && `, ${result.erro} com erro`}
+              <strong>Resultado:</strong> {result.ok} importados com sucesso
+              {result.duplicados > 0 && `, ${result.duplicados} duplicados ignorados`}
+              {result.erro > 0 && `, ${result.erro} com erro`}
+            </div>
+          )}
+
+          {/* Barra de progresso */}
+          {importing && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>
+                  Importando... {progress.current.toLocaleString()} de {progress.total.toLocaleString()} linhas
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--accent-blue)" }}>{porcentagem}%</span>
+              </div>
+              <div style={{ width: "100%", height: 8, borderRadius: 4, background: "var(--border)", overflow: "hidden" }}>
+                <div style={{
+                  width: `${porcentagem}%`,
+                  height: "100%",
+                  borderRadius: 4,
+                  background: "var(--accent-blue)",
+                  transition: "width 0.3s ease",
+                }} />
+              </div>
+              <button
+                className="btn btn-outline"
+                style={{ marginTop: 8, fontSize: 12 }}
+                onClick={cancelImport}
+              >
+                Cancelar importação
+              </button>
             </div>
           )}
 
@@ -162,14 +235,14 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
           >
             <div className="drop-icon">📄</div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{file ? file.name : "Arraste um arquivo CSV aqui"}</div>
-            <div className="drop-sub">ou clique para selecionar</div>
+            <div className="drop-sub">{file ? `${totalLinhas.toLocaleString()} linhas de dados detectadas` : "ou clique para selecionar"}</div>
           </div>
           <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
 
           {/* Preview */}
           {preview.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text-secondary)" }}>Preview ({preview.length - 1} linhas):</div>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--text-secondary)" }}>Preview (primeiras {preview.length - 1} linhas de {totalLinhas.toLocaleString()}):</div>
               <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 6, maxHeight: 160 }}>
                 <table className="data-table" style={{ fontSize: 10 }}>
                   <thead><tr>{preview[0]?.map((h, i) => <th key={i} style={{ whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
@@ -190,9 +263,14 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
         </div>
 
         <div className="modal-actions">
-          <button className="btn btn-outline" onClick={onClose}>Fechar</button>
+          <button className="btn btn-outline" onClick={onClose} disabled={importing}>Fechar</button>
           <button className="btn btn-primary" onClick={importar} disabled={!file || importing}>
-            {importing ? "Importando..." : `Importar ${preview.length > 1 ? preview.length - 1 : 0} linhas`}
+            {importing
+              ? `Importando... ${porcentagem}%`
+              : result
+                ? "✅ Concluído — Importar novamente"
+                : `Importar ${totalLinhas.toLocaleString()} linhas`
+            }
           </button>
         </div>
       </div>
