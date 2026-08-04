@@ -133,12 +133,14 @@ export async function GET(req: NextRequest) {
   }
   if (busca) {
     where.OR = [
-      { descricao:    { contains: busca, mode: "insensitive" } },
-      { fornecedor:   { contains: busca, mode: "insensitive" } },
-      { centroCusto:  { contains: busca, mode: "insensitive" } },
-      { referencia:   { contains: busca, mode: "insensitive" } },
-      { anotacao:     { contains: busca, mode: "insensitive" } },
-      { statusManual: { contains: busca, mode: "insensitive" } },
+      { descricao:      { contains: busca, mode: "insensitive" } },
+      { fornecedor:     { contains: busca, mode: "insensitive" } },
+      { fantasiaPadrao: { contains: busca, mode: "insensitive" } },
+      { centroCusto:    { contains: busca, mode: "insensitive" } },
+      { referencia:     { contains: busca, mode: "insensitive" } },
+      { anotacao:       { contains: busca, mode: "insensitive" } },
+      { statusManual:   { contains: busca, mode: "insensitive" } },
+      { banco:          { contains: busca, mode: "insensitive" } },
     ];
   }
 
