@@ -107,6 +107,8 @@ export default function LancamentosClient() {
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
 
   // Filtros
   const [filtros, setFiltros] = useState({ tipo: "", status: "", statusManual: "", centroCusto: "", fornecedor: "", busca: "", dataInicio: "", dataFim: "" });
@@ -275,7 +277,11 @@ export default function LancamentosClient() {
 
   const handleBlur = (id: string) => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => saveEdit(id), 200);
+    autoSaveTimer.current = setTimeout(() => {
+      // Verificar se ainda está editando essa mesma linha
+      // Se sim, salvar (significa que saiu da linha)
+      saveEdit(id);
+    }, 400);
   };
   const handleFocus = () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
 
@@ -557,12 +563,14 @@ export default function LancamentosClient() {
           </div>
         </div>
 
-        {/* Tabela — scroll único */}
-        <div style={{ margin: "14px 28px", flex: 1, minHeight: 0, overflow: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)" }}>
-          <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
-            <thead>
-              <tr>
-                {visibleCols.map(def => {
+        {/* Tabela — header fixo + body scrollável com scroll sincronizado */}
+        <div style={{ margin: "14px 28px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)", overflow: "hidden" }}>
+          {/* Header fixo */}
+          <div ref={headerScrollRef} style={{ overflowX: "hidden", flexShrink: 0 }}>
+            <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead>
+                <tr>
+                  {visibleCols.map(def => {
                     const isSticky   = STICKY_KEYS.has(def.key);
                     const isNoSort   = NO_SORT_KEYS.has(def.key);
                     const isDragOver = dragOverKey === def.key;
@@ -649,7 +657,12 @@ export default function LancamentosClient() {
                   );
                 })}
               </tr>
-            </thead>
+              </thead>
+            </table>
+          </div>
+          {/* Body scrollável */}
+          <div ref={bodyScrollRef} style={{ flex: 1, overflowY: "auto", overflowX: "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
+            <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
             <tbody>
               {loading ? (
                 <tr><td colSpan={visibleCols.length} style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>Carregando...</td></tr>
@@ -748,7 +761,8 @@ export default function LancamentosClient() {
                 </tr>
               )}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
 
         {/* Footer */}
