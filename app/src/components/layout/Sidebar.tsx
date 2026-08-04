@@ -48,11 +48,13 @@ const MENU: MenuGroup[] = [
   { num: 3,  icon: "💰", label: "Fluxo de Caixa",          sub: [
     { letra: "a", label: "Lançamento", href: "/lancamentos"             },
     { letra: "b", label: "Relatórios", href: "/fluxo-caixa/relatorios" },
-    { letra: "c", label: "Dashboards", href: "/fluxo-caixa/dashboards" },
+    { letra: "c", label: "Gráficos",   href: "/fluxo-caixa/graficos"   },
     { letra: "—", label: "—", href: "---" },
-    { letra: "d", label: "Investimentos", href: "/fluxo-caixa/investimentos" },
-    { letra: "e", label: "Endividamento", href: "/fluxo-caixa/endividamento" },
-    { letra: "f", label: "Cartão de Crédito", href: "/fluxo-caixa/cartao-credito" },
+    { letra: "d", label: "Dashboards", href: "/fluxo-caixa/dashboards" },
+    { letra: "—", label: "—", href: "---2" },
+    { letra: "e", label: "Investimentos", href: "/fluxo-caixa/investimentos" },
+    { letra: "f", label: "Endividamento", href: "/fluxo-caixa/endividamento" },
+    { letra: "g", label: "Cartão de Crédito", href: "/fluxo-caixa/cartao-credito" },
   ]},
   { num: 4,  icon: "📊", label: "Orçamento Empresarial",   sub: [
     { letra: "a", label: "Vendas por Produto", href: "/orcamento/vendas-produto" },
@@ -331,7 +333,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                 >
                   {g.sub!.map((item) => {
                     // Divisória
-                    if (item.href === "---") return <div key="divider" className="sb-divider" style={{ margin: "4px 8px" }} />;
+                    if (item.href.startsWith("---")) return <div key={item.href} className="sb-divider" style={{ margin: "4px 8px" }} />;
                     const isDisabled = DISABLED_HREFS.has(item.href);
                     const isActive   = pathname.startsWith(item.href);
                     return isDisabled ? (
