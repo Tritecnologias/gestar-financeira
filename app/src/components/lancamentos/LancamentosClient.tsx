@@ -437,16 +437,18 @@ export default function LancamentosClient() {
       const newVal = e.target.value;
       setEditValues(p => {
         const updated = { ...p, [def.key]: newVal };
-        // Espelhar Venc. Original → Venc. Plano (se plano está vazio)
         if (def.key === "dataVencOriginal" && !p.dataVencPlano) {
           updated.dataVencPlano = newVal;
         }
         return updated;
       });
+      // Agendar auto-save após mudança de data (date picker nem sempre dispara blur)
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = setTimeout(() => saveEdit(rowId), 1000);
     }} />;
     if (def.tipo === "number") return <input {...common} type="number" step="0.01" value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className="cell-input num" />;
     if (def.tipo === "select" && def.options) return (
-      <select {...common} value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className="cell-input">
+      <select {...common} value={val} onChange={e => { setEditValues(p => ({ ...p, [def.key]: e.target.value })); if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); autoSaveTimer.current = setTimeout(() => saveEdit(rowId), 800); }} className="cell-input">
         {def.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     );
