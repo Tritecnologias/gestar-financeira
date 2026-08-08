@@ -71,7 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   cookies: {
     sessionToken: {
-      name: "next-auth.session-token",
+      name: "authjs.session-token",
       options: {
         httpOnly: true,
         sameSite: "lax",
