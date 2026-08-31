@@ -213,7 +213,9 @@ export async function POST(req: NextRequest) {
     fantasiaPadrao, categoria, dre, cont, anotacao,
   } = body;
 
-  if (!dataLanc || !descricao || !valor || !tipo) {
+  // valor === 0 é válido; só rejeita ausente/inválido
+  const valorNum = parseFloat(valor);
+  if (!dataLanc || !descricao || valor === undefined || valor === null || Number.isNaN(valorNum) || !tipo) {
     return NextResponse.json({ error: "Campos obrigatórios: dataLanc, descricao, valor, tipo" }, { status: 400 });
   }
 
@@ -229,7 +231,7 @@ export async function POST(req: NextRequest) {
       dataEvento:       d(dataEvento),
       dataPagamento:    d(dataPagamento),
       descricao:        descricao.trim(),
-      valor:            parseFloat(valor),
+      valor:            valorNum,
       valorPrevisto:    valorPrevisto ? parseFloat(valorPrevisto) : null,
       tipo,
       status:           status || "realizado",

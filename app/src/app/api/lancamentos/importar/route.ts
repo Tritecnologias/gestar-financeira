@@ -36,14 +36,15 @@ export async function POST(req: NextRequest) {
         fantasiaPadrao, categoria, dre, cont, anotacao,
       } = item;
 
-      if (!dataLanc || !descricao || !valor || !tipo) {
+      // valor === 0 é válido; só rejeita ausente/inválido
+      const valorNum = parseFloat(valor);
+      if (!dataLanc || !descricao || valor === undefined || valor === null || Number.isNaN(valorNum) || !tipo) {
         erros++;
         continue;
       }
 
       // Verificação de duplicidade: mesmo dataLanc + descricao + valor + tipo
       const dataLancDate = new Date(dataLanc);
-      const valorNum = parseFloat(valor);
 
       const existing = await db.lancamento.findFirst({
         where: {

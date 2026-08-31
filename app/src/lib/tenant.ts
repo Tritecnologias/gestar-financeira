@@ -19,9 +19,20 @@ export async function requireSession() {
   let activeTenantId = user.tenantId as string;
   let activeTenantNome = user.tenantNome as string;
 
-  // Verificar papel direto do banco (JWT pode estar desatualizado)
-  const dbUser = await prisma.usuario.findUnique({ where: { id: user.id }, select: { papel: true } });
-  const papelAtual = (dbUser?.papel || user.papel) as string;
+  // Verificar papel/status direto do banco (o JWT pode estar desatualizado por até 24h).
+  // Isso garante que mudanças de papel, desativação ou exclusão do usuário tenham
+  // efeito imediato, sem depender do relogin.
+  const dbUser = await prisma.usuario.findUnique({
+    where: { id: user.id },
+    select: { papel: true, ativo: true },
+  });
+
+  // Usuário removido ou desativado após o login: revoga a sessão.
+  if (!dbUser || !dbUser.ativo) {
+    throw Object.assign(new Error("Não autenticado"), { status: 401 });
+  }
+
+  const papelAtual = dbUser.papel as Papel;
 
   if (papelAtual === "admin_global") {
     const cookieStore = await cookies();
@@ -42,7 +53,7 @@ export async function requireSession() {
       id:         user.id        as string,
       nome:       user.name      as string ?? "",
       email:      user.email     as string ?? "",
-      papel:      user.papel     as Papel,
+      papel:      papelAtual,
       tenantId:   activeTenantId,
       tenantNome: activeTenantNome,
     } satisfies UserSession,
