@@ -95,10 +95,24 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
           if (parts) val = `${parts[3]}-${parts[2]}-${parts[1]}`;
         }
         if (map.campo === "tipo" && val) {
-          val = val.toUpperCase().includes("ENTRADA") ? "ENTRADA" : "SAIDA";
+          // Normaliza: remove acentos e compara (SAÍDA → SAIDA, ENTRADA → ENTRADA)
+          const normalizado = val.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          val = normalizado.includes("ENTRADA") ? "ENTRADA" : "SAIDA";
         }
         if (val !== null && val !== undefined && val !== "") lancamento[map.campo] = val;
       }
+    }
+
+    // Se o valor veio negativo, o sinal indica a direção — armazenar sempre positivo.
+    // O tipo (ENTRADA/SAIDA) já foi mapeado acima; o sinal é redundante e causa
+    // inconsistência nos KPIs. Ex: valor=-1000 + tipo=SAIDA → armazena 1000 + SAIDA.
+    if (typeof lancamento.valor === "number" && lancamento.valor < 0) {
+      // Se não havia campo tipo explícito no CSV, o sinal negativo implica SAIDA
+      lancamento.tipo = "SAIDA";
+      lancamento.valor = Math.abs(lancamento.valor);
+    }
+    if (typeof lancamento.valorPrevisto === "number" && lancamento.valorPrevisto < 0) {
+      lancamento.valorPrevisto = Math.abs(lancamento.valorPrevisto);
     }
 
     return lancamento;
