@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requireSession, requireEscrita } from "@/lib/tenant";
 import { toNumber } from "@/lib/formatters";
 import type { PaginatedResponse, LancamentoDTO, StatusAuto } from "@/types";
 
@@ -199,9 +199,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    ({ db, session } = await requireEscrita());
+  } catch (e: any) {
+    const status = e?.status ?? 401;
+    return NextResponse.json({ error: e?.message ?? "Não autenticado" }, { status });
   }
 
   const body = await req.json();
@@ -213,7 +214,9 @@ export async function POST(req: NextRequest) {
     fantasiaPadrao, categoria, dre, cont, anotacao,
   } = body;
 
-  if (!dataLanc || !descricao || !valor || !tipo) {
+  // valor === 0 é válido; só rejeita ausente/inválido
+  const valorNum = parseFloat(valor);
+  if (!dataLanc || !descricao || valor === undefined || valor === null || Number.isNaN(valorNum) || !tipo) {
     return NextResponse.json({ error: "Campos obrigatórios: dataLanc, descricao, valor, tipo" }, { status: 400 });
   }
 
@@ -229,7 +232,7 @@ export async function POST(req: NextRequest) {
       dataEvento:       d(dataEvento),
       dataPagamento:    d(dataPagamento),
       descricao:        descricao.trim(),
-      valor:            parseFloat(valor),
+      valor:            valorNum,
       valorPrevisto:    valorPrevisto ? parseFloat(valorPrevisto) : null,
       tipo,
       status:           status || "realizado",

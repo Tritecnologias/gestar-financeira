@@ -19,9 +19,24 @@ export async function requireSession() {
   let activeTenantId = user.tenantId as string;
   let activeTenantNome = user.tenantNome as string;
 
-  // Verificar papel direto do banco (JWT pode estar desatualizado)
-  const dbUser = await prisma.usuario.findUnique({ where: { id: user.id }, select: { papel: true } });
-  const papelAtual = (dbUser?.papel || user.papel) as string;
+  // Verificar papel/status direto do banco (o JWT pode estar desatualizado por até 24h).
+  // Isso garante que mudanças de papel, desativação ou exclusão do usuário tenham
+  // efeito imediato, sem depender do relogin.
+  const dbUser = await prisma.usuario.findUnique({
+    where: { id: user.id },
+    select: { papel: true, ativo: true },
+  });
+
+  // Usuário removido ou desativado após o login: revoga a sessão.
+  if (!dbUser || !dbUser.ativo) {
+    throw Object.assign(new Error("Não autenticado"), { status: 401 });
+  }
+
+  const papelAtual = dbUser.papel as Papel;
+
+  // Para admin/membro o tenant é fixo e legítimo. Para admin_global, só
+  // consideramos "selecionado" quando há um override válido via cookie.
+  let tenantSelecionado = papelAtual !== "admin_global";
 
   if (papelAtual === "admin_global") {
     const cookieStore = await cookies();
@@ -31,6 +46,7 @@ export async function requireSession() {
       if (tenant && tenant.ativo) {
         activeTenantId = tenant.id;
         activeTenantNome = tenant.nome;
+        tenantSelecionado = true;
       }
     }
   }
@@ -42,11 +58,29 @@ export async function requireSession() {
       id:         user.id        as string,
       nome:       user.name      as string ?? "",
       email:      user.email     as string ?? "",
-      papel:      user.papel     as Papel,
+      papel:      papelAtual,
       tenantId:   activeTenantId,
       tenantNome: activeTenantNome,
+      tenantSelecionado,
     } satisfies UserSession,
   };
+}
+
+/**
+ * Igual ao requireSession, mas exige um tenant selecionado explicitamente.
+ * Use em rotas de ESCRITA (create/import/update em massa) para impedir que
+ * o admin_global grave dados sem ter escolhido um tenant — o que os enviaria
+ * ao tenant pessoal dele por engano. Lança 409 quando não há tenant selecionado.
+ */
+export async function requireEscrita() {
+  const ctx = await requireSession();
+  if (!ctx.session.tenantSelecionado) {
+    throw Object.assign(
+      new Error("Selecione um tenant antes de gravar dados. Use o seletor de empresa (admin global)."),
+      { status: 409 }
+    );
+  }
+  return ctx;
 }
 /**
  * Retorna o tenant_id do usuário logado a partir da session.
@@ -77,6 +111,9 @@ export async function getSession(): Promise<UserSession> {
     papel: user.papel,
     tenantId: user.tenantId,
     tenantNome: user.tenantNome,
+    // Nota: getSession não resolve o override por cookie. Para decisões de
+    // escrita do admin_global, use requireEscrita()/requireSession().
+    tenantSelecionado: user.papel !== "admin_global",
   };
 }
 

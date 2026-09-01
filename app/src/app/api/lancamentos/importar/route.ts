@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requireEscrita } from "@/lib/tenant";
 
 // ── POST /api/lancamentos/importar ────────────────────────────
 // Importação em lote com verificação de duplicidade.
@@ -8,9 +8,10 @@ import { requireSession } from "@/lib/tenant";
 export async function POST(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    ({ db, session } = await requireEscrita());
+  } catch (e: any) {
+    const status = e?.status ?? 401;
+    return NextResponse.json({ error: e?.message ?? "Não autenticado" }, { status });
   }
 
   const body = await req.json();
@@ -36,14 +37,15 @@ export async function POST(req: NextRequest) {
         fantasiaPadrao, categoria, dre, cont, anotacao,
       } = item;
 
-      if (!dataLanc || !descricao || !valor || !tipo) {
+      // valor === 0 é válido; só rejeita ausente/inválido
+      const valorNum = parseFloat(valor);
+      if (!dataLanc || !descricao || valor === undefined || valor === null || Number.isNaN(valorNum) || !tipo) {
         erros++;
         continue;
       }
 
       // Verificação de duplicidade: mesmo dataLanc + descricao + valor + tipo
       const dataLancDate = new Date(dataLanc);
-      const valorNum = parseFloat(valor);
 
       const existing = await db.lancamento.findFirst({
         where: {

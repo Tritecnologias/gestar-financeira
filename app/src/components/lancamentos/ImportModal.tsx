@@ -155,6 +155,13 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
               duplicados += data.duplicados ?? 0;
             } else {
               erro += lancamentos.length;
+              // Erros que impedem toda a importação (ex.: admin global sem
+              // tenant selecionado = 409). Mostra a mensagem e interrompe.
+              if (res.status === 401 || res.status === 403 || res.status === 409) {
+                const data = await res.json().catch(() => null);
+                setError(data?.error || "Não foi possível importar. Verifique sua sessão/tenant.");
+                abortRef.current = true;
+              }
             }
           } catch {
             erro += lancamentos.length;
