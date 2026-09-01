@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requireSession, requireEscrita } from "@/lib/tenant";
 
 export async function GET() {
   let db: any;
@@ -10,7 +10,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   let db: any;
-  try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
+  try { ({ db } = await requireEscrita()); } catch (e: any) { return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 }); }
   const { nome, cor } = await req.json();
   if (!nome?.trim()) return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
   const item = await db.tarefaStatus.create({ data: { nome: nome.trim(), cor: cor || "#3b82f6" } });
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   let db: any;
-  try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
+  try { ({ db } = await requireEscrita()); } catch (e: any) { return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 }); }
   const { items } = await req.json();
   // Bulk update
   if (Array.isArray(items)) {

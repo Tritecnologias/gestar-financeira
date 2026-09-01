@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/tenant";
+import { requireSession, requireEscrita } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 
@@ -25,9 +25,9 @@ export async function GET() {
 export async function POST(request: Request) {
   let session: any;
   try {
-    ({ session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    ({ session } = await requireEscrita());
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "Unauthorized" }, { status: e?.status ?? 401 });
   }
 
   // Apenas admin pode alterar o logo

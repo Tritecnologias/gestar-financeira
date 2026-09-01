@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requireSession, requireEscrita } from "@/lib/tenant";
 
 // GET /api/layouts — lista layouts do usuário logado
 export async function GET(req: NextRequest) {
@@ -24,9 +24,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    ({ db, session } = await requireEscrita());
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 });
   }
 
   const body = await req.json();

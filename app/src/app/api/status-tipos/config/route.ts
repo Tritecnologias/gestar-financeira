@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requireSession, requireEscrita } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 
 // GET /api/status-tipos/config — retorna título da tabela de apoio
@@ -23,9 +23,9 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   let session: any;
   try {
-    ({ session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    ({ session } = await requireEscrita());
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 });
   }
 
   const body = await req.json();
