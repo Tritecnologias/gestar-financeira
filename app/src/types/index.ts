@@ -142,6 +142,12 @@ export interface UserSession {
   papel:      Papel;
   tenantId:   string;
   tenantNome: string;
+  // Indica se o tenant ativo foi selecionado de forma explícita e legítima.
+  // Para admin/membro é sempre true (tenant fixo). Para admin_global só é true
+  // quando há um "tenant override" válido selecionado. Usado para bloquear
+  // operações de escrita do admin_global quando nenhum tenant está selecionado,
+  // evitando gravar dados no tenant pessoal dele por engano.
+  tenantSelecionado: boolean;
 }
 
 // ── Resposta paginada genérica ────────────────────────────────
