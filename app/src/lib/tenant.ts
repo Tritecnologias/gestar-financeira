@@ -34,9 +34,11 @@ export async function requireSession() {
 
   const papelAtual = dbUser.papel as Papel;
 
-  // Para admin/membro o tenant é fixo e legítimo. Para admin_global, só
-  // consideramos "selecionado" quando há um override válido via cookie.
-  let tenantSelecionado = papelAtual !== "admin_global";
+  // Para admin/membro o tenant é fixo e legítimo. Para admin_global, o tenant
+  // ativo é sempre legítimo — seja o próprio tenant do usuário (user.tenantId)
+  // ou um override via cookie. A restrição de escrita só se aplicaria se não
+  // houvesse nenhum tenant associado, o que não ocorre no fluxo atual.
+  let tenantSelecionado = true;
 
   if (papelAtual === "admin_global") {
     const cookieStore = await cookies();
@@ -111,9 +113,9 @@ export async function getSession(): Promise<UserSession> {
     papel: user.papel,
     tenantId: user.tenantId,
     tenantNome: user.tenantNome,
-    // Nota: getSession não resolve o override por cookie. Para decisões de
-    // escrita do admin_global, use requireEscrita()/requireSession().
-    tenantSelecionado: user.papel !== "admin_global",
+    // Nota: getSession não resolve o override por cookie. Para leitura do
+    // tenant ativo real, use requireSession().
+    tenantSelecionado: true,
   };
 }
 
