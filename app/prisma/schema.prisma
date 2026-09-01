@@ -355,8 +355,9 @@ model Lancamento {
   id           String   @id @default(uuid())
   tenantId     String   @map("tenant_id")
 
-  // SEQ: imutável, auto-incremento (SERIAL no banco)
-  seq          Int      @default(autoincrement())
+  // SEQ: imutável, sequência por tenant (1, 2, 3... reinicia em cada tenant).
+  // Calculado no momento da inserção via transação — não usar autoincrement global.
+  seq          Int
 
   // ── Datas ────────────────────────────────────────────────
   dataLanc          DateTime  @map("data_lanc") @db.Date

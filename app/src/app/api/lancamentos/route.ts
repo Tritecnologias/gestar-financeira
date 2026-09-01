@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
+import { prisma } from "@/lib/db";
 import { toNumber } from "@/lib/formatters";
 import type { PaginatedResponse, LancamentoDTO, StatusAuto } from "@/types";
 
@@ -222,36 +223,48 @@ export async function POST(req: NextRequest) {
 
   const d = (v?: string) => v ? new Date(v) : null;
 
-  // ⚡ tenantId injetado automaticamente pelo Extension no create
-  const lancamento = await db.lancamento.create({
-    data: {
-      dataLanc:         new Date(dataLanc),
-      dataEmissao:      d(dataEmissao),
-      dataVencOriginal: d(dataVencOriginal),
-      dataVencPlano:    d(dataVencPlano),
-      dataEvento:       d(dataEvento),
-      dataPagamento:    d(dataPagamento),
-      descricao:        descricao.trim(),
-      valor:            valorNum,
-      valorPrevisto:    valorPrevisto ? parseFloat(valorPrevisto) : null,
-      tipo,
-      status:           status || "realizado",
-      statusManual:     statusManual  || null,
-      statusExtrato:    statusExtrato || null,
-      banco:            banco         || null,
-      fornecedor:       fornecedor    || null,
-      fornecedorId:     fornecedorId  || null,
-      fantasiaPadrao:   fantasiaPadrao|| null,
-      centroCusto:      centroCusto   || null,
-      referencia:       referencia    || null,
-      contaId:          contaId       || null,
-      categoria:        categoria     || null,
-      dre:              dre           || null,
-      cont:             cont          || null,
-      anotacao:         anotacao      || null,
-      criadoPor:        session.id,
-    },
-    include: { fornecedorRef: { select: { codigo: true, nome: true } } },
+  // ⚡ seq calculado por tenant dentro de uma transação para garantir unicidade.
+  // MAX(seq) + 1 filtrado pelo tenantId — cada tenant tem sua própria sequência.
+  const lancamento = await prisma.$transaction(async (tx) => {
+    const resultado = await tx.$queryRaw<{ nextseq: number }[]>`
+      SELECT COALESCE(MAX(seq), 0) + 1 AS nextseq
+      FROM lancamentos
+      WHERE tenant_id = ${session.tenantId}
+    `;
+    const nextSeq = Number(resultado[0].nextseq);
+
+    return tx.lancamento.create({
+      data: {
+        seq:              nextSeq,
+        tenantId:         session.tenantId,
+        dataLanc:         new Date(dataLanc),
+        dataEmissao:      d(dataEmissao),
+        dataVencOriginal: d(dataVencOriginal),
+        dataVencPlano:    d(dataVencPlano),
+        dataEvento:       d(dataEvento),
+        dataPagamento:    d(dataPagamento),
+        descricao:        descricao.trim(),
+        valor:            valorNum,
+        valorPrevisto:    valorPrevisto ? parseFloat(valorPrevisto) : null,
+        tipo,
+        status:           status || "realizado",
+        statusManual:     statusManual  || null,
+        statusExtrato:    statusExtrato || null,
+        banco:            banco         || null,
+        fornecedor:       fornecedor    || null,
+        fornecedorId:     fornecedorId  || null,
+        fantasiaPadrao:   fantasiaPadrao|| null,
+        centroCusto:      centroCusto   || null,
+        referencia:       referencia    || null,
+        contaId:          contaId       || null,
+        categoria:        categoria     || null,
+        dre:              dre           || null,
+        cont:             cont          || null,
+        anotacao:         anotacao      || null,
+        criadoPor:        session.id,
+      },
+      include: { fornecedorRef: { select: { codigo: true, nome: true } } },
+    });
   });
 
   return NextResponse.json(toLancamentoDTO(lancamento, lancamento.seq), { status: 201 });

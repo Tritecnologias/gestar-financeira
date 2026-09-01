@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
+import { prisma } from "@/lib/db";
 
 // ── POST /api/lancamentos/importar ────────────────────────────
 // Importação em lote com verificação de duplicidade.
@@ -25,6 +26,14 @@ export async function POST(req: NextRequest) {
   let inseridos = 0;
   let duplicados = 0;
   let erros = 0;
+
+  // Busca o MAX(seq) atual do tenant uma única vez antes do lote.
+  // Cada inserção incrementa o contador em memória, evitando uma query
+  // por linha e garantindo sequência contínua dentro do lote.
+  const resultado = await prisma.$queryRaw<{ maxseq: number }[]>`
+    SELECT COALESCE(MAX(seq), 0) AS maxseq FROM lancamentos WHERE tenant_id = ${session.tenantId}
+  `;
+  let proximoSeq = (resultado[0].maxseq ?? 0) + 1;
 
   // Processar cada lançamento do lote
   for (const item of lancamentos) {
@@ -64,6 +73,7 @@ export async function POST(req: NextRequest) {
 
       await db.lancamento.create({
         data: {
+          seq:              proximoSeq,
           dataLanc:         dataLancDate,
           dataEmissao:      d(dataEmissao),
           dataVencOriginal: d(dataVencOriginal),
@@ -92,6 +102,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      proximoSeq++;
       inseridos++;
     } catch {
       erros++;
