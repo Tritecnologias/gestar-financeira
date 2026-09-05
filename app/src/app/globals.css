@@ -955,6 +955,7 @@ body {
   animation: modal-slide-in 0.2s ease;
 }
 .modal-content.modal-lg { max-width: 720px; }
+.modal-content.modal-xl { max-width: 1080px; width: 95vw; }
 
 @keyframes modal-slide-in {
   from { opacity: 0; transform: translateY(-16px); }
