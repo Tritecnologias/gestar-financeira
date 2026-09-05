@@ -1,101 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
-import { toNumber } from "@/lib/formatters";
-import type { PaginatedResponse, LancamentoDTO, StatusAuto } from "@/types";
-
-// ── Utilitário: calcula campos derivados do lançamento ────────
-function calcularCamposDerivados(l: any): Partial<LancamentoDTO> {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-
-  const diasAtrasoOriginal = l.dataVencOriginal && !l.dataPagamento
-    ? Math.floor((hoje.getTime() - new Date(l.dataVencOriginal).getTime()) / 86400000)
-    : 0;
-
-  const diasAtrasoPlano = l.dataVencPlano && !l.dataPagamento
-    ? Math.floor((hoje.getTime() - new Date(l.dataVencPlano).getTime()) / 86400000)
-    : 0;
-
-  const getRangeAtraso = (dias: number, pago: boolean): string => {
-    if (pago)             return "Pago";
-    if (!l.dataVencPlano) return "Sem venc.";
-    if (dias <= 0)        return "No prazo";
-    if (dias <= 30)       return "01-30 dias";
-    if (dias <= 60)       return "31-60 dias";
-    if (dias <= 90)       return "61-90 dias";
-    return "90+ dias";
-  };
-
-  const getStatusAuto = (): StatusAuto => {
-    if (l.dataPagamento && l.valor > 0) return "PAGO";
-    if (l.dataVencPlano && new Date(l.dataVencPlano) < hoje && !l.dataPagamento) return "ATRASADO";
-    if (l.dataVencPlano && new Date(l.dataVencPlano) >= hoje && !l.dataPagamento) return "A VENCER";
-    return "PREVISTO";
-  };
-
-  const vencPlano = l.dataVencPlano ? new Date(l.dataVencPlano) : null;
-  const emissao   = l.dataEmissao   ? new Date(l.dataEmissao)   : null;
-  const pago = !!l.dataPagamento;
-
-  return {
-    diasAtrasoOriginal,
-    diasAtrasoPlano,
-    rangeAtraso:   getRangeAtraso(diasAtrasoPlano, pago),
-    statusAuto:    getStatusAuto(),
-    vencA:  vencPlano ? vencPlano.getFullYear() : null,
-    vencM:  vencPlano ? vencPlano.getMonth() + 1 : null,
-    vencD:  vencPlano ? vencPlano.getDate() : null,
-    vencAM: vencPlano ? `${String(vencPlano.getFullYear()).slice(2)}_${String(vencPlano.getMonth() + 1).padStart(2, "0")}` : null,
-    emissaoAM: emissao ? `${String(emissao.getFullYear()).slice(2)}_${String(emissao.getMonth() + 1).padStart(2, "0")}` : null,
-  };
-}
-
-// ── Serializar lançamento completo para DTO ────────────────────
-function toLancamentoDTO(l: any, seq: number): LancamentoDTO {
-  const derivados = calcularCamposDerivados(l);
-  const fmt = (d: Date | null | undefined) => d ? new Date(d).toISOString().split("T")[0] : null;
-
-  return {
-    id:          l.id,
-    seq:         l.seq ?? seq,
-    tenantId:    "", // Não expor internamente
-    dataLanc:         fmt(l.dataLanc)!,
-    dataEmissao:      fmt(l.dataEmissao),
-    dataVencOriginal: fmt(l.dataVencOriginal),
-    dataVencPlano:    fmt(l.dataVencPlano),
-    dataEvento:       fmt(l.dataEvento),
-    dataPagamento:    fmt(l.dataPagamento),
-    valor:         toNumber(l.valor),
-    valorPrevisto: l.valorPrevisto ? toNumber(l.valorPrevisto) : null,
-    banco:         l.banco,
-    tipo:          l.tipo,
-    status:        l.status,
-    statusManual:  l.statusManual,
-    statusExtrato: l.statusExtrato,
-    statusAuto:    (derivados.statusAuto ?? "PREVISTO") as StatusAuto,
-    descricao:      l.descricao,
-    fornecedor:     l.fornecedor,
-    fornecedorId:   l.fornecedorId,
-    fantasiaPadrao: l.fornecedorRef ? `${l.fornecedorRef.codigo} – ${l.fornecedorRef.nome}` : l.fantasiaPadrao,
-    centroCusto:    l.centroCusto,
-    referencia:     l.referencia,
-    contaId:        l.contaId,
-    categoria:      l.categoria,
-    dre:            l.dre,
-    cont:           l.cont,
-    anotacao:       l.anotacao,
-    diasAtrasoOriginal: derivados.diasAtrasoOriginal ?? 0,
-    diasAtrasoPlano:    derivados.diasAtrasoPlano    ?? 0,
-    rangeAtraso:        derivados.rangeAtraso        ?? "Sem venc.",
-    vencA:  derivados.vencA  ?? null,
-    vencM:  derivados.vencM  ?? null,
-    vencD:  derivados.vencD  ?? null,
-    vencAM: derivados.vencAM ?? null,
-    emissaoAM: derivados.emissaoAM ?? null,
-    criadoEm: l.criadoEm?.toISOString(),
-  };
-}
+import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
+import type { PaginatedResponse, LancamentoDTO } from "@/types";
 
 // ── GET /api/lancamentos ──────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -221,7 +128,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Campos obrigatórios: dataLanc, descricao, valor, tipo" }, { status: 400 });
   }
 
-  const d = (v?: string) => v ? new Date(v) : null;
 
   // ⚡ seq calculado por tenant dentro de uma transação para garantir unicidade.
   // MAX(seq) + 1 filtrado pelo tenantId — cada tenant tem sua própria sequência.
@@ -237,12 +143,12 @@ export async function POST(req: NextRequest) {
       data: {
         seq:              nextSeq,
         tenantId:         session.tenantId,
-        dataLanc:         new Date(dataLanc),
-        dataEmissao:      d(dataEmissao),
-        dataVencOriginal: d(dataVencOriginal),
-        dataVencPlano:    d(dataVencPlano),
-        dataEvento:       d(dataEvento),
-        dataPagamento:    d(dataPagamento),
+        dataLanc:         parseDateOnly(dataLanc) ?? new Date(),
+        dataEmissao:      parseDateOnly(dataEmissao),
+        dataVencOriginal: parseDateOnly(dataVencOriginal),
+        dataVencPlano:    parseDateOnly(dataVencPlano),
+        dataEvento:       parseDateOnly(dataEvento),
+        dataPagamento:    parseDateOnly(dataPagamento),
         descricao:        descricao.trim(),
         valor:            valorNum,
         valorPrevisto:    valorPrevisto ? parseFloat(valorPrevisto) : null,

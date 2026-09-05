@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
-import { toNumber } from "@/lib/formatters";
+import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
 
 type Params = { params: Promise<{ id: string }> };
-
-const d = (v?: string | null) => v ? new Date(v) : null;
 
 // ── PUT /api/lancamentos/[id] ────────────────────────────────
 export async function PUT(req: NextRequest, { params }: Params) {
@@ -33,57 +31,44 @@ export async function PUT(req: NextRequest, { params }: Params) {
     fantasiaPadrao, categoria, dre, cont, anotacao,
   } = body;
 
+  const updateData: any = {};
+  if (dataLanc !== undefined) updateData.dataLanc = parseDateOnly(dataLanc) ?? new Date();
+  if (descricao !== undefined) updateData.descricao = descricao.trim();
+  if (valor !== undefined && valor !== null && valor !== "") {
+    updateData.valor = typeof valor === "number" ? valor : parseFloat(String(valor).replace(",", "."));
+  }
+  if (tipo !== undefined) updateData.tipo = tipo;
+  if (status !== undefined) updateData.status = status;
+  if (dataEmissao !== undefined) updateData.dataEmissao = parseDateOnly(dataEmissao);
+  if (dataVencOriginal !== undefined) updateData.dataVencOriginal = parseDateOnly(dataVencOriginal);
+  if (dataVencPlano !== undefined) updateData.dataVencPlano = parseDateOnly(dataVencPlano);
+  if (dataEvento !== undefined) updateData.dataEvento = parseDateOnly(dataEvento);
+  if (dataPagamento !== undefined) updateData.dataPagamento = parseDateOnly(dataPagamento);
+  if (statusManual !== undefined) updateData.statusManual = statusManual || null;
+  if (statusExtrato !== undefined) updateData.statusExtrato = statusExtrato || null;
+  if (valorPrevisto !== undefined) {
+    updateData.valorPrevisto = valorPrevisto ? (typeof valorPrevisto === "number" ? valorPrevisto : parseFloat(String(valorPrevisto).replace(",", "."))) : null;
+  }
+  if (banco !== undefined) updateData.banco = banco || null;
+  if (fornecedor !== undefined) updateData.fornecedor = fornecedor || null;
+  if (fornecedorId !== undefined) updateData.fornecedorId = fornecedorId || null;
+  if (fantasiaPadrao !== undefined) updateData.fantasiaPadrao = fantasiaPadrao || null;
+  if (centroCusto !== undefined) updateData.centroCusto = centroCusto || null;
+  if (referencia !== undefined) updateData.referencia = referencia || null;
+  if (contaId !== undefined) updateData.contaId = contaId || null;
+  if (categoria !== undefined) updateData.categoria = categoria || null;
+  if (dre !== undefined) updateData.dre = dre || null;
+  if (cont !== undefined) updateData.cont = cont || null;
+  if (anotacao !== undefined) updateData.anotacao = anotacao || null;
+
   // ⚡ update já injeta tenantId no WHERE via Extension
   const atualizado = await db.lancamento.update({
     where: { id },
-    data: {
-      ...(dataLanc    && { dataLanc: new Date(dataLanc) }),
-      ...(descricao   && { descricao: descricao.trim() }),
-      ...(valor !== undefined && { valor: parseFloat(valor) }),
-      ...(tipo        && { tipo }),
-      ...(status      && { status }),
-      dataEmissao:      d(dataEmissao),
-      dataVencOriginal: d(dataVencOriginal),
-      dataVencPlano:    d(dataVencPlano),
-      dataEvento:       d(dataEvento),
-      dataPagamento:    d(dataPagamento),
-      statusManual:     statusManual  ?? null,
-      statusExtrato:    statusExtrato ?? null,
-      valorPrevisto:    valorPrevisto ? parseFloat(valorPrevisto) : null,
-      banco:            banco         ?? null,
-      fornecedor:       fornecedor    ?? null,
-      fornecedorId:     fornecedorId  ?? null,
-      fantasiaPadrao:   fantasiaPadrao?? null,
-      centroCusto:      centroCusto   ?? null,
-      referencia:       referencia    ?? null,
-      contaId:          contaId       ?? null,
-      categoria:        categoria     ?? null,
-      dre:              dre           ?? null,
-      cont:             cont          ?? null,
-      anotacao:         anotacao      ?? null,
-    },
+    data: updateData,
     include: { fornecedorRef: { select: { codigo: true, nome: true } } },
   });
 
-  return NextResponse.json({
-    id:          atualizado.id,
-    seq:         atualizado.seq,
-    dataLanc:    atualizado.dataLanc.toISOString().split("T")[0],
-    descricao:   atualizado.descricao,
-    valor:       toNumber(atualizado.valor),
-    tipo:        atualizado.tipo,
-    status:      atualizado.status,
-    statusManual: atualizado.statusManual,
-    statusExtrato:atualizado.statusExtrato,
-    fornecedor:   atualizado.fornecedor,
-    fantasiaPadrao: atualizado.fornecedorRef
-      ? `${atualizado.fornecedorRef.codigo} – ${atualizado.fornecedorRef.nome}`
-      : atualizado.fantasiaPadrao,
-    centroCusto:  atualizado.centroCusto,
-    banco:        atualizado.banco,
-    anotacao:     atualizado.anotacao,
-    criadoEm:    atualizado.criadoEm.toISOString(),
-  });
+  return NextResponse.json(toLancamentoDTO(atualizado, atualizado.seq));
 }
 
 // ── DELETE /api/lancamentos/[id] ────────────────────────────

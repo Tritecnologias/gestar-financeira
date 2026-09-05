@@ -104,6 +104,7 @@ export default function LancamentosClient() {
   // Edição inline
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<LancamentoDTO>>({});
+  const editValuesRef = useRef<Partial<LancamentoDTO>>({});
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -185,12 +186,13 @@ export default function LancamentosClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...inlineNewValues,
-          valor: valor ? parseFloat(valor.replace(",", ".")) : (valorPrevisto ? parseFloat(valorPrevisto.replace(",", ".")) : 0),
-          valorPrevisto: inlineNewValues.valorPrevisto ? parseFloat(inlineNewValues.valorPrevisto.replace(",", ".")) : null,
+          valor: valor ? parseFloat(String(valor).replace(",", ".")) : (valorPrevisto ? parseFloat(String(valorPrevisto).replace(",", ".")) : 0),
+          valorPrevisto: inlineNewValues.valorPrevisto ? parseFloat(String(inlineNewValues.valorPrevisto).replace(",", ".")) : null,
           tipo: tipo || "SAIDA",
           status: "realizado",
           statusManual: inlineNewValues.statusManual || null,
           fornecedorId: inlineNewValues.fornecedorId || null,
+          dataLanc: inlineNewValues.dataLanc || new Date().toISOString().split("T")[0],
           dataEmissao: inlineNewValues.dataEmissao || null,
           dataVencOriginal: inlineNewValues.dataVencOriginal || null,
           dataVencPlano: inlineNewValues.dataVencPlano || null,
@@ -252,38 +254,61 @@ export default function LancamentosClient() {
 
   // ── Edição inline ─────────────────────────────────────────
   const startEdit = (row: LancamentoDTO) => {
-    if (editingId && editingId !== row.id) saveEdit(editingId);
+    if (editingId && editingId !== row.id) {
+      saveEdit(editingId);
+    }
     setEditingId(row.id);
-    setEditValues({ ...row });
+    const initial = { ...row };
+    setEditValues(initial);
+    editValuesRef.current = initial;
   };
 
-  const saveEdit = async (id: string) => {
+  const saveEdit = async (id: string, valuesOverride?: Partial<LancamentoDTO>) => {
     if (!id) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    const dataToSave = valuesOverride || editValuesRef.current;
+    if (!dataToSave || Object.keys(dataToSave).length === 0) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/lancamentos/${id}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editValues),
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataToSave),
       });
       if (res.ok) {
         const updated = await res.json();
         setLancamentos(prev => prev.map(l => l.id === id ? { ...l, ...updated } : l));
         showToast("✅ Salvo");
-      } else { showToast("❌ Erro ao salvar"); }
-    } finally { setSaving(false); setEditingId(null); setEditValues({}); }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(`❌ ${err.error || "Erro ao salvar"}`);
+      }
+    } catch {
+      showToast("❌ Erro de conexão ao salvar");
+    } finally {
+      setSaving(false);
+      setEditingId(null);
+      setEditValues({});
+      editValuesRef.current = {};
+    }
   };
 
-  const cancelEdit = () => { setEditingId(null); setEditValues({}); };
+  const cancelEdit = () => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    setEditingId(null);
+    setEditValues({});
+    editValuesRef.current = {};
+  };
 
   const handleBlur = (id: string) => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
-      // Verificar se ainda está editando essa mesma linha
-      // Se sim, salvar (significa que saiu da linha)
       saveEdit(id);
-    }, 400);
+    }, 600);
   };
-  const handleFocus = () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  const handleFocus = () => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+  };
 
   const handleDelete = async (id: string) => {
     const res = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
@@ -424,57 +449,143 @@ export default function LancamentosClient() {
 
   // ── Render de célula no modo edição ───────────────────────
   const renderEditCell = (def: (typeof COLUNAS_DEF)[0], rowId: string) => {
-    if (def.editavel === false) return renderCell(def.key, editValues as LancamentoDTO, statusTipos);
+    if (def.editavel === false) return renderCell(def.key, (editValuesRef.current.id === rowId ? editValuesRef.current : editValues) as LancamentoDTO, statusTipos);
     const val = (editValues as any)[def.key] ?? "";
     const common = {
       className: "cell-input",
       onFocus: handleFocus,
-      onBlur: () => handleBlur(rowId),
-      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") saveEdit(rowId); if (e.key === "Escape") cancelEdit(); },
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.key === "Enter") saveEdit(rowId);
+        if (e.key === "Escape") cancelEdit();
+      },
     };
 
-    if (def.tipo === "date") return <input {...common} type="date" value={val?.slice(0, 10) ?? ""} onChange={e => {
-      const newVal = e.target.value;
-      setEditValues(p => {
-        const updated = { ...p, [def.key]: newVal };
-        if (def.key === "dataVencOriginal" && !p.dataVencPlano) {
-          updated.dataVencPlano = newVal;
-        }
-        return updated;
-      });
-      // Agendar auto-save após mudança de data (date picker nem sempre dispara blur)
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-      autoSaveTimer.current = setTimeout(() => saveEdit(rowId), 1000);
-    }} />;
-    if (def.tipo === "number") return <input {...common} type="number" step="0.01" value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className="cell-input num" />;
-    if (def.tipo === "select" && def.options) return (
-      <select {...common} value={val} onChange={e => { setEditValues(p => ({ ...p, [def.key]: e.target.value })); if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); autoSaveTimer.current = setTimeout(() => saveEdit(rowId), 800); }} className="cell-input">
-        {def.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-    );
+    if (def.tipo === "date") {
+      const dateStr = val ? (typeof val === "string" ? val.slice(0, 10) : new Date(val).toISOString().slice(0, 10)) : "";
+      return (
+        <input
+          {...common}
+          type="date"
+          value={dateStr}
+          onChange={e => {
+            const newVal = e.target.value;
+            const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
+            const updated = { ...current, [def.key]: newVal || null };
+            if (def.key === "dataVencOriginal" && !updated.dataVencPlano) {
+              updated.dataVencPlano = newVal || null;
+            }
+            editValuesRef.current = updated;
+            setEditValues(updated);
+            if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+            autoSaveTimer.current = setTimeout(() => {
+              saveEdit(rowId, updated);
+            }, 600);
+          }}
+        />
+      );
+    }
+    if (def.tipo === "number") {
+      return (
+        <input
+          {...common}
+          onBlur={() => handleBlur(rowId)}
+          type="number"
+          step="0.01"
+          value={val ?? ""}
+          onChange={e => {
+            const newVal = e.target.value;
+            const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
+            const updated = { ...current, [def.key]: newVal };
+            editValuesRef.current = updated;
+            setEditValues(updated);
+          }}
+          className="cell-input num"
+        />
+      );
+    }
+    if (def.tipo === "select" && def.options) {
+      return (
+        <select
+          {...common}
+          value={val ?? ""}
+          onChange={e => {
+            const newVal = e.target.value;
+            const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
+            const updated = { ...current, [def.key]: newVal };
+            editValuesRef.current = updated;
+            setEditValues(updated);
+            if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+            autoSaveTimer.current = setTimeout(() => saveEdit(rowId, updated), 600);
+          }}
+          className="cell-input"
+        >
+          {def.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      );
+    }
     if (def.tipo === "select-api") {
       if (def.source === "fornecedores") {
-        // Combinar fornecedores + clientes em uma lista pesquisável
         const allOpts = [...fornecedores.map(f => f.display || `${f.codigo} – ${f.nome}`), ...clientes.map((c: any) => `${c.codigo} – ${c.nome}`)];
         const listId = `datalist-${def.key}-${rowId}`;
         return (
           <>
-            <input {...common} list={listId} value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className="cell-input" placeholder="Digite para buscar..." />
+            <input
+              {...common}
+              onBlur={() => handleBlur(rowId)}
+              list={listId}
+              value={val ?? ""}
+              onChange={e => {
+                const newVal = e.target.value;
+                const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
+                const updated = { ...current, [def.key]: newVal };
+                editValuesRef.current = updated;
+                setEditValues(updated);
+              }}
+              className="cell-input"
+              placeholder="Digite para buscar..."
+            />
             <datalist id={listId}>
               {allOpts.map((o, i) => <option key={i} value={o} />)}
             </datalist>
           </>
         );
       }
-      // Status tipos — manter select
       return (
-        <select {...common} value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className="cell-input">
+        <select
+          {...common}
+          value={val ?? ""}
+          onChange={e => {
+            const newVal = e.target.value;
+            const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
+            const updated = { ...current, [def.key]: newVal };
+            editValuesRef.current = updated;
+            setEditValues(updated);
+            if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+            autoSaveTimer.current = setTimeout(() => saveEdit(rowId, updated), 600);
+          }}
+          className="cell-input"
+        >
           <option value="">—</option>
           {statusTipos.map(o => <option key={o.id} value={o.codigo}>{o.nome}</option>)}
         </select>
       );
     }
-    return <input {...common} type="text" value={val} onChange={e => setEditValues(p => ({ ...p, [def.key]: e.target.value }))} className={`cell-input ${def.key === "descricao" ? "wide" : ""}`} />;
+    return (
+      <input
+        {...common}
+        onBlur={() => handleBlur(rowId)}
+        type="text"
+        value={val ?? ""}
+        onChange={e => {
+          const newVal = e.target.value;
+          const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
+          const updated = { ...current, [def.key]: newVal };
+          editValuesRef.current = updated;
+          setEditValues(updated);
+        }}
+        className={`cell-input ${def.key === "descricao" ? "wide" : ""}`}
+      />
+    );
   };
 
   return (
@@ -681,7 +792,23 @@ export default function LancamentosClient() {
                             {isEditing ? (
                               <>
                                 {saving ? <span style={{ fontSize: 12, color: "var(--text-muted)" }}>💾...</span> : null}
-                                <button className="action-btn" onClick={e => { e.stopPropagation(); cancelEdit(); }} title="Cancelar">✕</button>
+                                <button
+                                  className="action-btn"
+                                  style={{ color: "#fff", background: "var(--accent-green)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }}
+                                  onClick={e => { e.stopPropagation(); saveEdit(row.id); }}
+                                  title="Salvar alterações (Enter)"
+                                  disabled={saving}
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  className="action-btn"
+                                  style={{ color: "#fff", background: "var(--accent-red)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }}
+                                  onClick={e => { e.stopPropagation(); cancelEdit(); }}
+                                  title="Cancelar (Esc)"
+                                >
+                                  ✕
+                                </button>
                               </>
                             ) : pendingDelete === row.id ? (
                               <>

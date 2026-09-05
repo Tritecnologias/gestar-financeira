@@ -21,8 +21,17 @@ export function fmt(value: number | string): string {
  */
 export function formatDate(dateStr: string | Date | null | undefined): string {
   if (!dateStr) return "—";
-  const d = dateStr instanceof Date ? dateStr : new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("pt-BR");
+  if (typeof dateStr === "string") {
+    const s = dateStr.trim().slice(0, 10);
+    const parts = s.split("-");
+    if (parts.length === 3 && parts[0].length === 4) {
+      const [ano, mes, dia] = parts;
+      return `${dia}/${mes}/${ano}`;
+    }
+  }
+  const d = dateStr instanceof Date ? dateStr : new Date(dateStr);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
 /**
@@ -31,8 +40,8 @@ export function formatDate(dateStr: string | Date | null | undefined): string {
  */
 export function toInputDate(date: Date | string | null | undefined): string {
   if (!date) return "";
-  const d = date instanceof Date ? date : new Date(date);
-  return d.toISOString().split("T")[0];
+  if (typeof date === "string") return date.trim().slice(0, 10);
+  return date.toISOString().split("T")[0];
 }
 
 /**
