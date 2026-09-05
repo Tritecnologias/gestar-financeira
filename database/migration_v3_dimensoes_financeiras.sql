@@ -1,5 +1,5 @@
 -- ============================================================
--- GESTAR FINANCEIRA – Migration v3
+-- DEZ SOLUÇÕES – Migration v3
 -- Dimensões Financeiras: centros_custo, categorias, dre
 -- ============================================================
 

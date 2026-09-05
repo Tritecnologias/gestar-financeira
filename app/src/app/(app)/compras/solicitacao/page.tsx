@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Solicitação de Compras – Gestar Financeira' };
+export const metadata: Metadata = { title: 'Solicitação de Compras – Dez Soluções' };
 
 export default function Page() {
   return (

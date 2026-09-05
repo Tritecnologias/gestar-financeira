@@ -1,5 +1,5 @@
 -- ============================================================
--- GESTAR FINANCEIRA – Dados de Exemplo (Seed)
+-- DEZ SOLUÇÕES – Dados de Exemplo (Seed)
 -- ============================================================
 
 -- Tenant de demonstração (Ricardo / admin global)

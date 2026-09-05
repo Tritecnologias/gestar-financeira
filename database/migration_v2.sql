@@ -1,5 +1,5 @@
 -- ============================================================
--- GESTAR FINANCEIRA – Migration v2
+-- DEZ SOLUÇÕES – Migration v2
 -- Expansão: Lançamentos 32 colunas
 -- Tabelas novas: fornecedores, status_manual_tipos, layouts_colunas
 -- ============================================================

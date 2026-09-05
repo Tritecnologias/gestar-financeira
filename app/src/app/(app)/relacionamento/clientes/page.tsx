@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Contato Clientes – Gestar Financeira' };
+export const metadata: Metadata = { title: 'Contato Clientes – Dez Soluções' };
 
 export default function Page() {
   return (

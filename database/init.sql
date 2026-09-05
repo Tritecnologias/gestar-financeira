@@ -1,5 +1,5 @@
 -- ============================================================
--- GESTAR FINANCEIRA – Schema Inicial (MVP v1)
+-- DEZ SOLUÇÕES – Schema Inicial (MVP v1)
 -- Banco: PostgreSQL 16
 -- Multi-tenancy: isolamento por tenant_id em todas as tabelas
 -- ============================================================

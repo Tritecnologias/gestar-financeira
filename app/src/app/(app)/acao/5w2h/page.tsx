@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: '5W2H – Gestar Financeira' };
+export const metadata: Metadata = { title: '5W2H – Dez Soluções' };
 
 export default function Page() {
   return (

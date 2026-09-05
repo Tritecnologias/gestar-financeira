@@ -37,7 +37,7 @@ for (const [route, title, group] of pages) {
 
   const content = `import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: '${title} – Gestar Financeira' };
+export const metadata: Metadata = { title: '${title} – Dez Soluções' };
 
 export default function Page() {
   return (

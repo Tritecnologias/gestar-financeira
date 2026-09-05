@@ -39,7 +39,7 @@ function LoginForm() {
         <div className="login-logo">
           <span className="logo-icon">💼</span>
           <h1>
-            Gestar<strong>Financeira</strong>
+            Dez <strong>Soluções</strong>
           </h1>
           <p>Sistema de Fluxo de Caixa</p>
         </div>
@@ -90,7 +90,7 @@ function LoginForm() {
         </form>
 
         <p style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: "var(--text-muted)" }}>
-          Gestar Financeira © {new Date().getFullYear()}
+          Dez Soluções © {new Date().getFullYear()}
         </p>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Capex – Gestar Financeira' };
+export const metadata: Metadata = { title: 'Capex – Dez Soluções' };
 
 export default function Page() {
   return (

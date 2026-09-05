@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Cronograma – Gestar Financeira' };
+export const metadata: Metadata = { title: 'Cronograma – Dez Soluções' };
 
 export default function Page() {
   return (

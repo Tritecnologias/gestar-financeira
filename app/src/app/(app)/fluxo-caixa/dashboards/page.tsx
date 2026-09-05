@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Dashboards – Gestar Financeira' };
+export const metadata: Metadata = { title: 'Dashboards – Dez Soluções' };
 
 export default function Page() {
   return (

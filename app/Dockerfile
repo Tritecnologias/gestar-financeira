@@ -1,5 +1,5 @@
 # ============================================================
-# GESTAR FINANCEIRA – Dockerfile para Next.js (produção)
+# DEZ SOLUÇÕES – Dockerfile para Next.js (produção)
 # Multi-stage build: builder + runner
 # ============================================================
 

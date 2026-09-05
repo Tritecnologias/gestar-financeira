@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Calendário – Gestar Financeira' };
+export const metadata: Metadata = { title: 'Calendário – Dez Soluções' };
 
 export default function Page() {
   return (

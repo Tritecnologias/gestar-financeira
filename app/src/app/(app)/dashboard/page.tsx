@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Dashboard – Gestar Financeira",
+  title: "Dashboard – Dez Soluções",
 };
 
 export default function DashboardPage() {

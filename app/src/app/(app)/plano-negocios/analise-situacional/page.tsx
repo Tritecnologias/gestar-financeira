@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Análise Situacional – Gestar Financeira' };
+export const metadata: Metadata = { title: 'Análise Situacional – Dez Soluções' };
 
 export default function Page() {
   return (

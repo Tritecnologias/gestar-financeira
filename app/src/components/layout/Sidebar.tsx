@@ -249,7 +249,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
               <>
                 <span className="sb-logo-icon">💼</span>
                 <span className="sb-logo-text">
-                  Gestar<strong>Fin</strong>
+                  Dez <strong>Soluções</strong>
                 </span>
               </>
             )}

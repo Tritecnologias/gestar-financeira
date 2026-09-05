@@ -1,5 +1,5 @@
 -- ============================================================
--- GESTAR FINANCEIRA – Migration v8
+-- DEZ SOLUÇÕES – Migration v8
 -- Criar usuário admin global Wanderson
 -- ============================================================
 

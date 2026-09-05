@@ -1,5 +1,5 @@
 -- ============================================================
--- GESTAR FINANCEIRA – Migration v7
+-- DEZ SOLUÇÕES – Migration v7
 -- Módulo Ação: Tarefas com colunas dinâmicas
 -- ============================================================
 

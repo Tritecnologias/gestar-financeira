@@ -1,5 +1,5 @@
 -- ============================================================
--- GESTAR FINANCEIRA – Migration v4
+-- DEZ SOLUÇÕES – Migration v4
 -- Dimensões Cadastrais: tabela clientes
 -- ============================================================
 

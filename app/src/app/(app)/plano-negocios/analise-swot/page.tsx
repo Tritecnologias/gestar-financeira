@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: 'Análise SWOT – Gestar Financeira' };
+export const metadata: Metadata = { title: 'Análise SWOT – Dez Soluções' };
 
 export default function Page() {
   return (

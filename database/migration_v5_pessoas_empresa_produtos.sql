@@ -1,5 +1,5 @@
 -- ============================================================
--- GESTAR FINANCEIRA – Migration v5
+-- DEZ SOLUÇÕES – Migration v5
 -- Dimensões: pessoas, empresas, produtos
 -- ============================================================
 

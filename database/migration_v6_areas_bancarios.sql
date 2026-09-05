@@ -1,5 +1,5 @@
 -- ============================================================
--- GESTAR FINANCEIRA – Migration v6
+-- DEZ SOLUÇÕES – Migration v6
 -- Áreas de Negócio, Dados Bancários, Centro Custo com área
 -- ============================================================
 
