@@ -98,13 +98,22 @@ const DISABLED_HREFS = new Set([
 ]);
 
 // ── Tenant Selector (admin_global) ────────────────────────────
-function TenantSelector() {
-  const [tenants, setTenants] = useState<{ id: string; nome: string }[]>([]);
+function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
+  const [tenants, setTenants] = useState<{ id: string; nome: string; isActive?: boolean }[]>([]);
   const [active, setActive] = useState("");
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    fetch("/api/tenants").then(r => r.json()).then(d => { if (Array.isArray(d)) setTenants(d); }).catch(() => {});
+    fetch("/api/tenants")
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) {
+          setTenants(d);
+          const current = d.find((t: any) => t.isActive);
+          if (current) setActive(current.id);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const switchTenant = async (tenantId: string) => {
@@ -123,24 +132,70 @@ function TenantSelector() {
 
   if (tenants.length <= 1) return null;
 
+  const activeTenant = tenants.find(t => t.id === active);
+  const isCustomTenant = active && active !== "00000000-0000-0000-0000-000000000001";
+
   return (
-    <div style={{ padding: "6px 10px", borderTop: "1px solid var(--border)", position: "relative" }}>
+    <div style={{ padding: "8px 10px", borderTop: "1px solid var(--border)", position: "relative" }}>
       <button
         onClick={() => setOpen(p => !p)}
-        style={{ background: active ? "rgba(124,58,237,0.1)" : "var(--bg-hover)", border: "1px solid var(--border)", borderRadius: 5, padding: "5px 10px", fontSize: 11, cursor: "pointer", width: "100%", textAlign: "left", color: "var(--text-primary)", fontWeight: 500 }}
+        style={{
+          background: isCustomTenant ? "rgba(234, 88, 12, 0.1)" : "var(--bg-hover)",
+          border: `1px solid ${isCustomTenant ? "rgba(234, 88, 12, 0.3)" : "var(--border)"}`,
+          borderRadius: 6,
+          padding: "6px 10px",
+          fontSize: 11,
+          cursor: "pointer",
+          width: "100%",
+          textAlign: "left",
+          color: "var(--text-primary)",
+          fontWeight: 600,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
       >
-        🏢 {active ? tenants.find(t => t.id === active)?.nome || "Outro tenant" : "Trocar Tenant"}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          🏢 {activeTenant?.nome || defaultTenantNome || "Trocar Empresa"}
+        </span>
+        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>▼</span>
       </button>
       {open && (
-        <div style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 6, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", padding: 6, zIndex: 100, marginBottom: 4 }}>
-          {active && (
-            <button onClick={resetTenant} style={{ width: "100%", padding: "6px 8px", fontSize: 11, background: "rgba(220,38,38,0.08)", border: "none", borderRadius: 4, cursor: "pointer", color: "var(--accent-red)", marginBottom: 4, textAlign: "left" }}>
-              ↩ Voltar ao meu tenant
+        <div style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.2)", padding: 8, zIndex: 100, marginBottom: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 6, padding: "2px 4px" }}>
+            Alternar Empresa / Tenant
+          </div>
+          {isCustomTenant && (
+            <button
+              onClick={resetTenant}
+              style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "rgba(34, 197, 94, 0.12)", border: "1px solid rgba(34, 197, 94, 0.25)", borderRadius: 5, cursor: "pointer", color: "var(--accent-green)", marginBottom: 6, textAlign: "left", fontWeight: 700 }}
+            >
+              ↩ Voltar ao meu tenant (Dez Soluções)
             </button>
           )}
           {tenants.map(t => (
-            <button key={t.id} onClick={() => switchTenant(t.id)} style={{ width: "100%", padding: "6px 8px", fontSize: 11, background: active === t.id ? "rgba(37,99,235,0.1)" : "transparent", border: "none", borderRadius: 4, cursor: "pointer", color: "var(--text-primary)", textAlign: "left", marginBottom: 2 }}>
-              {t.nome}
+            <button
+              key={t.id}
+              onClick={() => switchTenant(t.id)}
+              style={{
+                width: "100%",
+                padding: "6px 10px",
+                fontSize: 11,
+                background: active === t.id ? "rgba(37,99,235,0.12)" : "transparent",
+                border: active === t.id ? "1px solid var(--accent-blue)" : "none",
+                borderRadius: 5,
+                cursor: "pointer",
+                color: "var(--text-primary)",
+                textAlign: "left",
+                marginBottom: 3,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                fontWeight: active === t.id ? 700 : 500,
+              }}
+            >
+              <span>{t.nome}</span>
+              {active === t.id && <span style={{ fontSize: 11, color: "var(--accent-blue)" }}>✓ Ativo</span>}
             </button>
           ))}
         </div>
@@ -396,7 +451,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
 
         {/* ── Tenant Selector (admin_global only) ────────────── */}
         {userPapel === "admin_global" && (
-          <TenantSelector />
+          <TenantSelector defaultTenantNome={tenantNome} />
         )}
 
         {/* ── Footer ────────────────────────────────────────── */}

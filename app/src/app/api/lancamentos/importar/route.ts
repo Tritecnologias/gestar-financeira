@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
-import { prisma } from "@/lib/db";
+import { prisma, getTenantPrisma } from "@/lib/db";
+import { parseDateOnly } from "@/lib/lancamento";
 
 // ── POST /api/lancamentos/importar ────────────────────────────
 // Importação em lote com verificação de duplicidade.
 // Recebe um array de lançamentos e insere em massa, ignorando duplicados
-// (mesmo dataLanc + descricao + valor + tipo já existente no tenant).
+// (mesmo dataLanc + descricao + valor + tipo já existente no tenant de destino).
 export async function POST(req: NextRequest) {
   let db: any, session: any;
   try {
@@ -16,24 +17,38 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { lancamentos } = body;
+  const { lancamentos, tenantId: requestedTenantId } = body;
 
   if (!Array.isArray(lancamentos) || lancamentos.length === 0) {
     return NextResponse.json({ error: "Nenhum lançamento enviado" }, { status: 400 });
   }
 
-  const d = (v?: string) => v ? new Date(v) : null;
+  // Se admin_global especificou o tenant explicitamente, valida e direciona
+  let targetTenantId = session.tenantId;
+  let targetTenantNome = session.tenantNome;
+  let targetDb = db;
+
+  if (requestedTenantId && session.papel === "admin_global") {
+    const validTenant = await prisma.tenant.findUnique({
+      where: { id: requestedTenantId, ativo: true },
+      select: { id: true, nome: true },
+    });
+    if (validTenant) {
+      targetTenantId = validTenant.id;
+      targetTenantNome = validTenant.nome;
+      targetDb = getTenantPrisma(validTenant.id);
+    }
+  }
+
   let inseridos = 0;
   let duplicados = 0;
   let erros = 0;
 
-  // Busca o MAX(seq) atual do tenant uma única vez antes do lote.
-  // Cada inserção incrementa o contador em memória, evitando uma query
-  // por linha e garantindo sequência contínua dentro do lote.
+  // Busca o MAX(seq) atual do tenant de destino uma única vez antes do lote.
   const resultado = await prisma.$queryRaw<{ maxseq: number }[]>`
-    SELECT COALESCE(MAX(seq), 0) AS maxseq FROM lancamentos WHERE tenant_id = ${session.tenantId}
+    SELECT COALESCE(MAX(seq), 0) AS maxseq FROM lancamentos WHERE tenant_id = ${targetTenantId}
   `;
-  let proximoSeq = (resultado[0].maxseq ?? 0) + 1;
+  let proximoSeq = Number(resultado[0]?.maxseq ?? 0) + 1;
 
   // Processar cada lançamento do lote
   for (const item of lancamentos) {
@@ -53,10 +68,10 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Verificação de duplicidade: mesmo dataLanc + descricao + valor + tipo
-      const dataLancDate = new Date(dataLanc);
+      const dataLancDate = parseDateOnly(dataLanc) ?? new Date();
 
-      const existing = await db.lancamento.findFirst({
+      // Verificação de duplicidade no tenant de destino: mesmo dataLanc + descricao + valor + tipo
+      const existing = await targetDb.lancamento.findFirst({
         where: {
           dataLanc: dataLancDate,
           descricao: descricao.trim(),
@@ -71,15 +86,15 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      await db.lancamento.create({
+      await targetDb.lancamento.create({
         data: {
           seq:              proximoSeq,
           dataLanc:         dataLancDate,
-          dataEmissao:      d(dataEmissao),
-          dataVencOriginal: d(dataVencOriginal),
-          dataVencPlano:    d(dataVencPlano),
-          dataEvento:       d(dataEvento),
-          dataPagamento:    d(dataPagamento),
+          dataEmissao:      parseDateOnly(dataEmissao),
+          dataVencOriginal: parseDateOnly(dataVencOriginal),
+          dataVencPlano:    parseDateOnly(dataVencPlano),
+          dataEvento:       parseDateOnly(dataEvento),
+          dataPagamento:    parseDateOnly(dataPagamento),
           descricao:        descricao.trim(),
           valor:            valorNum,
           valorPrevisto:    valorPrevisto ? parseFloat(valorPrevisto) : null,
@@ -104,10 +119,17 @@ export async function POST(req: NextRequest) {
 
       proximoSeq++;
       inseridos++;
-    } catch {
+    } catch (err: any) {
+      console.error("Erro importando linha:", err?.message || err);
       erros++;
     }
   }
 
-  return NextResponse.json({ inseridos, duplicados, erros });
+  return NextResponse.json({
+    inseridos,
+    duplicados,
+    erros,
+    tenantId: targetTenantId,
+    tenantNome: targetTenantNome,
+  });
 }

@@ -17,7 +17,15 @@ export async function GET() {
     orderBy: [{ nome: "asc" }],
   });
 
-  return NextResponse.json(tenants);
+  const enriched = tenants.map(t => ({
+    ...t,
+    isActive: t.id === session.tenantId,
+  }));
+
+  const res = NextResponse.json(enriched);
+  res.headers.set("X-Active-Tenant-Id", session.tenantId);
+  res.headers.set("X-Active-Tenant-Nome", encodeURIComponent(session.tenantNome));
+  return res;
 }
 
 // POST /api/tenants — criar novo tenant (apenas admin_global)

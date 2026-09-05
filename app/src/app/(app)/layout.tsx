@@ -1,26 +1,30 @@
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/tenant";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import Sidebar from "@/components/layout/Sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  let ctx: any;
+  try {
+    ctx = await requireSession();
+  } catch {
+    redirect("/login");
+  }
 
-  const user = session.user as any;
+  const { session } = ctx;
 
-  // Busca o logo do tenant (uma query extra leve)
+  // Busca o logo do tenant ativo
   const tenant = await prisma.tenant.findUnique({
-    where: { id: user.tenantId },
+    where: { id: session.tenantId },
     select: { logoUrl: true },
   });
 
   return (
     <div className="layout">
       <Sidebar
-        userNome={user.name ?? ""}
-        userPapel={user.papel ?? "membro"}
-        tenantNome={user.tenantNome ?? ""}
+        userNome={session.nome || "Usuário"}
+        userPapel={session.papel || "membro"}
+        tenantNome={session.tenantNome || "Dez Soluções"}
         tenantLogoUrl={tenant?.logoUrl ?? null}
       />
       <main className="main" style={{ overflow: "hidden" }}>{children}</main>
