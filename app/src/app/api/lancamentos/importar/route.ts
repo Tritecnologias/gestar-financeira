@@ -43,10 +43,21 @@ export async function POST(req: NextRequest) {
   let inseridos = 0;
   let duplicados = 0;
   let erros = 0;
+  const detalhesErros: string[] = [];
+
+  // Valida usuário criador para não violar FK caso session.id não exista
+  let validCriadoPor: string | null = null;
+  if (session?.id) {
+    const userExists = await prisma.usuario.findUnique({
+      where: { id: session.id },
+      select: { id: true },
+    });
+    if (userExists) validCriadoPor = userExists.id;
+  }
 
   // Busca o MAX(seq) atual do tenant de destino uma única vez antes do lote.
   const resultado = await prisma.$queryRaw<{ maxseq: number }[]>`
-    SELECT COALESCE(MAX(seq), 0) AS maxseq FROM lancamentos WHERE tenant_id = ${targetTenantId}
+    SELECT COALESCE(MAX(seq), 0) AS maxseq FROM lancamentos WHERE tenant_id = ${targetTenantId}::uuid
   `;
   let proximoSeq = Number(resultado[0]?.maxseq ?? 0) + 1;
 
@@ -61,23 +72,67 @@ export async function POST(req: NextRequest) {
         fantasiaPadrao, categoria, dre, cont, anotacao,
       } = item;
 
-      // valor === 0 é válido; só rejeita ausente/inválido
-      const valorNum = parseFloat(valor);
-      if (!dataLanc || !descricao || valor === undefined || valor === null || Number.isNaN(valorNum) || !tipo) {
+      // Data de lançamento obrigatória
+      const dataLancDate = parseDateOnly(dataLanc);
+      if (!dataLancDate) {
         erros++;
+        detalhesErros.push(`Data de lançamento inválida: "${dataLanc}"`);
         continue;
       }
 
-      const dataLancDate = parseDateOnly(dataLanc) ?? new Date();
+      // Descrição obrigatória
+      if (!descricao || !String(descricao).trim()) {
+        erros++;
+        detalhesErros.push("Descrição não informada");
+        continue;
+      }
 
-      // Verificação de duplicidade no tenant de destino: mesmo dataLanc + descricao + valor + tipo
+      // Normaliza valor (deve ser maior que zero devido ao CHECK constraint)
+      let valorNum = typeof valor === "number" ? valor : parseFloat(String(valor).replace(",", "."));
+      if (isNaN(valorNum) || valorNum <= 0) {
+        const prevNum = valorPrevisto != null ? (typeof valorPrevisto === "number" ? valorPrevisto : parseFloat(String(valorPrevisto).replace(",", "."))) : NaN;
+        if (!isNaN(prevNum) && prevNum > 0) {
+          valorNum = prevNum;
+        }
+      }
+
+      if (isNaN(valorNum) || valorNum <= 0) {
+        erros++;
+        detalhesErros.push(`Valor inválido (deve ser > 0): "${valor ?? valorPrevisto}"`);
+        continue;
+      }
+
+      // Normaliza tipo ('ENTRADA' | 'SAIDA')
+      let tipoNormalizado = String(tipo || "SAIDA").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      tipoNormalizado = tipoNormalizado.includes("ENTRADA") ? "ENTRADA" : "SAIDA";
+
+      // Normaliza status ('realizado' | 'previsto' | 'cancelado')
+      let statusNormalizado = String(status || "realizado").toLowerCase().trim();
+      if (!["realizado", "previsto", "cancelado"].includes(statusNormalizado)) {
+        if (statusNormalizado.includes("prev") || statusNormalizado.includes("pend")) {
+          statusNormalizado = "previsto";
+        } else if (statusNormalizado.includes("canc")) {
+          statusNormalizado = "cancelado";
+        } else {
+          statusNormalizado = "realizado";
+        }
+      }
+
+      const dataVencOrigDate = parseDateOnly(dataVencOriginal);
+
+      // Verificação de duplicidade no tenant de destino
+      const dupWhere: any = {
+        dataLanc: dataLancDate,
+        descricao: descricao.trim(),
+        valor: valorNum,
+        tipo: tipoNormalizado,
+      };
+      if (dataVencOrigDate) {
+        dupWhere.dataVencOriginal = dataVencOrigDate;
+      }
+
       const existing = await targetDb.lancamento.findFirst({
-        where: {
-          dataLanc: dataLancDate,
-          descricao: descricao.trim(),
-          valor: valorNum,
-          tipo: tipo,
-        },
+        where: dupWhere,
         select: { id: true },
       });
 
@@ -86,20 +141,22 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      const valorPrevNum = valorPrevisto != null ? (typeof valorPrevisto === "number" ? valorPrevisto : parseFloat(String(valorPrevisto).replace(",", "."))) : null;
+
       await targetDb.lancamento.create({
         data: {
           seq:              proximoSeq,
           dataLanc:         dataLancDate,
           dataEmissao:      parseDateOnly(dataEmissao),
-          dataVencOriginal: parseDateOnly(dataVencOriginal),
+          dataVencOriginal: dataVencOrigDate,
           dataVencPlano:    parseDateOnly(dataVencPlano),
           dataEvento:       parseDateOnly(dataEvento),
           dataPagamento:    parseDateOnly(dataPagamento),
           descricao:        descricao.trim(),
           valor:            valorNum,
-          valorPrevisto:    valorPrevisto ? parseFloat(valorPrevisto) : null,
-          tipo,
-          status:           status || "realizado",
+          valorPrevisto:    valorPrevNum && !isNaN(valorPrevNum) ? valorPrevNum : null,
+          tipo:             tipoNormalizado,
+          status:           statusNormalizado,
           statusManual:     statusManual  || null,
           statusExtrato:    statusExtrato || null,
           banco:            banco         || null,
@@ -113,7 +170,7 @@ export async function POST(req: NextRequest) {
           dre:              dre           || null,
           cont:             cont          || null,
           anotacao:         anotacao      || null,
-          criadoPor:        session.id,
+          criadoPor:        validCriadoPor,
         },
       });
 
@@ -121,6 +178,7 @@ export async function POST(req: NextRequest) {
       inseridos++;
     } catch (err: any) {
       console.error("Erro importando linha:", err?.message || err);
+      detalhesErros.push(err?.message || "Erro desconhecido ao gravar linha");
       erros++;
     }
   }
@@ -129,6 +187,7 @@ export async function POST(req: NextRequest) {
     inseridos,
     duplicados,
     erros,
+    detalhesErros: detalhesErros.slice(0, 10),
     tenantId: targetTenantId,
     tenantNome: targetTenantNome,
   });

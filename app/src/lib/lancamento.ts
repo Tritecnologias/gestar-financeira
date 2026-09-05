@@ -2,15 +2,53 @@ import { toNumber } from "@/lib/formatters";
 import type { LancamentoDTO, StatusAuto } from "@/types";
 
 /**
- * Converte string 'YYYY-MM-DD' para objeto Date seguro (meio-dia UTC)
- * evitando distorções de fuso horário em campos @db.Date.
+ * Converte qualquer representação de data (ISO 'YYYY-MM-DD', BR 'DD/MM/YYYY',
+ * número serial do Excel ex: 46270, ou objeto Date) para um Date seguro (meio-dia UTC)
+ * para campos @db.Date, evitando distorções de fuso horário.
  */
-export function parseDateOnly(val?: string | Date | null): Date | null {
-  if (!val) return null;
+export function parseDateOnly(val?: string | number | Date | null): Date | null {
+  if (val === undefined || val === null || val === "") return null;
   if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
-  const str = String(val).trim().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
-  return new Date(`${str}T12:00:00.000Z`);
+
+  const str = String(val).trim();
+  if (!str) return null;
+
+  // 1. Número serial do Excel (ex: 46270, "46270", "46270.5")
+  if (/^\d{4,6}(\.\d+)?$/.test(str)) {
+    const num = parseFloat(str);
+    if (!isNaN(num) && num >= 1000 && num <= 100000) {
+      // Excel epoch bug: 25569 dias entre 1899-12-30 e 1970-01-01
+      const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+      if (!isNaN(d.getTime())) {
+        const iso = d.toISOString().slice(0, 10);
+        return new Date(`${iso}T12:00:00.000Z`);
+      }
+    }
+  }
+
+  // 2. Formato brasileiro DD/MM/AAAA ou DD-MM-AAAA
+  const brMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (brMatch) {
+    const dia = brMatch[1].padStart(2, "0");
+    const mes = brMatch[2].padStart(2, "0");
+    const ano = brMatch[3];
+    return new Date(`${ano}-${mes}-${dia}T12:00:00.000Z`);
+  }
+
+  // 3. Formato ISO AAAA-MM-DD
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return new Date(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T12:00:00.000Z`);
+  }
+
+  // 4. Fallback: construtor Date padrão
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const iso = parsed.toISOString().slice(0, 10);
+    return new Date(`${iso}T12:00:00.000Z`);
+  }
+
+  return null;
 }
 
 /**

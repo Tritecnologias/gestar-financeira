@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useRef, useEffect } from "react";
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
 }
 
 const COLUNAS_MAPEAMENTO = [
-  { csv: ["data_lanc", "data_lan_", "data_lancamento", "dt_lanc", "dt_lancamento"], campo: "dataLanc", label: "Data Lançamento" },
+  { csv: ["data_lanc", "data_lan_", "data_lan__", "data_lancamento", "dt_lanc", "dt_lancamento"], campo: "dataLanc", label: "Data Lançamento" },
   { csv: ["descri___o", "descri__o", "descricao", "descrição", "historico"], campo: "descricao", label: "Descrição" },
   { csv: ["vl__realizado", "valor_realizado", "realizado", "valor_pago", "valor"], campo: "valor", label: "Valor Realizado" },
   { csv: ["vl__previsto", "valor_previsto", "previsto"], campo: "valorPrevisto", label: "Valor Previsto" },
@@ -40,6 +40,65 @@ function matchHeaderIndex(csvHeaders: string[], variants: string[]): number {
   return csvHeaders.findIndex(h => variants.some(v => v.length > 4 && h.includes(v)));
 }
 
+function parseDateCell(val: any): string | null {
+  if (val === undefined || val === null || val === "") return null;
+  const str = String(val).trim();
+  if (!str) return null;
+
+  // 1. Serial Excel (ex: 46270 ou "46270")
+  if (/^\d{4,6}(\.\d+)?$/.test(str)) {
+    const num = parseFloat(str);
+    if (!isNaN(num) && num >= 1000 && num <= 100000) {
+      const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().slice(0, 10);
+      }
+    }
+  }
+
+  // 2. DD/MM/AAAA ou DD-MM-AAAA
+  const brMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (brMatch) {
+    return `${brMatch[3]}-${brMatch[2].padStart(2, "0")}-${brMatch[1].padStart(2, "0")}`;
+  }
+
+  // 3. AAAA-MM-DD
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  return null;
+}
+
+function parseMoedaCell(val: any): number | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "number") return isNaN(val) ? null : val;
+  let str = String(val).trim();
+  if (!str) return null;
+
+  str = str.replace(/[^\d,.-]/g, "");
+  if (!str) return null;
+
+  if (str.includes(",") && str.includes(".")) {
+    if (str.lastIndexOf(",") > str.lastIndexOf(".")) {
+      str = str.replace(/\./g, "").replace(",", ".");
+    } else {
+      str = str.replace(/,/g, "");
+    }
+  } else if (str.includes(",")) {
+    str = str.replace(",", ".");
+  }
+
+  const num = parseFloat(str);
+  return isNaN(num) ? null : num;
+}
+
 const BATCH_SIZE = 100;
 
 export default function ImportModal({ open, onClose, onImported }: Props) {
@@ -49,7 +108,13 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
   const [headers, setHeaders] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
-  const [result, setResult] = useState<{ ok: number; erro: number; duplicados: number; tenantNome?: string } | null>(null);
+  const [result, setResult] = useState<{
+    ok: number;
+    erro: number;
+    duplicados: number;
+    tenantNome?: string;
+    detalhesErros?: string[];
+  } | null>(null);
   const [error, setError] = useState("");
   const [tenants, setTenants] = useState<{ id: string; nome: string; isActive?: boolean }[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>("");
@@ -122,18 +187,15 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
 
     for (const map of COLUNAS_MAPEAMENTO) {
       const idx = matchHeaderIndex(csvHeaders, map.csv);
-      if (idx >= 0 && row[idx]) {
+      if (idx >= 0 && row[idx] !== undefined && row[idx] !== null && row[idx] !== "") {
         let val: any = row[idx];
         if (map.campo === "valor" || map.campo === "valorPrevisto") {
-          val = parseFloat(val.replace(/[^\d,.-]/g, "").replace(",", "."));
-          if (isNaN(val)) val = null;
-        }
-        if (map.campo.startsWith("data") && val) {
-          const parts = val.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-          if (parts) val = `${parts[3]}-${parts[2]}-${parts[1]}`;
-        }
-        if (map.campo === "tipo" && val) {
-          const normalizado = val.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          val = parseMoedaCell(val);
+        } else if (map.campo.startsWith("data") || map.campo.startsWith("dt")) {
+          const parsed = parseDateCell(val);
+          val = parsed ?? val;
+        } else if (map.campo === "tipo") {
+          const normalizado = String(val).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
           val = normalizado.includes("ENTRADA") ? "ENTRADA" : "SAIDA";
         }
         if (val !== null && val !== undefined && val !== "") lancamento[map.campo] = val;
@@ -172,6 +234,7 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
 
       let ok = 0, erro = 0, duplicados = 0;
       let returnedTenantNome = selectedTenantNome;
+      const errosDetalhes: string[] = [];
 
       for (let i = 0; i < totalRows; i += BATCH_SIZE) {
         if (abortRef.current) break;
@@ -179,10 +242,24 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
         const batch = dataRows.slice(i, i + BATCH_SIZE);
         const lancamentos: any[] = [];
 
-        for (const row of batch) {
+        for (let rIdx = 0; rIdx < batch.length; rIdx++) {
+          const row = batch[rIdx];
           const lancamento = mapRowToLancamento(row, csvHeaders);
-          if (!lancamento.dataLanc || !lancamento.descricao) { erro++; continue; }
-          if (!lancamento.valor && !lancamento.valorPrevisto) { erro++; continue; }
+          if (!lancamento.dataLanc) {
+            erro++;
+            if (errosDetalhes.length < 5) errosDetalhes.push(`Linha ${i + rIdx + 2}: Data de lançamento não reconhecida`);
+            continue;
+          }
+          if (!lancamento.descricao) {
+            erro++;
+            if (errosDetalhes.length < 5) errosDetalhes.push(`Linha ${i + rIdx + 2}: Descrição não informada`);
+            continue;
+          }
+          if (!lancamento.valor && !lancamento.valorPrevisto) {
+            erro++;
+            if (errosDetalhes.length < 5) errosDetalhes.push(`Linha ${i + rIdx + 2}: Valor ausente`);
+            continue;
+          }
           if (!lancamento.valor) lancamento.valor = lancamento.valorPrevisto || 0;
           lancamentos.push(lancamento);
         }
@@ -200,26 +277,36 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
 
             if (res.ok) {
               const data = await res.json();
-              ok += data.inseridos ?? lancamentos.length;
+              ok += data.inseridos ?? 0;
               duplicados += data.duplicados ?? 0;
+              erro += data.erros ?? 0;
+              if (Array.isArray(data.detalhesErros)) {
+                for (const d of data.detalhesErros) {
+                  if (errosDetalhes.length < 10) errosDetalhes.push(d);
+                }
+              }
               if (data.tenantNome) returnedTenantNome = data.tenantNome;
             } else {
               erro += lancamentos.length;
+              const data = await res.json().catch(() => null);
+              if (data?.error) {
+                setError(data.error);
+                errosDetalhes.push(data.error);
+              }
               if (res.status === 401 || res.status === 403 || res.status === 409) {
-                const data = await res.json().catch(() => null);
-                setError(data?.error || "Não foi possível importar. Verifique sua sessão/empresa.");
                 abortRef.current = true;
               }
             }
-          } catch {
+          } catch (err: any) {
             erro += lancamentos.length;
+            errosDetalhes.push(err?.message || "Erro de conexão ao enviar lote");
           }
         }
 
         setProgress({ current: Math.min(i + BATCH_SIZE, totalRows), total: totalRows });
       }
 
-      setResult({ ok, erro, duplicados, tenantNome: returnedTenantNome });
+      setResult({ ok, erro, duplicados, tenantNome: returnedTenantNome, detalhesErros: errosDetalhes });
       setImporting(false);
       if (ok > 0) onImported();
     };
@@ -329,15 +416,49 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
           {error && <div className="alert alert-error" style={{ marginBottom: 0 }}>{error}</div>}
 
           {result && (
-            <div style={{ padding: 14, borderRadius: 8, background: result.erro > 0 ? "var(--kpi-red-bg)" : "var(--kpi-green-bg)", border: `1px solid ${result.erro > 0 ? "var(--kpi-red-border)" : "var(--kpi-green-border)"}` }}>
+            <div
+              style={{
+                padding: 14,
+                borderRadius: 8,
+                background:
+                  result.ok > 0 && result.erro === 0
+                    ? "var(--kpi-green-bg)"
+                    : result.ok > 0
+                      ? "rgba(234, 179, 8, 0.12)"
+                      : "var(--kpi-red-bg)",
+                border: `1px solid ${
+                  result.ok > 0 && result.erro === 0
+                    ? "var(--kpi-green-border)"
+                    : result.ok > 0
+                      ? "rgba(234, 179, 8, 0.35)"
+                      : "var(--kpi-red-border)"
+                }`,
+              }}
+            >
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-                {result.erro === 0 ? "🎉 Importação realizada com sucesso!" : "Aviso de Importação"}
+                {result.ok > 0 && result.erro === 0
+                  ? "🎉 Importação realizada com sucesso!"
+                  : result.ok > 0
+                    ? "⚠️ Importação parcial concluída"
+                    : "❌ Nenhum lançamento foi importado"}
               </div>
               <div style={{ fontSize: 13 }}>
                 <strong>{result.ok}</strong> lançamentos importados para a empresa <strong>{result.tenantNome || selectedTenantNome || "Dez Soluções"}</strong>
                 {result.duplicados > 0 && `, ${result.duplicados} registros duplicados ignorados`}
                 {result.erro > 0 && `, ${result.erro} linhas com erro`}
               </div>
+              {result.detalhesErros && result.detalhesErros.length > 0 && (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed var(--border)", fontSize: 12 }}>
+                  <div style={{ fontWeight: 600, color: "var(--accent-red)", marginBottom: 4 }}>
+                    Motivos encontrados ({result.detalhesErros.length}):
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: "var(--text-secondary)" }}>
+                    {result.detalhesErros.map((det, idx) => (
+                      <li key={idx}>{det}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
@@ -528,19 +649,40 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
                   <tbody>
                     {preview.slice(1).map((row, i) => (
                       <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                        {row.map((c, j) => (
-                          <td
-                            key={j}
-                            style={{
-                              whiteSpace: "nowrap",
-                              padding: "9px 14px",
-                              fontSize: 12,
-                              color: "var(--text-primary)",
-                            }}
-                          >
-                            {c ? c : <span style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: 11 }}>—</span>}
-                          </td>
-                        ))}
+                        {row.map((c, j) => {
+                          const colHeader = headers[j] || "";
+                          let displayVal = c;
+                          const isDateCol = colHeader.includes("data") || colHeader.includes("venc") || colHeader.includes("dt");
+                          if (isDateCol && c) {
+                            const parsed = parseDateCell(c);
+                            if (parsed) {
+                              const [y, m, d] = parsed.split("-");
+                              displayVal = `${d}/${m}/${y}`;
+                            }
+                          }
+                          return (
+                            <td
+                              key={j}
+                              style={{
+                                whiteSpace: "nowrap",
+                                padding: "9px 14px",
+                                fontSize: 12,
+                                color: "var(--text-primary)",
+                              }}
+                            >
+                              {displayVal ? (
+                                <span>
+                                  {displayVal}
+                                  {isDateCol && displayVal !== c && (
+                                    <span style={{ fontSize: 10, opacity: 0.5, marginLeft: 4 }}>({c})</span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span style={{ color: "var(--text-muted)", fontStyle: "italic", fontSize: 11 }}>—</span>
+                              )}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>
