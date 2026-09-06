@@ -77,9 +77,11 @@ export function calcularCamposDerivados(l: any): Partial<LancamentoDTO> {
   };
 
   const getStatusAuto = (): StatusAuto => {
-    if (l.dataPagamento && l.valor > 0) return "PAGO";
-    if (l.dataVencPlano && new Date(l.dataVencPlano) < hoje && !l.dataPagamento) return "ATRASADO";
-    if (l.dataVencPlano && new Date(l.dataVencPlano) >= hoje && !l.dataPagamento) return "A VENCER";
+    // PAGO: data de pagamento registrada OU lançamento marcado como "realizado"
+    if (l.dataPagamento != null || l.status === "realizado") return "PAGO";
+    // ATRASADO/A VENCER: baseado no vencimento plano (só para previsto/cancelado)
+    if (l.dataVencPlano && new Date(l.dataVencPlano) < hoje) return "ATRASADO";
+    if (l.dataVencPlano && new Date(l.dataVencPlano) >= hoje) return "A VENCER";
     return "PREVISTO";
   };
 

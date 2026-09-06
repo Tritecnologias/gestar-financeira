@@ -311,6 +311,13 @@ export default function LancamentosClient() {
   };
 
   const handleDelete = async (id: string) => {
+    // Cancelar qualquer auto-save pendente para evitar restauração do valor excluído
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    if (editingId === id) {
+      setEditingId(null);
+      setEditValues({});
+      editValuesRef.current = {};
+    }
     const res = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
     if (res.ok) { setLancamentos(prev => prev.filter(l => l.id !== id)); setTotal(t => t - 1); showToast("🗑️ Excluído"); }
     setPendingDelete(null);
@@ -468,6 +475,9 @@ export default function LancamentosClient() {
           type="date"
           value={dateStr}
           onChange={e => {
+            // Atualiza estado local imediatamente — sem auto-save no onChange para
+            // evitar que o timer reverta a data enquanto o usuário ainda está
+            // navegando no calendário (Bug #1 identificado na reunião 05/09)
             const newVal = e.target.value;
             const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
             const updated = { ...current, [def.key]: newVal || null };
@@ -477,10 +487,8 @@ export default function LancamentosClient() {
             editValuesRef.current = updated;
             setEditValues(updated);
             if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-            autoSaveTimer.current = setTimeout(() => {
-              saveEdit(rowId, updated);
-            }, 600);
           }}
+          onBlur={() => handleBlur(rowId)}
         />
       );
     }
@@ -774,7 +782,7 @@ export default function LancamentosClient() {
             </table>
           </div>
           {/* Body scrollável */}
-          <div ref={bodyScrollRef} style={{ flex: 1, overflowY: "auto", overflowX: "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
+          <div ref={bodyScrollRef} style={{ flex: 1, overflowY: "auto", overflowX: "auto", userSelect: editingId ? "none" : "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
             <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
             <tbody>
               {loading ? (
@@ -851,14 +859,14 @@ export default function LancamentosClient() {
                           onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") saveInlineNew(); if (e.key === "Escape") cancelInlineNew(); },
                           ...(idx === 1 ? { ref: inlineNewFirstRef as any } : {}),
                         };
-                        if (def.tipo === "date") return <input {...commonProps} type="date" onChange={e => {
+                        if (def.tipo === "date") return <input {...commonProps} type="date" value={inlineNewValues[def.key] ?? ""} onChange={e => {
                           const newVal = e.target.value;
                           setInlineNewValues(p => {
                             const updated = { ...p, [def.key]: newVal };
                             if (def.key === "dataVencOriginal" && !p.dataVencPlano) updated.dataVencPlano = newVal;
                             return updated;
                           });
-                        }} value={inlineNewValues[def.key] ?? ""} />;
+                        }} />;
                         if (def.tipo === "number") return <input {...commonProps} type="number" step="0.01" className="cell-input num" />;
                         if (def.tipo === "select" && def.options) return (
                           <select {...commonProps}>
