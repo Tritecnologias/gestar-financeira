@@ -703,6 +703,8 @@ export default function LancamentosClient() {
                       key={def.key}
                       style={{
                         ...getThStyle(def),
+                        padding: def.key === "seq" ? "8px 4px" : "8px 8px",
+                        color: "var(--text-primary)",
                         cursor: isNoSort ? "default" : "pointer",
                         userSelect: "none",
                         position: getThStyle(def).position ?? "relative",
@@ -727,7 +729,7 @@ export default function LancamentosClient() {
                       }
                     >
                       <span style={{
-                        display: "flex", alignItems: "center", gap: 4,
+                        display: "flex", alignItems: "center", gap: def.key === "seq" ? 2 : 5,
                         justifyContent: def.align === "right" ? "flex-end" : def.align === "center" ? "center" : "flex-start"
                       }}>
                         {/* Handle de drag (não dispara sort) — só para colunas não fixas */}
@@ -739,7 +741,7 @@ export default function LancamentosClient() {
                             ⠿
                           </span>
                         )}
-                        {def.label}
+                        <span style={{ flex: "1 1 auto", minWidth: 0, textAlign: def.align ?? "left" }}>{def.label}</span>
                         {/* Seta de ordenação — oculta só em Ações */}
                         {!isNoSort && (
                           <span style={{
