@@ -638,10 +638,10 @@ export default function LancamentosClient() {
             </button>
             {filtrosOpen && (
               <div className="accordion-content">
-                <div className="kpi-grid" style={{ padding: 0, marginBottom: 12 }}>
-                  <div className="kpi kpi-green"><div className="kpi-label">Entradas</div><div className="kpi-value">{formatCurrency(entradas)}</div><div className="kpi-sub">Período filtrado</div></div>
-                  <div className="kpi kpi-red"><div className="kpi-label">Saídas</div><div className="kpi-value">{formatCurrency(saidas)}</div><div className="kpi-sub">Período filtrado</div></div>
-                  <div className="kpi kpi-blue"><div className="kpi-label">Saldo do Período</div><div className="kpi-value">{formatCurrency(entradas - saidas)}</div><div className="kpi-sub">Saldo acumulado</div></div>
+                <div className="kpi-grid" style={{ padding: 0, marginBottom: 8 }}>
+                  <div className="kpi kpi-green" style={{ padding: "10px 10px" }}><div className="kpi-label">Entradas</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatCurrency(entradas)}</div><div className="kpi-sub">Período filtrado</div></div>
+                  <div className="kpi kpi-red" style={{ padding: "10px 10px" }}><div className="kpi-label">Saídas</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatCurrency(saidas)}</div><div className="kpi-sub">Período filtrado</div></div>
+                  <div className="kpi kpi-blue" style={{ padding: "10px 10px" }}><div className="kpi-label">Saldo do Período</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatCurrency(entradas - saidas)}</div><div className="kpi-sub">Saldo acumulado</div></div>
                 </div>
                 <div className="filters-row">
                   <div className="filter-group"><label className="filter-label">De</label><input type="date" className="filter-input" value={filtros.dataInicio} onChange={e => { setFiltros(f => ({ ...f, dataInicio: e.target.value })); setPagina(1); }} /></div>
