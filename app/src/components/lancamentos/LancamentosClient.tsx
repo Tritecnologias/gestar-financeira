@@ -10,7 +10,7 @@ import ImportModal from "./ImportModal";
 
 // ── Chip helpers ─────────────────────────────────────────────
 function ChipTipo({ tipo }: { tipo: string }) {
-  return <span className={`chip chip-${tipo.toLowerCase()}`}>{tipo === "ENTRADA" ? "ENTRADA" : "SAÍDA"}</span>;
+  return <span className={tipo === "SAIDA" ? "chip" : `chip chip-${tipo.toLowerCase()}`} style={tipo === "SAIDA" ? { background: "color-mix(in srgb, var(--accent-yellow) 10%, transparent)", color: "var(--accent-yellow)" } : undefined}>{tipo === "ENTRADA" ? "ENTRADA" : "SAÍDA"}</span>;
 }
 function ChipStatus({ status }: { status: string }) {
   const cls: Record<string, string> = { realizado: "chip-realizado", previsto: "chip-previsto", cancelado: "chip-cancelado" };
@@ -76,7 +76,7 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
     case "status":      return <ChipStatus status={val} />;
     case "statusAuto":  return <ChipStatusAuto s={val} />;
     case "valor":
-    case "valorPrevisto": return <span className={row.tipo === "ENTRADA" ? "val-entrada" : "val-saida"}>{formatCurrency(val)}</span>;
+    case "valorPrevisto": return <span className={row.tipo === "ENTRADA" ? "val-entrada" : undefined} style={row.tipo === "ENTRADA" ? undefined : { color: "var(--accent-yellow)", fontWeight: 600 }}>{formatCurrency(val)}</span>;
     case "statusManual": {
       const tipo = statusTipos?.find(st => st.codigo === val);
       const label = tipo ? tipo.nome : val;
@@ -640,7 +640,7 @@ export default function LancamentosClient() {
               <div className="accordion-content">
                 <div className="kpi-grid" style={{ padding: 0, marginBottom: 8 }}>
                   <div className="kpi kpi-green" style={{ padding: "10px 10px" }}><div className="kpi-label">Entradas</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatCurrency(entradas)}</div><div className="kpi-sub">Período filtrado</div></div>
-                  <div className="kpi kpi-red" style={{ padding: "10px 10px" }}><div className="kpi-label">Saídas</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatCurrency(saidas)}</div><div className="kpi-sub">Período filtrado</div></div>
+                  <div className="kpi" style={{ padding: "10px 10px", background: "color-mix(in srgb, var(--accent-yellow) 6%, transparent)", borderColor: "color-mix(in srgb, var(--accent-yellow) 20%, transparent)" }}><div className="kpi-label">Saídas</div><div className="kpi-value" style={{ fontSize: 20, color: "var(--accent-yellow)" }}>{formatCurrency(saidas)}</div><div className="kpi-sub">Período filtrado</div></div>
                   <div className="kpi kpi-blue" style={{ padding: "10px 10px" }}><div className="kpi-label">Saldo do Período</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatCurrency(entradas - saidas)}</div><div className="kpi-sub">Saldo acumulado</div></div>
                 </div>
                 <div className="filters-row">
