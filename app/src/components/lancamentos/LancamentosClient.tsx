@@ -784,7 +784,7 @@ export default function LancamentosClient() {
             </table>
           </div>
           {/* Body scrollável */}
-          <div ref={bodyScrollRef} style={{ flex: 1, overflowY: "auto", overflowX: "auto", userSelect: editingId ? "none" : "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
+          <div ref={bodyScrollRef} className="lancamentos-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto", userSelect: editingId ? "none" : "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
             <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
             <tbody>
               {loading ? (
@@ -907,6 +907,7 @@ export default function LancamentosClient() {
         {/* Footer */}
         <div className="table-footer" style={{ margin: "0 28px 14px" }}>
           <span>{total} lançamentos</span>
+          <span style={{ marginLeft: "auto", marginRight: total > 50 ? 12 : 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)", fontSize: 11 }}>↔ Barra horizontal acima · Ações no extremo direito →</span>
           {total > 50 && (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina === 1} onClick={() => setPagina(p => p - 1)}>← Ant.</button>

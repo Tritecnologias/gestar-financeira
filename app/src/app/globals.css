@@ -675,6 +675,8 @@ body {
 .data-table td { padding: 12px 14px; color: var(--text-primary); vertical-align: middle; }
 .text-right { text-align: right !important; }
 
+.lancamentos-scroll { scrollbar-color: var(--accent-blue) var(--border); }
+
 .val-entrada { color: var(--accent-green); font-weight: 600; }
 .val-saida   { color: var(--accent-red);   font-weight: 600; }
 
