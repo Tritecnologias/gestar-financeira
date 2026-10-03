@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import "./dimensoes-financeiras.css";
 
 interface Categoria { id: string; codigo: string; nome: string; descricao?: string; tipo?: string; }
 interface Conta { id: string; codigo: string; descricao: string; tipo?: string; categoriaId?: string; categoriaCodigo?: string; }
@@ -8,8 +9,13 @@ export default function DimensoesFinanceirasPage() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [contas, setContas] = useState<Conta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [busca, setBusca] = useState("");
+  const catCodigoRef = useRef<HTMLInputElement>(null);
+  const contaCodigoRef = useRef<HTMLInputElement>(null);
 
   // Form Categoria
   const [catCodigo, setCatCodigo] = useState("");
@@ -29,16 +35,23 @@ export default function DimensoesFinanceirasPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const [catRes, contaRes] = await Promise.all([
         fetch("/api/categorias"),
         fetch("/api/plano-contas"),
       ]);
+      if (!catRes.ok || !contaRes.ok) throw new Error("Falha ao consultar os cadastros.");
       const catData = await catRes.json();
       const contaData = await contaRes.json();
-      if (Array.isArray(catData)) setCategorias(catData);
-      if (Array.isArray(contaData)) setContas(contaData);
-    } catch { setError("Erro ao carregar dados"); }
+      if (!Array.isArray(catData) || !Array.isArray(contaData)) throw new Error("Resposta inválida dos cadastros.");
+      setCategorias(catData);
+      setContas(contaData);
+      setError("");
+    } catch {
+      setLoadFailed(true);
+      setError("Não foi possível carregar as dimensões financeiras. Tente atualizar a página.");
+    }
     finally { setLoading(false); }
   }, []);
 
@@ -47,48 +60,69 @@ export default function DimensoesFinanceirasPage() {
   // Criar Categoria
   const criarCategoria = async () => {
     if (!catCodigo.trim() || !catNome.trim()) { setError("Código e nome são obrigatórios"); return; }
-    setError(""); setSaving(true);
+    setError(""); setNotice(""); setSaving(true);
     try {
       const res = await fetch("/api/categorias", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: catCodigo, nome: catNome, tipo: catDescricao || null }) });
-      if (res.ok) { setCatCodigo(""); setCatNome(""); setCatDescricao(""); loadData(); }
-      else { const e = await res.json(); setError(e.error); }
-    } finally { setSaving(false); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); setError(e.error || "Não foi possível incluir a Categoria."); return; }
+      setCatCodigo(""); setCatNome(""); setCatDescricao("");
+      await loadData();
+      setNotice("Categoria incluída.");
+      catCodigoRef.current?.focus();
+    } catch { setError("Não foi possível incluir a Categoria. Verifique a conexão."); }
+    finally { setSaving(false); }
   };
 
   // Criar Conta
   const criarConta = async () => {
     if (!contaCodigo.trim() || !contaDescricao.trim()) { setError("Código e descrição são obrigatórios"); return; }
-    setError(""); setSaving(true);
+    setError(""); setNotice(""); setSaving(true);
     try {
       const res = await fetch("/api/plano-contas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: contaCodigo, descricao: contaDescricao, tipo: contaTipo || "DESPESA", paiId: null }) });
-      if (res.ok) { setContaCodigo(""); setContaDescricao(""); setContaTipo(""); setContaCategoria(""); loadData(); }
-      else { const e = await res.json(); setError(e.error); }
-    } finally { setSaving(false); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); setError(e.error || "Não foi possível incluir a Conta."); return; }
+      setContaCodigo(""); setContaDescricao(""); setContaTipo(""); setContaCategoria("");
+      await loadData();
+      setNotice("Conta incluída.");
+      contaCodigoRef.current?.focus();
+    } catch { setError("Não foi possível incluir a Conta. Verifique a conexão."); }
+    finally { setSaving(false); }
   };
 
   const salvarEdit = async () => {
     if (!editingId) return;
+    setError(""); setNotice("");
     setSaving(true);
     const api = editSection === "cat" ? "/api/categorias" : "/api/plano-contas";
     const body = editSection === "cat" ? { codigo: editData.codigo, nome: editData.nome, tipo: editData.tipo } : { codigo: editData.codigo, descricao: editData.descricao, tipo: editData.tipo };
     try {
       const res = await fetch(`${api}/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (res.ok) { setEditingId(null); setEditSection(null); loadData(); }
-      else { const e = await res.json(); setError(e.error); }
-    } finally { setSaving(false); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); setError(e.error || "Não foi possível salvar a edição."); return; }
+      setEditingId(null); setEditSection(null);
+      await loadData();
+      setNotice("Alteração salva.");
+    } catch { setError("Não foi possível salvar a edição. Verifique a conexão."); }
+    finally { setSaving(false); }
   };
 
   const excluir = async (id: string, section: "cat" | "conta") => {
     if (!confirm("Desativar?")) return;
     const api = section === "cat" ? "/api/categorias" : "/api/plano-contas";
-    await fetch(`${api}/${id}`, { method: "DELETE" });
-    loadData();
+    setError(""); setNotice(""); setSaving(true);
+    try {
+      const res = await fetch(`${api}/${id}`, { method: "DELETE" });
+      if (!res.ok) { const e = await res.json().catch(() => ({})); setError(e.error || "Não foi possível desativar o cadastro."); return; }
+      await loadData();
+      setNotice("Cadastro desativado.");
+    } catch { setError("Não foi possível desativar o cadastro. Verifique a conexão."); }
+    finally { setSaving(false); }
   };
 
-  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Carregando...</div>;
+  const termoBusca = busca.trim().toLocaleLowerCase("pt-BR");
+  const categoriasVisiveis = categorias.filter(c => !termoBusca || [c.codigo, c.nome, c.tipo].some(v => v?.toLocaleLowerCase("pt-BR").includes(termoBusca)));
+  const contasVisiveis = contas.filter(c => !termoBusca || [c.codigo, c.descricao, c.tipo].some(v => v?.toLocaleLowerCase("pt-BR").includes(termoBusca)));
+  const totalVisivel = categoriasVisiveis.length + contasVisiveis.length;
 
   return (
-    <div style={{ height: "100%", overflowY: "auto" }}>
+    <div className="financial-page">
       <header className="topbar">
         <div>
           <h1 className="page-title">Dimensões Financeiras</h1>
@@ -96,28 +130,37 @@ export default function DimensoesFinanceirasPage() {
         </div>
       </header>
 
-      <div style={{ padding: "16px 28px" }}>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+      <div className="financial-content">
+        {error && <div className="alert alert-error financial-message" role="alert">{error}</div>}
+        {notice && !error && <div className="alert financial-message financial-success" role="status">{notice}</div>}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div className="financial-toolbar">
+          <div className="form-group financial-search"><label htmlFor="financial-search">Busca</label><input id="financial-search" type="search" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Código, nome ou descrição..." /></div>
+          <span className="financial-count" aria-live="polite">{loadFailed ? "Cadastros indisponíveis" : loading && categorias.length === 0 && contas.length === 0 ? "Carregando cadastros..." : <>{totalVisivel} {totalVisivel === 1 ? "cadastro" : "cadastros"} ({categoriasVisiveis.length} {categoriasVisiveis.length === 1 ? "categoria" : "categorias"}, {contasVisiveis.length} {contasVisiveis.length === 1 ? "conta" : "contas"})</>}</span>
+          <div className="financial-actions"><button type="button" className="btn btn-secondary" onClick={() => void loadData()} disabled={loading || saving}>Atualizar</button></div>
+        </div>
+
+        {loading && <div className="financial-loading" role="status">Carregando cadastros financeiros...</div>}
+
+        <div className="financial-grid" aria-busy={loading}>
           {/* BLOCO 1: CATEGORIA N1 */}
-          <div>
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-primary)" }}>📋 CATEGORIA N1</h3>
-            <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "flex-end" }}>
-              <div className="form-group" style={{ marginBottom: 0 }}><label>Código</label><input type="text" value={catCodigo} onChange={e => setCatCodigo(e.target.value)} placeholder="01" style={{ width: 60 }} /></div>
-              <div className="form-group" style={{ marginBottom: 0, flex: 1 }}><label>Nome</label><input type="text" value={catNome} onChange={e => setCatNome(e.target.value)} placeholder="RECEITA OPERACIONAL" /></div>
-              <button className="btn btn-primary btn-sm" onClick={criarCategoria} disabled={saving}>+</button>
-            </div>
-            <div style={{ maxHeight: 340, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-            <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
-              <thead><tr><th style={{ width: 40, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>#</th><th style={{ width: 50, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Cód</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Nome</th><th style={{ width: 140, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Código | Nome</th><th style={{ width: 70, textAlign: "center", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Ações</th></tr></thead>
+          <section className="financial-card">
+            <h3>📋 CATEGORIA N1</h3>
+            <form className="financial-add financial-add--category" onSubmit={e => { e.preventDefault(); void criarCategoria(); }}>
+              <div className="form-group"><label htmlFor="financial-cat-code">Código</label><input id="financial-cat-code" ref={catCodigoRef} type="text" value={catCodigo} onChange={e => setCatCodigo(e.target.value)} placeholder="01" /></div>
+              <div className="form-group"><label htmlFor="financial-cat-name">Nome</label><input id="financial-cat-name" type="text" value={catNome} onChange={e => setCatNome(e.target.value)} placeholder="RECEITA OPERACIONAL" /></div>
+              <button type="submit" className="btn btn-primary financial-add-button" aria-label="Incluir Categoria" disabled={saving || loading}>+</button>
+            </form>
+            <div className="financial-table-scroll">
+            <table className="data-table financial-table financial-table--category">
+              <thead><tr><th>#</th><th>Cód</th><th>Nome</th><th>Código | Nome</th><th>Ações</th></tr></thead>
               <tbody>
-                {categorias.map((c, i) => (
+                {categoriasVisiveis.map((c, i) => (
                   <tr key={c.id}>
                     {editingId === c.id && editSection === "cat" ? (
                       <>
                         <td>{i + 1}</td>
-                        <td><input className="cell-input" value={editData.codigo||""} onChange={e => setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{ width: 40 }} /></td>
+                        <td><input className="cell-input" aria-label="Código da Categoria" value={editData.codigo||""} onChange={e => setEditData((d:any)=>({...d,codigo:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")void salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} /></td>
                         <td><input className="cell-input" value={editData.nome||""} onChange={e => setEditData((d:any)=>({...d,nome:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td>
                         <td style={{ fontSize: 11, color: "var(--text-muted)" }}>{editData.codigo} | {editData.nome}</td>
                         <td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td>
@@ -133,38 +176,38 @@ export default function DimensoesFinanceirasPage() {
                     )}
                   </tr>
                 ))}
-                {categorias.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhuma categoria cadastrada</td></tr>}
+                {categoriasVisiveis.length === 0 && <tr><td colSpan={5} className="financial-empty">{loading ? "Carregando..." : loadFailed ? "Não foi possível carregar Categorias." : busca.trim() ? "Nenhuma Categoria encontrada para a busca." : "Nenhuma categoria cadastrada"}</td></tr>}
               </tbody>
             </table>
             </div>
-          </div>
+          </section>
 
           {/* BLOCO 2: CONTA N2 */}
-          <div>
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-primary)" }}>📑 CONTA N2</h3>
-            <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "flex-end" }}>
-              <div className="form-group" style={{ marginBottom: 0 }}><label>Código</label><input type="text" value={contaCodigo} onChange={e => setContaCodigo(e.target.value)} placeholder="01.06" style={{ width: 70 }} /></div>
-              <div className="form-group" style={{ marginBottom: 0, flex: 1 }}><label>Descrição</label><input type="text" value={contaDescricao} onChange={e => setContaDescricao(e.target.value)} placeholder="Operacional" /></div>
-              <div className="form-group" style={{ marginBottom: 0 }}><label>Categoria</label>
-                <select value={contaCategoria} onChange={e => setContaCategoria(e.target.value)} style={{ width: 140 }}>
+          <section className="financial-card">
+            <h3>📑 CONTA N2</h3>
+            <form className="financial-add financial-add--account" onSubmit={e => { e.preventDefault(); void criarConta(); }}>
+              <div className="form-group"><label htmlFor="financial-account-code">Código</label><input id="financial-account-code" ref={contaCodigoRef} type="text" value={contaCodigo} onChange={e => setContaCodigo(e.target.value)} placeholder="01.06" /></div>
+              <div className="form-group"><label htmlFor="financial-account-description">Descrição</label><input id="financial-account-description" type="text" value={contaDescricao} onChange={e => setContaDescricao(e.target.value)} placeholder="Operacional" /></div>
+              <div className="form-group"><label htmlFor="financial-account-category">Categoria</label>
+                <select id="financial-account-category" value={contaCategoria} onChange={e => setContaCategoria(e.target.value)}>
                   <option value="">—</option>
                   {categorias.map(c => <option key={c.id} value={c.codigo}>{c.codigo} | {c.nome}</option>)}
                 </select>
               </div>
-              <button className="btn btn-primary btn-sm" onClick={criarConta} disabled={saving}>+</button>
-            </div>
-            <div style={{ maxHeight: 340, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-            <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
-              <thead><tr><th style={{ width: 40, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>#</th><th style={{ width: 60, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Cód</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Descrição</th><th style={{ width: 90, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Tipo</th><th style={{ width: 70, textAlign: "center", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Ações</th></tr></thead>
+              <button type="submit" className="btn btn-primary financial-add-button" aria-label="Incluir Conta" disabled={saving || loading}>+</button>
+            </form>
+            <div className="financial-table-scroll">
+            <table className="data-table financial-table financial-table--account">
+              <thead><tr><th>#</th><th>Cód</th><th>Descrição</th><th>Tipo</th><th>Ações</th></tr></thead>
               <tbody>
-                {contas.map((c, i) => (
+                {contasVisiveis.map((c, i) => (
                   <tr key={c.id}>
                     {editingId === c.id && editSection === "conta" ? (
                       <>
                         <td>{i + 1}</td>
-                        <td><input className="cell-input" value={editData.codigo||""} onChange={e => setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{ width: 50 }} /></td>
+                        <td><input className="cell-input" aria-label="Código da Conta" value={editData.codigo||""} onChange={e => setEditData((d:any)=>({...d,codigo:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")void salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} /></td>
                         <td><input className="cell-input" value={editData.descricao||""} onChange={e => setEditData((d:any)=>({...d,descricao:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td>
-                        <td><select className="cell-input" value={editData.tipo||""} onChange={e=>setEditData((d:any)=>({...d,tipo:e.target.value}))}><option value="RECEITA">Receita</option><option value="DESPESA">Despesa</option><option value="TRANSFERENCIA">Transf.</option></select></td>
+                        <td><select className="cell-input" aria-label="Tipo da Conta" value={editData.tipo||""} onChange={e=>setEditData((d:any)=>({...d,tipo:e.target.value}))} onKeyDown={e=>{if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}}><option value="RECEITA">Receita</option><option value="DESPESA">Despesa</option><option value="TRANSFERENCIA">Transf.</option></select></td>
                         <td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td>
                       </>
                     ) : (
@@ -178,11 +221,11 @@ export default function DimensoesFinanceirasPage() {
                     )}
                   </tr>
                 ))}
-                {contas.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhuma conta cadastrada</td></tr>}
+                {contasVisiveis.length === 0 && <tr><td colSpan={5} className="financial-empty">{loading ? "Carregando..." : loadFailed ? "Não foi possível carregar Contas." : busca.trim() ? "Nenhuma Conta encontrada para a busca." : "Nenhuma conta cadastrada"}</td></tr>}
               </tbody>
             </table>
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>

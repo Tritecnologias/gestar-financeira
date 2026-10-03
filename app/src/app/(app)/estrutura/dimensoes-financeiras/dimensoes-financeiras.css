@@ -1,0 +1,125 @@
+.financial-page {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.financial-page .topbar { flex-shrink: 0; }
+
+.financial-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  padding: 12px 28px 16px;
+}
+
+.financial-message { flex-shrink: 0; }
+.financial-success {
+  color: var(--success);
+  border: 1px solid var(--success);
+  background: var(--surface);
+}
+.financial-loading { color: var(--text-muted); font-size: var(--font-size-table); }
+
+.financial-toolbar {
+  min-height: 57px;
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+.financial-search { flex: 0 1 300px; min-width: 210px; margin: 0; }
+.financial-search .filter-input { width: 100%; }
+.financial-count { color: var(--text-muted); font-size: var(--font-size-table); padding-bottom: 10px; }
+.financial-actions { display: flex; gap: 8px; margin-left: auto; }
+
+.financial-grid {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.financial-card {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.financial-card h3 {
+  flex-shrink: 0;
+  padding: 9px 12px;
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.financial-add {
+  flex-shrink: 0;
+  min-width: 0;
+  display: grid;
+  align-items: end;
+  gap: 8px;
+  padding: 12px;
+}
+.financial-add--category { grid-template-columns: 64px minmax(0, 1fr) 36px; }
+.financial-add--account { grid-template-columns: 76px minmax(0, 1fr) 144px 36px; }
+.financial-add .form-group { min-width: 0; margin: 0; }
+.financial-add :is(input, select) { width: 100%; min-width: 0; }
+.financial-add-button { min-width: 36px; min-height: 36px; justify-content: center; }
+
+.financial-table-scroll { flex: 1; min-width: 0; min-height: 0; overflow: auto; }
+.financial-table { font-size: var(--font-size-table); }
+.financial-table--category { min-width: 475px; }
+.financial-table--account { min-width: 490px; }
+.financial-table :is(th, td):last-child { text-align: center; }
+.financial-table :is(th, td):first-child { width: 44px; }
+.financial-table--category :is(th, td):nth-child(2) { width: 65px; }
+.financial-table--category :is(th, td):nth-child(4) { width: 140px; }
+.financial-table--account :is(th, td):nth-child(2) { width: 72px; }
+.financial-table--account :is(th, td):nth-child(4) { width: 110px; }
+.financial-table :is(th, td):last-child { width: 90px; }
+.financial-table .action-btn { min-width: 32px; min-height: 32px; opacity: 1; }
+.financial-table .cell-input { width: 100%; min-width: 0; }
+.financial-empty { padding: 24px !important; text-align: center; color: var(--text-muted) !important; }
+
+@media (max-width: 1279px) {
+  .financial-page { overflow-y: auto; overflow-x: hidden; }
+  .financial-content { flex: none; overflow: visible; padding: 12px 20px 24px; }
+  .financial-grid { flex: none; grid-template-columns: minmax(0, 1fr); }
+  .financial-card { min-height: 230px; }
+  .financial-table-scroll { flex: none; overflow-x: auto; overflow-y: hidden; }
+}
+
+@media (max-width: 600px) {
+  .financial-content { padding: 12px 14px 24px; }
+  .financial-search { min-width: 0; flex-basis: 100%; }
+  .financial-count { padding-bottom: 0; }
+  .financial-actions { margin-left: 0; width: 100%; }
+  .financial-actions .btn { min-height: 42px; }
+  .financial-add--category { grid-template-columns: 64px minmax(0, 1fr) 44px; }
+  .financial-add--account { grid-template-columns: 76px minmax(0, 1fr); }
+  .financial-add--account .form-group:nth-child(3) { grid-column: 1 / -1; }
+  .financial-add--account .financial-add-button { grid-column: 1 / -1; }
+  .financial-page :is(.filter-input, .financial-add input, .financial-add select) { min-height: 42px; }
+  .financial-add-button { min-width: 44px; min-height: 44px; }
+  .financial-table .action-btn { min-width: 44px; min-height: 44px; }
+  .financial-table .cell-input { min-height: 42px; }
+}
