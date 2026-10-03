@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import ProductImportModal from "@/components/estrutura/ProductImportModal";
 import "./dimensao-produtos.css";
 
 type Group = "PRODUTO" | "SERVICO";
@@ -37,6 +38,7 @@ export default function DimensaoProdutosPage() {
   const [itemModal, setItemModal] = useState<Product | "new" | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [configOpen, setConfigOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [configTab, setConfigTab] = useState<"tipo" | "linha">("tipo");
   const [configId, setConfigId] = useState<string | null>(null);
   const [configDraft, setConfigDraft] = useState<ConfigDraft>(emptyConfig);
@@ -128,7 +130,7 @@ export default function DimensaoProdutosPage() {
         <label>Linha<select className="filter-input" value={lineFilter} disabled={!typeFilter} onChange={event => setLineFilter(event.target.value)}><option value="">Todas</option>{filterLines.map(line => <option key={line.id} value={line.id}>{line.codigo} — {line.nome}</option>)}</select></label>
         <label>Status<select className="filter-input" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="ativo">Ativos</option><option value="inativo">Inativos</option><option value="">Todos</option></select></label>
         <span className="product-count" role="status">{loading ? "Carregando…" : `${filtered.length} de ${items.length} itens exibidos`}</span>
-        <div className="product-toolbar-actions"><button className="btn btn-secondary" onClick={() => openConfig("tipo")}>Tipos e Linhas</button><button className="btn btn-primary" onClick={() => openItem()}>+ Novo Item</button></div>
+        <div className="product-toolbar-actions"><button className="btn btn-secondary" onClick={() => openConfig("tipo")}>Tipos e Linhas</button><button className="btn btn-secondary" onClick={() => openItem()}>+ Novo Item</button><button className="btn btn-primary" onClick={() => setImportOpen(true)}>Importar Produtos e Serviços</button></div>
       </div>
       <div className="product-table-scroll"><table className="data-table product-table"><thead><tr><th>Código</th><th>Nome</th><th>Grupo</th><th>Tipo / Linha</th><th>Venda ref.</th><th>Status</th><th>Ações</th></tr></thead><tbody>
         {!loading && filtered.length === 0 && <tr><td colSpan={7} className="product-empty">Nenhum Item encontrado. Cadastre primeiro um Tipo para criar um Item.</td></tr>}
@@ -155,5 +157,6 @@ export default function DimensaoProdutosPage() {
       </form>
       <div className="product-config-list">{(configTab === "tipo" ? types : lines).map(entry => <div key={entry.id} className="product-config-row"><span><strong>{entry.codigo}</strong> — {entry.nome}<small>{configTab === "tipo" ? (entry as ProductType).grupo : types.find(type => type.id === (entry as ProductLine).tipoId)?.nome ?? "Tipo indisponível"}{entry.ativo ? "" : " · Inativo"}</small></span><div><button className="action-btn" aria-label={`Editar ${entry.codigo}`} onClick={() => { setConfigId(entry.id); setConfigDraft({ codigo: entry.codigo, nome: entry.nome, grupo: configTab === "tipo" ? (entry as ProductType).grupo : "", tipoId: configTab === "linha" ? (entry as ProductLine).tipoId : "" }); setModalError(""); }}>✏️</button>{entry.ativo && <button className="action-btn" aria-label={`Desativar ${entry.codigo}`} disabled={saving} onClick={() => void deactivateConfig(entry.id)}>🗑️</button>}</div></div>)}{(configTab === "tipo" ? types : lines).length === 0 && <p className="product-muted">Nenhum cadastro nesta seção.</p>}</div>
     </div><div className="product-modal-footer"><button className="btn btn-secondary" onClick={() => setConfigOpen(false)}>Fechar</button></div></div></div>}
+    {importOpen && <ProductImportModal onClose={() => setImportOpen(false)} onImported={() => { void load(); }} />}
   </div>;
 }
