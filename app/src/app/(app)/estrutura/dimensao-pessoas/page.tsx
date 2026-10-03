@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import PeopleImportModal, { downloadPeople } from "@/components/estrutura/PeopleImportModal";
+import PeopleImportModal from "@/components/estrutura/PeopleImportModal";
 import "./dimensao-pessoas.css";
 
 interface Pessoa { id: string; codigo: string; nome: string; cargo?: string; departamento?: string; email?: string; telefone?: string; }
@@ -18,14 +18,6 @@ export default function DimensaoPessoasPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [showImport, setShowImport] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-
-  const baixar = async () => {
-    setDownloading(true); setError("");
-    try { await downloadPeople(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível baixar Pessoas."); }
-    finally { setDownloading(false); }
-  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,14 +87,13 @@ export default function DimensaoPessoasPage() {
           <div className="form-group people-search"><label htmlFor="people-search">Busca</label><input id="people-search" type="search" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome, cargo, código..." /></div>
           <span className="people-count" aria-live="polite">{filtered.length} pessoas</span>
           <span className="people-add-hint">Inclua uma pessoa na primeira linha da tabela</span>
-          <div className="people-import-actions" aria-label="Carga e exportação de Pessoas">
-            <button type="button" className="btn btn-secondary" onClick={() => void baixar()} disabled={downloading}>Baixar Pessoas</button>
-            <button type="button" className="btn btn-primary" onClick={() => setShowImport(true)}>Importar Pessoas</button>
-          </div>
           <div className="people-future-actions" aria-label="Acessos futuros">
             <span>Em breve</span>
             <button type="button" className="btn btn-secondary" disabled title="Organograma ainda não disponível">Organograma</button>
             <button type="button" className="btn btn-secondary" disabled title="Módulo Recursos Humanos ainda não disponível">Recursos Humanos</button>
+          </div>
+          <div className="people-import-actions" aria-label="Importação de Pessoas">
+            <button type="button" className="btn btn-primary" onClick={() => setShowImport(true)}>Importar Pessoas</button>
           </div>
         </div>
 

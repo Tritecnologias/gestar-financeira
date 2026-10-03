@@ -5,7 +5,7 @@ import type { PeopleImportPreview } from "@/lib/people-import";
 
 type Props = { onClose: () => void; onImported: () => void };
 
-export async function downloadPeople() {
+async function downloadPeople() {
   const response = await fetch("/api/pessoas/exportar", { cache: "no-store" });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -26,7 +26,15 @@ export default function PeopleImportModal({ onClose, onImported }: Props) {
   const [preview, setPreview] = useState<PeopleImportPreview | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<PeopleImportPreview["resumo"] | null>(null);
+
+  async function download() {
+    setDownloading(true); setError("");
+    try { await downloadPeople(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível baixar Pessoas."); }
+    finally { setDownloading(false); }
+  }
 
   async function request(selected: File, mode: "preview" | "confirm") {
     const form = new FormData();
@@ -65,7 +73,7 @@ export default function PeopleImportModal({ onClose, onImported }: Props) {
       <div className="modal-header"><h2 id="people-import-title">Importar Pessoas</h2><button type="button" className="modal-close" aria-label="Fechar" onClick={onClose}>✕</button></div>
       <div className="people-import-body">
         <ol className="people-import-steps">
-          <li>Baixe as Pessoas atuais pelo botão <strong>Baixar Pessoas</strong> na página.</li>
+          <li><button type="button" className="btn btn-secondary" onClick={() => void download()} disabled={downloading}>Baixar Pessoas</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Sem dados, o arquivo virá vazio para preenchimento.</p></li>
           <li>Edite ou acrescente linhas no Excel. Mantenha os códigos como texto.</li>
           <li><label className="people-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira a prévia e os erros.</li>

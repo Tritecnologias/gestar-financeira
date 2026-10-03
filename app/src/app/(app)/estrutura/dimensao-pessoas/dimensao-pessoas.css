@@ -22,8 +22,8 @@
 .people-search { min-width: 210px; flex: 0 1 300px; margin: 0; }
 .people-search .filter-input { width: 100%; }
 .people-count, .people-add-hint { color: var(--text-muted); font-size: var(--font-size-table); padding-bottom: 10px; }
-.people-import-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
-.people-future-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.people-import-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.people-future-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
 .people-future-actions span { color: var(--text-muted); font-size: var(--font-size-table); }
 .people-future-actions .btn:disabled {
   opacity: 1;
@@ -115,6 +115,7 @@
   .people-toolbar { min-height: 165px; }
   .people-search { min-width: 0; flex-basis: 100%; }
   .people-future-actions { width: 100%; margin-left: 0; }
+  .people-import-actions { margin-left: auto; }
   .people-import-actions .btn { min-height: 42px; }
   .people-import-modal { width: calc(100vw - 16px); max-height: 94vh; }
   .people-import-body { padding: 14px; }
