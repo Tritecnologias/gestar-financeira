@@ -37,6 +37,8 @@ model Tenant {
   pessoas           Pessoa[]
   empresas          Empresa[]
   produtos          Produto[]
+  produtosTipos     ProdutoTipo[]
+  produtosLinhas    ProdutoLinha[]
   tarefas           Tarefa[]
   tarefaStatus      TarefaStatus[]
   statusManualTipos StatusManualTipo[]
@@ -285,13 +287,56 @@ model Empresa {
   @@map("empresas")
 }
 
+// ── Classificação de Produtos/Serviços ────────────────────────
+model ProdutoTipo {
+  id       String   @id @default(uuid())
+  tenantId String   @map("tenant_id")
+  grupo    String
+  codigo   String   @db.VarChar(30)
+  nome     String
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  linhas ProdutoLinha[]
+  itens  Produto[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, grupo, codigo])
+  @@index([tenantId], map: "idx_produto_tipos_tenant")
+  @@map("produto_tipos")
+}
+
+model ProdutoLinha {
+  id       String   @id @default(uuid())
+  tenantId String   @map("tenant_id")
+  tipoId   String   @map("tipo_id")
+  codigo   String   @db.VarChar(30)
+  nome     String
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tipo ProdutoTipo @relation(fields: [tenantId, tipoId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
+  itens Produto[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, tipoId, codigo])
+  @@index([tenantId, tipoId], map: "idx_produto_linhas_tipo")
+  @@map("produto_linhas")
+}
+
 // ── Produto/Serviço ───────────────────────────────────────────
 model Produto {
   id         String   @id @default(uuid())
   tenantId   String   @map("tenant_id")
   codigo     String   @db.VarChar(30)
   nome       String
-  tipo       String?  // PRODUTO | SERVICO
+  tipo       String?  // Grupo legado: PRODUTO | SERVICO
+  tipoId     String?  @map("tipo_id")
+  linhaId    String?  @map("linha_id")
+  descricao  String?
+  observacoes String?
   unidade    String?  // UN, KG, HR, etc
   precoVenda Decimal? @map("preco_venda") @db.Decimal(15, 2)
   precoCusto Decimal? @map("preco_custo") @db.Decimal(15, 2)
@@ -300,9 +345,13 @@ model Produto {
   criadoEm   DateTime @default(now()) @map("criado_em")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tipoRef ProdutoTipo? @relation(fields: [tenantId, tipoId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  linhaRef ProdutoLinha? @relation(fields: [tenantId, linhaId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_produtos_tenant")
+  @@index([tenantId, tipoId], map: "idx_produtos_tipo")
+  @@index([tenantId, linhaId], map: "idx_produtos_linha")
   @@map("produtos")
 }
 

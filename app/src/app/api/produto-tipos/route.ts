@@ -1,0 +1,28 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireEscrita, requireSession } from "@/lib/tenant";
+import { productApiError, productGroup, productText, productTransaction } from "@/lib/product-catalog";
+
+export async function GET() {
+  try {
+    const { db } = await requireSession();
+    return NextResponse.json(await db.produtoTipo.findMany({ orderBy: [{ grupo: "asc" }, { codigo: "asc" }] }));
+  } catch (error: any) {
+    const e = productApiError(error, "Não foi possível carregar os Tipos.");
+    return NextResponse.json({ error: e.message }, { status: e.status });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { db, session } = await requireEscrita();
+    const input = await req.json();
+    const grupo = productGroup(input.grupo);
+    const codigo = productText(input.codigo, "Código do Tipo", true, 30)!;
+    const nome = productText(input.nome, "Nome do Tipo", true)!;
+    const item = await productTransaction(db, session.tenantId, tx => tx.produtoTipo.create({ data: { grupo, codigo, nome } }));
+    return NextResponse.json(item, { status: 201 });
+  } catch (error: any) {
+    const e = productApiError(error, "Não foi possível criar o Tipo.");
+    return NextResponse.json({ error: e.message }, { status: e.status });
+  }
+}
