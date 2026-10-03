@@ -1,0 +1,165 @@
+.company-dimension-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.company-dimension-page .topbar { flex-shrink: 0; }
+
+.company-dimension-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 28px 16px;
+}
+
+.company-dimension-alert { flex-shrink: 0; }
+
+.company-dimension-toolbar {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.company-dimension-toolbar .filter-input {
+  width: min(300px, 100%);
+}
+
+.company-dimension-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.company-dimension-group-label {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: var(--font-size-helper);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  padding-left: 2px;
+}
+
+.company-dimension-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.company-dimension-card h3 {
+  flex-shrink: 0;
+  padding: 9px 12px;
+  background: var(--surface-elevated);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.company-dimension-table {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.company-dimension-table .data-table {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  font-size: 11px;
+  table-layout: fixed;
+}
+
+.company-dimension-table thead,
+.company-dimension-table tfoot {
+  display: block;
+  flex-shrink: 0;
+}
+
+.company-dimension-table tbody {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+.company-dimension-table tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.company-dimension-table .data-table th,
+.company-dimension-table .data-table td {
+  min-width: 0;
+  padding: 7px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-dimension-table .data-table th {
+  position: static;
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.company-dimension-table .data-table :is(th, td):last-child {
+  text-align: center;
+}
+
+.company-dimension-table tfoot {
+  background: var(--surface-elevated);
+  border-top: 1px solid var(--border);
+}
+
+.company-dimension-table tfoot .cell-input {
+  background: var(--surface);
+}
+
+.company-dimension-card--empresa :is(th, td):nth-child(1) { width: 40%; }
+.company-dimension-card--empresa :is(th, td):nth-child(2) { width: 22%; }
+.company-dimension-card--empresa :is(th, td):nth-child(3) { width: 22%; }
+.company-dimension-card--empresa :is(th, td):nth-child(4) { width: 16%; }
+
+.company-dimension-card--banco :is(th, td):nth-child(1) { width: 33%; }
+.company-dimension-card--banco :is(th, td):nth-child(2) { width: 15%; }
+.company-dimension-card--banco :is(th, td):nth-child(3) { width: 19%; }
+.company-dimension-card--banco :is(th, td):nth-child(4) { width: 17%; }
+.company-dimension-card--banco :is(th, td):nth-child(5) { width: 16%; }
+
+.company-dimension-card--area :is(th, td):nth-child(1) { width: 20%; }
+.company-dimension-card--area :is(th, td):nth-child(2) { width: 64%; }
+.company-dimension-card--area :is(th, td):nth-child(3) { width: 16%; }
+
+.company-dimension-card--centro :is(th, td):nth-child(1) { width: 17%; }
+.company-dimension-card--centro :is(th, td):nth-child(2) { width: 39%; }
+.company-dimension-card--centro :is(th, td):nth-child(3) { width: 28%; }
+.company-dimension-card--centro :is(th, td):nth-child(4) { width: 16%; }
+
+@media (max-width: 1150px) {
+  .company-dimension-content { overflow-x: auto; }
+  .company-dimension-grid { min-width: 900px; }
+}
