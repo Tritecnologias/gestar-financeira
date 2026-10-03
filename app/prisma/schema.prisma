@@ -78,14 +78,18 @@ model PlanoContas {
   // tipo: 'RECEITA' | 'DESPESA' | 'TRANSFERENCIA'
   tipo      String
   paiId     String? @map("pai_id")
+  categoriaId String? @map("categoria_id")
   ativo     Boolean @default(true)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   pai         PlanoContas?  @relation("PlanoContasPai", fields: [paiId], references: [id])
   filhos      PlanoContas[] @relation("PlanoContasPai")
+  categoria   Categoria?    @relation(fields: [categoriaId], references: [id])
   lancamentos Lancamento[]
 
+  @@index([tenantId, categoriaId], map: "idx_plano_contas_tenant_categoria")
+  @@index([tenantId, codigo], map: "idx_plano_contas_tenant_codigo")
   @@map("plano_contas")
 }
 
@@ -142,7 +146,7 @@ model DadoBancario {
   @@map("dados_bancarios")
 }
 
-// ── Categoria (classificação gerencial n5) ────────────────────
+// ── Categoria N1 (classificação financeira) ────────────────────
 model Categoria {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
@@ -153,6 +157,7 @@ model Categoria {
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contas PlanoContas[]
 
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_categoria_tenant")

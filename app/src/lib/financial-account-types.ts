@@ -1,0 +1,1 @@
+export const FINANCIAL_ACCOUNT_TYPES = ["RECEITA", "DESPESA", "TRANSFERENCIA"] as const;
