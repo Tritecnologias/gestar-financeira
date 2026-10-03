@@ -136,7 +136,7 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
   const isCustomTenant = active && active !== "00000000-0000-0000-0000-000000000001";
 
   return (
-    <div style={{ padding: "8px 10px", borderTop: "1px solid var(--border)", position: "relative" }}>
+    <div className="sidebar-tenant-selector" style={{ padding: "8px 10px", borderTop: "1px solid var(--border)", position: "relative" }}>
       <button
         onClick={() => setOpen(p => !p)}
         style={{
@@ -161,7 +161,7 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
         <span style={{ fontSize: 10, color: "var(--text-muted)" }}>▼</span>
       </button>
       {open && (
-        <div style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-elevated)", padding: 8, zIndex: 100, marginBottom: 6 }}>
+        <div className="sidebar-tenant-options" style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-elevated)", padding: 8, zIndex: 100, marginBottom: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 6, padding: "2px 4px" }}>
             Alternar Empresa / Tenant
           </div>
@@ -212,6 +212,11 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
   // O valor persistido é aplicado após o mount via useEffect.
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const sidebarToggleRef = useRef<HTMLButtonElement>(null);
 
   // ── Um único grupo aberto por vez ─────────────────────────────
   const activeGroup = MENU.find((g) => g.sub?.some((s) => pathname.startsWith(s.href)))?.num ?? null;
@@ -238,17 +243,63 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
   }, [collapsed, mounted]);
 
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 1279px)");
+    const update = () => {
+      setIsMobile(media.matches);
+      setMobileOpen(false);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile || !mobileOpen) return;
+    const focusFrame = requestAnimationFrame(() => sidebarToggleRef.current?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        mobileTriggerRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab" || !sidebarRef.current) return;
+      const controls = Array.from(sidebarRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]'))
+        .filter((element) => element.getClientRects().length > 0 && !element.closest('.sb-sub[style*="max-height: 0"]'));
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isMobile, mobileOpen]);
+
+  useEffect(() => {
     if (activeGroup !== null) setOpenGroup(activeGroup);
+    setMobileOpen(false);
   }, [pathname, activeGroup]);
 
   function toggleGroup(num: number) {
     // Se collapsed, expandir primeiro
-    if (collapsed) {
+    if (collapsed && !isMobile) {
       setCollapsed(false);
       setOpenGroup(num);
       return;
     }
     setOpenGroup((prev) => prev === num ? (activeGroup === num ? num : null) : num);
+  }
+
+  function closeMobileMenu() {
+    setMobileOpen(false);
+    mobileTriggerRef.current?.focus();
   }
 
   function handleMouseEnterGroup(num: number, e: React.MouseEvent) {
@@ -268,12 +319,25 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
   const group = tooltip !== null ? MENU.find((g) => g.num === tooltip.num) : null;
 
   // Classe calculada: antes do mount usa sempre 'expanded' (igual ao SSR)
-  const sidebarClass = `sidebar ${mounted && collapsed ? "sidebar--collapsed" : "sidebar--expanded"}`;
+  const compact = mounted && collapsed && !isMobile;
+  const sidebarClass = `sidebar ${compact ? "sidebar--collapsed" : "sidebar--expanded"}${mobileOpen ? " sidebar--mobile-open" : ""}`;
 
   return (
     <>
+      <button
+        ref={mobileTriggerRef}
+        type="button"
+        className="mobile-menu-trigger"
+        aria-label="Abrir menu"
+        aria-expanded={mobileOpen}
+        aria-controls="application-sidebar"
+        onClick={() => setMobileOpen(true)}
+      >
+        ☰
+      </button>
+      {mobileOpen && <button type="button" className="sidebar-backdrop" aria-label="Fechar menu" onClick={closeMobileMenu} />}
       {/* ── Sidebar ──────────────────────────────────────────── */}
-      <aside className={sidebarClass} suppressHydrationWarning>
+      <aside id="application-sidebar" ref={sidebarRef} className={sidebarClass} aria-label="Navegação principal" aria-hidden={isMobile && !mobileOpen} inert={isMobile && !mobileOpen} suppressHydrationWarning>
 
         {/* ── Header: Logo + Toggle ─────────────────────────── */}
         <div className="sidebar-header">
@@ -298,12 +362,13 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
           </div>
 
           <button
+            ref={sidebarToggleRef}
             className="sidebar-toggle"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={mounted && collapsed ? "Expandir menu" : "Recolher menu"}
-            title={mounted && collapsed ? "Expandir menu" : "Recolher menu"}
+            onClick={() => isMobile ? closeMobileMenu() : setCollapsed((c) => !c)}
+            aria-label={isMobile ? "Fechar menu" : compact ? "Expandir menu" : "Recolher menu"}
+            title={isMobile ? "Fechar menu" : compact ? "Expandir menu" : "Recolher menu"}
           >
-            <span className={`toggle-icon ${mounted && collapsed ? "toggle-icon--open" : "toggle-icon--close"}`}>
+            <span className={`toggle-icon ${compact ? "toggle-icon--open" : "toggle-icon--close"}`}>
               ‹
             </span>
           </button>
@@ -337,6 +402,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                     <Link
                       href={g.href!}
                       className={`sb-row ${isSelfActive ? "sb-row--active" : ""}`}
+                      onClick={() => setMobileOpen(false)}
                     >
                       <span className="sb-icon">{g.icon}</span>
                       <span className="sb-label">
@@ -371,7 +437,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                 {/* Sub-itens */}
                 <div
                   className="sb-sub"
-                  style={{ maxHeight: (!(mounted && collapsed) && isOpen) ? `${g.sub!.length * 34}px` : "0" }}
+                  style={{ maxHeight: (!compact && isOpen) ? `${g.sub!.length * (isMobile ? 48 : 34)}px` : "0" }}
                 >
                   {g.sub!.map((item) => {
                     // Divisória
@@ -388,6 +454,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                         key={item.href}
                         href={item.href}
                         className={`sb-sub-item ${isActive ? "sb-sub-item--active" : ""}`}
+                        onClick={() => setMobileOpen(false)}
                       >
                         <span className="sb-sub-letra">{item.letra}.</span>
                         <span className="sb-sub-label">{item.label}</span>
@@ -411,6 +478,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                 <Link
                   href="/admin"
                   className={`sb-row ${pathname.startsWith("/admin") ? "sb-row--active" : ""}`}
+                  onClick={() => setMobileOpen(false)}
                 >
                   <span className="sb-icon">🛡️</span>
                   <span className="sb-label">Admin Global</span>
@@ -429,6 +497,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
             <Link
               href="/configuracoes"
               className={`sb-row ${pathname.startsWith("/configuracoes") ? "sb-row--active" : ""}`}
+              onClick={() => setMobileOpen(false)}
             >
               <span className="sb-icon">⚙️</span>
               <span className="sb-label">Configurações</span>
@@ -475,7 +544,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
       </aside>
 
       {/* ── Tooltip flutuante no modo compacto ─────────────── */}
-      {collapsed && tooltip !== null && group && (
+      {compact && tooltip !== null && group && (
         <div
           className="sb-tooltip"
           style={{ top: tooltip.y }}
