@@ -16,6 +16,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
   const { id } = await params;
+  const centrosAtivos = await db.centroCusto.count({ where: { areaId: id, ativo: true } });
+  if (centrosAtivos > 0) {
+    return NextResponse.json(
+      { error: `Não é possível desativar a Área de Negócio: ${centrosAtivos} Centro(s) de Custo ativo(s) vinculado(s).` },
+      { status: 409 }
+    );
+  }
   try { await db.areaNegocio.update({ where: { id }, data: { ativo: false } }); return NextResponse.json({ ok: true }); }
   catch (e: any) { if (e.code === "P2025") return NextResponse.json({ error: "Não encontrado" }, { status: 404 }); throw e; }
 }

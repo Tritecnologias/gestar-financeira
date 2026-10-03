@@ -21,6 +21,11 @@
 
 .company-dimension-alert { flex-shrink: 0; }
 
+.company-dimension-inline-error {
+  flex-shrink: 0;
+  margin: 8px;
+}
+
 .company-dimension-toolbar {
   flex-shrink: 0;
   margin-bottom: 12px;

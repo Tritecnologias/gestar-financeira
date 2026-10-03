@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
+import { validateActiveArea } from "@/lib/management-structure";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   let db: any;
@@ -7,8 +8,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const { codigo, nome, areaId } = await req.json();
   if (!nome?.trim()) return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
+  const area = await validateActiveArea(db, areaId);
+  if (!area.ok) return NextResponse.json({ error: area.error }, { status: area.status });
   try {
-    const item = await db.centroCusto.update({ where: { id }, data: { codigo: codigo?.trim(), nome: nome.trim(), areaId: areaId || null } });
+    const item = await db.centroCusto.update({ where: { id }, data: { codigo: codigo?.trim(), nome: nome.trim(), areaId: area.id } });
     return NextResponse.json(item);
   } catch (e: any) {
     if (e.code === "P2002") return NextResponse.json({ error: "Código já cadastrado" }, { status: 409 });
