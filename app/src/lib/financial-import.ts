@@ -1,14 +1,20 @@
 import * as XLSX from "xlsx";
 import { FINANCIAL_ACCOUNT_TYPES } from "@/lib/financial-account-types";
+import { categoryCandidatesFromCode, createDescriptionLookup } from "@/lib/financial-import-insights";
 
 export type FinancialIssue = { aba: string; linha: number; campo: string; codigo: string; motivo: string };
-export type FinancialRow = { linha: number; codigo: string; descricao: string; codigoCategoria?: string; tipo?: string; acao?: "novo" | "atualizar" | "erro"; detalhes?: string[] };
+export type FinancialRow = { linha: number; codigo: string; descricao: string; codigoCategoria?: string; tipo?: string; acao?: "novo" | "atualizar" | "igual" | "erro"; detalhes?: string[]; avisos?: string[]; sugestoes?: string[] };
 export type FinancialWorkbook = { categorias: FinancialRow[]; contas: FinancialRow[]; errors: FinancialIssue[] };
-export type FinancialPreview = FinancialWorkbook & { resumo: {
-  totalLido: number; totalNovo: number; totalAtualizado: number; totalInvalido: number;
-  categorias: { novos: number; atualizacoes: number; erros: number };
-  contas: { novos: number; atualizacoes: number; erros: number };
-} };
+export type FinancialPreview = FinancialWorkbook & {
+  warnings: FinancialIssue[]; suggestions: FinancialIssue[];
+  resumo: {
+    totalLido: number; totalNovo: number; totalAtualizado: number; totalSemAlteracao: number;
+    totalInvalido: number; totalErros: number; totalAvisos: number; totalSugestoes: number;
+    ausentes: { categorias: number; contas: number };
+    categorias: { novos: number; atualizacoes: number; semAlteracao: number; avisos: number; erros: number };
+    contas: { novos: number; atualizacoes: number; semAlteracao: number; avisos: number; erros: number };
+  };
+};
 
 const CATEGORY = "CATEGORIAS_N1";
 const ACCOUNT = "CONTAS_N2";
@@ -65,18 +71,34 @@ export async function validateFinancialWorkbook(input: FinancialWorkbook, db: an
   const categorias = input.categorias.map(row => ({ ...row }));
   const contas = input.contas.map(row => ({ ...row }));
   const errors = validateFinancialWorkbookInput(input);
-  const issue = (aba: string, row: FinancialRow, campo: string, motivo: string) => errors.push({ aba, linha: row.linha, campo, codigo: row.codigo, motivo });
-  const categoryCodes = [...new Set([...categorias.map(row => row.codigo), ...contas.map(row => row.codigoCategoria || "")].filter(Boolean))];
-  const accountCodes = [...new Set(contas.map(row => row.codigo).filter(Boolean))];
-  const existingCategories = categoryCodes.length ? await db.categoria.findMany({ where: { codigo: { in: categoryCodes } }, select: { id: true, codigo: true, nome: true, ativo: true } }) : [];
-  const existingAccounts = accountCodes.length ? await db.planoContas.findMany({ where: { codigo: { in: accountCodes } }, select: { id: true, codigo: true, descricao: true, categoriaId: true, tipo: true, ativo: true } }) : [];
-  const previousIds = [...new Set(existingAccounts.map((row: any) => row.categoriaId).filter(Boolean))];
-  const previousCategories = previousIds.length ? await db.categoria.findMany({ where: { id: { in: previousIds } }, select: { id: true, codigo: true } }) : [];
-  const oldCodeById = new Map<string, string>(previousCategories.map((row: any) => [row.id, row.codigo]));
-  const catsByCode = new Map<string, any>(existingCategories.map((row: any) => [row.codigo, row]));
-  const accountsByCode = new Map<string, any>(existingAccounts.map((row: any) => [row.codigo, row]));
+  const warnings: FinancialIssue[] = [], suggestions: FinancialIssue[] = [];
+  const invalidCategoryLines = new Set(errors.filter(error => error.aba === CATEGORY).map(error => error.linha));
+  const invalidAccountLines = new Set(errors.filter(error => error.aba === ACCOUNT).map(error => error.linha));
+  const issue = (aba: string, row: FinancialRow, campo: string, motivo: string) => {
+    errors.push({ aba, linha: row.linha, campo, codigo: row.codigo, motivo });
+    (aba === CATEGORY ? invalidCategoryLines : invalidAccountLines).add(row.linha);
+  };
+  const insight = (list: FinancialIssue[], key: "avisos" | "sugestoes", aba: string, row: FinancialRow, campo: string, motivo: string) => {
+    list.push({ aba, linha: row.linha, campo, codigo: row.codigo, motivo });
+    (row[key] ||= []).push(motivo);
+  };
+  type ExistingCategory = { id: string; codigo: string; nome: string; ativo: boolean };
+  type ExistingAccount = { id: string; codigo: string | null; descricao: string; categoriaId: string | null; tipo: string; ativo: boolean };
+  const [existingCategories, existingAccounts]: [ExistingCategory[], ExistingAccount[]] = await Promise.all([
+    db.categoria.findMany({ select: { id: true, codigo: true, nome: true, ativo: true } }),
+    db.planoContas.findMany({ select: { id: true, codigo: true, descricao: true, categoriaId: true, tipo: true, ativo: true } }),
+  ]);
+  const catsByCode = new Map(existingCategories.map(row => [row.codigo, row]));
+  const catsById = new Map(existingCategories.map(row => [row.id, row]));
+  const accountsByCode = new Map(existingAccounts.filter(row => row.codigo).map(row => [row.codigo!, row]));
   const accountCodeCounts = new Map<string, number>();
-  for (const row of existingAccounts) accountCodeCounts.set(row.codigo, (accountCodeCounts.get(row.codigo) || 0) + 1);
+  for (const row of existingAccounts) if (row.codigo) accountCodeCounts.set(row.codigo, (accountCodeCounts.get(row.codigo) || 0) + 1);
+  const fileCategoriesByCode = new Map<string, FinancialRow[]>();
+  for (const row of categorias) {
+    const sameCode = fileCategoriesByCode.get(row.codigo) || [];
+    sameCode.push(row);
+    fileCategoriesByCode.set(row.codigo, sameCode);
+  }
 
   for (const row of categorias) if (catsByCode.get(row.codigo)?.ativo === false) issue(CATEGORY, row, "CODIGO_CATEGORIA", "Código existente inativo; não será reativado.");
   for (const row of contas) {
@@ -84,30 +106,88 @@ export async function validateFinancialWorkbook(input: FinancialWorkbook, db: an
     if (old?.ativo === false) issue(ACCOUNT, row, "CODIGO_CONTA", "Código existente inativo; não será reativado.");
     if ((accountCodeCounts.get(row.codigo) || 0) > 1) issue(ACCOUNT, row, "CODIGO_CONTA", "Código duplicado no cadastro atual; atualização ambígua.");
     if (row.codigoCategoria) {
-      const fromFile = categorias.filter(cat => cat.codigo === row.codigoCategoria);
-      if (fromFile.length) {
-        if (fromFile.some(cat => errors.some(error => error.aba === CATEGORY && error.linha === cat.linha))) issue(ACCOUNT, row, "CODIGO_CATEGORIA", "Categoria inválida na aba CATEGORIAS_N1.");
-      } else if (!catsByCode.get(row.codigoCategoria)?.ativo) issue(ACCOUNT, row, "CODIGO_CATEGORIA", "Categoria não encontrada ou inativa neste tenant.");
+      const fromFile = fileCategoriesByCode.get(row.codigoCategoria) || [];
+      if (fromFile.length && fromFile.some(cat => invalidCategoryLines.has(cat.linha))) issue(ACCOUNT, row, "CODIGO_CATEGORIA", "Categoria inválida na aba CATEGORIAS_N1.");
+      else if (!fromFile.length && !catsByCode.get(row.codigoCategoria)?.ativo) issue(ACCOUNT, row, "CODIGO_CATEGORIA", catsByCode.has(row.codigoCategoria) ? "Categoria inativa neste tenant." : "Categoria não encontrada neste tenant.");
     }
   }
   for (const row of categorias) {
     const old = catsByCode.get(row.codigo);
-    row.acao = errors.some(error => error.aba === CATEGORY && error.linha === row.linha) ? "erro" : old ? "atualizar" : "novo";
-    if (row.acao === "atualizar") row.detalhes = old.nome === row.descricao ? ["Sem mudança de descrição"] : [`Descrição: ${old.nome} → ${row.descricao}`];
+    row.acao = invalidCategoryLines.has(row.linha) ? "erro" : !old ? "novo" : old.nome === row.descricao ? "igual" : "atualizar";
+    if (row.acao === "atualizar") {
+      row.detalhes = [`Descrição — antes: ${old!.nome} → depois: ${row.descricao}`];
+      insight(warnings, "avisos", CATEGORY, row, "DESCRICAO_CATEGORIA", "Descrição existente será alterada. Confira o antes/depois.");
+    }
   }
   for (const row of contas) {
     const old = accountsByCode.get(row.codigo);
-    row.acao = errors.some(error => error.aba === ACCOUNT && error.linha === row.linha) ? "erro" : old ? "atualizar" : "novo";
-    if (row.acao === "atualizar") {
-      const currentCategory = old.categoriaId ? oldCodeById.get(old.categoriaId) || "Categoria indisponível" : "Sem Categoria";
+    const currentCategory = old?.categoriaId ? catsById.get(old.categoriaId)?.codigo || "Categoria indisponível" : "Sem Categoria";
+    row.acao = invalidAccountLines.has(row.linha) ? "erro" : !old ? "novo" : old.descricao === row.descricao && currentCategory === row.codigoCategoria && old.tipo === row.tipo ? "igual" : "atualizar";
+    if (row.acao === "atualizar" && old) {
       row.detalhes = [];
-      if (old.descricao !== row.descricao) row.detalhes.push(`Descrição: ${old.descricao} → ${row.descricao}`);
-      if (currentCategory !== row.codigoCategoria) row.detalhes.push(`Categoria: ${currentCategory} → ${row.codigoCategoria}`);
-      if (old.tipo !== row.tipo) row.detalhes.push(`Tipo: ${old.tipo} → ${row.tipo}`);
-      if (!row.detalhes.length) row.detalhes.push("Sem mudanças");
+      if (old.descricao !== row.descricao) {
+        row.detalhes.push(`Descrição — antes: ${old.descricao} → depois: ${row.descricao}`);
+        insight(warnings, "avisos", ACCOUNT, row, "DESCRICAO_CONTA", "Descrição existente será alterada. Confira o antes/depois.");
+      }
+      if (currentCategory !== row.codigoCategoria) {
+        row.detalhes.push(`Categoria — antes: ${currentCategory} → depois: ${row.codigoCategoria}`);
+        insight(warnings, "avisos", ACCOUNT, row, "CODIGO_CATEGORIA", "Conta será movida para outra Categoria.");
+      }
+      if (old.tipo !== row.tipo) {
+        row.detalhes.push(`Tipo — antes: ${old.tipo} → depois: ${row.tipo}`);
+        insight(warnings, "avisos", ACCOUNT, row, "TIPO_CONTA", "Tipo da Conta será alterado.");
+      }
     }
   }
-  const tally = (rows: FinancialRow[]) => ({ novos: rows.filter(row => row.acao === "novo").length, atualizacoes: rows.filter(row => row.acao === "atualizar").length, erros: rows.filter(row => row.acao === "erro").length });
-  const cats = tally(categorias), accounts = tally(contas);
-  return { categorias, contas, errors, resumo: { totalLido: categorias.length + contas.length, totalNovo: cats.novos + accounts.novos, totalAtualizado: cats.atualizacoes + accounts.atualizacoes, totalInvalido: cats.erros + accounts.erros, categorias: cats, contas: accounts } };
+
+  const fileCategoryCodes = new Set(categorias.map(row => row.codigo).filter(Boolean));
+  const fileAccountCodes = new Set(contas.map(row => row.codigo).filter(Boolean));
+  const categoryDescriptionMatches = createDescriptionLookup([
+    ...existingCategories.filter(row => row.ativo && !fileCategoryCodes.has(row.codigo)).map(row => ({ codigo: row.codigo, descricao: row.nome })),
+    ...categorias.filter(row => row.acao !== "erro"),
+  ]);
+  const accountDescriptionMatches = createDescriptionLookup([
+    ...existingAccounts.filter(row => row.ativo && row.codigo && !fileAccountCodes.has(row.codigo)).map(row => ({ codigo: row.codigo!, descricao: row.descricao, codigoCategoria: row.categoriaId ? catsById.get(row.categoriaId)?.codigo : undefined })),
+    ...contas.filter(row => row.acao !== "erro"),
+  ]);
+  for (const row of categorias) {
+    if (row.acao === "erro") continue;
+    for (const other of categoryDescriptionMatches(row)) insight(warnings, "avisos", CATEGORY, row, "DESCRICAO_CATEGORIA", `Descrição igual ou semelhante à Categoria ${other.codigo}, com código diferente. Nenhum cadastro será mesclado.`);
+  }
+  for (const row of contas) {
+    if (row.acao === "erro") {
+      if (!row.codigoCategoria && row.codigo) {
+        const candidates = categoryCandidatesFromCode(row.codigo, catsByCode);
+        if (candidates.length === 1) insight(suggestions, "sugestoes", ACCOUNT, row, "CODIGO_CATEGORIA", `Possível Categoria: ${candidates[0].codigo} | ${candidates[0].nome}. Corrija o Excel; nada será preenchido automaticamente.`);
+      }
+      continue;
+    }
+    for (const other of accountDescriptionMatches(row)) {
+      const context = other.codigoCategoria && other.codigoCategoria !== row.codigoCategoria ? ` em outra Categoria (${other.codigoCategoria})` : "";
+      insight(warnings, "avisos", ACCOUNT, row, "DESCRICAO_CONTA", `Descrição igual ou semelhante à Conta ${other.codigo}${context}, com código diferente. Nenhum cadastro será mesclado.`);
+    }
+    if (row.codigo.includes(".") && row.codigoCategoria && !row.codigo.startsWith(`${row.codigoCategoria}.`)) {
+      insight(warnings, "avisos", ACCOUNT, row, "CODIGO_CONTA", `O prefixo de ${row.codigo} aparentemente não corresponde à Categoria ${row.codigoCategoria}. Confira o vínculo; ele não será alterado automaticamente.`);
+    }
+  }
+  const tally = (rows: FinancialRow[], aba: string) => ({
+    novos: rows.filter(row => row.acao === "novo").length,
+    atualizacoes: rows.filter(row => row.acao === "atualizar").length,
+    semAlteracao: rows.filter(row => row.acao === "igual").length,
+    avisos: warnings.filter(item => item.aba === aba).length,
+    erros: errors.filter(item => item.aba === aba).length,
+  });
+  const cats = tally(categorias, CATEGORY), accounts = tally(contas, ACCOUNT);
+  return { categorias, contas, errors, warnings, suggestions, resumo: {
+    totalLido: categorias.length + contas.length, totalNovo: cats.novos + accounts.novos,
+    totalAtualizado: cats.atualizacoes + accounts.atualizacoes,
+    totalSemAlteracao: cats.semAlteracao + accounts.semAlteracao,
+    totalInvalido: categorias.filter(row => row.acao === "erro").length + contas.filter(row => row.acao === "erro").length,
+    totalErros: errors.length, totalAvisos: warnings.length, totalSugestoes: suggestions.length,
+    ausentes: {
+      categorias: existingCategories.filter(row => row.ativo && !fileCategoryCodes.has(row.codigo)).length,
+      contas: existingAccounts.filter(row => row.ativo && !fileAccountCodes.has(row.codigo || "")).length,
+    },
+    categorias: cats, contas: accounts,
+  } };
 }

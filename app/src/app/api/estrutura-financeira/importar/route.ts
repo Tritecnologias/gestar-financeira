@@ -37,10 +37,12 @@ export async function POST(req: NextRequest) {
 
       for (const row of preview.categorias) {
         const id = categoryIds.get(row.codigo);
-        if (id) await tx.categoria.update({ where: { id }, data: { nome: row.descricao } });
+        if (id && row.acao === "atualizar") await tx.categoria.update({ where: { id }, data: { nome: row.descricao } });
         else {
-          const created = await tx.categoria.create({ data: { codigo: row.codigo, nome: row.descricao } });
-          categoryIds.set(row.codigo, created.id);
+          if (!id) {
+            const created = await tx.categoria.create({ data: { codigo: row.codigo, nome: row.descricao } });
+            categoryIds.set(row.codigo, created.id);
+          }
         }
       }
       const referencedCodes = [...new Set(preview.contas.map(row => row.codigoCategoria!))];
@@ -50,6 +52,7 @@ export async function POST(req: NextRequest) {
         for (const row of existing) categoryIds.set(row.codigo, row.id);
       }
       for (const row of preview.contas) {
+        if (row.acao === "igual") continue;
         const categoriaId = categoryIds.get(row.codigoCategoria!);
         if (!categoriaId) throw new Error("Categoria validada não encontrada na confirmação.");
         const id = accountIds.get(row.codigo);
