@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import ManagementImportModal from "@/components/estrutura/ManagementImportModal";
 import "./dimensao-empresa.css";
 
 interface Empresa { id: string; razaoSocial: string; nomeFantasia?: string; cnpj?: string; telefone?: string; email?: string; }
@@ -18,6 +19,7 @@ export default function DimensaoEmpresaPage() {
   const [ccError, setCcError] = useState("");
   const [saving, setSaving] = useState(false);
   const [busca, setBusca] = useState("");
+  const [showImport, setShowImport] = useState(false);
 
   // Forms
   const [fEmp, setFEmp] = useState({ razaoSocial: "", nomeFantasia: "", cnpj: "", telefone: "", email: "" });
@@ -30,8 +32,8 @@ export default function DimensaoEmpresaPage() {
   const [editData, setEditData] = useState<any>({});
   const [editSection, setEditSection] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [eR, bR, aR, cR] = await Promise.all([fetch("/api/empresa"), fetch("/api/dados-bancarios"), fetch("/api/areas-negocio"), fetch("/api/centros-custo")]);
       const [eD, bD, aD, cD] = await Promise.all([eR.json(), bR.json(), aR.json(), cR.json()]);
@@ -96,7 +98,7 @@ export default function DimensaoEmpresaPage() {
       <header className="topbar"><div><h1 className="page-title">Dimensão da Empresa</h1><p className="page-sub">Estrutura Empresa — Dados cadastrais, bancários, áreas e centros de custo</p></div></header>
       <div className="company-dimension-content">
         {error && <div className="alert alert-error company-dimension-alert">{error}</div>}
-        <div className="company-dimension-toolbar"><input type="text" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="🔍 Buscar..." /></div>
+        <div className="company-dimension-toolbar"><input type="text" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="🔍 Buscar..." /><button className="btn btn-primary" onClick={() => setShowImport(true)}>Importar Estrutura Gerencial</button></div>
 
         <div className="company-dimension-grid">
           <div className="company-dimension-group-label">ESTRUTURA FINANCEIRA</div>
@@ -180,6 +182,7 @@ export default function DimensaoEmpresaPage() {
           </section>
         </div>
       </div>
+      {showImport && <ManagementImportModal onClose={() => setShowImport(false)} onImported={() => loadData(true)} />}
     </div>
   );
 }
