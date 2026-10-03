@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import RegistrationImportModal from "@/components/estrutura/RegistrationImportModal";
 import "./dimensoes-cadastrais.css";
 
 type Section = "fornecedores" | "clientes";
@@ -21,6 +22,7 @@ export default function DimensoesCadastraisPage() {
   const [notice, setNotice] = useState("");
   const [busca, setBusca] = useState("");
   const [modal, setModal] = useState<Modal | null>(null);
+  const [showImport, setShowImport] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [modalError, setModalError] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -180,6 +182,7 @@ export default function DimensoesCadastraisPage() {
       <div className="registration-toolbar">
         <label className="registration-search"><span className="registration-visually-hidden">Buscar por código ou nome</span><input className="filter-input" value={busca} onChange={event => setBusca(event.target.value)} placeholder="Buscar por código ou nome" /></label>
         <div className="registration-totals"><span>Fornecedores: {count(filteredSuppliers.length, fornecedores.length)}</span><span>Clientes: {count(filteredCustomers.length, clientes.length)}</span></div>
+        <button type="button" className="btn btn-primary registration-import-action" onClick={() => setShowImport(true)}>Importar Cadastros</button>
       </div>
       {error && <div className="alert alert-error registration-message" role="alert">{error}</div>}
       {notice && <div className="registration-message registration-success" role="status">{notice}</div>}
@@ -236,5 +239,6 @@ export default function DimensoesCadastraisPage() {
         </form>
       </div>
     </div>}
+    {showImport && <RegistrationImportModal onClose={() => setShowImport(false)} onImported={() => { void loadData(); }} />}
   </div>;
 }
