@@ -159,7 +159,64 @@
 .company-dimension-card--centro :is(th, td):nth-child(3) { width: 28%; }
 .company-dimension-card--centro :is(th, td):nth-child(4) { width: 16%; }
 
-@media (max-width: 1150px) {
-  .company-dimension-content { overflow-x: auto; }
-  .company-dimension-grid { min-width: 900px; }
+@media (max-width: 1279px) {
+  .company-dimension-page {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .company-dimension-content {
+    flex: none;
+    overflow: visible;
+    padding: 12px 20px 24px;
+  }
+
+  .company-dimension-grid {
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    row-gap: 12px;
+  }
+
+  .company-dimension-group-label { grid-column: 1; }
+
+  .company-dimension-card {
+    overflow: hidden;
+  }
+
+  .company-dimension-table {
+    flex: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .company-dimension-table .data-table {
+    height: auto;
+    min-width: 660px;
+  }
+
+  .company-dimension-card--banco .data-table { min-width: 700px; }
+
+  .company-dimension-table tbody {
+    flex: none;
+    overflow: visible;
+  }
+
+  .company-dimension-table .cell-input,
+  .company-dimension-table .btn,
+  .company-dimension-table .action-btn {
+    min-height: 40px;
+  }
+
+  .company-dimension-table .action-btn { min-width: 40px; }
+}
+
+@media (max-width: 600px) {
+  .company-dimension-content { padding: 12px 14px 24px; }
+  .company-dimension-table .cell-input,
+  .company-dimension-table .btn,
+  .company-dimension-table .action-btn {
+    min-height: 44px;
+  }
+  .company-dimension-table .action-btn { min-width: 44px; }
 }
