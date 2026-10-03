@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
-import { nextProductCode, productApiError, productGroup, productPrice, productText, productTransaction, validateProductClassification } from "@/lib/product-catalog";
+import { nextProductCode, productApiError, productPrice, productText, productTransaction, validateProductClassification } from "@/lib/product-catalog";
 
-const relations = { tipoRef: { select: { id: true, codigo: true, nome: true, grupo: true, ativo: true } }, linhaRef: { select: { id: true, codigo: true, nome: true, tipoId: true, ativo: true } } };
+const relations = { grupoRef: { select: { id: true, codigo: true, nome: true, ativo: true } }, tipoRef: { select: { id: true, codigo: true, nome: true, grupoId: true, ativo: true } }, linhaRef: { select: { id: true, codigo: true, nome: true, tipoId: true, ativo: true } } };
 
 export async function GET() {
   try {
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const { db, session } = await requireEscrita();
     const input = await req.json();
     const nome = productText(input.nome, "Nome", true)!;
-    const grupo = productGroup(input.grupo);
+    const grupoId = productText(input.grupoId, "Grupo", true, 80)!;
     const tipoId = productText(input.tipoId, "Tipo", true, 80)!;
     const linhaId = productText(input.linhaId, "Linha", false, 80);
     const descricao = productText(input.descricao, "Descrição", false, 5000);
@@ -28,9 +28,9 @@ export async function POST(req: NextRequest) {
     const precoVenda = productPrice(input.precoVenda, "Preço de venda");
     const precoCusto = productPrice(input.precoCusto, "Preço de custo");
     const item = await productTransaction(db, session.tenantId, async tx => {
-      await validateProductClassification(tx, session.tenantId, grupo, tipoId, linhaId);
+      await validateProductClassification(tx, session.tenantId, grupoId, tipoId, linhaId);
       const codigo = await nextProductCode(tx, session.tenantId);
-      return tx.produto.create({ data: { codigo, nome, tipo: grupo, tipoId, linhaId, descricao, observacoes, unidade, precoVenda, precoCusto }, include: relations });
+      return tx.produto.create({ data: { codigo, nome, grupoId, tipoId, linhaId, descricao, observacoes, unidade, precoVenda, precoCusto }, include: relations });
     });
     return NextResponse.json(item, { status: 201 });
   } catch (error: any) {

@@ -7,6 +7,24 @@
 .product-toolbar .filter-input { width: 100%; min-width: 0; }
 .product-count { color: var(--text-muted); font-size: var(--font-size-table); white-space: nowrap; padding-bottom: 9px; }
 .product-toolbar-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.product-view-switch { display: flex; flex-wrap: wrap; gap: 6px; }
+.product-tree { min-width: 0; max-height: calc(100dvh - 260px); overflow: auto; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.product-tree-group { min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; overflow: hidden; }
+.product-tree-toggle { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 38px; padding: 8px 11px; text-align: left; color: var(--text-primary); background: var(--surface); border: 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.product-tree-toggle:hover { background: var(--surface-hover); }
+.product-tree-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.product-tree-toggle:disabled { cursor: default; opacity: 1; }
+.product-tree-toggle > span:first-child { color: var(--action); width: 13px; flex: none; }
+.product-tree-toggle strong { overflow-wrap: anywhere; }
+.product-tree-toggle small { margin-left: auto; color: var(--text-muted); white-space: nowrap; }
+.product-tree-group-head { background: var(--surface-elevated); }
+.product-tree-branches { min-width: 0; padding-left: 18px; }
+.product-tree-type, .product-tree-line { min-width: 0; border-left: 1px solid var(--border); }
+.product-tree-item { display: grid; grid-template-columns: minmax(65px, 95px) minmax(140px, 1fr) minmax(90px, 130px) 65px 92px; align-items: center; gap: 8px; min-width: 0; padding: 6px 11px; border-bottom: 1px solid var(--border); color: var(--text-primary); font-size: var(--font-size-table); }
+.product-tree-item:hover { background: var(--surface-hover); }
+.product-tree-item-name { min-width: 0; overflow-wrap: anywhere; }
+.product-tree-item-name small { display: block; color: var(--text-muted); }
+.product-tree-legacy { padding: 10px 12px; display: flex; justify-content: space-between; gap: 10px; color: var(--text-secondary); }
 .product-table-scroll { min-width: 0; overflow: auto; max-height: calc(100dvh - 250px); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
 .product-table { min-width: 830px; }
 .product-table th { background: var(--surface-elevated); }
@@ -37,6 +55,7 @@
 .product-config-form { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .product-config-form label { flex: 1 1 140px; }
 .product-config-list { border-top: 1px solid var(--border); max-height: 280px; overflow-y: auto; }
+.product-config-search { display: grid; gap: 5px; margin-bottom: 10px; color: var(--text-secondary); font-size: var(--font-size-label); font-weight: 600; }
 .product-config-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border); padding: 8px 4px; color: var(--text-primary); }
 .product-config-row small { display: block; margin-top: 3px; color: var(--text-muted); }
 .product-import-overlay { padding: 12px; }
@@ -79,6 +98,15 @@
   .product-toolbar .product-search { flex-basis: 100%; max-width: none; }
   .product-toolbar-actions { width: 100%; margin-left: 0; }
   .product-toolbar-actions .btn { min-height: 42px; }
+  .product-view-switch .btn { min-height: 42px; }
+  .product-tree { max-height: none; padding: 7px; }
+  .product-tree-branches { padding-left: 10px; }
+  .product-tree-toggle { min-height: 44px; flex-wrap: wrap; }
+  .product-tree-toggle small { white-space: normal; }
+  .product-tree-item { grid-template-columns: 70px minmax(0, 1fr) auto; min-height: 44px; }
+  .product-tree-item > span:nth-child(3) { display: none; }
+  .product-tree-item > span:nth-child(4) { display: none; }
+  .product-tree-item .product-actions { width: auto; }
   .product-table-scroll { max-height: none; }
   .product-actions .action-btn, .product-config-row .action-btn { min-width: 40px; min-height: 40px; }
   .product-modal { max-height: 96dvh; }

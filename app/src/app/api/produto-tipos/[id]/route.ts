@@ -14,7 +14,11 @@ export async function PUT(req: NextRequest, { params }: Context) {
     const item = await productTransaction(db, session.tenantId, async tx => {
       const existing = await tx.produtoTipo.findFirst({ where: { id, tenantId: session.tenantId } });
       if (!existing) throw productError("Tipo não encontrado neste tenant.", 404);
-      if (input.grupo !== undefined && input.grupo !== existing.grupo) throw productError("Grupo do Tipo não pode ser alterado.");
+      if (input.grupoId !== undefined && input.grupoId !== existing.grupoId) throw productError("Grupo do Tipo não pode ser alterado.");
+      if (existing.grupoId) {
+        const group = await tx.produtoGrupo.findFirst({ where: { id: existing.grupoId, tenantId: session.tenantId, ativo: true } });
+        if (!group) throw productError("Grupo do Tipo está inativo ou indisponível.");
+      }
       return tx.produtoTipo.update({ where: { id }, data: { codigo, nome } });
     });
     return NextResponse.json(item);

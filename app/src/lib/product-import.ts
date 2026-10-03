@@ -1,18 +1,19 @@
 import * as XLSX from "xlsx";
 import { productPrice, productText } from "@/lib/product-catalog";
-import { PRODUCT_ITEM_HEADERS, PRODUCT_LINE_HEADERS, PRODUCT_TYPE_HEADERS } from "@/lib/product-import-template";
+import { PRODUCT_GROUP_HEADERS, PRODUCT_ITEM_HEADERS, PRODUCT_LINE_HEADERS, PRODUCT_TYPE_HEADERS } from "@/lib/product-import-template";
 
 export type ProductImportIssue = { aba: string; linha: number; campo: string; codigo: string; motivo: string };
 type Action = "novo" | "atualizar" | "igual" | "erro";
 type BaseRow = { linha: number; acao?: Action; detalhes?: string[]; avisos?: string[]; sugestoes?: string[] };
 export type TypeRow = BaseRow & { grupo: string; codigo: string; nome: string };
+export type GroupRow = BaseRow & { codigo: string; nome: string };
 export type LineRow = BaseRow & { grupo: string; codigoTipo: string; codigo: string; nome: string };
 export type ItemRow = BaseRow & { codigo: string; nome: string; grupo: string; codigoTipo: string; codigoLinha: string; descricao: string; unidade: string; precoVenda: string; precoCusto: string; observacoes: string };
-export type ProductWorkbook = { tipos: TypeRow[]; linhas: LineRow[]; itens: ItemRow[]; errors: ProductImportIssue[] };
+export type ProductWorkbook = { grupos: GroupRow[]; tipos: TypeRow[]; linhas: LineRow[]; itens: ItemRow[]; errors: ProductImportIssue[] };
 export type ProductPreview = ProductWorkbook & {
   warnings: ProductImportIssue[]; suggestions: ProductImportIssue[];
   resumo: { totalLido: number; totalNovo: number; totalAtualizado: number; totalSemAlteracao: number; totalErros: number; totalAvisos: number; totalSugestoes: number;
-    tipos: SectionCount; linhas: SectionCount; itens: SectionCount; ausentes: { tipos: number; linhas: number; itens: number } };
+    grupos: SectionCount; tipos: SectionCount; linhas: SectionCount; itens: SectionCount; ausentes: { grupos: number; tipos: number; linhas: number; itens: number } };
 };
 type SectionCount = { novos: number; atualizacoes: number; semAlteracao: number; erros: number; avisos: number };
 const typeKey = (group: string, code: string) => `${group}\u0000${code}`;
@@ -44,11 +45,12 @@ export function parseProductWorkbook(bytes: Uint8Array): ProductWorkbook {
       return [{ linha, values }];
     });
   }
-  const tipos = sheet("TIPOS", PRODUCT_TYPE_HEADERS, [1]).map(({ linha, values }) => ({ linha, grupo: values[0], codigo: values[1], nome: values[2] }));
-  const linhas = sheet("LINHAS", PRODUCT_LINE_HEADERS, [1, 2]).map(({ linha, values }) => ({ linha, grupo: values[0], codigoTipo: values[1], codigo: values[2], nome: values[3] }));
-  const itens = sheet("ITENS", PRODUCT_ITEM_HEADERS, [0, 3, 4]).map(({ linha, values }) => ({ linha, codigo: values[0], nome: values[1], grupo: values[2], codigoTipo: values[3], codigoLinha: values[4], descricao: values[5], unidade: values[6], precoVenda: values[7], precoCusto: values[8], observacoes: values[9] }));
-  if (!errors.length && !tipos.length && !linhas.length && !itens.length) errors.push({ aba: "ITENS", linha: 0, campo: "ARQUIVO", codigo: "", motivo: "Arquivo sem registros para importar." });
-  return { tipos, linhas, itens, errors };
+  const grupos = sheet("GRUPOS", PRODUCT_GROUP_HEADERS, [0]).map(({ linha, values }) => ({ linha, codigo: values[0], nome: values[1] }));
+  const tipos = sheet("TIPOS", PRODUCT_TYPE_HEADERS, [0, 1]).map(({ linha, values }) => ({ linha, grupo: values[0], codigo: values[1], nome: values[2] }));
+  const linhas = sheet("LINHAS", PRODUCT_LINE_HEADERS, [0, 1, 2]).map(({ linha, values }) => ({ linha, grupo: values[0], codigoTipo: values[1], codigo: values[2], nome: values[3] }));
+  const itens = sheet("ITENS", PRODUCT_ITEM_HEADERS, [0, 2, 3, 4]).map(({ linha, values }) => ({ linha, codigo: values[0], nome: values[1], grupo: values[2], codigoTipo: values[3], codigoLinha: values[4], descricao: values[5], unidade: values[6], precoVenda: values[7], precoCusto: values[8], observacoes: values[9] }));
+  if (!errors.length && !grupos.length && !tipos.length && !linhas.length && !itens.length) errors.push({ aba: "ITENS", linha: 0, campo: "ARQUIVO", codigo: "", motivo: "Arquivo sem registros para importar." });
+  return { grupos, tipos, linhas, itens, errors };
 }
 
 function validText(value: string, label: string, required: boolean, max: number) {
@@ -59,28 +61,48 @@ function normalizedPrice(value: string) { return productPrice(value.replace(",",
 const priceEqual = (a: string | null, b: string | null) => a === b || (a !== null && b !== null && Number(a) === Number(b));
 
 export async function validateProductWorkbook(input: ProductWorkbook, db: any, tenantId: string): Promise<ProductPreview> {
-  const tipos = input.tipos.map(row => ({ ...row })), linhas = input.linhas.map(row => ({ ...row })), itens = input.itens.map(row => ({ ...row }));
+  const grupos = input.grupos.map(row => ({ ...row })), tipos = input.tipos.map(row => ({ ...row })), linhas = input.linhas.map(row => ({ ...row })), itens = input.itens.map(row => ({ ...row }));
   const errors = [...input.errors], warnings: ProductImportIssue[] = [], suggestions: ProductImportIssue[] = [];
-  const invalid = { TIPOS: new Set<number>(), LINHAS: new Set<number>(), ITENS: new Set<number>() };
+  const invalid = { GRUPOS: new Set<number>(), TIPOS: new Set<number>(), LINHAS: new Set<number>(), ITENS: new Set<number>() };
   for (const item of errors) if (item.aba in invalid) invalid[item.aba as keyof typeof invalid].add(item.linha);
   const issue = (aba: keyof typeof invalid, row: BaseRow & { codigo: string }, campo: string, motivo: string) => { errors.push({ aba, linha: row.linha, campo, codigo: row.codigo, motivo }); invalid[aba].add(row.linha); };
   const insight = (kind: "avisos" | "sugestoes", aba: string, row: BaseRow & { codigo: string }, campo: string, motivo: string) => {
     (kind === "avisos" ? warnings : suggestions).push({ aba, linha: row.linha, campo, codigo: row.codigo, motivo });
     (row[kind] ||= []).push(motivo);
   };
-  const [dbTypes, dbLines, dbItems] = await Promise.all([
-    db.produtoTipo.findMany({ where: { tenantId } }), db.produtoLinha.findMany({ where: { tenantId } }), db.produto.findMany({ where: { tenantId } }),
+  const [dbGroups, dbTypes, dbLines, dbItems] = await Promise.all([
+    db.produtoGrupo.findMany({ where: { tenantId } }), db.produtoTipo.findMany({ where: { tenantId } }), db.produtoLinha.findMany({ where: { tenantId } }), db.produto.findMany({ where: { tenantId } }),
   ]);
-  const dbTypeByKey = new Map<string, any>(dbTypes.map((row: any) => [typeKey(row.grupo, row.codigo), row]));
+  const dbGroupByCode = new Map<string, any>(dbGroups.map((row: any) => [row.codigo, row]));
+  const dbGroupById = new Map<string, any>(dbGroups.map((row: any) => [row.id, row]));
+  const dbTypeByKey = new Map<string, any>(dbTypes.flatMap((row: any) => {
+    const group = dbGroupById.get(row.grupoId); return group ? [[typeKey(group.codigo, row.codigo), row] as const] : [];
+  }));
   const dbTypeById = new Map<string, any>(dbTypes.map((row: any) => [row.id, row]));
   const dbLineByKey = new Map<string, any>(dbLines.flatMap((row: any) => {
-    const parent = dbTypeById.get(row.tipoId); return parent ? [[lineKey(parent.grupo, parent.codigo, row.codigo), row] as const] : [];
+    const parent = dbTypeById.get(row.tipoId), group = dbGroupById.get(parent?.grupoId); return group ? [[lineKey(group.codigo, parent.codigo, row.codigo), row] as const] : [];
   }));
   const dbItemByCode = new Map<string, any>(dbItems.map((row: any) => [row.codigo, row]));
+  const fileGroupCounts = new Map<string, number>();
+  for (const row of grupos) fileGroupCounts.set(row.codigo, (fileGroupCounts.get(row.codigo) || 0) + 1);
+  for (const row of grupos) {
+    for (const [field, value, max] of [["CODIGO_GRUPO", row.codigo, 30], ["NOME_GRUPO", row.nome, 200]] as const) {
+      const problem = validText(value, field, true, max); if (problem) issue("GRUPOS", row, field, problem);
+    }
+    if ((fileGroupCounts.get(row.codigo) || 0) > 1) issue("GRUPOS", row, "CODIGO_GRUPO", "Grupo duplicado no arquivo.");
+    const old = dbGroupByCode.get(row.codigo);
+    if (old && !old.ativo) issue("GRUPOS", row, "CODIGO_GRUPO", "Grupo existente inativo; não será reativado.");
+    row.acao = invalid.GRUPOS.has(row.linha) ? "erro" : !old ? "novo" : old.nome === row.nome ? "igual" : "atualizar";
+    if (row.acao === "atualizar") { row.detalhes = [`Nome: ${old.nome} → ${row.nome}`]; insight("avisos", "GRUPOS", row, "NOME_GRUPO", "Nome do Grupo será alterado."); }
+  }
+  const fileGroups = new Map(grupos.map(row => [row.codigo, row]));
+  const validGroupCodes = new Set<string>(dbGroups.filter((row: any) => row.ativo).map((row: any) => row.codigo));
+  for (const row of grupos) if (row.acao !== "erro") validGroupCodes.add(row.codigo);
   const fileTypeCounts = new Map<string, number>();
   for (const row of tipos) { const key = typeKey(row.grupo, row.codigo); fileTypeCounts.set(key, (fileTypeCounts.get(key) || 0) + 1); }
   for (const row of tipos) {
-    if (row.grupo !== "PRODUTO" && row.grupo !== "SERVICO") issue("TIPOS", row, "GRUPO", "Use PRODUTO ou SERVICO.");
+    const groupProblem = validText(row.grupo, "CODIGO_GRUPO", true, 30); if (groupProblem) issue("TIPOS", row, "CODIGO_GRUPO", groupProblem);
+    if (!validGroupCodes.has(row.grupo) || fileGroups.get(row.grupo)?.acao === "erro") issue("TIPOS", row, "CODIGO_GRUPO", "Grupo inexistente ou inativo neste tenant ou inválido na aba GRUPOS.");
     for (const [field, value, max] of [["CODIGO_TIPO", row.codigo, 30], ["NOME_TIPO", row.nome, 200]] as const) {
       const problem = validText(value, field, true, max); if (problem) issue("TIPOS", row, field, problem);
     }
@@ -91,12 +113,13 @@ export async function validateProductWorkbook(input: ProductWorkbook, db: any, t
     if (row.acao === "atualizar") { row.detalhes = [`Nome: ${old.nome} → ${row.nome}`]; insight("avisos", "TIPOS", row, "NOME_TIPO", "Nome do Tipo será alterado."); }
   }
   const fileTypes = new Map(tipos.map(row => [typeKey(row.grupo, row.codigo), row]));
-  const validTypeKeys = new Set<string>(dbTypes.filter((row: any) => row.ativo).map((row: any) => typeKey(row.grupo, row.codigo)));
+  const validTypeKeys = new Set<string>(dbTypes.filter((row: any) => row.ativo && dbGroupById.get(row.grupoId)?.ativo).map((row: any) => typeKey(dbGroupById.get(row.grupoId).codigo, row.codigo)));
   for (const row of tipos) if (row.acao !== "erro") validTypeKeys.add(typeKey(row.grupo, row.codigo));
   const fileLineCounts = new Map<string, number>();
   for (const row of linhas) { const key = lineKey(row.grupo, row.codigoTipo, row.codigo); fileLineCounts.set(key, (fileLineCounts.get(key) || 0) + 1); }
   for (const row of linhas) {
-    if (row.grupo !== "PRODUTO" && row.grupo !== "SERVICO") issue("LINHAS", row, "GRUPO", "Use PRODUTO ou SERVICO.");
+    const groupProblem = validText(row.grupo, "CODIGO_GRUPO", true, 30); if (groupProblem) issue("LINHAS", row, "CODIGO_GRUPO", groupProblem);
+    if (!validGroupCodes.has(row.grupo) || fileGroups.get(row.grupo)?.acao === "erro") issue("LINHAS", row, "CODIGO_GRUPO", "Grupo inexistente ou inativo neste tenant ou inválido na aba GRUPOS.");
     for (const [field, value, max] of [["CODIGO_TIPO", row.codigoTipo, 30], ["CODIGO_LINHA", row.codigo, 30], ["NOME_LINHA", row.nome, 200]] as const) {
       const problem = validText(value, field, true, max); if (problem) issue("LINHAS", row, field, problem);
     }
@@ -121,11 +144,13 @@ export async function validateProductWorkbook(input: ProductWorkbook, db: any, t
     for (const [field, value, required, max] of [["CODIGO_ITEM", row.codigo, false, 30], ["NOME", row.nome, true, 200], ["CODIGO_TIPO", row.codigoTipo, true, 30], ["CODIGO_LINHA", row.codigoLinha, false, 30], ["DESCRICAO", row.descricao, false, 5000], ["UNIDADE", row.unidade, false, 30], ["OBSERVACOES", row.observacoes, false, 5000]] as const) {
       const problem = validText(value, field, required, max); if (problem) issue("ITENS", row, field, problem);
     }
-    if (row.grupo !== "PRODUTO" && row.grupo !== "SERVICO") issue("ITENS", row, "GRUPO", "Use PRODUTO ou SERVICO.");
+    const groupProblem = validText(row.grupo, "CODIGO_GRUPO", true, 30); if (groupProblem) issue("ITENS", row, "CODIGO_GRUPO", groupProblem);
+    if (!validGroupCodes.has(row.grupo) || fileGroups.get(row.grupo)?.acao === "erro") issue("ITENS", row, "CODIGO_GRUPO", "Grupo inexistente ou inativo neste tenant ou inválido na aba GRUPOS.");
     if (row.codigo && (fileItemCodes.get(row.codigo) || 0) > 1) issue("ITENS", row, "CODIGO_ITEM", "Código do Item duplicado no arquivo.");
     const old = row.codigo ? dbItemByCode.get(row.codigo) : null;
     if (row.codigo && !old) issue("ITENS", row, "CODIGO_ITEM", "Código informado não existe neste tenant. Para novo Item, deixe vazio.");
     if (old && !old.ativo) issue("ITENS", row, "CODIGO_ITEM", "Item existente inativo; não será reativado.");
+    if (old && !old.grupoId) issue("ITENS", row, "CODIGO_ITEM", "Item legado sem Grupo configurável; não será convertido automaticamente nesta carga.");
     const key = typeKey(row.grupo, row.codigoTipo);
     if (!validTypeKeys.has(key) || fileTypes.get(key)?.acao === "erro") issue("ITENS", row, "CODIGO_TIPO", "Tipo inexistente, inativo ou incompatível com o Grupo.");
     if (row.codigoLinha) {
@@ -140,27 +165,28 @@ export async function validateProductWorkbook(input: ProductWorkbook, db: any, t
       const oldType = dbTypeById.get(old.tipoId);
       const oldLine = dbLines.find((line: any) => line.id === old.linhaId);
       const changes: string[] = [];
-      for (const [label, before, after] of [["Nome", old.nome, row.nome], ["Grupo", old.tipo || "", row.grupo], ["Tipo", oldType?.codigo || "", row.codigoTipo], ["Linha", oldLine?.codigo || "", row.codigoLinha], ["Descrição", old.descricao || "", row.descricao], ["Unidade", old.unidade || "", row.unidade], ["Observações", old.observacoes || "", row.observacoes]] as const) if (before !== after) changes.push(`${label}: ${before || "—"} → ${after || "—"}`);
+      for (const [label, before, after] of [["Nome", old.nome, row.nome], ["Grupo", dbGroupById.get(old.grupoId)?.codigo || "", row.grupo], ["Tipo", oldType?.codigo || "", row.codigoTipo], ["Linha", oldLine?.codigo || "", row.codigoLinha], ["Descrição", old.descricao || "", row.descricao], ["Unidade", old.unidade || "", row.unidade], ["Observações", old.observacoes || "", row.observacoes]] as const) if (before !== after) changes.push(`${label}: ${before || "—"} → ${after || "—"}`);
       const oldSale = old.precoVenda?.toString() ?? null, oldCost = old.precoCusto?.toString() ?? null;
       if (!priceEqual(oldSale, sale)) changes.push(`Venda: ${oldSale ?? "—"} → ${sale ?? "—"}`);
       if (!priceEqual(oldCost, cost)) changes.push(`Custo: ${oldCost ?? "—"} → ${cost ?? "—"}`);
       row.acao = changes.length ? "atualizar" : "igual";
       row.detalhes = changes;
       if (old.nome !== row.nome) insight("avisos", "ITENS", row, "NOME", "Nome do Item será alterado.");
-      if (old.tipo !== row.grupo || oldType?.codigo !== row.codigoTipo || (oldLine?.codigo || "") !== row.codigoLinha) insight("avisos", "ITENS", row, "CLASSIFICACAO", "Classificação será alterada. Confira Grupo, Tipo e Linha.");
+      if (dbGroupById.get(old.grupoId)?.codigo !== row.grupo || oldType?.codigo !== row.codigoTipo || (oldLine?.codigo || "") !== row.codigoLinha) insight("avisos", "ITENS", row, "CLASSIFICACAO", "Classificação será alterada. Confira Grupo, Tipo e Linha.");
       if ((oldSale !== null && sale !== null && Number(oldSale) > 0 && Math.abs(Number(sale) / Number(oldSale) - 1) >= 0.5) || (oldCost !== null && cost !== null && Number(oldCost) > 0 && Math.abs(Number(cost) / Number(oldCost) - 1) >= 0.5)) insight("avisos", "ITENS", row, "PRECO", "Preço de referência varia 50% ou mais. Confira o antes/depois.");
     }
     if (row.acao === "novo") {
       const nameKey = `${row.grupo}\u0000${row.nome.toLocaleLowerCase("pt-BR")}`;
-      const other = dbItems.find((item: any) => item.ativo && item.tipo === row.grupo && item.nome.toLocaleLowerCase("pt-BR") === row.nome.toLocaleLowerCase("pt-BR"));
+      const other = dbItems.find((item: any) => item.ativo && dbGroupById.get(item.grupoId)?.codigo === row.grupo && item.nome.toLocaleLowerCase("pt-BR") === row.nome.toLocaleLowerCase("pt-BR"));
       if (other || seenNewNames.has(nameKey)) insight("avisos", "ITENS", row, "NOME", "Possível duplicidade por nome. Nenhum registro será mesclado.");
       seenNewNames.set(nameKey, row.linha);
     }
   }
   const tally = (rows: BaseRow[], aba: string): SectionCount => ({ novos: rows.filter(row => row.acao === "novo").length, atualizacoes: rows.filter(row => row.acao === "atualizar").length, semAlteracao: rows.filter(row => row.acao === "igual").length, erros: errors.filter(error => error.aba === aba).length, avisos: warnings.filter(warning => warning.aba === aba).length });
-  const t = tally(tipos, "TIPOS"), l = tally(linhas, "LINHAS"), i = tally(itens, "ITENS");
+  const g = tally(grupos, "GRUPOS"), t = tally(tipos, "TIPOS"), l = tally(linhas, "LINHAS"), i = tally(itens, "ITENS");
+  const fileGroupCodes = new Set(grupos.map(row => row.codigo));
   const fileTypeKeys = new Set(tipos.map(row => typeKey(row.grupo, row.codigo)));
   const fileLineKeys = new Set(linhas.map(row => lineKey(row.grupo, row.codigoTipo, row.codigo)));
   const fileItemCodeSet = new Set(itens.map(row => row.codigo).filter(Boolean));
-  return { tipos, linhas, itens, errors, warnings, suggestions, resumo: { totalLido: tipos.length + linhas.length + itens.length, totalNovo: t.novos + l.novos + i.novos, totalAtualizado: t.atualizacoes + l.atualizacoes + i.atualizacoes, totalSemAlteracao: t.semAlteracao + l.semAlteracao + i.semAlteracao, totalErros: errors.length, totalAvisos: warnings.length, totalSugestoes: suggestions.length, tipos: t, linhas: l, itens: i, ausentes: { tipos: dbTypes.filter((row: any) => row.ativo && !fileTypeKeys.has(typeKey(row.grupo, row.codigo))).length, linhas: dbLines.filter((row: any) => { const parent = dbTypeById.get(row.tipoId); return row.ativo && (!parent || !fileLineKeys.has(lineKey(parent.grupo, parent.codigo, row.codigo))); }).length, itens: dbItems.filter((row: any) => row.ativo && !fileItemCodeSet.has(row.codigo)).length } } };
+  return { grupos, tipos, linhas, itens, errors, warnings, suggestions, resumo: { totalLido: grupos.length + tipos.length + linhas.length + itens.length, totalNovo: g.novos + t.novos + l.novos + i.novos, totalAtualizado: g.atualizacoes + t.atualizacoes + l.atualizacoes + i.atualizacoes, totalSemAlteracao: g.semAlteracao + t.semAlteracao + l.semAlteracao + i.semAlteracao, totalErros: errors.length, totalAvisos: warnings.length, totalSugestoes: suggestions.length, grupos: g, tipos: t, linhas: l, itens: i, ausentes: { grupos: dbGroups.filter((row: any) => row.ativo && !fileGroupCodes.has(row.codigo)).length, tipos: dbTypes.filter((row: any) => row.ativo && row.grupoId && !fileTypeKeys.has(typeKey(dbGroupById.get(row.grupoId)?.codigo || "", row.codigo))).length, linhas: dbLines.filter((row: any) => { const parent = dbTypeById.get(row.tipoId), group = dbGroupById.get(parent?.grupoId); return row.ativo && group && !fileLineKeys.has(lineKey(group.codigo, parent.codigo, row.codigo)); }).length, itens: dbItems.filter((row: any) => row.ativo && row.grupoId && !fileItemCodeSet.has(row.codigo)).length } } };
 }

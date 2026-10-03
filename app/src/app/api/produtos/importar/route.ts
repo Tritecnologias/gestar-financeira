@@ -27,13 +27,22 @@ export async function POST(req: NextRequest) {
     const summary = await productTransaction(db, session.tenantId, async tx => {
       const preview = await validateProductWorkbook(parsed, tx, session.tenantId);
       if (preview.errors.length) throw new InvalidProductImport(preview);
-      const types = await tx.produtoTipo.findMany({ where: { tenantId: session.tenantId, ativo: true } });
-      const typeByKey = new Map<string, any>(types.map((row: any) => [`${row.grupo}\u0000${row.codigo}`, row]));
+      const groups = await tx.produtoGrupo.findMany({ where: { tenantId: session.tenantId, ativo: true } });
+      const groupByCode = new Map<string, any>(groups.map((row: any) => [row.codigo, row]));
+      for (const row of preview.grupos) {
+        if (row.acao === "igual") continue;
+        const current = groupByCode.get(row.codigo);
+        if (current) await tx.produtoGrupo.update({ where: { id: current.id }, data: { nome: row.nome } });
+        else groupByCode.set(row.codigo, await tx.produtoGrupo.create({ data: { codigo: row.codigo, nome: row.nome } }));
+      }
+      const types = await tx.produtoTipo.findMany({ where: { tenantId: session.tenantId, ativo: true, grupoId: { not: null } } });
+      const groupById = new Map<string, any>([...groupByCode.values()].map((row: any) => [row.id, row]));
+      const typeByKey = new Map<string, any>(types.map((row: any) => [`${groupById.get(row.grupoId)?.codigo}\u0000${row.codigo}`, row]));
       for (const row of preview.tipos) {
         if (row.acao === "igual") continue;
         const key = `${row.grupo}\u0000${row.codigo}`, current = typeByKey.get(key);
         if (current) await tx.produtoTipo.update({ where: { id: current.id }, data: { nome: row.nome } });
-        else typeByKey.set(key, await tx.produtoTipo.create({ data: { grupo: row.grupo, codigo: row.codigo, nome: row.nome } }));
+        else typeByKey.set(key, await tx.produtoTipo.create({ data: { grupoId: groupByCode.get(row.grupo).id, codigo: row.codigo, nome: row.nome } }));
       }
       const lines = await tx.produtoLinha.findMany({ where: { tenantId: session.tenantId, ativo: true } });
       const lineByKey = new Map<string, any>(lines.map((row: any) => [`${row.tipoId}\u0000${row.codigo}`, row]));
@@ -53,8 +62,9 @@ export async function POST(req: NextRequest) {
         if (row.acao === "igual") continue;
         const type = typeByKey.get(`${row.grupo}\u0000${row.codigoTipo}`);
         const line = row.codigoLinha ? lineByKey.get(`${type.id}\u0000${row.codigoLinha}`) : null;
-        await validateProductClassification(tx, session.tenantId, row.grupo, type.id, line?.id || null);
-        const data = { nome: row.nome, tipo: row.grupo, tipoId: type.id, linhaId: line?.id || null, descricao: row.descricao || null, unidade: row.unidade || null,
+        const groupId = groupByCode.get(row.grupo).id;
+        await validateProductClassification(tx, session.tenantId, groupId, type.id, line?.id || null);
+        const data = { nome: row.nome, tipo: null, grupoId: groupId, tipoId: type.id, linhaId: line?.id || null, descricao: row.descricao || null, unidade: row.unidade || null,
           precoVenda: productPrice(row.precoVenda.replace(",", "."), "Preço de venda"), precoCusto: productPrice(row.precoCusto.replace(",", "."), "Preço de custo"), observacoes: row.observacoes || null };
         if (row.acao === "novo") {
           const codigo = `I${nextCode!.toString().padStart(4, "0")}`;

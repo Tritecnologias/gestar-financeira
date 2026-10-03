@@ -37,6 +37,7 @@ model Tenant {
   pessoas           Pessoa[]
   empresas          Empresa[]
   produtos          Produto[]
+  produtosGrupos    ProdutoGrupo[]
   produtosTipos     ProdutoTipo[]
   produtosLinhas    ProdutoLinha[]
   tarefas           Tarefa[]
@@ -288,21 +289,42 @@ model Empresa {
 }
 
 // ── Classificação de Produtos/Serviços ────────────────────────
-model ProdutoTipo {
+model ProdutoGrupo {
   id       String   @id @default(uuid())
   tenantId String   @map("tenant_id")
-  grupo    String
   codigo   String   @db.VarChar(30)
   nome     String
   ativo    Boolean  @default(true)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tipos  ProdutoTipo[]
+  itens  Produto[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_produto_grupos_tenant")
+  @@map("produto_grupos")
+}
+
+model ProdutoTipo {
+  id       String   @id @default(uuid())
+  tenantId String   @map("tenant_id")
+  grupo    String?  // Valor textual legado; novos Tipos usam grupoId.
+  grupoId  String?  @map("grupo_id")
+  codigo   String   @db.VarChar(30)
+  nome     String
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grupoRef ProdutoGrupo? @relation(fields: [tenantId, grupoId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
   linhas ProdutoLinha[]
   itens  Produto[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, grupo, codigo])
+  @@unique([tenantId, grupoId, codigo])
   @@index([tenantId], map: "idx_produto_tipos_tenant")
   @@map("produto_tipos")
 }
@@ -333,6 +355,7 @@ model Produto {
   codigo     String   @db.VarChar(30)
   nome       String
   tipo       String?  // Grupo legado: PRODUTO | SERVICO
+  grupoId    String?  @map("grupo_id")
   tipoId     String?  @map("tipo_id")
   linhaId    String?  @map("linha_id")
   descricao  String?
@@ -345,12 +368,14 @@ model Produto {
   criadoEm   DateTime @default(now()) @map("criado_em")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grupoRef ProdutoGrupo? @relation(fields: [tenantId, grupoId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
   tipoRef ProdutoTipo? @relation(fields: [tenantId, tipoId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
   linhaRef ProdutoLinha? @relation(fields: [tenantId, linhaId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_produtos_tenant")
   @@index([tenantId, tipoId], map: "idx_produtos_tipo")
+  @@index([tenantId, grupoId], map: "idx_produtos_grupo")
   @@index([tenantId, linhaId], map: "idx_produtos_linha")
   @@map("produtos")
 }

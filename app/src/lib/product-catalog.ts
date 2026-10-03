@@ -1,12 +1,5 @@
-export const PRODUCT_GROUPS = ["PRODUTO", "SERVICO"] as const;
-
 export function productError(message: string, status = 400) {
   return Object.assign(new Error(message), { status });
-}
-
-export function productGroup(value: unknown) {
-  if (value !== "PRODUTO" && value !== "SERVICO") throw productError("Selecione Produto ou Serviço.");
-  return value;
 }
 
 export function productText(value: unknown, label: string, required = false, max = 200) {
@@ -29,9 +22,11 @@ export function productPrice(value: unknown, label: string) {
   return text;
 }
 
-export async function validateProductClassification(db: any, tenantId: string, group: string, typeId: string, lineId: string | null) {
+export async function validateProductClassification(db: any, tenantId: string, groupId: string, typeId: string, lineId: string | null) {
+  const group = await db.produtoGrupo.findFirst({ where: { id: groupId, tenantId, ativo: true } });
+  if (!group) throw productError("Grupo inexistente, inativo ou de outro tenant.");
   const type = await db.produtoTipo.findFirst({ where: { id: typeId, tenantId, ativo: true } });
-  if (!type || type.grupo !== group) throw productError("Tipo inexistente, inativo ou incompatível com o Grupo.");
+  if (!type || type.grupoId !== groupId) throw productError("Tipo inexistente, inativo ou incompatível com o Grupo.");
   if (lineId) {
     const line = await db.produtoLinha.findFirst({ where: { id: lineId, tenantId, ativo: true } });
     if (!line || line.tipoId !== typeId) throw productError("Linha inexistente, inativa ou incompatível com o Tipo.");

@@ -5,7 +5,7 @@ import { productApiError, productError, productText, productTransaction } from "
 export async function GET() {
   try {
     const { db } = await requireSession();
-    return NextResponse.json(await db.produtoLinha.findMany({ orderBy: [{ codigo: "asc" }], include: { tipo: { select: { id: true, codigo: true, nome: true, grupo: true, ativo: true } } } }));
+    return NextResponse.json(await db.produtoLinha.findMany({ orderBy: [{ codigo: "asc" }], include: { tipo: { select: { id: true, codigo: true, nome: true, grupoId: true, ativo: true } } } }));
   } catch (error: any) {
     const e = productApiError(error, "Não foi possível carregar as Linhas.");
     return NextResponse.json({ error: e.message }, { status: e.status });
@@ -21,7 +21,9 @@ export async function POST(req: NextRequest) {
     const nome = productText(input.nome, "Nome da Linha", true)!;
     const item = await productTransaction(db, session.tenantId, async tx => {
       const type = await tx.produtoTipo.findFirst({ where: { id: tipoId, tenantId: session.tenantId, ativo: true } });
-      if (!type) throw productError("Tipo inexistente, inativo ou de outro tenant.");
+      if (!type || !type.grupoId) throw productError("Tipo inexistente, inativo ou de outro tenant.");
+      const group = await tx.produtoGrupo.findFirst({ where: { id: type.grupoId, tenantId: session.tenantId, ativo: true } });
+      if (!group) throw productError("Grupo do Tipo está inativo ou de outro tenant.");
       return tx.produtoLinha.create({ data: { tipoId, codigo, nome } });
     });
     return NextResponse.json(item, { status: 201 });
