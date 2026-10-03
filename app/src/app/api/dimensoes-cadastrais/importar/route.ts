@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
 import { parseRegistrationWorkbook, validateRegistrationWorkbook, type RegistrationPreview, type RegistrationRow } from "@/lib/registration-import";
+import { registrationCodeAllocator, registrationTransaction, type RegistrationKind } from "@/lib/registration-codes";
 
 class InvalidRegistrationImport extends Error {
   constructor(readonly preview: RegistrationPreview) { super("A planilha contém erros bloqueantes. Nenhum cadastro foi gravado."); }
@@ -25,14 +26,20 @@ export async function POST(req: NextRequest) {
   if (mode === "preview") return NextResponse.json({ preview: await validateRegistrationWorkbook(parsed, db, tenantId) });
 
   try {
-    const resumo = await db.$transaction(async (tx: any) => {
+    const kinds: RegistrationKind[] = [
+      ...(parsed.clientes.some(row => !row.codigo) ? ["cliente" as const] : []),
+      ...(parsed.fornecedores.some(row => !row.codigo) ? ["fornecedor" as const] : []),
+    ];
+    const result = await registrationTransaction(db, tenantId, kinds, async tx => {
       const preview = await validateRegistrationWorkbook(parsed, tx, tenantId);
       if (preview.errors.length) throw new InvalidRegistrationImport(preview);
       const accounts = await tx.planoContas.findMany({ where: { ativo: true }, select: { id: true, codigo: true } });
       const accountIds = new Map<string, string>(accounts.map((row: { codigo: string; id: string }) => [row.codigo.trim().toLocaleUpperCase("pt-BR"), row.id]));
+      const criados: { clientes: { linha: number; codigo: string; nome: string }[]; fornecedores: { linha: number; codigo: string; nome: string }[] } = { clientes: [], fornecedores: [] };
       const writeSection = async (model: "cliente" | "fornecedor", rows: RegistrationRow[]) => {
         const existing = rows.length ? await tx[model].findMany({ select: { id: true, codigo: true } }) : [];
         const ids = new Map<string, string>(existing.map((row: { codigo: string; id: string }) => [row.codigo.trim().toLocaleUpperCase("pt-BR"), row.id]));
+        const nextCode = rows.some(row => row.acao === "novo") ? await registrationCodeAllocator(tx, tenantId, model) : null;
         for (const row of rows) {
           if (row.acao === "igual") continue;
           const contaPadraoId = row.codigoConta ? accountIds.get(row.codigoConta.trim().toLocaleUpperCase("pt-BR")) : null;
@@ -42,14 +49,19 @@ export async function POST(req: NextRequest) {
             endereco: row.endereco || null, contaPadraoId };
           const id = ids.get(row.codigo.trim().toLocaleUpperCase("pt-BR"));
           if (id) await tx[model].update({ where: { id }, data });
-          else await tx[model].create({ data: { codigo: row.codigo.toLocaleUpperCase("pt-BR"), ...data } });
+          else {
+            if (row.acao !== "novo" || !nextCode) throw new Error("Cadastro alterado durante a confirmação.");
+            const codigo = nextCode();
+            await tx[model].create({ data: { codigo, ...data } });
+            criados[model === "cliente" ? "clientes" : "fornecedores"].push({ linha: row.linha, codigo, nome: row.nome });
+          }
         }
       };
       await writeSection("cliente", preview.clientes);
       await writeSection("fornecedor", preview.fornecedores);
-      return preview.resumo;
-    }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 60_000 });
-    return NextResponse.json({ ok: true, resumo });
+      return { resumo: preview.resumo, criados };
+    });
+    return NextResponse.json({ ok: true, ...result });
   } catch (error: any) {
     if (error instanceof InvalidRegistrationImport) return NextResponse.json({ error: error.message, preview: error.preview }, { status: 422 });
     if (error?.code === "P2002" || error?.code === "P2034") return NextResponse.json({ error: "Os dados mudaram durante a importação. Revise a prévia e tente novamente." }, { status: 409 });

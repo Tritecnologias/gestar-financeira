@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { defaultAccountRelation, profileData, validateDefaultAccount } from "@/lib/registration-profile";
+import { registrationCodeAllocator, registrationTransaction } from "@/lib/registration-codes";
 
 // GET /api/fornecedores — lista todos do tenant
 export async function GET(req: NextRequest) {
@@ -35,13 +36,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const data = profileData(await req.json(), "create");
-    await validateDefaultAccount(db, tenantId, data);
-    const fornecedor = await db.fornecedor.create({ data });
+    const data = profileData(await req.json());
+    const fornecedor = await registrationTransaction(db, tenantId, ["fornecedor"], async tx => {
+      await validateDefaultAccount(tx, tenantId, data);
+      const nextCode = await registrationCodeAllocator(tx, tenantId, "fornecedor");
+      return tx.fornecedor.create({ data: { ...data, codigo: nextCode() } });
+    });
     return NextResponse.json({ ...fornecedor, display: `${fornecedor.codigo} – ${fornecedor.nome}` }, { status: 201 });
   } catch (e: any) {
     if (e.status) return NextResponse.json({ error: e.message }, { status: e.status });
-    if (e.code === "P2002") return NextResponse.json({ error: "Código já cadastrado" }, { status: 409 });
+    if (e.code === "P2002" || e.code === "P2034") return NextResponse.json({ error: "Não foi possível reservar o próximo código. Tente novamente." }, { status: 409 });
     if (e.code === "P2003") return NextResponse.json({ error: "Conta padrão inválida ou de outro tenant" }, { status: 400 });
     throw e;
   }

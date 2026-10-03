@@ -5,6 +5,7 @@ import type { RegistrationIssue, RegistrationPreview, RegistrationRow } from "@/
 import { REGISTRATION_FILENAME } from "@/lib/registration-import-template";
 
 type Props = { onClose: () => void; onImported: () => void };
+type CreatedCodes = { clientes: { linha: number; codigo: string; nome: string }[]; fornecedores: { linha: number; codigo: string; nome: string }[] };
 const actionName = { novo: "Novo", atualizar: "Atualização", igual: "Sem alteração", erro: "Erro" } as const;
 
 export default function RegistrationImportModal({ onClose, onImported }: Props) {
@@ -14,6 +15,7 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<RegistrationPreview["resumo"] | null>(null);
+  const [created, setCreated] = useState<CreatedCodes | null>(null);
 
   async function download() {
     setDownloading(true); setError("");
@@ -39,7 +41,7 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
   }
 
   async function selectFile(selected: File | null) {
-    setFile(selected); setPreview(null); setResult(null); setError("");
+    setFile(selected); setPreview(null); setResult(null); setCreated(null); setError("");
     if (!selected) return;
     if (!selected.name.toLowerCase().endsWith(".xlsx")) { setError("Selecione um arquivo .xlsx."); return; }
     setBusy(true);
@@ -51,7 +53,7 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
   async function confirm() {
     if (!file || !preview || preview.errors.length || !preview.resumo.totalLido || busy || result) return;
     setBusy(true); setError("");
-    try { const body = await request(file, "confirm"); setResult(body.resumo); onImported(); }
+    try { const body = await request(file, "confirm"); setResult(body.resumo); setCreated(body.criados); onImported(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Importação não concluída."); }
     finally { setBusy(false); }
   }
@@ -70,7 +72,7 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
       <div className="registration-import-table-wrap"><table className="data-table registration-import-table">
         <thead><tr><th>Linha</th><th>Código</th><th>Nome / Razão Social</th><th>Tipo</th><th>Documento</th><th>Categoria N1</th><th>Conta N2</th><th>Ação / alterações</th></tr></thead>
         <tbody>{rows.map(row => <tr key={row.linha}>
-          <td>{row.linha}</td><td>{row.codigo || "—"}</td><td>{row.nome || "—"}</td><td>{row.tipoPessoa || "—"}</td><td>{row.documento || "—"}</td>
+          <td>{row.linha}</td><td>{row.codigo || "Gerado na confirmação"}</td><td>{row.nome || "—"}</td><td>{row.tipoPessoa || "—"}</td><td>{row.documento || "—"}</td>
           <td>{row.codigoCategoria || "—"}</td><td>{row.codigoConta || "—"}</td>
           <td><span className={`registration-import-state registration-import-state--${row.acao || "erro"}`}>{actionName[row.acao || "erro"]}</span>
             {row.detalhes?.map((detail, index) => <div className="registration-import-detail" key={index}>{detail}</div>)}
@@ -89,13 +91,18 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
         <ol className="registration-import-steps">
           <li><button type="button" className="btn btn-secondary" onClick={() => void download()} disabled={busy || downloading}>{downloading ? "Baixando..." : "Baixar Cadastros"}</button><p>Baixe Clientes e Fornecedores ativos para editar ou incluir registros. Sem dados, o mesmo arquivo virá vazio.</p></li>
           <li>Edite ou preencha as abas CLIENTES e FORNECEDORES. Mantenha os códigos como texto.</li>
-          <li><label className="registration-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onClick={event => { event.currentTarget.value = ""; setFile(null); setPreview(null); setResult(null); setError(""); }} onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
+          <li><label className="registration-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onClick={event => { event.currentTarget.value = ""; setFile(null); setPreview(null); setResult(null); setCreated(null); setError(""); }} onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira a prévia, os avisos e os erros.</li>
           <li>Confirme a importação conjunta das duas abas.</li>
         </ol>
         {busy && <p role="status">{preview ? "Confirmando e revalidando..." : "Lendo e validando..."}</p>}
         {error && <div className="alert alert-error" role="alert">{error}</div>}
         {result && <div className="registration-import-success" role="status">Importação concluída: {result.totalNovo} novos, {result.totalAtualizado} atualizados e {result.totalSemAlteracao} sem alteração. Nenhum cadastro foi excluído.</div>}
+        {created && (created.clientes.length > 0 || created.fornecedores.length > 0) && <div className="registration-import-created" role="status">
+          <strong>Códigos gerados</strong>
+          {created.clientes.map(item => <p key={`C-${item.linha}`}>Cliente, linha {item.linha}: {item.codigo} — {item.nome}</p>)}
+          {created.fornecedores.map(item => <p key={`F-${item.linha}`}>Fornecedor, linha {item.linha}: {item.codigo} — {item.nome}</p>)}
+        </div>}
         {preview && <>
           <div className="registration-import-summary"><div><strong>Total lido</strong><span>{preview.resumo.totalLido}</span></div><div><strong>Novos</strong><span>{preview.resumo.totalNovo}</span></div><div><strong>Atualizações</strong><span>{preview.resumo.totalAtualizado}</span></div><div><strong>Sem alteração</strong><span>{preview.resumo.totalSemAlteracao}</span></div><div><strong>Erros</strong><span>{preview.resumo.totalErros}</span></div></div>
           <p className="registration-import-subsummary">{preview.resumo.ausentes.clientes} Clientes e {preview.resumo.ausentes.fornecedores} Fornecedores ativos ausentes da planilha permanecerão inalterados.</p>

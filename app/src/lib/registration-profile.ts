@@ -1,22 +1,15 @@
-type ProfileMode = "create" | "update";
-
 function invalid(message: string): never {
   throw Object.assign(new Error(message), { status: 400 });
 }
 
-export function profileData(body: unknown, mode: ProfileMode) {
+export function profileData(body: unknown) {
   if (!body || typeof body !== "object" || Array.isArray(body)) invalid("Dados do cadastro inválidos.");
   const input = body as Record<string, unknown>;
   const data: Record<string, string | null> = {};
 
-  for (const field of ["codigo", "nome"] as const) {
-    if (mode === "create" || Object.hasOwn(input, field)) {
-      const value = input[field];
-      if (typeof value !== "string" || !value.trim()) invalid("Código e nome são obrigatórios.");
-      data[field] = field === "codigo" ? value.trim().toUpperCase() : value.trim();
-    }
-  }
-  if (mode === "update" && !Object.hasOwn(data, "nome")) invalid("Nome é obrigatório.");
+  if (Object.hasOwn(input, "codigo")) invalid("O código é gerado pelo sistema e não pode ser alterado.");
+  if (typeof input.nome !== "string" || !input.nome.trim()) invalid("Nome é obrigatório.");
+  data.nome = input.nome.trim();
 
   for (const field of ["nomeFantasia", "documento", "email", "telefone", "endereco"] as const) {
     if (Object.hasOwn(input, field)) {

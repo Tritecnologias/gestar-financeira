@@ -7,7 +7,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try { const context = await requireSession(); db = context.db; tenantId = context.session.tenantId; } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
   const { id } = await params;
   try {
-    const data = profileData(await req.json(), "update");
+    const data = profileData(await req.json());
     await validateDefaultAccount(db, tenantId, data);
     const item = await db.cliente.update({ where: { id }, data });
     return NextResponse.json(item);

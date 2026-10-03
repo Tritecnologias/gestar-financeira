@@ -70,7 +70,6 @@ export function validateRegistrationWorkbookInput(input: RegistrationWorkbook) {
     for (const row of rows) if (row.codigo) counts.set(key(row.codigo), (counts.get(key(row.codigo)) || 0) + 1);
     for (const row of rows) {
       const add = (campo: string, motivo: string) => errors.push(issue(section, row.linha, campo, row.codigo, motivo));
-      if (!row.codigo) add("CODIGO", "Código obrigatório.");
       if (row.codigo.length > 20) add("CODIGO", "Código deve ter até 20 caracteres.");
       if (row.codigo && (counts.get(key(row.codigo)) || 0) > 1) add("CODIGO", "Código duplicado na mesma aba.");
       if (!row.nome) add("NOME", "Nome / Razão Social obrigatório.");
@@ -117,10 +116,11 @@ export async function validateRegistrationWorkbook(input: RegistrationWorkbook, 
       const addError = (campo: string, motivo: string) => errors.push(issue(section, row.linha, campo, row.codigo, motivo));
       const addWarning = (campo: string, motivo: string) => { warnings.push(issue(section, row.linha, campo, row.codigo, motivo)); (row.avisos ||= []).push(motivo); };
       const addSuggestion = (campo: string, motivo: string) => { suggestions.push(issue(section, row.linha, campo, row.codigo, motivo)); (row.sugestoes ||= []).push(motivo); };
-      const matches = existingByCode.get(key(row.codigo)) || [];
+      const matches = row.codigo ? existingByCode.get(key(row.codigo)) || [] : [];
       if (matches.length > 1) addError("CODIGO", "Código ambíguo entre cadastros existentes neste tenant.");
       const old = matches.length === 1 ? matches[0] : undefined;
       if (old && !old.ativo) addError("CODIGO", "Código existente inativo; não será reativado.");
+      if (row.codigo && !old) addError("CODIGO", "Código preenchido não existe neste cadastro. Para incluir, deixe CODIGO vazio.");
       if (row.codigoConta && row.codigoCategoria) {
         const matchingAccounts = accountsByCode.get(key(row.codigoConta)) || [];
         if (matchingAccounts.length !== 1 || !matchingAccounts[0].ativo || matchingAccounts[0].tenantId !== tenantId) {
@@ -151,12 +151,13 @@ export async function validateRegistrationWorkbook(input: RegistrationWorkbook, 
         }
       }
       if (row.acao === "novo") {
-        if (row.documento && (existing.some(candidate => candidate.ativo && key(candidate.codigo) !== key(row.codigo) && documentKey(candidate.documento || "") === documentKey(row.documento)) ||
-          rows.some(candidate => candidate !== row && key(candidate.codigo) !== key(row.codigo) && documentKey(candidate.documento) === documentKey(row.documento)))) {
+        row.detalhes = ["Código será gerado automaticamente na confirmação."];
+        if (row.documento && (existing.some(candidate => candidate.ativo && (!row.codigo || key(candidate.codigo) !== key(row.codigo)) && documentKey(candidate.documento || "") === documentKey(row.documento)) ||
+          rows.some(candidate => candidate !== row && (!row.codigo || key(candidate.codigo) !== key(row.codigo)) && documentKey(candidate.documento) === documentKey(row.documento)))) {
           addWarning("DOCUMENTO", "Possível cadastro existente com o mesmo documento. Revise antes de confirmar.");
         }
-        if (row.nome && (existing.some(candidate => candidate.ativo && key(candidate.codigo) !== key(row.codigo) && nameKey(candidate.nome) === nameKey(row.nome)) ||
-          rows.some(candidate => candidate !== row && key(candidate.codigo) !== key(row.codigo) && nameKey(candidate.nome) === nameKey(row.nome)))) {
+        if (row.nome && (existing.some(candidate => candidate.ativo && (!row.codigo || key(candidate.codigo) !== key(row.codigo)) && nameKey(candidate.nome) === nameKey(row.nome)) ||
+          rows.some(candidate => candidate !== row && (!row.codigo || key(candidate.codigo) !== key(row.codigo)) && nameKey(candidate.nome) === nameKey(row.nome)))) {
           addSuggestion("NOME", "Nome semelhante a cadastro ativo. Confirme se é uma inclusão distinta.");
         }
       }

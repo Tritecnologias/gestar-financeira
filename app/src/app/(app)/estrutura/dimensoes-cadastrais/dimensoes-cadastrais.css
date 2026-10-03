@@ -82,6 +82,8 @@
 .registration-import-issues summary { cursor: pointer; color: var(--text-primary); font-weight: 700; }
 .registration-import-issues p { margin: 7px 0 0; overflow-wrap: anywhere; }
 .registration-import-success { margin-top: 12px; color: var(--success); }
+.registration-import-created { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-elevated); color: var(--text-primary); }
+.registration-import-created p { margin: 5px 0 0; overflow-wrap: anywhere; }
 
 @media (max-width: 1279px) {
   .registration-grid { grid-template-columns: minmax(0, 1fr); }

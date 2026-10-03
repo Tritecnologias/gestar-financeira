@@ -29,7 +29,7 @@ export default function DimensoesCadastraisPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [financeLoading, setFinanceLoading] = useState(false);
   const [financeError, setFinanceError] = useState("");
-  const codeRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const loadData = useCallback(async () => {
@@ -53,7 +53,7 @@ export default function DimensoesCadastraisPage() {
   }, []);
 
   useEffect(() => { void loadData(); }, [loadData]);
-  useEffect(() => { if (modal) codeRef.current?.focus(); }, [modal?.section, modal?.id]);
+  useEffect(() => { if (modal) nameRef.current?.focus(); }, [modal?.section, modal?.id]);
   useEffect(() => {
     if (!modal) return;
     let cancelled = false;
@@ -81,6 +81,7 @@ export default function DimensoesCadastraisPage() {
       const payload = await response.json().catch(() => null);
       throw new Error(typeof payload?.error === "string" ? payload.error : "Não foi possível concluir a operação.");
     }
+    return response.json();
   };
 
   const openModal = (section: Section, item?: Item) => {
@@ -107,22 +108,22 @@ export default function DimensoesCadastraisPage() {
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!modal || saving) return;
-    if (!draft.codigo.trim() || !draft.nome.trim()) { setModalError("Código e nome são obrigatórios."); return; }
+    if (!draft.nome.trim()) { setModalError("Nome é obrigatório."); return; }
     if (draft.categoriaId && !draft.contaPadraoId) { setModalError("Selecione uma Conta N2 para a Categoria escolhida ou limpe a classificação."); return; }
     if (draft.contaPadraoId && !accounts.some(account => account.id === draft.contaPadraoId && account.categoriaId === draft.categoriaId && account.ativo)) { setModalError("Conta N2 inválida para a Categoria selecionada."); return; }
     const section = modal.section;
     const editing = modal.id !== null;
     const payload: Record<string, string | null> = {
-      codigo: draft.codigo, nome: draft.nome, tipoPessoa: draft.tipoPessoa, nomeFantasia: draft.nomeFantasia,
+      nome: draft.nome, tipoPessoa: draft.tipoPessoa, nomeFantasia: draft.nomeFantasia,
       documento: draft.documento, email: draft.email, telefone: draft.telefone, endereco: draft.endereco,
     };
     if (!editing || modal.defaultTouched) payload.contaPadraoId = draft.contaPadraoId || null;
     setSaving(true); setModalError("");
     try {
-      await request(`/api/${section}${modal.id ? `/${modal.id}` : ""}`, editing ? "PUT" : "POST", payload);
+      const saved = await request(`/api/${section}${modal.id ? `/${modal.id}` : ""}`, editing ? "PUT" : "POST", payload);
       setModal(null);
       window.requestAnimationFrame(() => returnFocusRef.current?.focus());
-      if (await loadData()) setNotice(`${section === "fornecedores" ? "Fornecedor" : "Cliente"} ${editing ? "atualizado" : "adicionado"}.`);
+      if (await loadData()) setNotice(`${section === "fornecedores" ? "Fornecedor" : "Cliente"} ${editing ? "atualizado" : `adicionado com código ${saved.codigo}`}.`);
     } catch (cause) {
       setModalError(cause instanceof Error ? cause.message : "Não foi possível salvar o cadastro.");
     } finally { setSaving(false); }
@@ -201,9 +202,9 @@ export default function DimensoesCadastraisPage() {
             <section className="registration-modal-section" aria-labelledby="registration-identification-title">
               <h3 id="registration-identification-title">Identificação</h3>
               <div className="registration-modal-fields">
-                <label>Código<input ref={codeRef} value={draft.codigo} onChange={event => updateDraft("codigo", event.target.value)} disabled={saving} required /></label>
+                <label>Código<input value={modal.id ? draft.codigo : "Gerado automaticamente"} readOnly aria-readonly="true" /></label>
                 <label>Tipo de pessoa<select value={draft.tipoPessoa} onChange={event => updateDraft("tipoPessoa", event.target.value)} disabled={saving}><option value="">Não informado</option><option value="PF">Pessoa física</option><option value="PJ">Pessoa jurídica</option></select></label>
-                <label>Nome / Razão Social<input value={draft.nome} onChange={event => updateDraft("nome", event.target.value)} disabled={saving} required /></label>
+                <label>Nome / Razão Social<input ref={nameRef} value={draft.nome} onChange={event => updateDraft("nome", event.target.value)} disabled={saving} required /></label>
                 <label>Nome Fantasia / Abreviado<input value={draft.nomeFantasia} onChange={event => updateDraft("nomeFantasia", event.target.value)} disabled={saving} /></label>
                 <label>CPF / CNPJ<input value={draft.documento} onChange={event => updateDraft("documento", event.target.value)} disabled={saving} /></label>
                 <label>Status<input value="Ativo" readOnly aria-readonly="true" /></label>
