@@ -1,150 +1,176 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
 
-interface Fornecedor { id: string; codigo: string; nome: string; }
-interface Cliente { id: string; codigo: string; nome: string; email?: string; telefone?: string; documento?: string; }
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import "./dimensoes-cadastrais.css";
+
+type Section = "fornecedores" | "clientes";
+type Item = { id: string; codigo: string; nome: string; email?: string | null; telefone?: string | null; documento?: string | null; endereco?: string | null };
+type Draft = { codigo: string; nome: string; email: string; telefone: string; documento?: string | null; endereco?: string | null };
+const emptyDraft: Draft = { codigo: "", nome: "", email: "", telefone: "" };
 
 export default function DimensoesCadastraisPage() {
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [fornecedores, setFornecedores] = useState<Item[]>([]);
+  const [clientes, setClientes] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busca, setBusca] = useState("");
-
-  // Forms
-  const [fCodigo, setFCodigo] = useState("");
-  const [fNome, setFNome] = useState("");
-  const [cCodigo, setCCodigo] = useState("");
-  const [cNome, setCNome] = useState("");
-  const [cEmail, setCEmail] = useState("");
-  const [cTelefone, setCTelefone] = useState("");
-
-  // Edição
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<any>({});
-  const [editSection, setEditSection] = useState<"f" | "c" | null>(null);
+  const [fornecedorDraft, setFornecedorDraft] = useState<Draft>(emptyDraft);
+  const [clienteDraft, setClienteDraft] = useState<Draft>(emptyDraft);
+  const [editing, setEditing] = useState<{ section: Section; id: string } | null>(null);
+  const [editDraft, setEditDraft] = useState<Draft>(emptyDraft);
+  const fornecedorCodeRef = useRef<HTMLInputElement>(null);
+  const clienteCodeRef = useRef<HTMLInputElement>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
-      const [fRes, cRes] = await Promise.all([fetch("/api/fornecedores"), fetch("/api/clientes")]);
-      const fData = await fRes.json();
-      const cData = await cRes.json();
-      if (Array.isArray(fData)) setFornecedores(fData);
-      if (Array.isArray(cData)) setClientes(cData);
-    } catch { setError("Erro ao carregar"); }
-    finally { setLoading(false); }
+      const [supplierResponse, clientResponse] = await Promise.all([
+        fetch("/api/fornecedores?ativo=true", { cache: "no-store" }),
+        fetch("/api/clientes", { cache: "no-store" }),
+      ]);
+      if (!supplierResponse.ok || !clientResponse.ok) throw new Error("Não foi possível carregar os cadastros. Tente acessar a página novamente.");
+      const [suppliers, customers] = await Promise.all([supplierResponse.json(), clientResponse.json()]);
+      if (!Array.isArray(suppliers) || !Array.isArray(customers)) throw new Error("Resposta inesperada ao carregar os cadastros.");
+      setFornecedores(suppliers);
+      setClientes(customers);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Erro ao carregar os cadastros.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { void loadData(); }, [loadData]);
 
-  const criarFornecedor = async () => {
-    if (!fCodigo.trim() || !fNome.trim()) { setError("Código e nome obrigatórios"); return; }
-    setError(""); setSaving(true);
+  const request = async (url: string, method: "POST" | "PUT" | "DELETE", data?: Draft) => {
+    const response = await fetch(url, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : undefined,
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(typeof payload?.error === "string" ? payload.error : "Não foi possível concluir a operação.");
+    }
+  };
+
+  const create = async (section: Section, event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const draft = section === "fornecedores" ? fornecedorDraft : clienteDraft;
+    if (!draft.codigo.trim() || !draft.nome.trim()) { setError("Código e nome são obrigatórios."); return; }
+    setSaving(true); setError(""); setNotice("");
     try {
-      const res = await fetch("/api/fornecedores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: fCodigo, nome: fNome }) });
-      if (res.ok) { setFCodigo(""); setFNome(""); loadData(); } else { const e = await res.json(); setError(e.error); }
+      await request(`/api/${section}`, "POST", draft);
+      if (section === "fornecedores") setFornecedorDraft(emptyDraft); else setClienteDraft(emptyDraft);
+      await loadData();
+      setNotice(section === "fornecedores" ? "Fornecedor adicionado." : "Cliente adicionado.");
+      (section === "fornecedores" ? fornecedorCodeRef : clienteCodeRef).current?.focus();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível adicionar o cadastro.");
     } finally { setSaving(false); }
   };
 
-  const criarCliente = async () => {
-    if (!cCodigo.trim() || !cNome.trim()) { setError("Código e nome obrigatórios"); return; }
-    setError(""); setSaving(true);
+  const startEdit = (section: Section, item: Item) => {
+    setError(""); setNotice("");
+    setEditing({ section, id: item.id });
+    setEditDraft({ codigo: item.codigo, nome: item.nome, email: item.email ?? "", telefone: item.telefone ?? "", documento: item.documento, endereco: item.endereco });
+  };
+
+  const saveEdit = async () => {
+    if (!editing || saving) return;
+    if (!editDraft.codigo.trim() || !editDraft.nome.trim()) { setError("Código e nome são obrigatórios."); return; }
+    setSaving(true); setError(""); setNotice("");
     try {
-      const res = await fetch("/api/clientes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ codigo: cCodigo, nome: cNome, email: cEmail, telefone: cTelefone }) });
-      if (res.ok) { setCCodigo(""); setCNome(""); setCEmail(""); setCTelefone(""); loadData(); } else { const e = await res.json(); setError(e.error); }
+      await request(`/api/${editing.section}/${editing.id}`, "PUT", editDraft);
+      setEditing(null);
+      await loadData();
+      setNotice(editing.section === "fornecedores" ? "Fornecedor atualizado." : "Cliente atualizado.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível salvar a edição.");
     } finally { setSaving(false); }
   };
 
-  const salvarEdit = async () => {
-    if (!editingId) return; setSaving(true);
-    const api = editSection === "f" ? "/api/fornecedores" : "/api/clientes";
+  const deactivate = async (section: Section, item: Item) => {
+    if (!window.confirm(`Desativar ${section === "fornecedores" ? "fornecedor" : "cliente"} ${item.nome}?`)) return;
+    setSaving(true); setError(""); setNotice("");
     try {
-      const res = await fetch(`${api}/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editData) });
-      if (res.ok) { setEditingId(null); setEditSection(null); loadData(); } else { const e = await res.json(); setError(e.error); }
+      await request(`/api/${section}/${item.id}`, "DELETE");
+      if (editing?.id === item.id) setEditing(null);
+      await loadData();
+      setNotice(section === "fornecedores" ? "Fornecedor desativado." : "Cliente desativado.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível desativar o cadastro.");
     } finally { setSaving(false); }
   };
 
-  const excluir = async (id: string, section: "f" | "c") => {
-    if (!confirm("Desativar?")) return;
-    await fetch(`${section === "f" ? "/api/fornecedores" : "/api/clientes"}/${id}`, { method: "DELETE" });
-    loadData();
+  const onEditKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
+    if (event.key === "Enter") { event.preventDefault(); void saveEdit(); }
+    if (event.key === "Escape") { event.preventDefault(); setEditing(null); }
   };
 
-  // Filtro de busca em ambas listas
-  const filteredF = fornecedores.filter(f => !busca || f.nome.toLowerCase().includes(busca.toLowerCase()) || f.codigo.toLowerCase().includes(busca.toLowerCase()));
-  const filteredC = clientes.filter(c => !busca || c.nome.toLowerCase().includes(busca.toLowerCase()) || c.codigo.toLowerCase().includes(busca.toLowerCase()));
+  const query = busca.trim().toLocaleLowerCase("pt-BR");
+  const filter = (items: Item[]) => items.filter(item => !query || item.codigo.toLocaleLowerCase("pt-BR").includes(query) || item.nome.toLocaleLowerCase("pt-BR").includes(query));
+  const filteredSuppliers = filter(fornecedores);
+  const filteredCustomers = filter(clientes);
+  const count = (visible: number, total: number) => loading ? "Carregando..." : query ? `${visible} de ${total} ${total === 1 ? "ativo" : "ativos"}` : `${total} ${total === 1 ? "ativo" : "ativos"}`;
 
-  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Carregando...</div>;
+  const renderRows = (section: Section, items: Item[]) => items.map(item => {
+    const isEditing = editing?.section === section && editing.id === item.id;
+    return <tr key={item.id} className={isEditing ? "editing" : undefined} onKeyDown={isEditing ? onEditKeyDown : undefined}>
+      {isEditing ? <>
+        <td><input className="cell-input" aria-label="Editar código" value={editDraft.codigo} onChange={event => setEditDraft(draft => ({ ...draft, codigo: event.target.value }))} /></td>
+        <td><input className="cell-input" aria-label="Editar nome" autoFocus value={editDraft.nome} onChange={event => setEditDraft(draft => ({ ...draft, nome: event.target.value }))} /></td>
+        {section === "clientes" && <>
+          <td><input className="cell-input" aria-label="Editar email" type="email" value={editDraft.email} onChange={event => setEditDraft(draft => ({ ...draft, email: event.target.value }))} /></td>
+          <td><input className="cell-input" aria-label="Editar telefone" value={editDraft.telefone} onChange={event => setEditDraft(draft => ({ ...draft, telefone: event.target.value }))} /></td>
+        </>}
+        <td className="registration-actions"><button type="button" className="action-btn registration-save" aria-label="Salvar edição" title="Salvar" disabled={saving} onClick={() => void saveEdit()}>✓</button><button type="button" className="action-btn" aria-label="Cancelar edição" title="Cancelar" onClick={() => setEditing(null)}>✕</button></td>
+      </> : <>
+        <td className="registration-code">{item.codigo}</td><td>{item.nome}</td>
+        {section === "clientes" && <><td className="registration-secondary">{item.email || "—"}</td><td>{item.telefone || "—"}</td></>}
+        <td className="registration-actions"><button type="button" className="action-btn" aria-label={`Editar ${item.nome}`} title="Editar" disabled={saving} onClick={() => startEdit(section, item)}>✎</button><button type="button" className="action-btn registration-danger" aria-label={`Desativar ${item.nome}`} title="Desativar" disabled={saving} onClick={() => void deactivate(section, item)}>✕</button></td>
+      </>}
+    </tr>;
+  });
 
-  return (
-    <div style={{ height: "100%", overflowY: "auto" }}>
-      <header className="topbar"><div><h1 className="page-title">Dimensões Cadastrais</h1><p className="page-sub">Estrutura Empresa — Fornecedores e Clientes</p></div></header>
-      <div style={{ padding: "16px 28px" }}>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
-
-        {/* Busca global */}
-        <div style={{ marginBottom: 16 }}>
-          <input type="text" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="🔍 Buscar por nome ou código (filtra fornecedores e clientes)" style={{ width: "100%", maxWidth: 400 }} />
-        </div>
-
-        {/* BLOCO 1: FORNECEDORES */}
-        <div style={{ marginBottom: 32 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>🏭 Fornecedores</h3>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "flex-end" }}>
-            <div className="form-group" style={{ marginBottom: 0 }}><label>Código</label><input type="text" value={fCodigo} onChange={e => setFCodigo(e.target.value)} placeholder="F001" style={{ width: 80 }} /></div>
-            <div className="form-group" style={{ marginBottom: 0, flex: 1, maxWidth: 300 }}><label>Nome</label><input type="text" value={fNome} onChange={e => setFNome(e.target.value)} placeholder="Suprimentos ABC" /></div>
-            <button className="btn btn-primary btn-sm" onClick={criarFornecedor} disabled={saving}>+ Adicionar</button>
-          </div>
-          <div style={{ maxHeight: 280, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-            <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
-              <thead><tr><th style={{ width: 70, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Código</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Nome</th><th style={{ width: 80, textAlign: "center", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Ações</th></tr></thead>
-              <tbody>
-                {filteredF.map(f => (
-                  <tr key={f.id}>
-                    {editingId === f.id && editSection === "f" ? (
-                      <><td><input className="cell-input" value={editData.codigo||""} onChange={e=>setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{width:60}} /></td><td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td></>
-                    ) : (
-                      <><td><span style={{fontWeight:600,fontSize:12}}>{f.codigo}</span></td><td>{f.nome}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(f.id);setEditSection("f");setEditData({...f});}}>✏️</button><button className="action-btn" onClick={()=>excluir(f.id,"f")}>🗑️</button></td></>
-                    )}
-                  </tr>
-                ))}
-                {filteredF.length === 0 && <tr><td colSpan={3} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhum fornecedor</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* BLOCO 2: CLIENTES */}
-        <div>
-          <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>👥 Clientes</h3>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "flex-end" }}>
-            <div className="form-group" style={{ marginBottom: 0 }}><label>Código</label><input type="text" value={cCodigo} onChange={e => setCCodigo(e.target.value)} placeholder="C001" style={{ width: 70 }} /></div>
-            <div className="form-group" style={{ marginBottom: 0, flex: 1, maxWidth: 200 }}><label>Nome</label><input type="text" value={cNome} onChange={e => setCNome(e.target.value)} placeholder="Nome" /></div>
-            <div className="form-group" style={{ marginBottom: 0 }}><label>Email</label><input type="email" value={cEmail} onChange={e => setCEmail(e.target.value)} placeholder="email@..." style={{ width: 150 }} /></div>
-            <div className="form-group" style={{ marginBottom: 0 }}><label>Telefone</label><input type="text" value={cTelefone} onChange={e => setCTelefone(e.target.value)} placeholder="(00)..." style={{ width: 120 }} /></div>
-            <button className="btn btn-primary btn-sm" onClick={criarCliente} disabled={saving}>+ Adicionar</button>
-          </div>
-          <div style={{ maxHeight: 280, overflowY: "auto", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-            <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
-              <thead><tr><th style={{ width: 60, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Código</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Nome</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Email</th><th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Telefone</th><th style={{ width: 80, textAlign: "center", position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Ações</th></tr></thead>
-              <tbody>
-                {filteredC.map(c => (
-                  <tr key={c.id}>
-                    {editingId === c.id && editSection === "c" ? (
-                      <><td><input className="cell-input" value={editData.codigo||""} onChange={e=>setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{width:50}} /></td><td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td><td><input className="cell-input" value={editData.email||""} onChange={e=>setEditData((d:any)=>({...d,email:e.target.value}))} /></td><td><input className="cell-input" value={editData.telefone||""} onChange={e=>setEditData((d:any)=>({...d,telefone:e.target.value}))} /></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td></>
-                    ) : (
-                      <><td><span style={{fontWeight:600,fontSize:12}}>{c.codigo}</span></td><td>{c.nome}</td><td style={{fontSize:11,color:"var(--text-secondary)"}}>{c.email||"—"}</td><td style={{fontSize:11}}>{c.telefone||"—"}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(c.id);setEditSection("c");setEditData({...c});}}>✏️</button><button className="action-btn" onClick={()=>excluir(c.id,"c")}>🗑️</button></td></>
-                    )}
-                  </tr>
-                ))}
-                {filteredC.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 16, color: "var(--text-muted)" }}>Nenhum cliente</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
+  return <div className="registration-page">
+    <header className="topbar"><div><h1 className="page-title">Dimensões Cadastrais</h1><p className="page-sub">Estrutura Empresa — Fornecedores e Clientes</p></div></header>
+    <main className="registration-content">
+      <div className="registration-toolbar">
+        <label className="registration-search"><span className="registration-visually-hidden">Buscar por código ou nome</span><input className="filter-input" value={busca} onChange={event => setBusca(event.target.value)} placeholder="Buscar por código ou nome" /></label>
+        <div className="registration-totals"><span>Fornecedores: {count(filteredSuppliers.length, fornecedores.length)}</span><span>Clientes: {count(filteredCustomers.length, clientes.length)}</span></div>
       </div>
-    </div>
-  );
+      {error && <div className="alert alert-error registration-message" role="alert">{error}</div>}
+      {notice && <div className="registration-message registration-success" role="status">{notice}</div>}
+      <div className="registration-grid">
+        <section className="registration-card" aria-labelledby="fornecedores-title">
+          <div className="registration-card-heading"><h2 id="fornecedores-title">Fornecedores</h2><span>{count(filteredSuppliers.length, fornecedores.length)}</span></div>
+          <form className="registration-form supplier-form" onSubmit={event => void create("fornecedores", event)} onKeyDown={event => { if (event.key === "Escape") { setFornecedorDraft(emptyDraft); setError(""); fornecedorCodeRef.current?.focus(); } }}>
+            <label>Código<input ref={fornecedorCodeRef} value={fornecedorDraft.codigo} onChange={event => setFornecedorDraft(draft => ({ ...draft, codigo: event.target.value }))} placeholder="F001" /></label>
+            <label>Nome<input value={fornecedorDraft.nome} onChange={event => setFornecedorDraft(draft => ({ ...draft, nome: event.target.value }))} placeholder="Nome do fornecedor" /></label>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>+ Adicionar</button>
+          </form>
+          <div className="registration-table-scroll"><table className="data-table registration-table supplier-table"><thead><tr><th>Código</th><th>Nome</th><th>Ações</th></tr></thead><tbody>
+            {loading ? <tr><td colSpan={3} className="registration-empty" role="status">Carregando fornecedores...</td></tr> : <>{renderRows("fornecedores", filteredSuppliers)}{filteredSuppliers.length === 0 && <tr><td colSpan={3} className="registration-empty">{query ? "Nenhum fornecedor encontrado para a busca." : "Nenhum fornecedor ativo cadastrado."}</td></tr>}</>}
+          </tbody></table></div>
+        </section>
+        <section className="registration-card" aria-labelledby="clientes-title">
+          <div className="registration-card-heading"><h2 id="clientes-title">Clientes</h2><span>{count(filteredCustomers.length, clientes.length)}</span></div>
+          <form className="registration-form customer-form" onSubmit={event => void create("clientes", event)} onKeyDown={event => { if (event.key === "Escape") { setClienteDraft(emptyDraft); setError(""); clienteCodeRef.current?.focus(); } }}>
+            <label>Código<input ref={clienteCodeRef} value={clienteDraft.codigo} onChange={event => setClienteDraft(draft => ({ ...draft, codigo: event.target.value }))} placeholder="C001" /></label>
+            <label>Nome<input value={clienteDraft.nome} onChange={event => setClienteDraft(draft => ({ ...draft, nome: event.target.value }))} placeholder="Nome do cliente" /></label>
+            <label>Email<input type="email" value={clienteDraft.email} onChange={event => setClienteDraft(draft => ({ ...draft, email: event.target.value }))} placeholder="email@exemplo.com" /></label>
+            <label>Telefone<input value={clienteDraft.telefone} onChange={event => setClienteDraft(draft => ({ ...draft, telefone: event.target.value }))} placeholder="(00) 00000-0000" /></label>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>+ Adicionar</button>
+          </form>
+          <div className="registration-table-scroll"><table className="data-table registration-table customer-table"><thead><tr><th>Código</th><th>Nome</th><th>Email</th><th>Telefone</th><th>Ações</th></tr></thead><tbody>
+            {loading ? <tr><td colSpan={5} className="registration-empty" role="status">Carregando clientes...</td></tr> : <>{renderRows("clientes", filteredCustomers)}{filteredCustomers.length === 0 && <tr><td colSpan={5} className="registration-empty">{query ? "Nenhum cliente encontrado para a busca." : "Nenhum cliente ativo cadastrado."}</td></tr>}</>}
+          </tbody></table></div>
+        </section>
+      </div>
+    </main>
+  </div>;
 }
