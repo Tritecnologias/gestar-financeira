@@ -228,8 +228,10 @@ model Cliente {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   contaPadrao PlanoContas? @relation("ClienteContaPadrao", fields: [tenantId, contaPadraoId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  lancamentos Lancamento[]
 
   @@unique([tenantId, codigo])
+  @@unique([tenantId, id])
   @@index([tenantId], map: "idx_clientes_tenant")
   @@index([tenantId, contaPadraoId], map: "idx_clientes_conta_padrao")
   @@map("clientes")
@@ -410,6 +412,7 @@ model Lancamento {
   // ── Vínculos ──────────────────────────────────────────────
   contaId      String?  @map("conta_id")
   fornecedorId String?  @map("fornecedor_id")
+  clienteId    String?  @map("cliente_id")
 
   // ── Campos de texto ───────────────────────────────────────
   fornecedor     String?  // texto livre (legado / fallback)
@@ -434,11 +437,13 @@ model Lancamento {
   conta       PlanoContas? @relation(fields: [contaId], references: [id])
   criador     Usuario?     @relation(fields: [criadoPor], references: [id])
   fornecedorRef Fornecedor? @relation(fields: [fornecedorId], references: [id])
+  clienteRef Cliente? @relation(fields: [tenantId, clienteId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([tenantId, dataLanc(sort: Desc)], map: "idx_lancamentos_tenant_data")
   @@index([tenantId, status], map: "idx_lancamentos_tenant_status")
   @@index([tenantId, tipo], map: "idx_lancamentos_tenant_tipo")
   @@index([fornecedorId], map: "idx_lancamentos_fornecedor")
+  @@index([tenantId, clienteId], map: "idx_lancamentos_tenant_cliente")
   @@index([tenantId, dataVencPlano], map: "idx_lancamentos_venc_plano")
   @@map("lancamentos")
 }

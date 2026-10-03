@@ -1,5 +1,6 @@
 import { toNumber } from "@/lib/formatters";
 import type { LancamentoDTO, StatusAuto } from "@/types";
+import { counterpartyDisplay, counterpartyName } from "@/lib/counterparty";
 
 /**
  * Converte qualquer representação de data (ISO 'YYYY-MM-DD', BR 'DD/MM/YYYY',
@@ -107,6 +108,7 @@ export function calcularCamposDerivados(l: any): Partial<LancamentoDTO> {
  */
 export function toLancamentoDTO(l: any, seq?: number): LancamentoDTO {
   const derivados = calcularCamposDerivados(l);
+  const linked = l.clienteRef || l.fornecedorRef;
   const fmt = (d: Date | string | null | undefined) => {
     if (!d) return null;
     if (typeof d === "string") return d.slice(0, 10);
@@ -134,7 +136,11 @@ export function toLancamentoDTO(l: any, seq?: number): LancamentoDTO {
     descricao:        l.descricao,
     fornecedor:       l.fornecedor ?? null,
     fornecedorId:     l.fornecedorId ?? null,
-    fantasiaPadrao:   l.fornecedorRef ? `${l.fornecedorRef.codigo} – ${l.fornecedorRef.nome}` : (l.fantasiaPadrao ?? null),
+    clienteId:        l.clienteId ?? null,
+    contraparteTipo:  l.clienteRef ? "CLIENTE" : l.fornecedorRef ? "FORNECEDOR" : null,
+    contraparteCodigo: linked?.codigo ?? null,
+    contraparteNome: linked ? counterpartyName(linked) : null,
+    fantasiaPadrao:   linked ? counterpartyDisplay(linked) : (l.fantasiaPadrao || l.fornecedor || null),
     centroCusto:      l.centroCusto ?? null,
     referencia:       l.referencia ?? null,
     contaId:          l.contaId ?? null,
@@ -153,4 +159,3 @@ export function toLancamentoDTO(l: any, seq?: number): LancamentoDTO {
     criadoEm:         l.criadoEm instanceof Date ? l.criadoEm.toISOString() : (l.criadoEm ?? new Date().toISOString()),
   };
 }
-

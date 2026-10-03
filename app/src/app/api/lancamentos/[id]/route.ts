@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
+import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 
 type Params = { params: Promise<{ id: string }> };
 
 // ── PUT /api/lancamentos/[id] ────────────────────────────────
 export async function PUT(req: NextRequest, { params }: Params) {
-  let db: any;
+  let db: any, session: any;
   try {
-    ({ db } = await requireSession());
+    ({ db, session } = await requireSession());
   } catch {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
@@ -25,7 +26,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const {
     dataLanc, descricao, valor, tipo, status,
-    fornecedor, fornecedorId, centroCusto, referencia, contaId,
+    fornecedor, fornecedorId, clienteId, centroCusto, referencia, contaId,
     dataEmissao, dataVencOriginal, dataVencPlano, dataEvento, dataPagamento,
     statusManual, statusExtrato, valorPrevisto, banco,
     fantasiaPadrao, categoria, dre, cont, anotacao,
@@ -51,8 +52,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
   if (banco !== undefined) updateData.banco = banco || null;
   if (fornecedor !== undefined) updateData.fornecedor = fornecedor || null;
-  if (fornecedorId !== undefined) updateData.fornecedorId = fornecedorId || null;
   if (fantasiaPadrao !== undefined) updateData.fantasiaPadrao = fantasiaPadrao || null;
+  try {
+    Object.assign(updateData, await resolveCounterpartyLink(db, session.tenantId,
+      Object.fromEntries([["clienteId", clienteId], ["fornecedorId", fornecedorId]].filter(([, value]) => value !== undefined)), existente));
+    Object.assign(updateData, await resolveAccountSelection(db, session.tenantId, contaId, existente.contaId));
+  } catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 400 }); }
   if (centroCusto !== undefined) updateData.centroCusto = centroCusto || null;
   if (referencia !== undefined) updateData.referencia = referencia || null;
   if (contaId !== undefined) updateData.contaId = contaId || null;
@@ -65,7 +70,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const atualizado = await db.lancamento.update({
     where: { id },
     data: updateData,
-    include: { fornecedorRef: { select: { codigo: true, nome: true } } },
+    include: counterpartInclude,
   });
 
   return NextResponse.json(toLancamentoDTO(atualizado, atualizado.seq));

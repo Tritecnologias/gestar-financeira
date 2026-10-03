@@ -37,6 +37,10 @@ export interface LancamentoDTO {
   descricao:      string;
   fornecedor:     string | null;
   fornecedorId:   string | null;
+  clienteId:      string | null;
+  contraparteTipo: "CLIENTE" | "FORNECEDOR" | null;
+  contraparteCodigo: string | null;
+  contraparteNome: string | null;
   fantasiaPadrao: string | null;  // display: "codigo – nome"
   centroCusto:    string | null;
   referencia:     string | null;

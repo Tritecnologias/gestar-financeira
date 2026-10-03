@@ -1,12 +1,14 @@
 "use client";
-import { useState } from "react";
-import type { FornecedorDTO, StatusManualTipoDTO } from "@/types";
+import { useEffect, useState } from "react";
+import type { StatusManualTipoDTO } from "@/types";
+import { counterpartyDisplay, counterpartyIds, defaultAccount, type CounterpartyOption } from "@/lib/counterparty";
+import CounterpartyPicker from "./CounterpartyPicker";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
-  fornecedores: FornecedorDTO[];
+  counterparties: CounterpartyOption[];
   statusTipos: StatusManualTipoDTO[];
 }
 
@@ -26,6 +28,9 @@ const INITIAL_FORM = {
   banco: "",
   fornecedor: "",
   fornecedorId: "",
+  clienteId: "",
+  contaId: "",
+  fantasiaPadrao: "",
   centroCusto: "",
   categoria: "",
   dre: "",
@@ -34,12 +39,35 @@ const INITIAL_FORM = {
   statusExtrato: "",
 };
 
-export default function NovoLancamentoModal({ open, onClose, onCreated, fornecedores, statusTipos }: Props) {
+type Category = { id: string; codigo: string; nome: string; ativo: boolean };
+type Account = { id: string; codigo: string | null; descricao: string; categoriaId: string | null; ativo: boolean };
+
+export default function NovoLancamentoModal({ open, onClose, onCreated, counterparties, statusTipos }: Props) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    void Promise.all([fetch("/api/categorias"), fetch("/api/plano-contas")])
+      .then(async ([categoriesResponse, accountsResponse]) => {
+        if (!categoriesResponse.ok || !accountsResponse.ok) throw new Error("Classificação financeira indisponível.");
+        setCategories(await categoriesResponse.json());
+        setAccounts(await accountsResponse.json());
+      }).catch(() => { setCategories([]); setAccounts([]); });
+  }, [open]);
 
   const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }));
+  const chooseCounterparty = (option: CounterpartyOption | null) => {
+    const account = defaultAccount(option);
+    const ids = counterpartyIds(option);
+    setForm(current => ({ ...current, clienteId: ids.clienteId || "", fornecedorId: ids.fornecedorId || "",
+      fantasiaPadrao: option ? counterpartyDisplay(option) : "",
+      ...(account ? { contaId: account.contaId, categoria: account.categoria } : {}),
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +89,8 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, forneced
           valorPrevisto: form.valorPrevisto ? parseFloat(form.valorPrevisto.replace(",", ".")) : null,
           statusManual: form.statusManual || null,
           fornecedorId: form.fornecedorId || null,
+          clienteId: form.clienteId || null,
+          contaId: form.contaId || null,
           dataEmissao: form.dataEmissao || null,
           dataVencOriginal: form.dataVencOriginal || null,
           dataVencPlano: form.dataVencPlano || null,
@@ -190,18 +220,31 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, forneced
           <div className="form-row-3">
             <div className="form-group">
               <label>Fantasia (n4)</label>
-              <select value={form.fornecedorId} onChange={e => set("fornecedorId", e.target.value)}>
-                <option value="">—</option>
-                {fornecedores.map(f => <option key={f.id} value={f.id}>{f.display}</option>)}
-              </select>
+              <CounterpartyPicker options={counterparties}
+                selected={counterparties.find(option => option.id === (form.clienteId || form.fornecedorId)) || null}
+                onSelect={chooseCounterparty} />
             </div>
             <div className="form-group">
               <label>Centro de Custo</label>
               <input type="text" value={form.centroCusto} onChange={e => set("centroCusto", e.target.value)} />
             </div>
             <div className="form-group">
-              <label>Categoria</label>
-              <input type="text" value={form.categoria} onChange={e => set("categoria", e.target.value)} />
+              <label>Categoria N1</label>
+              <select value={form.categoria} onChange={e => setForm(current => ({ ...current, categoria: e.target.value, contaId: "" }))}>
+                <option value="">—</option>
+                {categories.map(category => <option key={category.id} value={category.codigo}>{category.codigo} – {category.nome}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row-3">
+            <div className="form-group">
+              <label>Conta N2</label>
+              <select value={form.contaId} onChange={e => set("contaId", e.target.value)}>
+                <option value="">—</option>
+                {accounts.filter(account => account.categoriaId === categories.find(category => category.codigo === form.categoria)?.id)
+                  .map(account => <option key={account.id} value={account.id}>{account.codigo} – {account.descricao}</option>)}
+              </select>
             </div>
           </div>
 

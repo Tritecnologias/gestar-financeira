@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
+import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 import type { PaginatedResponse, LancamentoDTO } from "@/types";
 
 // ── GET /api/lancamentos ──────────────────────────────────────
@@ -44,6 +45,9 @@ export async function GET(req: NextRequest) {
       { descricao:      { contains: busca, mode: "insensitive" } },
       { fornecedor:     { contains: busca, mode: "insensitive" } },
       { fantasiaPadrao: { contains: busca, mode: "insensitive" } },
+      { clienteRef: { is: { nome: { contains: busca, mode: "insensitive" } } } },
+      { clienteRef: { is: { nomeFantasia: { contains: busca, mode: "insensitive" } } } },
+      { fornecedorRef: { is: { nome: { contains: busca, mode: "insensitive" } } } },
       { centroCusto:    { contains: busca, mode: "insensitive" } },
       { referencia:     { contains: busca, mode: "insensitive" } },
       { anotacao:       { contains: busca, mode: "insensitive" } },
@@ -89,7 +93,7 @@ export async function GET(req: NextRequest) {
       orderBy,
       skip: (pagina - 1) * porPagina,
       take: porPagina,
-      include: { fornecedorRef: { select: { codigo: true, nome: true } } },
+      include: counterpartInclude,
     }),
   ]);
 
@@ -116,7 +120,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
     dataLanc, descricao, valor, tipo, status,
-    fornecedor, fornecedorId, centroCusto, referencia, contaId,
+    fornecedor, fornecedorId, clienteId, centroCusto, referencia, contaId,
     dataEmissao, dataVencOriginal, dataVencPlano, dataEvento, dataPagamento,
     statusManual, statusExtrato, valorPrevisto, banco,
     fantasiaPadrao, categoria, dre, cont, anotacao,
@@ -127,6 +131,13 @@ export async function POST(req: NextRequest) {
   if (!dataLanc || !descricao || valor === undefined || valor === null || Number.isNaN(valorNum) || !tipo) {
     return NextResponse.json({ error: "Campos obrigatórios: dataLanc, descricao, valor, tipo" }, { status: 400 });
   }
+
+  let counterpart: Record<string, unknown>, account: Record<string, unknown>;
+  try {
+    counterpart = await resolveCounterpartyLink(db, session.tenantId, { clienteId, fornecedorId });
+    account = await resolveAccountSelection(db, session.tenantId, contaId);
+  }
+  catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 400 }); }
 
 
   // ⚡ seq calculado por tenant dentro de uma transação para garantir unicidade.
@@ -159,17 +170,20 @@ export async function POST(req: NextRequest) {
         banco:            banco         || null,
         fornecedor:       fornecedor    || null,
         fornecedorId:     fornecedorId  || null,
+        clienteId:        clienteId || null,
         fantasiaPadrao:   fantasiaPadrao|| null,
+        ...counterpart,
         centroCusto:      centroCusto   || null,
         referencia:       referencia    || null,
         contaId:          contaId       || null,
         categoria:        categoria     || null,
+        ...account,
         dre:              dre           || null,
         cont:             cont          || null,
         anotacao:         anotacao      || null,
         criadoPor:        session.id,
       },
-      include: { fornecedorRef: { select: { codigo: true, nome: true } } },
+      include: counterpartInclude,
     });
   });
 

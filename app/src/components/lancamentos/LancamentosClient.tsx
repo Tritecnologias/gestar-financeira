@@ -7,6 +7,11 @@ import LayoutManager from "./LayoutManager";
 import StatusTiposModal from "./StatusTiposModal";
 import NovoLancamentoModal from "./NovoLancamentoModal";
 import ImportModal from "./ImportModal";
+import CounterpartyPicker from "./CounterpartyPicker";
+import { activeCounterparties, counterpartyDisplay, counterpartyIds, defaultAccount } from "@/lib/counterparty";
+
+type CategoryOption = { id: string; codigo: string; nome: string };
+type AccountOption = { id: string; codigo: string | null; descricao: string; categoriaId: string | null };
 
 // ── Chip helpers ─────────────────────────────────────────────
 function ChipTipo({ tipo }: { tipo: string }) {
@@ -125,6 +130,9 @@ export default function LancamentosClient() {
   // Tabelas de apoio
   const [fornecedores, setFornecedores] = useState<FornecedorDTO[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
+  const counterparties = activeCounterparties(clientes, fornecedores);
   const [statusTipos, setStatusTipos] = useState<StatusManualTipoDTO[]>([]);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [novoModalOpen, setNovoModalOpen] = useState(false);
@@ -153,6 +161,8 @@ export default function LancamentosClient() {
   useEffect(() => {
     fetch("/api/fornecedores").then(r => r.json()).then(d => Array.isArray(d) && setFornecedores(d)).catch(() => {});
     fetch("/api/clientes").then(r => r.json()).then(d => Array.isArray(d) && setClientes(d)).catch(() => {});
+    fetch("/api/categorias").then(r => r.json()).then(d => Array.isArray(d) && setCategories(d)).catch(() => {});
+    fetch("/api/plano-contas").then(r => r.json()).then(d => Array.isArray(d) && setAccounts(d)).catch(() => {});
     fetch("/api/status-tipos").then(r => r.json()).then(d => Array.isArray(d) && setStatusTipos(d)).catch(() => {});
   }, []);
 
@@ -192,6 +202,8 @@ export default function LancamentosClient() {
           status: "realizado",
           statusManual: inlineNewValues.statusManual || null,
           fornecedorId: inlineNewValues.fornecedorId || null,
+          clienteId: inlineNewValues.clienteId || null,
+          contaId: inlineNewValues.contaId || null,
           dataLanc: inlineNewValues.dataLanc || new Date().toISOString().split("T")[0],
           dataEmissao: inlineNewValues.dataEmissao || null,
           dataVencOriginal: inlineNewValues.dataVencOriginal || null,
@@ -533,29 +545,18 @@ export default function LancamentosClient() {
     }
     if (def.tipo === "select-api") {
       if (def.source === "fornecedores") {
-        const allOpts = [...fornecedores.map(f => f.display || `${f.codigo} – ${f.nome}`), ...clientes.map((c: any) => `${c.codigo} – ${c.nome}`)];
-        const listId = `datalist-${def.key}-${rowId}`;
+        const selected = counterparties.find(item => item.id === (editValues.clienteId || editValues.fornecedorId)) || null;
         return (
-          <>
-            <input
-              {...common}
-              onBlur={() => handleBlur(rowId)}
-              list={listId}
-              value={val ?? ""}
-              onChange={e => {
-                const newVal = e.target.value;
-                const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
-                const updated = { ...current, [def.key]: newVal };
-                editValuesRef.current = updated;
-                setEditValues(updated);
-              }}
-              className="cell-input"
-              placeholder="Digite para buscar..."
-            />
-            <datalist id={listId}>
-              {allOpts.map((o, i) => <option key={i} value={o} />)}
-            </datalist>
-          </>
+          <CounterpartyPicker className="cell-input" options={counterparties} selected={selected}
+            legacyLabel={selected ? null : val}
+            onBlur={() => handleBlur(rowId)}
+            onEnter={() => saveEdit(rowId)} onEscape={cancelEdit}
+            onSelect={item => {
+              const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
+              const updated = { ...current, ...counterpartyIds(item), fantasiaPadrao: item ? counterpartyDisplay(item) : null };
+              editValuesRef.current = updated;
+              setEditValues(updated);
+            }} />
         );
       }
       return (
@@ -857,7 +858,7 @@ export default function LancamentosClient() {
                         const commonProps = {
                           className: "cell-input",
                           value: val,
-                          onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setInlineNewValues(p => ({ ...p, [def.key]: e.target.value })),
+                          onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setInlineNewValues(p => ({ ...p, [def.key]: e.target.value, ...(def.key === "categoria" ? { contaId: "" } : {}) })),
                           onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") saveInlineNew(); if (e.key === "Escape") cancelInlineNew(); },
                           ...(idx === 1 ? { ref: inlineNewFirstRef as any } : {}),
                         };
@@ -877,13 +878,30 @@ export default function LancamentosClient() {
                         );
                         if (def.tipo === "select-api") {
                           if (def.source === "fornecedores") {
-                            const allOpts = [...fornecedores.map(f => f.display || `${f.codigo} – ${f.nome}`), ...clientes.map((c: any) => `${c.codigo} – ${c.nome}`)];
-                            const listId = `datalist-inline-${def.key}`;
+                            const selected = counterparties.find(item => item.id === (inlineNewValues.clienteId || inlineNewValues.fornecedorId)) || null;
                             return (
-                              <>
-                                <input {...commonProps} list={listId} placeholder="Digite para buscar..." />
-                                <datalist id={listId}>{allOpts.map((o, i) => <option key={i} value={o} />)}</datalist>
-                              </>
+                              <div style={{ display: "grid", gap: 3 }}>
+                                <CounterpartyPicker className="cell-input" options={counterparties} selected={selected}
+                                  onEnter={() => void saveInlineNew()} onEscape={cancelInlineNew}
+                                  onSelect={item => {
+                                    const account = defaultAccount(item);
+                                    const ids = counterpartyIds(item);
+                                    setInlineNewValues(current => ({ ...current,
+                                      clienteId: ids.clienteId || "", fornecedorId: ids.fornecedorId || "",
+                                      fantasiaPadrao: item ? counterpartyDisplay(item) : "",
+                                      ...(account ? { contaId: account.contaId, categoria: account.categoria } : {}),
+                                    }));
+                                  }} />
+                                <select className="cell-input" aria-label="Conta N2 do novo lançamento" value={inlineNewValues.contaId || ""}
+                                  onChange={event => {
+                                    const account = accounts.find(item => item.id === event.target.value);
+                                    const category = categories.find(item => item.id === account?.categoriaId);
+                                    setInlineNewValues(current => ({ ...current, contaId: account?.id || "", categoria: category?.codigo || current.categoria || "" }));
+                                  }}>
+                                  <option value="">Conta N2 —</option>
+                                  {accounts.map(account => <option key={account.id} value={account.id}>{account.codigo} – {account.descricao}</option>)}
+                                </select>
+                              </div>
                             );
                           }
                           return (
@@ -932,7 +950,7 @@ export default function LancamentosClient() {
           open={novoModalOpen}
           onClose={() => setNovoModalOpen(false)}
           onCreated={loadData}
-          fornecedores={fornecedores}
+          counterparties={counterparties}
           statusTipos={statusTipos}
         />
 

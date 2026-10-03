@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { toNumber } from "@/lib/formatters";
+import { counterpartyDisplay } from "@/lib/counterparty";
+import { counterpartInclude } from "@/lib/lancamento-counterparty";
 
 // ── GET /api/lancamentos/exportar ─────────────────────────────
 // Exporta TODOS os lançamentos (sem paginação) para CSV.
@@ -80,7 +82,7 @@ export async function GET(req: NextRequest) {
   const lancamentos = await db.lancamento.findMany({
     where,
     orderBy,
-    include: { fornecedorRef: { select: { codigo: true, nome: true } } },
+    include: counterpartInclude,
   });
 
   // Montar CSV
@@ -109,7 +111,7 @@ export async function GET(req: NextRequest) {
     fmtBR(l.dataPagamento),
     l.descricao ?? "",
     l.fornecedor ?? "",
-    l.fornecedorRef ? `${l.fornecedorRef.codigo} – ${l.fornecedorRef.nome}` : (l.fantasiaPadrao ?? ""),
+    l.clienteRef ? counterpartyDisplay(l.clienteRef) : l.fornecedorRef ? counterpartyDisplay(l.fornecedorRef) : (l.fantasiaPadrao || l.fornecedor || ""),
     l.banco ?? "",
     l.tipo ?? "",
     l.status ?? "",

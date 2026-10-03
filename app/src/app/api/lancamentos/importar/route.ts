@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
 import { prisma, getTenantPrisma } from "@/lib/db";
 import { parseDateOnly } from "@/lib/lancamento";
+import { resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 
 // ── POST /api/lancamentos/importar ────────────────────────────
 // Importação em lote com verificação de duplicidade.
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   // Busca o MAX(seq) atual do tenant de destino uma única vez antes do lote.
   const resultado = await prisma.$queryRaw<{ maxseq: number }[]>`
-    SELECT COALESCE(MAX(seq), 0) AS maxseq FROM lancamentos WHERE tenant_id = ${targetTenantId}::uuid
+    SELECT COALESCE(MAX(seq), 0) AS maxseq FROM lancamentos WHERE tenant_id = ${targetTenantId}
   `;
   let proximoSeq = Number(resultado[0]?.maxseq ?? 0) + 1;
 
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
     try {
       const {
         dataLanc, descricao, valor, tipo, status,
-        fornecedor, fornecedorId, centroCusto, referencia, contaId,
+        fornecedor, fornecedorId, clienteId, centroCusto, referencia, contaId,
         dataEmissao, dataVencOriginal, dataVencPlano, dataEvento, dataPagamento,
         statusManual, statusExtrato, valorPrevisto, banco,
         fantasiaPadrao, categoria, dre, cont, anotacao,
@@ -142,6 +143,7 @@ export async function POST(req: NextRequest) {
       }
 
       const valorPrevNum = valorPrevisto != null ? (typeof valorPrevisto === "number" ? valorPrevisto : parseFloat(String(valorPrevisto).replace(",", "."))) : null;
+      const counterpart = await resolveCounterpartyLink(targetDb, targetTenantId, { clienteId, fornecedorId });
 
       await targetDb.lancamento.create({
         data: {
@@ -162,7 +164,9 @@ export async function POST(req: NextRequest) {
           banco:            banco         || null,
           fornecedor:       fornecedor    || null,
           fornecedorId:     fornecedorId  || null,
+          clienteId:        clienteId || null,
           fantasiaPadrao:   fantasiaPadrao|| null,
+          ...counterpart,
           centroCusto:      centroCusto   || null,
           referencia:       referencia    || null,
           contaId:          contaId       || null,
