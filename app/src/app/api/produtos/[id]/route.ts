@@ -38,18 +38,23 @@ export async function PUT(req: NextRequest, { params }: Context) {
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: Context) {
+export async function DELETE(req: NextRequest, { params }: Context) {
   try {
     const { db, session } = await requireEscrita();
     const { id } = await params;
+    const permanent = req.nextUrl.searchParams.get("permanent") === "true";
+    const confirmation = permanent ? (await req.json().catch(() => null))?.confirmCode : null;
     await productTransaction(db, session.tenantId, async tx => {
       const item = await tx.produto.findFirst({ where: { id, tenantId: session.tenantId } });
       if (!item) throw productError("Item não encontrado neste tenant.", 404);
-      await tx.produto.update({ where: { id }, data: { ativo: false } });
+      if (permanent && confirmation !== item.codigo) throw productError("Confirme o código exato do Item para excluir definitivamente.");
+      if (permanent) await tx.produto.delete({ where: { id } });
+      else await tx.produto.update({ where: { id }, data: { ativo: false } });
     });
     return NextResponse.json({ ok: true });
   } catch (error: any) {
-    const e = productApiError(error, "Não foi possível desativar o item.");
+    const e = productApiError(error, "Não foi possível excluir ou desativar o Item.");
+    if (error?.code === "P2003" || error?.code === "P2014") return NextResponse.json({ error: "Item possui referência em outro cadastro ou módulo e não pode ser excluído definitivamente." }, { status: 409 });
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }

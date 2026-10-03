@@ -24,20 +24,25 @@ export async function PUT(req: NextRequest, { params }: Context) {
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: Context) {
+export async function DELETE(req: NextRequest, { params }: Context) {
   try {
     const { db, session } = await requireEscrita();
     const { id } = await params;
+    const permanent = req.nextUrl.searchParams.get("permanent") === "true";
+    const confirmation = permanent ? (await req.json().catch(() => null))?.confirmCode : null;
     await productTransaction(db, session.tenantId, async tx => {
       const existing = await tx.produtoLinha.findFirst({ where: { id, tenantId: session.tenantId } });
       if (!existing) throw productError("Linha não encontrada neste tenant.", 404);
-      const count = await tx.produto.count({ where: { tenantId: session.tenantId, linhaId: id, ativo: true } });
-      if (count) throw productError(`Linha possui ${count} Item(ns) ativo(s) vinculado(s).`, 409);
-      await tx.produtoLinha.update({ where: { id }, data: { ativo: false } });
+      if (permanent && confirmation !== existing.codigo) throw productError("Confirme o código exato da Linha para excluir definitivamente.");
+      const count = await tx.produto.count({ where: { tenantId: session.tenantId, linhaId: id, ...(permanent ? {} : { ativo: true }) } });
+      if (count) throw productError(`Linha possui ${count} Item(ns) ${permanent ? "vinculado(s), inclusive inativos" : "ativo(s) vinculado(s)"}.`, 409);
+      if (permanent) await tx.produtoLinha.delete({ where: { id } });
+      else await tx.produtoLinha.update({ where: { id }, data: { ativo: false } });
     });
     return NextResponse.json({ ok: true });
   } catch (error: any) {
-    const e = productApiError(error, "Não foi possível desativar a Linha.");
+    if (error?.code === "P2003" || error?.code === "P2014") return NextResponse.json({ error: "Linha possui outra dependência e não pode ser excluída." }, { status: 409 });
+    const e = productApiError(error, "Não foi possível excluir ou desativar a Linha.");
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }
