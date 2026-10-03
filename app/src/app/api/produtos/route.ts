@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
-import { nextProductCode, productApiError, productPrice, productText, productTransaction, validateProductClassification } from "@/lib/product-catalog";
+import { nextProductCode, productApiError, productText, productTransaction, validateProductClassification } from "@/lib/product-catalog";
 
 const relations = { grupoRef: { select: { id: true, codigo: true, nome: true, ativo: true } }, tipoRef: { select: { id: true, codigo: true, nome: true, grupoId: true, ativo: true } }, linhaRef: { select: { id: true, codigo: true, nome: true, tipoId: true, ativo: true } } };
 
@@ -25,12 +25,10 @@ export async function POST(req: NextRequest) {
     const descricao = productText(input.descricao, "Descrição", false, 5000);
     const observacoes = productText(input.observacoes, "Observações", false, 5000);
     const unidade = productText(input.unidade, "Unidade", false, 30);
-    const precoVenda = productPrice(input.precoVenda, "Preço de venda");
-    const precoCusto = productPrice(input.precoCusto, "Preço de custo");
     const item = await productTransaction(db, session.tenantId, async tx => {
       await validateProductClassification(tx, session.tenantId, grupoId, tipoId, linhaId);
       const codigo = await nextProductCode(tx, session.tenantId);
-      return tx.produto.create({ data: { codigo, nome, grupoId, tipoId, linhaId, descricao, observacoes, unidade, precoVenda, precoCusto }, include: relations });
+      return tx.produto.create({ data: { codigo, nome, grupoId, tipoId, linhaId, descricao, observacoes, unidade }, include: relations });
     });
     return NextResponse.json(item, { status: 201 });
   } catch (error: any) {

@@ -30,7 +30,7 @@ export async function GET() {
       groups.map(group => ({ codigo: group.codigo, nome: group.nome })),
       types.map(type => ({ codigoGrupo: groupById.get(type.grupoId!)!.codigo, codigo: type.codigo, nome: type.nome })),
       structuredLines.map(line => ({ codigoGrupo: groupById.get(typeById.get(line.tipoId)!.grupoId!)!.codigo, codigoTipo: typeById.get(line.tipoId)!.codigo, codigo: line.codigo, nome: line.nome })),
-      items.map(item => ({ codigo: item.codigo, nome: item.nome, codigoGrupo: groupById.get(item.grupoId!)!.codigo, codigoTipo: typeById.get(item.tipoId!)!.codigo, codigoLinha: item.linhaId ? lineById.get(item.linhaId)!.codigo : "", descricao: item.descricao || "", unidade: item.unidade || "", precoVenda: item.precoVenda?.toString() || "", precoCusto: item.precoCusto?.toString() || "", observacoes: item.observacoes || "" })),
+      items.map(item => ({ codigo: item.codigo, nome: item.nome, codigoGrupo: groupById.get(item.grupoId!)!.codigo, codigoTipo: typeById.get(item.tipoId!)!.codigo, codigoLinha: item.linhaId ? lineById.get(item.linhaId)!.codigo : "", descricao: item.descricao || "", unidade: item.unidade || "", observacoes: item.observacoes || "" })),
     );
     return new NextResponse(workbook, { headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

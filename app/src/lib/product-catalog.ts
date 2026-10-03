@@ -50,17 +50,37 @@ export async function productTransaction<T>(db: any, tenantId: string, work: (tx
 }
 
 export async function nextProductCode(tx: any, tenantId: string) {
-  const rows = await tx.produto.findMany({ where: { tenantId }, select: { codigo: true } }) as { codigo: string }[];
-  let max = BigInt(0);
-  for (const row of rows) {
-    const match = /^I(\d+)$/i.exec(row.codigo);
-    if (match) {
-      const number = BigInt(match[1]);
-      if (number > max) max = number;
+  return reserveProductCode(tx, tenantId, "item");
+}
+
+/** Deve ser chamado dentro de productTransaction: o lock por tenant serializa a reserva. */
+export async function reserveProductCode(tx: any, tenantId: string, kind: "grupo" | "tipo" | "linha" | "item", parent?: { id: string; codigo: string }) {
+  if ((kind === "tipo" || kind === "linha") && !parent) throw productError("Classificação pai obrigatória.");
+  const escopo = parent ? `${kind}:${parent.id}` : kind;
+  const saved = await tx.produtoSequencia.findFirst({ where: { tenantId, escopo } });
+  let ultimo = saved?.ultimoNumero ?? BigInt(0);
+  if (!saved) {
+    const rows = kind === "grupo"
+      ? await tx.produtoGrupo.findMany({ where: { tenantId }, select: { codigo: true } })
+      : kind === "tipo"
+        ? await tx.produtoTipo.findMany({ where: { tenantId, grupoId: parent!.id }, select: { codigo: true } })
+        : kind === "linha"
+          ? await tx.produtoLinha.findMany({ where: { tenantId, tipoId: parent!.id }, select: { codigo: true } })
+          : await tx.produto.findMany({ where: { tenantId }, select: { codigo: true } });
+    const prefix = kind === "item" ? "I" : parent ? `${parent.codigo}.` : "";
+    for (const row of rows as { codigo: string }[]) {
+      if (!row.codigo.startsWith(prefix)) continue;
+      const segment = row.codigo.slice(prefix.length);
+      if (!/^\d+$/.test(segment)) continue;
+      const number = BigInt(segment);
+      if (number > ultimo) ultimo = number;
     }
   }
-  const code = `I${(max + BigInt(1)).toString().padStart(4, "0")}`;
+  const next = ultimo + BigInt(1);
+  const code = kind === "item" ? `I${next.toString().padStart(4, "0")}` : `${parent ? `${parent.codigo}.` : ""}${next.toString().padStart(2, "0")}`;
   if (code.length > 30) throw productError("A sequência de códigos atingiu o limite do cadastro.", 409);
+  if (saved) await tx.produtoSequencia.update({ where: { id: saved.id }, data: { ultimoNumero: next } });
+  else await tx.produtoSequencia.create({ data: { escopo, ultimoNumero: next } });
   return code;
 }
 

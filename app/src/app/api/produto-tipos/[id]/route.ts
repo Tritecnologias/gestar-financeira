@@ -9,21 +9,40 @@ export async function PUT(req: NextRequest, { params }: Context) {
     const { db, session } = await requireEscrita();
     const { id } = await params;
     const input = await req.json();
-    const codigo = productText(input.codigo, "Código do Tipo", true, 30)!;
     const nome = productText(input.nome, "Nome do Tipo", true)!;
     const item = await productTransaction(db, session.tenantId, async tx => {
       const existing = await tx.produtoTipo.findFirst({ where: { id, tenantId: session.tenantId } });
       if (!existing) throw productError("Tipo não encontrado neste tenant.", 404);
+      if (!existing.ativo) throw productError("Tipo inativo não pode ser editado.", 409);
+      if (input.codigo !== undefined && input.codigo !== existing.codigo) throw productError("Código do Tipo é imutável.");
       if (input.grupoId !== undefined && input.grupoId !== existing.grupoId) throw productError("Grupo do Tipo não pode ser alterado.");
       if (existing.grupoId) {
         const group = await tx.produtoGrupo.findFirst({ where: { id: existing.grupoId, tenantId: session.tenantId, ativo: true } });
         if (!group) throw productError("Grupo do Tipo está inativo ou indisponível.");
       }
-      return tx.produtoTipo.update({ where: { id }, data: { codigo, nome } });
+      return tx.produtoTipo.update({ where: { id }, data: { nome } });
     });
     return NextResponse.json(item);
   } catch (error: any) {
     const e = productApiError(error, "Não foi possível atualizar o Tipo.");
+    return NextResponse.json({ error: e.message }, { status: e.status });
+  }
+}
+
+export async function PATCH(_req: NextRequest, { params }: Context) {
+  try {
+    const { db, session } = await requireEscrita();
+    const { id } = await params;
+    const item = await productTransaction(db, session.tenantId, async tx => {
+      const existing = await tx.produtoTipo.findFirst({ where: { id, tenantId: session.tenantId } });
+      if (!existing) throw productError("Tipo não encontrado neste tenant.", 404);
+      const group = await tx.produtoGrupo.findFirst({ where: { id: existing.grupoId, tenantId: session.tenantId, ativo: true } });
+      if (!group) throw productError("Reative o Grupo antes de reativar este Tipo.", 409);
+      return tx.produtoTipo.update({ where: { id }, data: { ativo: true } });
+    });
+    return NextResponse.json(item);
+  } catch (error: any) {
+    const e = productApiError(error, "Não foi possível reativar o Tipo.");
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }

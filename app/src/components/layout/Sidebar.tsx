@@ -42,7 +42,7 @@ const MENU: MenuGroup[] = [
     { letra: "b", label: "Dimensão de Pessoas",    href: "/estrutura/dimensao-pessoas"      },
     { letra: "c", label: "Dimensões Financeiras",  href: "/estrutura/dimensoes-financeiras" },
     { letra: "d", label: "Dimensões Cadastrais",   href: "/estrutura/dimensoes-cadastrais"  },
-    { letra: "e", label: "Dimensão Produtos/Serv", href: "/estrutura/dimensao-produtos"     },
+    { letra: "e", label: "Dimensão de Portfólio", href: "/estrutura/dimensao-produtos"     },
     { letra: "f", label: "Dimensões Comerciais",   href: "/estrutura/dimensoes-comerciais"  },
   ]},
   { num: 3,  icon: "💰", label: "Fluxo de Caixa",          sub: [

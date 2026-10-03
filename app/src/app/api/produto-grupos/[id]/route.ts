@@ -24,6 +24,22 @@ export async function PUT(req: NextRequest, { params }: Context) {
   }
 }
 
+export async function PATCH(_req: NextRequest, { params }: Context) {
+  try {
+    const { db, session } = await requireEscrita();
+    const { id } = await params;
+    const item = await productTransaction(db, session.tenantId, async tx => {
+      const existing = await tx.produtoGrupo.findFirst({ where: { id, tenantId: session.tenantId } });
+      if (!existing) throw productError("Grupo não encontrado neste tenant.", 404);
+      return tx.produtoGrupo.update({ where: { id }, data: { ativo: true } });
+    });
+    return NextResponse.json(item);
+  } catch (error: any) {
+    const e = productApiError(error, "Não foi possível reativar o Grupo.");
+    return NextResponse.json({ error: e.message }, { status: e.status });
+  }
+}
+
 export async function DELETE(req: NextRequest, { params }: Context) {
   try {
     const { db, session } = await requireEscrita();

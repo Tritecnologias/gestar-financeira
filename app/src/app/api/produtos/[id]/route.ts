@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
-import { productApiError, productError, productPrice, productText, productTransaction, validateProductClassification } from "@/lib/product-catalog";
+import { productApiError, productError, productText, productTransaction, validateProductClassification } from "@/lib/product-catalog";
 
 type Context = { params: Promise<{ id: string }> };
 const relations = { grupoRef: true, tipoRef: true, linhaRef: true };
@@ -24,8 +24,6 @@ export async function PUT(req: NextRequest, { params }: Context) {
       descricao: productText(input.descricao, "Descrição", false, 5000),
       observacoes: productText(input.observacoes, "Observações", false, 5000),
       unidade: productText(input.unidade, "Unidade", false, 30),
-      precoVenda: productPrice(input.precoVenda, "Preço de venda"),
-      precoCusto: productPrice(input.precoCusto, "Preço de custo"),
     };
     const item = await productTransaction(db, session.tenantId, async tx => {
       await validateProductClassification(tx, session.tenantId, grupoId, tipoId, linhaId);
@@ -34,6 +32,25 @@ export async function PUT(req: NextRequest, { params }: Context) {
     return NextResponse.json(item);
   } catch (error: any) {
     const e = productApiError(error, "Não foi possível atualizar o item.");
+    return NextResponse.json({ error: e.message }, { status: e.status });
+  }
+}
+
+export async function PATCH(_req: NextRequest, { params }: Context) {
+  try {
+    const { db, session } = await requireEscrita();
+    const { id } = await params;
+    const item = await productTransaction(db, session.tenantId, async tx => {
+      const existing = await tx.produto.findFirst({ where: { id, tenantId: session.tenantId } });
+      if (!existing) throw productError("Item não encontrado neste tenant.", 404);
+      if (!existing.grupoId || !existing.tipoId) throw productError("Classifique o Item legado antes de reativá-lo.", 409);
+      try { await validateProductClassification(tx, session.tenantId, existing.grupoId, existing.tipoId, existing.linhaId); }
+      catch { throw productError("Reative primeiro o Grupo, Tipo e Linha vinculados a este Item.", 409); }
+      return tx.produto.update({ where: { id }, data: { ativo: true }, include: relations });
+    });
+    return NextResponse.json(item);
+  } catch (error: any) {
+    const e = productApiError(error, "Não foi possível reativar o Item.");
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }

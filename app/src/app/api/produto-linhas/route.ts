@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita, requireSession } from "@/lib/tenant";
-import { productApiError, productError, productText, productTransaction } from "@/lib/product-catalog";
+import { productApiError, productError, productText, productTransaction, reserveProductCode } from "@/lib/product-catalog";
 
 export async function GET() {
   try {
@@ -17,13 +17,14 @@ export async function POST(req: NextRequest) {
     const { db, session } = await requireEscrita();
     const input = await req.json();
     const tipoId = productText(input.tipoId, "Tipo", true, 80)!;
-    const codigo = productText(input.codigo, "Código da Linha", true, 30)!;
+    if (input.codigo) throw productError("Código da Linha é gerado automaticamente.");
     const nome = productText(input.nome, "Nome da Linha", true)!;
     const item = await productTransaction(db, session.tenantId, async tx => {
       const type = await tx.produtoTipo.findFirst({ where: { id: tipoId, tenantId: session.tenantId, ativo: true } });
       if (!type || !type.grupoId) throw productError("Tipo inexistente, inativo ou de outro tenant.");
       const group = await tx.produtoGrupo.findFirst({ where: { id: type.grupoId, tenantId: session.tenantId, ativo: true } });
       if (!group) throw productError("Grupo do Tipo está inativo ou de outro tenant.");
+      const codigo = await reserveProductCode(tx, session.tenantId, "linha", type);
       return tx.produtoLinha.create({ data: { tipoId, codigo, nome } });
     });
     return NextResponse.json(item, { status: 201 });

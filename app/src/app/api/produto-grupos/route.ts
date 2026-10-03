@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita, requireSession } from "@/lib/tenant";
-import { productApiError, productText, productTransaction } from "@/lib/product-catalog";
+import { productApiError, productError, productText, productTransaction, reserveProductCode } from "@/lib/product-catalog";
 
 export async function GET() {
   try {
@@ -16,9 +16,12 @@ export async function POST(req: NextRequest) {
   try {
     const { db, session } = await requireEscrita();
     const input = await req.json();
-    const codigo = productText(input.codigo, "Código do Grupo", true, 30)!;
+    if (input.codigo) throw productError("Código do Grupo é gerado automaticamente.");
     const nome = productText(input.nome, "Nome do Grupo", true)!;
-    const item = await productTransaction(db, session.tenantId, tx => tx.produtoGrupo.create({ data: { codigo, nome } }));
+    const item = await productTransaction(db, session.tenantId, async tx => {
+      const codigo = await reserveProductCode(tx, session.tenantId, "grupo");
+      return tx.produtoGrupo.create({ data: { codigo, nome } });
+    });
     return NextResponse.json(item, { status: 201 });
   } catch (error: any) {
     const e = productApiError(error, "Não foi possível criar o Grupo.");

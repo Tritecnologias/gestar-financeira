@@ -21,7 +21,7 @@ export default function ProductImportModal({ onClose, onImported }: Props) {
       const response = await fetch("/api/produtos/exportar", { cache: "no-store" });
       if (!response.ok) { const body = await response.json().catch(() => null); throw new Error(body?.error || "Não foi possível baixar a estrutura."); }
       const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a"); link.href = url; link.download = "produtos_servicos_10s.xlsx";
+      const link = document.createElement("a"); link.href = url; link.download = "portfolio_10s.xlsx";
       document.body.appendChild(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível baixar a estrutura."); }
@@ -56,13 +56,13 @@ export default function ProductImportModal({ onClose, onImported }: Props) {
   }
   function rows(title: string, data: PreviewRow[]) {
     return <section className="product-import-section"><h3>{title}</h3><div className="product-import-table-wrap"><table className="data-table product-import-table"><thead><tr><th>Linha</th><th>Código</th><th>Nome</th><th>Referência</th><th>Ação / revisão</th></tr></thead><tbody>
-      {data.map(row => <tr key={row.linha}><td>{row.linha}</td><td>{row.codigo || ("codigoLinha" in row ? "Automático" : "—")}</td><td>{row.nome || "—"}</td><td>{"codigoTipo" in row ? `${row.grupo} / ${row.codigoTipo}${"codigoLinha" in row && row.codigoLinha ? ` / ${row.codigoLinha}` : ""}` : "grupo" in row ? row.grupo : "—"}</td><td><strong className={`product-import-action product-import-action--${row.acao || "erro"}`}>{labels[row.acao || "erro"]}</strong>{row.detalhes?.map((detail, index) => <div key={index} className="product-import-diff">{detail}</div>)}{row.avisos?.map((warning, index) => <div key={`w-${index}`} className="product-import-warning">Aviso: {warning}</div>)}{row.sugestoes?.map((suggestion, index) => <div key={`s-${index}`} className="product-import-suggestion">Sugestão: {suggestion}</div>)}</td></tr>)}
+      {data.map(row => <tr key={row.linha}><td>{row.linha}</td><td>{row.codigo || "Automático"}</td><td>{row.nome || "—"}</td><td>{"codigoTipo" in row ? `${row.grupo} / ${row.codigoTipo}${"codigoLinha" in row && row.codigoLinha ? ` / ${row.codigoLinha}` : ""}` : "grupo" in row ? row.grupo : "—"}</td><td><strong className={`product-import-action product-import-action--${row.acao || "erro"}`}>{labels[row.acao || "erro"]}</strong>{row.detalhes?.map((detail, index) => <div key={index} className="product-import-diff">{detail}</div>)}{row.avisos?.map((warning, index) => <div key={`w-${index}`} className="product-import-warning">Aviso: {warning}</div>)}{row.sugestoes?.map((suggestion, index) => <div key={`s-${index}`} className="product-import-suggestion">Sugestão: {suggestion}</div>)}</td></tr>)}
       {!data.length && <tr><td colSpan={5}>Nenhuma linha nesta aba.</td></tr>}
     </tbody></table></div></section>;
   }
 
   return <div className="modal-overlay open product-import-overlay" onClick={onClose}><div className="modal-content product-import-modal" role="dialog" aria-modal="true" aria-labelledby="product-import-title" onClick={event => event.stopPropagation()}>
-    <div className="modal-header"><h2 id="product-import-title">Importar Produtos e Serviços</h2><button className="modal-close" aria-label="Fechar" onClick={onClose}>×</button></div>
+    <div className="modal-header"><h2 id="product-import-title">Importar Portfólio</h2><button className="modal-close" aria-label="Fechar" onClick={onClose}>×</button></div>
     <div className="product-import-body">
       <ol className="product-import-steps"><li><button className="btn btn-secondary" onClick={() => void download()} disabled={downloading}>Baixar Estrutura</button><p>Baixe os cadastros ativos para editar ou acrescentar. Sem dados, o arquivo vem vazio com cabeçalhos.</p></li><li>Edite ou preencha as abas GRUPOS, TIPOS, LINHAS e ITENS no Excel. Preserve os códigos como texto.</li><li><label className="product-import-file">Selecione o arquivo .xlsx<input type="file" accept=".xlsx" onClick={event => { event.currentTarget.value = ""; setFile(null); setPreview(null); setResult(null); }} onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li><li>Confira a prévia, avisos e erros.</li><li>Confirme a importação após revisar.</li></ol>
       {busy && <p role="status">{preview ? "Revalidando e confirmando…" : "Lendo e validando…"}</p>}

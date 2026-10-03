@@ -40,6 +40,7 @@ model Tenant {
   produtosGrupos    ProdutoGrupo[]
   produtosTipos     ProdutoTipo[]
   produtosLinhas    ProdutoLinha[]
+  produtosSequencias ProdutoSequencia[]
   tarefas           Tarefa[]
   tarefaStatus      TarefaStatus[]
   statusManualTipos StatusManualTipo[]
@@ -305,6 +306,19 @@ model ProdutoGrupo {
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_produto_grupos_tenant")
   @@map("produto_grupos")
+}
+
+// Reserva durável de códigos do portfólio, inclusive após exclusão física.
+model ProdutoSequencia {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  escopo       String @db.VarChar(100)
+  ultimoNumero BigInt @map("ultimo_numero")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, escopo])
+  @@map("produto_sequencias")
 }
 
 model ProdutoTipo {
