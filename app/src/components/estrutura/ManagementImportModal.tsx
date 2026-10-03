@@ -14,21 +14,23 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<ImportPreview["resumo"] | null>(null);
 
-  async function downloadTemplate() {
+  async function downloadStructure() {
     setDownloading(true); setError("");
     try {
-      const { createManagementImportTemplate, MANAGEMENT_TEMPLATE_FILENAME } = await import("@/lib/management-import-template");
-      const url = URL.createObjectURL(new Blob([createManagementImportTemplate()], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }));
+      const response = await fetch("/api/estrutura-gerencial/exportar", { cache: "no-store" });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Não foi possível baixar a estrutura.");
+      }
+      const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = MANAGEMENT_TEMPLATE_FILENAME;
+      link.download = "estrutura_gerencial_10s.xlsx";
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch { setError("Não foi possível gerar o modelo Excel."); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível baixar a estrutura."); }
     finally { setDownloading(false); }
   }
 
@@ -83,8 +85,8 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
       <div className="modal-header"><h2 id="management-import-title">Importar Estrutura Gerencial</h2><button className="modal-close" aria-label="Fechar" onClick={onClose}>✕</button></div>
       <div className="management-import-body">
         <ol className="management-import-steps">
-          <li><button className="btn btn-secondary" onClick={downloadTemplate} disabled={downloading}>Baixar Modelo Excel</button></li>
-          <li>Preencha as abas do modelo. Mantenha os códigos como texto.</li>
+          <li><button className="btn btn-secondary" onClick={downloadStructure} disabled={downloading}>Baixar Estrutura</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Se ainda não houver dados, o arquivo será gerado vazio para preenchimento.</p></li>
+          <li>Preencha as abas da planilha. Mantenha os códigos como texto.</li>
           <li><label className="management-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onChange={event => selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira a prévia e os erros abaixo.</li>
           <li>Confirme a importação após revisar os dados.</li>
