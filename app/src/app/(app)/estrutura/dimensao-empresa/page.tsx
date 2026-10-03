@@ -91,14 +91,24 @@ export default function DimensaoEmpresaPage() {
     loadData();
   };
 
-  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Carregando...</div>;
+  const pageHeader = <header className="topbar"><div><h1 className="page-title">Dimensão da Empresa</h1><p className="page-sub">Estrutura Empresa — Dados cadastrais, bancários, áreas e centros de custo</p></div></header>;
+  if (loading) return <div className="company-dimension-page">{pageHeader}<div className="company-dimension-content"><div className="company-dimension-loading" role="status">Carregando...</div></div></div>;
+
+  const empresasVisiveis = empresas.filter(e => !busca || e.razaoSocial.toLowerCase().includes(busca.toLowerCase()));
+  const bancosVisiveis = bancos.filter(b => !busca || b.banco.toLowerCase().includes(busca.toLowerCase()) || (b.agencia || "").includes(busca) || (b.conta || "").includes(busca));
+  const areasVisiveis = areas.filter(a => !busca || a.nome.toLowerCase().includes(busca.toLowerCase()) || a.codigo.includes(busca));
+  const centrosVisiveis = centros.filter(c => !busca || c.nome.toLowerCase().includes(busca.toLowerCase()) || c.codigo.includes(busca));
 
   return (
     <div className="company-dimension-page">
-      <header className="topbar"><div><h1 className="page-title">Dimensão da Empresa</h1><p className="page-sub">Estrutura Empresa — Dados cadastrais, bancários, áreas e centros de custo</p></div></header>
+      {pageHeader}
       <div className="company-dimension-content">
         {error && <div className="alert alert-error company-dimension-alert">{error}</div>}
-        <div className="company-dimension-toolbar"><input type="text" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="🔍 Buscar..." /><button className="btn btn-primary" onClick={() => setShowImport(true)}>Importar Estrutura Gerencial</button></div>
+        <div className="company-dimension-toolbar">
+          <div className="form-group company-dimension-search"><label htmlFor="company-dimension-search">Busca</label><input id="company-dimension-search" type="text" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="🔍 Buscar..." /></div>
+          <span className="company-dimension-count">{empresasVisiveis.length + bancosVisiveis.length + areasVisiveis.length + centrosVisiveis.length} cadastros</span>
+          <button className="btn btn-primary" onClick={() => setShowImport(true)}>Importar Estrutura Gerencial</button>
+        </div>
 
         <div className="company-dimension-grid">
           <div className="company-dimension-group-label">ESTRUTURA FINANCEIRA</div>
@@ -108,7 +118,7 @@ export default function DimensaoEmpresaPage() {
               <table className="data-table">
                 <thead><tr><th>Razão Social</th><th>Fantasia</th><th>CNPJ</th><th>Ações</th></tr></thead>
                 <tbody>
-                  {empresas.filter(e => !busca || e.razaoSocial.toLowerCase().includes(busca.toLowerCase())).map(e=>(
+                  {empresasVisiveis.map(e=>(
                     <tr key={e.id}>
                       {editingId===e.id&&editSection==="emp"?(<><td><input className="cell-input" value={editData.razaoSocial||""} onChange={ev=>setEditData((d:any)=>({...d,razaoSocial:ev.target.value}))} onKeyDown={ev=>{if(ev.key==="Enter")salvarEdit();if(ev.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td><td><input className="cell-input" value={editData.nomeFantasia||""} onChange={ev=>setEditData((d:any)=>({...d,nomeFantasia:ev.target.value}))} /></td><td><input className="cell-input" value={editData.cnpj||""} onChange={ev=>setEditData((d:any)=>({...d,cnpj:ev.target.value}))} /></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td></>)
                       :(<><td style={{fontWeight:500}}>{e.razaoSocial}</td><td style={{fontSize:10,color:"var(--text-secondary)"}}>{e.nomeFantasia||"—"}</td><td style={{fontSize:10}}>{e.cnpj||"—"}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(e.id);setEditSection("emp");setEditData({...e});}}>✏️</button><button className="action-btn" onClick={()=>excluir("/api/empresa",e.id)}>🗑️</button></td></>)}
@@ -127,7 +137,7 @@ export default function DimensaoEmpresaPage() {
               <table className="data-table">
                 <thead><tr><th>Banco</th><th>Agência</th><th>Conta</th><th>Tipo</th><th>Ações</th></tr></thead>
                 <tbody>
-                  {bancos.filter(b=>!busca||b.banco.toLowerCase().includes(busca.toLowerCase())||(b.agencia||"").includes(busca)||(b.conta||"").includes(busca)).map(b=>(
+                  {bancosVisiveis.map(b=>(
                     <tr key={b.id}>
                       {editingId===b.id&&editSection==="banco"?(<><td><input className="cell-input" value={editData.banco||""} onChange={e=>setEditData((d:any)=>({...d,banco:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td><td><input className="cell-input" value={editData.agencia||""} onChange={e=>setEditData((d:any)=>({...d,agencia:e.target.value}))} /></td><td><input className="cell-input" value={editData.conta||""} onChange={e=>setEditData((d:any)=>({...d,conta:e.target.value}))} /></td><td><input className="cell-input" value={editData.tipo||""} onChange={e=>setEditData((d:any)=>({...d,tipo:e.target.value}))} /></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td></>)
                       :(<><td>{b.banco}</td><td style={{fontSize:10}}>{b.agencia||"—"}</td><td style={{fontSize:10}}>{b.conta||"—"}</td><td style={{fontSize:10}}>{b.tipo||"—"}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(b.id);setEditSection("banco");setEditData({...b});}}>✏️</button><button className="action-btn" onClick={()=>excluir("/api/dados-bancarios",b.id)}>🗑️</button></td></>)}
@@ -148,7 +158,7 @@ export default function DimensaoEmpresaPage() {
               <table className="data-table">
                 <thead><tr><th>Código</th><th>Descrição</th><th>Ações</th></tr></thead>
                 <tbody>
-                  {areas.filter(a=>!busca||a.nome.toLowerCase().includes(busca.toLowerCase())||a.codigo.includes(busca)).map(a=>(
+                  {areasVisiveis.map(a=>(
                     <tr key={a.id}>
                       {editingId===a.id&&editSection==="area"?(<><td><input className="cell-input" value={editData.codigo||""} onChange={e=>setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{width:50}} /></td><td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);}}} autoFocus /></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);}}>✕</button></td></>)
                       :(<><td><span style={{fontWeight:600}}>{a.codigo}</span></td><td>{a.nome}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(a.id);setEditSection("area");setEditData({...a});}}>✏️</button><button className="action-btn" onClick={()=>excluir("/api/areas-negocio",a.id)}>🗑️</button></td></>)}
@@ -168,7 +178,7 @@ export default function DimensaoEmpresaPage() {
               <table className="data-table">
                 <thead><tr><th>Código</th><th>Descrição</th><th>Área</th><th>Ações</th></tr></thead>
                 <tbody>
-                  {centros.filter(c=>!busca||c.nome.toLowerCase().includes(busca.toLowerCase())||c.codigo.includes(busca)).map(c=>(
+                  {centrosVisiveis.map(c=>(
                     <tr key={c.id}>
                       {editingId===c.id&&editSection==="cc"?(<><td><input className="cell-input" value={editData.codigo||""} onChange={e=>setEditData((d:any)=>({...d,codigo:e.target.value}))} style={{width:50}} /></td><td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape"){setEditingId(null);setEditSection(null);setCcError("");}}} autoFocus /></td><td><select className="cell-input" aria-label="Área de Negócio" required value={editData.areaId||""} onChange={e=>{setEditData((d:any)=>({...d,areaId:e.target.value}));setCcError("");}}><option value="" disabled>Área *</option>{areas.map(a=><option key={a.id} value={a.id}>{a.codigo} | {a.nome}</option>)}</select></td><td style={{textAlign:"center"}}><button className="action-btn" style={{color:"var(--accent-green)",opacity:1}} onClick={salvarEdit}>✓</button><button className="action-btn" style={{opacity:1}} onClick={()=>{setEditingId(null);setEditSection(null);setCcError("");}}>✕</button></td></>)
                       :(<><td><span style={{fontWeight:600}}>{c.codigo}</span></td><td>{c.nome}</td><td style={{fontSize:10,color:"var(--text-secondary)"}}>{c.area?`${c.area.codigo} | ${c.area.nome}`:"—"}</td><td style={{textAlign:"center"}}><button className="action-btn" onClick={()=>{setEditingId(c.id);setEditSection("cc");setEditData({...c,areaId:c.areaId||""});}}>✏️</button><button className="action-btn" onClick={()=>excluir("/api/centros-custo",c.id)}>🗑️</button></td></>)}
