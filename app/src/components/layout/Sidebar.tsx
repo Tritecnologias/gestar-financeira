@@ -140,8 +140,8 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
       <button
         onClick={() => setOpen(p => !p)}
         style={{
-          background: isCustomTenant ? "rgba(234, 88, 12, 0.1)" : "var(--bg-hover)",
-          border: `1px solid ${isCustomTenant ? "rgba(234, 88, 12, 0.3)" : "var(--border)"}`,
+          background: isCustomTenant ? "var(--selection)" : "var(--surface-hover)",
+          border: `1px solid ${isCustomTenant ? "var(--focus)" : "var(--border)"}`,
           borderRadius: 6,
           padding: "6px 10px",
           fontSize: 11,
@@ -161,14 +161,14 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
         <span style={{ fontSize: 10, color: "var(--text-muted)" }}>▼</span>
       </button>
       {open && (
-        <div style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.2)", padding: 8, zIndex: 100, marginBottom: 6 }}>
+        <div style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-elevated)", padding: 8, zIndex: 100, marginBottom: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 6, padding: "2px 4px" }}>
             Alternar Empresa / Tenant
           </div>
           {isCustomTenant && (
             <button
               onClick={resetTenant}
-              style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "rgba(34, 197, 94, 0.12)", border: "1px solid rgba(34, 197, 94, 0.25)", borderRadius: 5, cursor: "pointer", color: "var(--accent-green)", marginBottom: 6, textAlign: "left", fontWeight: 700 }}
+              style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "var(--selection)", border: "1px solid var(--border)", borderRadius: 5, cursor: "pointer", color: "var(--action)", marginBottom: 6, textAlign: "left", fontWeight: 700 }}
             >
               ↩ Voltar ao meu tenant (Dez Soluções)
             </button>
@@ -181,8 +181,8 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
                 width: "100%",
                 padding: "6px 10px",
                 fontSize: 11,
-                background: active === t.id ? "rgba(37,99,235,0.12)" : "transparent",
-                border: active === t.id ? "1px solid var(--accent-blue)" : "none",
+                background: active === t.id ? "var(--selection)" : "transparent",
+                border: active === t.id ? "1px solid var(--focus)" : "none",
                 borderRadius: 5,
                 cursor: "pointer",
                 color: "var(--text-primary)",
@@ -195,7 +195,7 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
               }}
             >
               <span>{t.nome}</span>
-              {active === t.id && <span style={{ fontSize: 11, color: "var(--accent-blue)" }}>✓ Ativo</span>}
+              {active === t.id && <span style={{ fontSize: 11, color: "var(--action)" }}>✓ Ativo</span>}
             </button>
           ))}
         </div>
@@ -470,10 +470,12 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
               localStorage.setItem("theme", next);
             }}
             title="Alternar tema claro/escuro"
-            className="logout-btn"
+            aria-label="Alternar tema claro/escuro"
+            className="logout-btn theme-toggle"
             style={{ marginRight: 2 }}
           >
-            🌙
+            <span className="theme-icon--clean" aria-hidden="true">☀️</span>
+            <span className="theme-icon--dark" aria-hidden="true">🌙</span>
           </button>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
