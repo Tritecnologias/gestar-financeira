@@ -87,7 +87,10 @@ model PlanoContas {
   filhos      PlanoContas[] @relation("PlanoContasPai")
   categoria   Categoria?    @relation(fields: [categoriaId], references: [id])
   lancamentos Lancamento[]
+  fornecedoresPadrao Fornecedor[] @relation("FornecedorContaPadrao")
+  clientesPadrao Cliente[] @relation("ClienteContaPadrao")
 
+  @@unique([tenantId, id])
   @@index([tenantId, categoriaId], map: "idx_plano_contas_tenant_categoria")
   @@index([tenantId, codigo], map: "idx_plano_contas_tenant_codigo")
   @@map("plano_contas")
@@ -187,14 +190,23 @@ model Fornecedor {
   tenantId  String   @map("tenant_id")
   codigo    String   @db.VarChar(20)
   nome      String
+  tipoPessoa String? @map("tipo_pessoa") @db.VarChar(2)
+  nomeFantasia String? @map("nome_fantasia")
+  documento String?
+  email String?
+  telefone String?
+  endereco String?
+  contaPadraoId String? @map("conta_padrao_id")
   ativo     Boolean  @default(true)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contaPadrao PlanoContas? @relation("FornecedorContaPadrao", fields: [tenantId, contaPadraoId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
   lancamentos Lancamento[]
 
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_fornecedores_tenant")
+  @@index([tenantId, contaPadraoId], map: "idx_fornecedores_conta_padrao")
   @@map("fornecedores")
 }
 
@@ -204,17 +216,22 @@ model Cliente {
   tenantId  String   @map("tenant_id")
   codigo    String   @db.VarChar(20)
   nome      String
+  tipoPessoa String? @map("tipo_pessoa") @db.VarChar(2)
+  nomeFantasia String? @map("nome_fantasia")
   email     String?
   telefone  String?
   documento String?  // CPF ou CNPJ
   endereco  String?
+  contaPadraoId String? @map("conta_padrao_id")
   ativo     Boolean  @default(true)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contaPadrao PlanoContas? @relation("ClienteContaPadrao", fields: [tenantId, contaPadraoId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_clientes_tenant")
+  @@index([tenantId, contaPadraoId], map: "idx_clientes_conta_padrao")
   @@map("clientes")
 }
 

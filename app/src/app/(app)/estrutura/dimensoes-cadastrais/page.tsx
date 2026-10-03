@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type Keyboard
 import "./dimensoes-cadastrais.css";
 
 type Section = "fornecedores" | "clientes";
-type Item = { id: string; codigo: string; nome: string; email?: string | null; telefone?: string | null; documento?: string | null; endereco?: string | null };
-type Draft = { codigo: string; nome: string; documento: string; email: string; telefone: string; endereco: string };
-type Modal = { section: Section; id: string | null };
-const emptyDraft: Draft = { codigo: "", nome: "", documento: "", email: "", telefone: "", endereco: "" };
+type DefaultAccount = { id: string; tenantId: string; ativo: boolean; categoriaId: string | null; categoria: { id: string; tenantId: string; ativo: boolean } | null };
+type Item = { id: string; tenantId: string; codigo: string; nome: string; tipoPessoa?: string | null; nomeFantasia?: string | null; email?: string | null; telefone?: string | null; documento?: string | null; endereco?: string | null; contaPadraoId?: string | null; contaPadrao?: DefaultAccount | null };
+type Draft = { codigo: string; nome: string; tipoPessoa: string; nomeFantasia: string; documento: string; email: string; telefone: string; endereco: string; categoriaId: string; contaPadraoId: string };
+type Modal = { section: Section; id: string | null; defaultTouched: boolean; invalidDefault: boolean };
+type Category = { id: string; codigo: string; nome: string; ativo: boolean };
+type Account = { id: string; codigo: string | null; descricao: string; categoriaId: string | null; ativo: boolean };
+const emptyDraft: Draft = { codigo: "", nome: "", tipoPessoa: "", nomeFantasia: "", documento: "", email: "", telefone: "", endereco: "", categoriaId: "", contaPadraoId: "" };
 
 export default function DimensoesCadastraisPage() {
   const [fornecedores, setFornecedores] = useState<Item[]>([]);
@@ -20,6 +23,10 @@ export default function DimensoesCadastraisPage() {
   const [modal, setModal] = useState<Modal | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [modalError, setModalError] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [financeLoading, setFinanceLoading] = useState(false);
+  const [financeError, setFinanceError] = useState("");
   const codeRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -44,9 +51,25 @@ export default function DimensoesCadastraisPage() {
   }, []);
 
   useEffect(() => { void loadData(); }, [loadData]);
-  useEffect(() => { if (modal) codeRef.current?.focus(); }, [modal]);
+  useEffect(() => { if (modal) codeRef.current?.focus(); }, [modal?.section, modal?.id]);
+  useEffect(() => {
+    if (!modal) return;
+    let cancelled = false;
+    setFinanceLoading(true); setFinanceError("");
+    void Promise.all([
+      fetch("/api/categorias", { cache: "no-store" }),
+      fetch("/api/plano-contas", { cache: "no-store" }),
+    ]).then(async ([categoryResponse, accountResponse]) => {
+      if (!categoryResponse.ok || !accountResponse.ok) throw new Error("Não foi possível carregar Categoria e Conta.");
+      const [categoryData, accountData] = await Promise.all([categoryResponse.json(), accountResponse.json()]);
+      if (!Array.isArray(categoryData) || !Array.isArray(accountData)) throw new Error("Resposta financeira inválida.");
+      if (!cancelled) { setCategories(categoryData); setAccounts(accountData); }
+    }).catch(cause => { if (!cancelled) setFinanceError(cause instanceof Error ? cause.message : "Erro ao carregar classificação financeira."); })
+      .finally(() => { if (!cancelled) setFinanceLoading(false); });
+    return () => { cancelled = true; };
+  }, [modal?.section, modal?.id]);
 
-  const request = async (url: string, method: "POST" | "PUT" | "DELETE", data?: Partial<Draft>) => {
+  const request = async (url: string, method: "POST" | "PUT" | "DELETE", data?: Record<string, string | null>) => {
     const response = await fetch(url, {
       method,
       headers: data ? { "Content-Type": "application/json" } : undefined,
@@ -60,11 +83,16 @@ export default function DimensoesCadastraisPage() {
 
   const openModal = (section: Section, item?: Item) => {
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const account = item?.contaPadrao;
+    const validDefault = !!account && account.ativo && !!account.categoria && account.categoria.ativo
+      && account.tenantId === item?.tenantId && account.categoria.tenantId === item?.tenantId
+      && account.categoriaId === account.categoria.id;
     setDraft(item ? {
-      codigo: item.codigo, nome: item.nome, documento: item.documento ?? "",
-      email: item.email ?? "", telefone: item.telefone ?? "", endereco: item.endereco ?? "",
+      codigo: item.codigo, nome: item.nome, tipoPessoa: item.tipoPessoa ?? "", nomeFantasia: item.nomeFantasia ?? "",
+      documento: item.documento ?? "", email: item.email ?? "", telefone: item.telefone ?? "", endereco: item.endereco ?? "",
+      categoriaId: validDefault ? account.categoria!.id : "", contaPadraoId: validDefault ? account.id : "",
     } : { ...emptyDraft });
-    setModal({ section, id: item?.id ?? null });
+    setModal({ section, id: item?.id ?? null, defaultTouched: false, invalidDefault: !!item?.contaPadraoId && !validDefault });
     setModalError(""); setNotice("");
   };
 
@@ -78,11 +106,15 @@ export default function DimensoesCadastraisPage() {
     event.preventDefault();
     if (!modal || saving) return;
     if (!draft.codigo.trim() || !draft.nome.trim()) { setModalError("Código e nome são obrigatórios."); return; }
+    if (draft.categoriaId && !draft.contaPadraoId) { setModalError("Selecione uma Conta N2 para a Categoria escolhida ou limpe a classificação."); return; }
+    if (draft.contaPadraoId && !accounts.some(account => account.id === draft.contaPadraoId && account.categoriaId === draft.categoriaId && account.ativo)) { setModalError("Conta N2 inválida para a Categoria selecionada."); return; }
     const section = modal.section;
     const editing = modal.id !== null;
-    const payload = section === "fornecedores"
-      ? { codigo: draft.codigo, nome: draft.nome }
-      : { ...draft };
+    const payload: Record<string, string | null> = {
+      codigo: draft.codigo, nome: draft.nome, tipoPessoa: draft.tipoPessoa, nomeFantasia: draft.nomeFantasia,
+      documento: draft.documento, email: draft.email, telefone: draft.telefone, endereco: draft.endereco,
+    };
+    if (!editing || modal.defaultTouched) payload.contaPadraoId = draft.contaPadraoId || null;
     setSaving(true); setModalError("");
     try {
       await request(`/api/${section}${modal.id ? `/${modal.id}` : ""}`, editing ? "PUT" : "POST", payload);
@@ -124,6 +156,19 @@ export default function DimensoesCadastraisPage() {
   </section>;
 
   const updateDraft = (key: keyof Draft, value: string) => setDraft(current => ({ ...current, [key]: value }));
+  const changeCategory = (categoryId: string) => {
+    setDraft(current => ({ ...current, categoriaId: categoryId, contaPadraoId: "" }));
+    setModal(current => current ? { ...current, defaultTouched: true, invalidDefault: false } : current);
+  };
+  const changeAccount = (accountId: string) => {
+    setDraft(current => ({ ...current, contaPadraoId: accountId }));
+    setModal(current => current ? { ...current, defaultTouched: true, invalidDefault: false } : current);
+  };
+  const clearClassification = () => {
+    setDraft(current => ({ ...current, categoriaId: "", contaPadraoId: "" }));
+    setModal(current => current ? { ...current, defaultTouched: true, invalidDefault: false } : current);
+  };
+  const availableAccounts = accounts.filter(account => account.ativo && account.categoriaId === draft.categoriaId);
   const modalTitle = modal?.section === "fornecedores" ? "Cadastro de Fornecedor" : "Cadastro de Cliente";
   const onModalKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") { event.stopPropagation(); closeModal(); }
@@ -150,16 +195,42 @@ export default function DimensoesCadastraisPage() {
           <div className="registration-modal-body">
             <p className="registration-modal-context">{modal.id ? "Editar cadastro existente" : "Novo cadastro"}</p>
             {modalError && <div className="alert alert-error" role="alert">{modalError}</div>}
-            <div className="registration-modal-fields">
-              <label>Código<input ref={codeRef} value={draft.codigo} onChange={event => updateDraft("codigo", event.target.value)} disabled={saving} /></label>
-              <label>Nome<input value={draft.nome} onChange={event => updateDraft("nome", event.target.value)} disabled={saving} /></label>
-              {modal.section === "clientes" && <>
-                <label>Documento<input value={draft.documento} onChange={event => updateDraft("documento", event.target.value)} disabled={saving} /></label>
+            <section className="registration-modal-section" aria-labelledby="registration-identification-title">
+              <h3 id="registration-identification-title">Identificação</h3>
+              <div className="registration-modal-fields">
+                <label>Código<input ref={codeRef} value={draft.codigo} onChange={event => updateDraft("codigo", event.target.value)} disabled={saving} required /></label>
+                <label>Tipo de pessoa<select value={draft.tipoPessoa} onChange={event => updateDraft("tipoPessoa", event.target.value)} disabled={saving}><option value="">Não informado</option><option value="PF">Pessoa física</option><option value="PJ">Pessoa jurídica</option></select></label>
+                <label>Nome / Razão Social<input value={draft.nome} onChange={event => updateDraft("nome", event.target.value)} disabled={saving} required /></label>
+                <label>Nome Fantasia / Abreviado<input value={draft.nomeFantasia} onChange={event => updateDraft("nomeFantasia", event.target.value)} disabled={saving} /></label>
+                <label>CPF / CNPJ<input value={draft.documento} onChange={event => updateDraft("documento", event.target.value)} disabled={saving} /></label>
+                <label>Status<input value="Ativo" readOnly aria-readonly="true" /></label>
+              </div>
+            </section>
+            <section className="registration-modal-section" aria-labelledby="registration-contact-title">
+              <h3 id="registration-contact-title">Contato</h3>
+              <div className="registration-modal-fields">
                 <label>Email<input type="email" value={draft.email} onChange={event => updateDraft("email", event.target.value)} disabled={saving} /></label>
                 <label>Telefone<input value={draft.telefone} onChange={event => updateDraft("telefone", event.target.value)} disabled={saving} /></label>
-                <label className="registration-address">Endereço<textarea rows={3} value={draft.endereco} onChange={event => updateDraft("endereco", event.target.value)} disabled={saving} /></label>
-              </>}
-            </div>
+              </div>
+            </section>
+            <section className="registration-modal-section" aria-labelledby="registration-address-title">
+              <h3 id="registration-address-title">Endereço</h3>
+              <div className="registration-modal-fields">
+                <label className="registration-address">Endereço completo<textarea rows={2} value={draft.endereco} onChange={event => updateDraft("endereco", event.target.value)} disabled={saving} /></label>
+              </div>
+            </section>
+            <section className="registration-modal-section" aria-labelledby="registration-financial-title">
+              <h3 id="registration-financial-title">Classificação Financeira Padrão</h3>
+              <p className="registration-modal-hint">Opcional. A Conta N2 define a Categoria N1 padrão deste cadastro.</p>
+              {modal.invalidDefault && <p className="registration-financial-warning" role="status">A Conta padrão anterior está inativa ou não possui Categoria válida. Escolha outra classificação ou limpe a referência.</p>}
+              {financeError && <p className="registration-financial-warning" role="alert">{financeError}</p>}
+              <div className="registration-modal-fields">
+                <label>Categoria N1<select value={draft.categoriaId} onChange={event => changeCategory(event.target.value)} disabled={saving || financeLoading || !!financeError}><option value="">Sem classificação</option>{categories.filter(category => category.ativo).map(category => <option key={category.id} value={category.id}>{category.codigo} — {category.nome}</option>)}</select></label>
+                <label>Conta N2<select value={draft.contaPadraoId} onChange={event => changeAccount(event.target.value)} disabled={saving || financeLoading || !!financeError || !draft.categoriaId}><option value="">Selecione uma Conta</option>{availableAccounts.map(account => <option key={account.id} value={account.id}>{account.codigo} — {account.descricao}</option>)}</select></label>
+              </div>
+              {financeLoading && <p className="registration-modal-hint" role="status">Carregando categorias e contas...</p>}
+              {(draft.categoriaId || draft.contaPadraoId || modal.invalidDefault) && <button type="button" className="btn btn-secondary btn-sm registration-clear-financial" onClick={clearClassification} disabled={saving}>Limpar classificação</button>}
+            </section>
           </div>
           <div className="registration-modal-footer"><button type="button" className="btn btn-secondary" disabled={saving} onClick={closeModal}>Cancelar</button><button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Salvando..." : "Salvar"}</button></div>
         </form>
