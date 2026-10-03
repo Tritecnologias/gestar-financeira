@@ -213,11 +213,9 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // ── Open groups para accordion ────────────────────────────────
-  const defaultOpen = new Set<number>(
-    MENU.filter((g) => g.sub?.some((s) => pathname.startsWith(s.href))).map((g) => g.num)
-  );
-  const [openGroups, setOpenGroups] = useState<Set<number>>(defaultOpen);
+  // ── Um único grupo aberto por vez ─────────────────────────────
+  const activeGroup = MENU.find((g) => g.sub?.some((s) => pathname.startsWith(s.href)))?.num ?? null;
+  const [openGroup, setOpenGroup] = useState<number | null>(activeGroup);
 
   // ── Tooltip para modo compacto ────────────────────────────────
   const [tooltip, setTooltip] = useState<{ num: number; y: number } | null>(null);
@@ -240,28 +238,17 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
   }, [collapsed, mounted]);
 
   useEffect(() => {
-    setOpenGroups((prev) => {
-      const next = new Set(prev);
-      MENU.forEach((g) => {
-        if (g.sub?.some((s) => pathname.startsWith(s.href))) next.add(g.num);
-      });
-      return next;
-    });
-  }, [pathname]);
+    if (activeGroup !== null) setOpenGroup(activeGroup);
+  }, [pathname, activeGroup]);
 
   function toggleGroup(num: number) {
     // Se collapsed, expandir primeiro
     if (collapsed) {
       setCollapsed(false);
-      setTimeout(() => setOpenGroups((prev) => new Set([...prev, num])), 10);
+      setOpenGroup(num);
       return;
     }
-    setOpenGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(num)) next.delete(num);
-      else next.add(num);
-      return next;
-    });
+    setOpenGroup((prev) => prev === num ? (activeGroup === num ? num : null) : num);
   }
 
   function handleMouseEnterGroup(num: number, e: React.MouseEvent) {
@@ -326,7 +313,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
         <nav className="sidebar-nav" aria-label="Menu principal">
           {MENU.map((g) => {
             const hasSub   = g.sub && g.sub.length > 0;
-            const isOpen   = openGroups.has(g.num);
+            const isOpen   = openGroup === g.num;
             const hasActive = g.sub?.some((s) => pathname.startsWith(s.href)) ?? false;
             const isSelfActive = !hasSub && g.href && pathname.startsWith(g.href) && !g.disabled;
 
