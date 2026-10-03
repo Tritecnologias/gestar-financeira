@@ -174,6 +174,9 @@
 .management-import-modal .modal-header, .management-import-modal .modal-actions { flex-shrink: 0; }
 .management-import-body { min-height: 0; overflow-y: auto; padding: 16px 20px; color: var(--text-secondary); font-size: 13px; }
 .management-import-body > p { margin: 0 0 12px; }
+.management-import-steps { margin: 0 0 14px; padding-left: 22px; }
+.management-import-steps li + li { margin-top: 7px; }
+.management-import-steps .management-import-file { margin: 0; }
 .management-import-file { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--text-primary); font-weight: 600; margin-bottom: 14px; }
 .management-import-file input { max-width: 100%; color: var(--text-secondary); }
 .management-import-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }

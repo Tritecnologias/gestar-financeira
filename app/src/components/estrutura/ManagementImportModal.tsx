@@ -11,7 +11,26 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
   const [localErrors, setLocalErrors] = useState<ImportIssue[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<ImportPreview["resumo"] | null>(null);
+
+  async function downloadTemplate() {
+    setDownloading(true); setError("");
+    try {
+      const { createManagementImportTemplate, MANAGEMENT_TEMPLATE_FILENAME } = await import("@/lib/management-import-template");
+      const url = URL.createObjectURL(new Blob([createManagementImportTemplate()], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = MANAGEMENT_TEMPLATE_FILENAME;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch { setError("Não foi possível gerar o modelo Excel."); }
+    finally { setDownloading(false); }
+  }
 
   async function request(selected: File, mode: "preview" | "confirm") {
     const form = new FormData();
@@ -63,8 +82,13 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
     <div className="modal-content management-import-modal" role="dialog" aria-modal="true" aria-labelledby="management-import-title" onClick={event => event.stopPropagation()}>
       <div className="modal-header"><h2 id="management-import-title">Importar Estrutura Gerencial</h2><button className="modal-close" aria-label="Fechar" onClick={onClose}>✕</button></div>
       <div className="management-import-body">
-        <p>Arquivo .xlsx com as abas <strong>AREAS_NEGOCIO</strong> e <strong>CENTROS_CUSTO</strong>. Códigos devem ser texto para preservar zeros à esquerda.</p>
-        <label className="management-import-file">Selecionar Excel <input type="file" accept=".xlsx" onChange={event => selectFile(event.target.files?.[0] || null)} disabled={busy} /></label>
+        <ol className="management-import-steps">
+          <li><button className="btn btn-secondary" onClick={downloadTemplate} disabled={downloading}>Baixar Modelo Excel</button></li>
+          <li>Preencha as abas do modelo. Mantenha os códigos como texto.</li>
+          <li><label className="management-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onChange={event => selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
+          <li>Confira a prévia e os erros abaixo.</li>
+          <li>Confirme a importação após revisar os dados.</li>
+        </ol>
         {busy && <p role="status">{preview ? "Confirmando e revalidando..." : "Lendo e validando..."}</p>}
         {error && <div className="alert alert-error" role="alert">{error}</div>}
         {result && <div className="management-import-success" role="status">Importação concluída: {result.totalNovo} novos e {result.totalAtualizado} atualizados. Nenhum registro foi excluído.</div>}
