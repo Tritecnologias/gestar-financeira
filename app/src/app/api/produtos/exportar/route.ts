@@ -12,19 +12,15 @@ export async function GET() {
     ]);
     const typeById = new Map(types.map(type => [type.id, type]));
     const lineById = new Map(lines.map(line => [line.id, line]));
-    const ambiguousTypeCodes = new Set<string>();
-    const counts = new Map<string, number>();
-    for (const type of types) counts.set(type.codigo, (counts.get(type.codigo) || 0) + 1);
-    for (const [code, count] of counts) if (count > 1) ambiguousTypeCodes.add(code);
-    if (lines.some(line => !typeById.has(line.tipoId) || ambiguousTypeCodes.has(typeById.get(line.tipoId)!.codigo))) {
-      return NextResponse.json({ error: "Há Linha cujo CODIGO_TIPO é ambíguo entre Grupos ou cujo Tipo não está ativo. Ajuste a classificação antes de exportar." }, { status: 409 });
+    if (lines.some(line => !typeById.has(line.tipoId))) {
+      return NextResponse.json({ error: "Há Linha cujo Tipo não está ativo. Ajuste a classificação antes de exportar." }, { status: 409 });
     }
     if (items.some(item => !item.tipoId || !item.tipo || !typeById.has(item.tipoId) || typeById.get(item.tipoId)!.grupo !== item.tipo || (item.linhaId && (!lineById.has(item.linhaId) || lineById.get(item.linhaId)!.tipoId !== item.tipoId)))) {
       return NextResponse.json({ error: "Há Item ativo sem classificação válida. Classifique o legado antes de baixar a estrutura para manutenção." }, { status: 409 });
     }
     const workbook = createProductStructureWorkbook(
       types.map(type => ({ grupo: type.grupo, codigo: type.codigo, nome: type.nome })),
-      lines.map(line => ({ codigoTipo: typeById.get(line.tipoId)!.codigo, codigo: line.codigo, nome: line.nome })),
+      lines.map(line => ({ grupo: typeById.get(line.tipoId)!.grupo, codigoTipo: typeById.get(line.tipoId)!.codigo, codigo: line.codigo, nome: line.nome })),
       items.map(item => ({ codigo: item.codigo, nome: item.nome, grupo: item.tipo!, codigoTipo: typeById.get(item.tipoId!)!.codigo, codigoLinha: item.linhaId ? lineById.get(item.linhaId)!.codigo : "", descricao: item.descricao || "", unidade: item.unidade || "", precoVenda: item.precoVenda?.toString() || "", precoCusto: item.precoCusto?.toString() || "", observacoes: item.observacoes || "" })),
     );
     return new NextResponse(workbook, { headers: {

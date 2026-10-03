@@ -2,11 +2,11 @@ import * as XLSX from "xlsx";
 
 export const PRODUCT_STRUCTURE_FILENAME = "produtos_servicos_10s.xlsx";
 export const PRODUCT_TYPE_HEADERS = ["GRUPO", "CODIGO_TIPO", "NOME_TIPO"] as const;
-export const PRODUCT_LINE_HEADERS = ["CODIGO_TIPO", "CODIGO_LINHA", "NOME_LINHA"] as const;
+export const PRODUCT_LINE_HEADERS = ["GRUPO", "CODIGO_TIPO", "CODIGO_LINHA", "NOME_LINHA"] as const;
 export const PRODUCT_ITEM_HEADERS = ["CODIGO_ITEM", "NOME", "GRUPO", "CODIGO_TIPO", "CODIGO_LINHA", "DESCRICAO", "UNIDADE", "PRECO_VENDA", "PRECO_CUSTO", "OBSERVACOES"] as const;
 
 export type ExportType = { grupo: string; codigo: string; nome: string };
-export type ExportLine = { codigoTipo: string; codigo: string; nome: string };
+export type ExportLine = { grupo: string; codigoTipo: string; codigo: string; nome: string };
 export type ExportItem = { codigo: string; nome: string; grupo: string; codigoTipo: string; codigoLinha: string; descricao: string; unidade: string; precoVenda: string; precoCusto: string; observacoes: string };
 
 function dataSheet(headers: readonly string[], rows: string[][], codeColumns: number[], widths: number[]) {
@@ -28,8 +28,10 @@ export function createProductStructureWorkbook(types: ExportType[], lines: Expor
     ["Abas e colunas", "Não renomeie INSTRUCOES, TIPOS, LINHAS, ITENS nem os cabeçalhos."],
     ["Códigos", "Mantenha códigos como texto para preservar zeros à esquerda. As primeiras 5000 linhas de código estão preparadas como Texto."],
     ["Grupo", "Use apenas PRODUTO ou SERVICO."],
-    ["Tipo", "Novo Item exige CODIGO_TIPO de Tipo ativo no Grupo ou criado em TIPOS."],
-    ["Linha", "CODIGO_LINHA é opcional e deve pertencer ao Tipo. CODIGO_TIPO em LINHAS precisa identificar um único Tipo entre os Grupos."],
+    ["Hierarquia", "GRUPO → TIPO → LINHA → ITEM. Tipo pertence a Grupo; Linha pertence a Tipo."],
+    ["Tipo", "GRUPO é obrigatório em TIPOS e LINHAS. Use o Tipo ativo do mesmo Grupo ou crie-o em TIPOS."],
+    ["Linha", "CODIGO_LINHA em ITENS é opcional e deve pertencer ao Tipo e Grupo informados."],
+    ["Grupo existente", "Não altere o Grupo de um cadastro existente de forma inconsistente com sua hierarquia."],
     ["Item existente", "Mantenha CODIGO_ITEM. Altere os demais campos para atualizar; o código não pode ser renumerado."],
     ["Item novo", "Deixe CODIGO_ITEM vazio. O servidor gera o próximo código na confirmação."],
     ["Preço", "PRECO_VENDA e PRECO_CUSTO são referências atuais; aceite valor positivo, zero ou vazio."],
@@ -40,7 +42,7 @@ export function createProductStructureWorkbook(types: ExportType[], lines: Expor
   instructions["!cols"] = [{ wch: 22 }, { wch: 120 }];
   XLSX.utils.book_append_sheet(workbook, instructions, "INSTRUCOES");
   XLSX.utils.book_append_sheet(workbook, dataSheet(PRODUCT_TYPE_HEADERS, types.map(row => [row.grupo, row.codigo, row.nome]), [1], [18, 24, 52]), "TIPOS");
-  XLSX.utils.book_append_sheet(workbook, dataSheet(PRODUCT_LINE_HEADERS, lines.map(row => [row.codigoTipo, row.codigo, row.nome]), [0, 1], [24, 24, 52]), "LINHAS");
+  XLSX.utils.book_append_sheet(workbook, dataSheet(PRODUCT_LINE_HEADERS, lines.map(row => [row.grupo, row.codigoTipo, row.codigo, row.nome]), [1, 2], [18, 24, 24, 52]), "LINHAS");
   XLSX.utils.book_append_sheet(workbook, dataSheet(PRODUCT_ITEM_HEADERS, items.map(row => [row.codigo, row.nome, row.grupo, row.codigoTipo, row.codigoLinha, row.descricao, row.unidade, row.precoVenda, row.precoCusto, row.observacoes]), [0, 3, 4], [22, 48, 18, 24, 24, 58, 16, 20, 20, 58]), "ITENS");
   return XLSX.write(workbook, { bookType: "xlsx", type: "array", compression: true }) as ArrayBuffer;
 }

@@ -6,7 +6,7 @@ export type ProductImportIssue = { aba: string; linha: number; campo: string; co
 type Action = "novo" | "atualizar" | "igual" | "erro";
 type BaseRow = { linha: number; acao?: Action; detalhes?: string[]; avisos?: string[]; sugestoes?: string[] };
 export type TypeRow = BaseRow & { grupo: string; codigo: string; nome: string };
-export type LineRow = BaseRow & { codigoTipo: string; codigo: string; nome: string };
+export type LineRow = BaseRow & { grupo: string; codigoTipo: string; codigo: string; nome: string };
 export type ItemRow = BaseRow & { codigo: string; nome: string; grupo: string; codigoTipo: string; codigoLinha: string; descricao: string; unidade: string; precoVenda: string; precoCusto: string; observacoes: string };
 export type ProductWorkbook = { tipos: TypeRow[]; linhas: LineRow[]; itens: ItemRow[]; errors: ProductImportIssue[] };
 export type ProductPreview = ProductWorkbook & {
@@ -45,7 +45,7 @@ export function parseProductWorkbook(bytes: Uint8Array): ProductWorkbook {
     });
   }
   const tipos = sheet("TIPOS", PRODUCT_TYPE_HEADERS, [1]).map(({ linha, values }) => ({ linha, grupo: values[0], codigo: values[1], nome: values[2] }));
-  const linhas = sheet("LINHAS", PRODUCT_LINE_HEADERS, [0, 1]).map(({ linha, values }) => ({ linha, codigoTipo: values[0], codigo: values[1], nome: values[2] }));
+  const linhas = sheet("LINHAS", PRODUCT_LINE_HEADERS, [1, 2]).map(({ linha, values }) => ({ linha, grupo: values[0], codigoTipo: values[1], codigo: values[2], nome: values[3] }));
   const itens = sheet("ITENS", PRODUCT_ITEM_HEADERS, [0, 3, 4]).map(({ linha, values }) => ({ linha, codigo: values[0], nome: values[1], grupo: values[2], codigoTipo: values[3], codigoLinha: values[4], descricao: values[5], unidade: values[6], precoVenda: values[7], precoCusto: values[8], observacoes: values[9] }));
   if (!errors.length && !tipos.length && !linhas.length && !itens.length) errors.push({ aba: "ITENS", linha: 0, campo: "ARQUIVO", codigo: "", motivo: "Arquivo sem registros para importar." });
   return { tipos, linhas, itens, errors };
@@ -93,29 +93,27 @@ export async function validateProductWorkbook(input: ProductWorkbook, db: any, t
   const fileTypes = new Map(tipos.map(row => [typeKey(row.grupo, row.codigo), row]));
   const validTypeKeys = new Set<string>(dbTypes.filter((row: any) => row.ativo).map((row: any) => typeKey(row.grupo, row.codigo)));
   for (const row of tipos) if (row.acao !== "erro") validTypeKeys.add(typeKey(row.grupo, row.codigo));
-  const groupsForCode = new Map<string, Set<string>>();
-  for (const key of validTypeKeys) { const [group, code] = key.split("\u0000"); const groups = groupsForCode.get(code) || new Set<string>(); groups.add(group); groupsForCode.set(code, groups); }
   const fileLineCounts = new Map<string, number>();
-  for (const row of linhas) { const key = `${row.codigoTipo}\u0000${row.codigo}`; fileLineCounts.set(key, (fileLineCounts.get(key) || 0) + 1); }
+  for (const row of linhas) { const key = lineKey(row.grupo, row.codigoTipo, row.codigo); fileLineCounts.set(key, (fileLineCounts.get(key) || 0) + 1); }
   for (const row of linhas) {
+    if (row.grupo !== "PRODUTO" && row.grupo !== "SERVICO") issue("LINHAS", row, "GRUPO", "Use PRODUTO ou SERVICO.");
     for (const [field, value, max] of [["CODIGO_TIPO", row.codigoTipo, 30], ["CODIGO_LINHA", row.codigo, 30], ["NOME_LINHA", row.nome, 200]] as const) {
       const problem = validText(value, field, true, max); if (problem) issue("LINHAS", row, field, problem);
     }
-    if ((fileLineCounts.get(`${row.codigoTipo}\u0000${row.codigo}`) || 0) > 1) issue("LINHAS", row, "CODIGO_LINHA", "Linha duplicada no arquivo para este código de Tipo.");
-    const groups = groupsForCode.get(row.codigoTipo);
-    if (!groups?.size) {
-      issue("LINHAS", row, "CODIGO_TIPO", "Tipo inexistente ou inativo neste tenant.");
-      const candidate = [...validTypeKeys].map(key => key.split("\u0000")[1]).find(code => code.toLocaleLowerCase("pt-BR") === row.codigoTipo.toLocaleLowerCase("pt-BR"));
+    if ((fileLineCounts.get(lineKey(row.grupo, row.codigoTipo, row.codigo)) || 0) > 1) issue("LINHAS", row, "CODIGO_LINHA", "Linha duplicada para este Tipo e Grupo no arquivo.");
+    const parentKey = typeKey(row.grupo, row.codigoTipo);
+    if (!validTypeKeys.has(parentKey)) {
+      issue("LINHAS", row, "CODIGO_TIPO", "Tipo inexistente, inativo ou incompatível com o Grupo.");
+      const candidate = [...validTypeKeys].filter(key => key.startsWith(`${row.grupo}\u0000`)).map(key => key.split("\u0000")[1]).find(code => code.toLocaleLowerCase("pt-BR") === row.codigoTipo.toLocaleLowerCase("pt-BR"));
       if (candidate) insight("sugestoes", "LINHAS", row, "CODIGO_TIPO", `Confira a grafia de ${candidate}; nada será corrigido automaticamente.`);
-    } else if (groups.size > 1) issue("LINHAS", row, "CODIGO_TIPO", "Código de Tipo ambíguo entre PRODUTO e SERVICO. Use códigos de Tipo distintos para esta Linha.");
-    const group = groups?.size === 1 ? [...groups][0] : "";
-    if (fileTypes.get(typeKey(group, row.codigoTipo))?.acao === "erro") issue("LINHAS", row, "CODIGO_TIPO", "Tipo informado na aba TIPOS possui erros.");
-    const old = dbLineByKey.get(lineKey(group, row.codigoTipo, row.codigo));
+    }
+    if (fileTypes.get(parentKey)?.acao === "erro") issue("LINHAS", row, "CODIGO_TIPO", "Tipo informado na aba TIPOS possui erros.");
+    const old = dbLineByKey.get(lineKey(row.grupo, row.codigoTipo, row.codigo));
     if (old && !old.ativo) issue("LINHAS", row, "CODIGO_LINHA", "Linha existente inativa; não será reativada.");
     row.acao = invalid.LINHAS.has(row.linha) ? "erro" : !old ? "novo" : old.nome === row.nome ? "igual" : "atualizar";
     if (row.acao === "atualizar") { row.detalhes = [`Nome: ${old.nome} → ${row.nome}`]; insight("avisos", "LINHAS", row, "NOME_LINHA", "Nome da Linha será alterado."); }
   }
-  const fileLines = new Map(linhas.filter(row => row.acao !== "erro").map(row => [lineKey([...groupsForCode.get(row.codigoTipo)!][0], row.codigoTipo, row.codigo), row]));
+  const fileLines = new Map(linhas.filter(row => row.acao !== "erro").map(row => [lineKey(row.grupo, row.codigoTipo, row.codigo), row]));
   const fileItemCodes = new Map<string, number>();
   for (const row of itens) if (row.codigo) fileItemCodes.set(row.codigo, (fileItemCodes.get(row.codigo) || 0) + 1);
   const seenNewNames = new Map<string, number>();
@@ -162,7 +160,7 @@ export async function validateProductWorkbook(input: ProductWorkbook, db: any, t
   const tally = (rows: BaseRow[], aba: string): SectionCount => ({ novos: rows.filter(row => row.acao === "novo").length, atualizacoes: rows.filter(row => row.acao === "atualizar").length, semAlteracao: rows.filter(row => row.acao === "igual").length, erros: errors.filter(error => error.aba === aba).length, avisos: warnings.filter(warning => warning.aba === aba).length });
   const t = tally(tipos, "TIPOS"), l = tally(linhas, "LINHAS"), i = tally(itens, "ITENS");
   const fileTypeKeys = new Set(tipos.map(row => typeKey(row.grupo, row.codigo)));
-  const fileLineKeys = new Set(linhas.filter(row => groupsForCode.get(row.codigoTipo)?.size === 1).map(row => lineKey([...groupsForCode.get(row.codigoTipo)!][0], row.codigoTipo, row.codigo)));
+  const fileLineKeys = new Set(linhas.map(row => lineKey(row.grupo, row.codigoTipo, row.codigo)));
   const fileItemCodeSet = new Set(itens.map(row => row.codigo).filter(Boolean));
   return { tipos, linhas, itens, errors, warnings, suggestions, resumo: { totalLido: tipos.length + linhas.length + itens.length, totalNovo: t.novos + l.novos + i.novos, totalAtualizado: t.atualizacoes + l.atualizacoes + i.atualizacoes, totalSemAlteracao: t.semAlteracao + l.semAlteracao + i.semAlteracao, totalErros: errors.length, totalAvisos: warnings.length, totalSugestoes: suggestions.length, tipos: t, linhas: l, itens: i, ausentes: { tipos: dbTypes.filter((row: any) => row.ativo && !fileTypeKeys.has(typeKey(row.grupo, row.codigo))).length, linhas: dbLines.filter((row: any) => { const parent = dbTypeById.get(row.tipoId); return row.ativo && (!parent || !fileLineKeys.has(lineKey(parent.grupo, parent.codigo, row.codigo))); }).length, itens: dbItems.filter((row: any) => row.ativo && !fileItemCodeSet.has(row.codigo)).length } } };
 }

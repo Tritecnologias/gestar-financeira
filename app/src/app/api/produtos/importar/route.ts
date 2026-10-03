@@ -35,15 +35,13 @@ export async function POST(req: NextRequest) {
         if (current) await tx.produtoTipo.update({ where: { id: current.id }, data: { nome: row.nome } });
         else typeByKey.set(key, await tx.produtoTipo.create({ data: { grupo: row.grupo, codigo: row.codigo, nome: row.nome } }));
       }
-      const typeByCode = new Map<string, any[]>();
-      for (const type of typeByKey.values()) typeByCode.set(type.codigo, [...(typeByCode.get(type.codigo) || []), type]);
       const lines = await tx.produtoLinha.findMany({ where: { tenantId: session.tenantId, ativo: true } });
       const lineByKey = new Map<string, any>(lines.map((row: any) => [`${row.tipoId}\u0000${row.codigo}`, row]));
       for (const row of preview.linhas) {
         if (row.acao === "igual") continue;
-        const parents = typeByCode.get(row.codigoTipo) || [];
-        if (parents.length !== 1) throw new Error("Tipo validado não pôde ser resolvido para a Linha.");
-        const parent = parents[0], key = `${parent.id}\u0000${row.codigo}`, current = lineByKey.get(key);
+        const parent = typeByKey.get(`${row.grupo}\u0000${row.codigoTipo}`);
+        if (!parent) throw new Error("Tipo validado não pôde ser resolvido para a Linha.");
+        const key = `${parent.id}\u0000${row.codigo}`, current = lineByKey.get(key);
         if (current) await tx.produtoLinha.update({ where: { id: current.id }, data: { nome: row.nome } });
         else lineByKey.set(key, await tx.produtoLinha.create({ data: { tipoId: parent.id, codigo: row.codigo, nome: row.nome } }));
       }

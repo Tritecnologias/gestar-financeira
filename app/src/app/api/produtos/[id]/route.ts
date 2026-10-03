@@ -14,20 +14,11 @@ export async function PUT(req: NextRequest, { params }: Context) {
     if (!existing) throw productError("Item não encontrado neste tenant.", 404);
     if (input.codigo !== undefined && input.codigo !== existing.codigo) throw productError("O código do Item é imutável.");
     const nome = productText(input.nome, "Nome", true)!;
-    const grupo = input.grupo === undefined ? existing.tipo : productGroup(input.grupo);
-    const tipoId = input.tipoId === undefined ? existing.tipoId : productText(input.tipoId, "Tipo", false, 80);
+    const grupo = productGroup(input.grupo === undefined ? existing.tipo : input.grupo);
+    const tipoId = productText(input.tipoId === undefined ? existing.tipoId : input.tipoId, "Tipo", true, 80)!;
     const linhaId = input.linhaId === undefined ? existing.linhaId : productText(input.linhaId, "Linha", false, 80);
     if (input.ativo !== undefined && typeof input.ativo !== "boolean") throw productError("Status inválido.");
     const ativo = input.ativo === undefined ? existing.ativo : input.ativo;
-    // Permite editar campos cadastrais legados sem inventar uma classificação.
-    if (!tipoId) {
-      if (linhaId || grupo !== existing.tipo || input.tipoId !== undefined || (!existing.ativo && ativo)) {
-        throw productError("Selecione um Tipo ativo para classificar ou reativar o Item.");
-      }
-    } else {
-      if (!grupo) throw productError("Selecione um Grupo.");
-      await validateProductClassification(db, session.tenantId, grupo, tipoId, linhaId);
-    }
     const data = {
       nome, tipo: grupo, tipoId, linhaId, ativo,
       descricao: productText(input.descricao, "Descrição", false, 5000),
@@ -37,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: Context) {
       precoCusto: productPrice(input.precoCusto, "Preço de custo"),
     };
     const item = await productTransaction(db, session.tenantId, async tx => {
-      if (tipoId) await validateProductClassification(tx, session.tenantId, productGroup(grupo), tipoId, linhaId);
+      await validateProductClassification(tx, session.tenantId, grupo, tipoId, linhaId);
       return tx.produto.update({ where: { id }, data, include: relations });
     });
     return NextResponse.json(item);
