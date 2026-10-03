@@ -38,6 +38,9 @@
 }
 .financial-search { flex: 0 1 300px; min-width: 210px; margin: 0; }
 .financial-search .filter-input { width: 100%; }
+.financial-filter { flex: 0 1 210px; min-width: 170px; margin: 0; }
+.financial-filter--type { flex-basis: 170px; }
+.financial-filter select { width: 100%; }
 .financial-count { color: var(--text-muted); font-size: var(--font-size-table); padding-bottom: 10px; }
 .financial-actions { display: flex; gap: 8px; margin-left: auto; }
 
@@ -111,6 +114,7 @@
 @media (max-width: 600px) {
   .financial-content { padding: 12px 14px 24px; }
   .financial-search { min-width: 0; flex-basis: 100%; }
+  .financial-filter { min-width: 0; flex: 1 1 145px; }
   .financial-count { padding-bottom: 0; }
   .financial-actions { margin-left: 0; width: 100%; }
   .financial-actions .btn { min-height: 42px; }
@@ -118,7 +122,7 @@
   .financial-add--account { grid-template-columns: 76px minmax(0, 1fr); }
   .financial-add--account .form-group:nth-child(3) { grid-column: 1 / -1; }
   .financial-add--account .financial-add-button { grid-column: 1 / -1; }
-  .financial-page :is(.filter-input, .financial-add input, .financial-add select) { min-height: 42px; }
+  .financial-page :is(.filter-input, .financial-filter select, .financial-add input, .financial-add select) { min-height: 42px; }
   .financial-add-button { min-width: 44px; min-height: 44px; }
   .financial-table .action-btn { min-width: 44px; min-height: 44px; }
 .financial-table .cell-input { min-height: 42px; }
@@ -126,6 +130,10 @@
 
 /* Categoria N1 é o agrupador visual das Contas N2. */
 .financial-tree-card { flex: 1; }
+.financial-tree-header { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding-right: 12px; border-bottom: 1px solid var(--border); background: var(--surface-elevated); }
+.financial-tree-header h3 { flex: 1 1 270px; min-width: 0; border-bottom: 0; background: transparent; white-space: normal; }
+.financial-tree-controls { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0; }
+.financial-tree-controls .btn { min-height: 32px; padding: 5px 9px; font-size: var(--font-size-table); }
 .financial-forms { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); border-bottom: 1px solid var(--border); }
 .financial-forms .financial-add + .financial-add { border-left: 1px solid var(--border); }
 .financial-forms .financial-add--category { grid-template-columns: 116px 76px minmax(0, 1fr) 36px; }
@@ -138,6 +146,10 @@
 .financial-tree-table :is(th, td):nth-child(4) { width: 175px; }
 .financial-tree-table :is(th, td):last-child { width: 110px; min-width: 110px; white-space: nowrap; }
 .financial-category-row td { background: var(--surface-elevated); border-top: 1px solid var(--border); color: var(--text-primary); }
+.financial-category-row td:first-child { white-space: nowrap; }
+.financial-category-toggle { width: 32px; height: 32px; margin-right: 5px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--action); font: inherit; font-size: 18px; cursor: pointer; }
+.financial-category-toggle:hover { background: var(--selection); }
+.financial-category-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .financial-account-row td { background: var(--surface); }
 .financial-account-indent { display: inline-block; margin-right: 8px; color: var(--action); font-weight: 700; }
 .financial-legacy-row td { background: var(--surface-elevated); color: var(--warning); font-weight: 700; }
@@ -160,6 +172,10 @@
 @media (max-width: 600px) {
   .financial-actions { flex-wrap: wrap; }
   .financial-actions .btn { flex: 1 1 180px; }
+  .financial-tree-header { padding-right: 8px; }
+  .financial-tree-controls { padding: 0 0 8px 8px; }
+  .financial-tree-controls .btn { min-height: 42px; }
+  .financial-category-toggle { width: 44px; height: 44px; }
   .financial-forms .financial-add--category { grid-template-columns: 72px minmax(0, 1fr) 44px; }
   .financial-forms .financial-add--account .form-group:nth-child(3) { grid-column: auto; }
 }
