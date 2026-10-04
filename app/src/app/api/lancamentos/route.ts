@@ -3,6 +3,7 @@ import { requireSession, requireEscrita } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
 import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
+import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamentos } from "@/lib/lancamento-filters";
 import type { PaginatedResponse, LancamentoDTO } from "@/types";
 
 // ── GET /api/lancamentos ──────────────────────────────────────
@@ -15,46 +16,15 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const tipo        = searchParams.get("tipo") || "";
-  const status      = searchParams.get("status") || "";
-  const statusManual = searchParams.get("statusManual") || "";
-  const centroCusto = searchParams.get("centroCusto") || "";
-  const fornecedor  = searchParams.get("fornecedor") || "";
-  const busca       = searchParams.get("busca") || "";
-  const dataInicio  = searchParams.get("dataInicio") || "";
-  const dataFim     = searchParams.get("dataFim") || "";
+  let filtros: ReturnType<typeof lerFiltrosLancamentos>;
+  try { filtros = lerFiltrosLancamentos(searchParams); }
+  catch (error: any) { return NextResponse.json({ error: error.message }, { status: 400 }); }
   const pagina      = parseInt(searchParams.get("pagina") || "1");
   const porPagina   = Math.min(200, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
   const sortKey     = searchParams.get("sortKey") || "";
   const sortDir     = (searchParams.get("sortDir") || "desc") as "asc" | "desc";
 
-  // ⚡ Sem tenantId manual — o db já filtra automaticamente via Extension
-  const where: any = {};
-  if (tipo)        where.tipo = tipo;
-  if (status)      where.status = status;
-  if (statusManual) where.statusManual = statusManual;
-  if (centroCusto) where.centroCusto = centroCusto;
-  if (fornecedor)  where.fornecedor = { contains: fornecedor, mode: "insensitive" };
-  if (dataInicio || dataFim) {
-    where.dataLanc = {};
-    if (dataInicio) where.dataLanc.gte = new Date(dataInicio);
-    if (dataFim)    where.dataLanc.lte = new Date(dataFim);
-  }
-  if (busca) {
-    where.OR = [
-      { descricao:      { contains: busca, mode: "insensitive" } },
-      { fornecedor:     { contains: busca, mode: "insensitive" } },
-      { fantasiaPadrao: { contains: busca, mode: "insensitive" } },
-      { clienteRef: { is: { nome: { contains: busca, mode: "insensitive" } } } },
-      { clienteRef: { is: { nomeFantasia: { contains: busca, mode: "insensitive" } } } },
-      { fornecedorRef: { is: { nome: { contains: busca, mode: "insensitive" } } } },
-      { centroCusto:    { contains: busca, mode: "insensitive" } },
-      { referencia:     { contains: busca, mode: "insensitive" } },
-      { anotacao:       { contains: busca, mode: "insensitive" } },
-      { statusManual:   { contains: busca, mode: "insensitive" } },
-      { banco:          { contains: busca, mode: "insensitive" } },
-    ];
-  }
+  const where = whereLancamentos(filtros, session.tenantId, true);
 
   // ── Mapeamento sortKey (DTO) → campo Prisma ─────────────────
   const SORT_MAP: Record<string, any> = {
@@ -87,16 +57,20 @@ export async function GET(req: NextRequest) {
     ? [SORT_MAP[sortKey], { seq: "desc" as const }]
     : [{ dataLanc: "desc" as const }, { seq: "desc" as const }];
 
-  const [total, lancamentos] = await Promise.all([
-    db.lancamento.count({ where }),
-    db.lancamento.findMany({
-      where,
-      orderBy,
-      skip: (pagina - 1) * porPagina,
-      take: porPagina,
-      include: counterpartInclude,
-    }),
-  ]);
+  let total: number;
+  let lancamentos: any[];
+  if (filtros.status) {
+    const candidatos = await db.lancamento.findMany({ where, orderBy, include: counterpartInclude });
+    const selecionados = candidatos.filter((row: any) => statusCorresponde(row, filtros.status, hojeSaoPaulo()));
+    total = selecionados.length;
+    lancamentos = selecionados.slice((pagina - 1) * porPagina, pagina * porPagina);
+  } else {
+    [total, lancamentos] = await Promise.all([
+      db.lancamento.count({ where }),
+      db.lancamento.findMany({ where, orderBy, skip: (pagina - 1) * porPagina,
+        take: porPagina, include: counterpartInclude }),
+    ]);
+  }
 
   const data = lancamentos.map((l: any, i: number) =>
     toLancamentoDTO(l, (pagina - 1) * porPagina + i + 1)

@@ -3,9 +3,11 @@ import { calcularFluxoCaixa, type FiltrosFinanceiros, type OpcoesFluxoCaixa } fr
 
 // This service deliberately supplies the authenticated tenant in the query itself.
 // The tenant is never accepted from request parameters or from a dimension filter.
-export async function obterResumoFluxoCaixa(db: any, options: OpcoesFluxoCaixa) {
+export async function obterResumoFluxoCaixa(db: any, options: OpcoesFluxoCaixa,
+  selecao?: Prisma.LancamentoWhereInput) {
   const filters: FiltrosFinanceiros = options.filtros ?? {};
-  const where: Prisma.LancamentoWhereInput = { tenantId: options.tenantId };
+  const where: Prisma.LancamentoWhereInput = { tenantId: options.tenantId,
+    ...(selecao ? { AND: [selecao] } : {}) };
   for (const key of ["status", "statusManual", "tipo", "contaId", "categoria", "clienteId",
     "fornecedorId", "fornecedor", "centroCusto", "banco", "dre"] as const) {
     // Status financeiro is derived; Categoria N1 comes from the linked Conta N2.

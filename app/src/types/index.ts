@@ -32,6 +32,7 @@ export interface LancamentoDTO {
   statusManual:  string | null;   // ex: PAGO, PENDENTE
   statusExtrato: string | null;   // ex: A
   statusAuto:    StatusAuto;      // calculado
+  problemasFinanceiros?: string[]; // sinais do motor financeiro para revisão
 
   // Campos de texto
   descricao:      string;

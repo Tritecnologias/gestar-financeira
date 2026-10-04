@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { obterResumoFluxoCaixa } from "@/lib/cash-flow-service";
 import { dataCivil, type DataBaseFinanceira, type FiltrosFinanceiros } from "@/lib/cash-flow";
+import { lerFiltrosLancamentos, whereLancamentos } from "@/lib/lancamento-filters";
 
 const DATA_BASES: DataBaseFinanceira[] = [
   "DATA_LANCAMENTO", "DATA_EMISSAO", "VENCIMENTO_ORIGINAL", "VENCIMENTO_PLANO", "REALIZACAO",
 ];
 const FILTER_KEYS = ["status", "statusManual", "tipo", "contaId", "categoria", "clienteId",
-  "fornecedorId", "fornecedor", "centroCusto", "banco", "dre"] as const;
+  "fornecedorId", "centroCusto", "banco", "dre"] as const;
 
 export async function GET(req: NextRequest) {
   let context: Awaited<ReturnType<typeof requireSession>>;
@@ -32,11 +33,14 @@ export async function GET(req: NextRequest) {
     const value = params.get(key);
     if (value) (filtros as Record<string, string>)[key] = value;
   }
+  let selecao;
+  try { selecao = whereLancamentos(lerFiltrosLancamentos(params), context.session.tenantId, false); }
+  catch (error: any) { return NextResponse.json({ error: error.message }, { status: 400 }); }
   try {
     const resumo = await obterResumoFluxoCaixa(context.db, {
       tenantId: context.session.tenantId, inicio, fim, dataReferencia,
       dataBase: dataBase as DataBaseFinanceira, filtros,
-    });
+    }, selecao);
     return NextResponse.json(resumo);
   } catch {
     return NextResponse.json({ error: "Não foi possível calcular o fluxo de caixa." }, { status: 500 });

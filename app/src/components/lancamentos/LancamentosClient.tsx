@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { LancamentoDTO, ColConfig, FornecedorDTO, StatusManualTipoDTO } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
@@ -9,9 +10,30 @@ import NovoLancamentoModal from "./NovoLancamentoModal";
 import ImportModal from "./ImportModal";
 import CounterpartyPicker from "./CounterpartyPicker";
 import { activeCounterparties, counterpartyDisplay, counterpartyIds, defaultAccount } from "@/lib/counterparty";
+import { lerResumoFluxoCaixa } from "@/lib/cash-flow-response";
+import type { calcularFluxoCaixa, DataBaseFinanceira } from "@/lib/cash-flow";
+import "./lancamentos-filters.css";
 
 type CategoryOption = { id: string; codigo: string; nome: string };
-type AccountOption = { id: string; codigo: string | null; descricao: string; categoriaId: string | null };
+type AccountOption = { id: string; codigo: string | null; descricao: string; categoriaId: string | null; tipo: string };
+type ResumoFinanceiro = ReturnType<typeof calcularFluxoCaixa>;
+type Filtros = {
+  busca: string; status: string; tipo: string; dataBase: DataBaseFinanceira; inicio: string; fim: string;
+  statusManual: string; categoria: string; contaId: string; clienteId: string; fornecedorId: string;
+  centroCusto: string; banco: string; fornecedor: string;
+};
+const DATA_BASES: { valor: DataBaseFinanceira; nome: string }[] = [
+  { valor: "DATA_LANCAMENTO", nome: "Data Lançamento" },
+  { valor: "DATA_EMISSAO", nome: "Data Emissão" },
+  { valor: "VENCIMENTO_ORIGINAL", nome: "Vencimento Original" },
+  { valor: "VENCIMENTO_PLANO", nome: "Vencimento Plano" },
+  { valor: "REALIZACAO", nome: "Realização" },
+];
+const STATUS_FINANCEIROS = ["REALIZADO", "PREVISTO", "A VENCER", "ATRASADO", "CANCELADO", "INCONSISTENTE"];
+const filtrosIniciais = (hoje: string): Filtros => ({ busca: "", status: "", tipo: "",
+  dataBase: "DATA_LANCAMENTO", inicio: `${hoje.slice(0, 7)}-01`, fim: hoje,
+  statusManual: "", categoria: "", contaId: "", clienteId: "", fornecedorId: "",
+  centroCusto: "", banco: "", fornecedor: "" });
 
 // ── Chip helpers ─────────────────────────────────────────────
 function ChipTipo({ tipo }: { tipo: string }) {
@@ -33,6 +55,14 @@ function ChipStatusAuto({ s }: { s: string }) {
   const info = map[s] ?? { cls: "chip-cancelado", label: s };
   return <span className={`chip ${info.cls}`}>{info.label}</span>;
 }
+const PROBLEMAS: Record<string, string> = {
+  REALIZADO_SEM_DATA: "Realizado sem Data de Realização",
+  RECEITA_COM_SAIDA: "Conta N2 de Receita com direção Saída",
+  DESPESA_COM_ENTRADA: "Conta N2 de Despesa com direção Entrada",
+  TRANSFERENCIA_SEM_PAREAMENTO: "Transferência sem pareamento",
+  CONTA_VINCULADA_INEXISTENTE: "Conta N2 vinculada inexistente",
+  CONTA_DE_OUTRO_TENANT: "Conta N2 fora do tenant",
+};
 
 // ── Calcula offset sticky acumulado ──────────────────────────
 function calcStickyOffsets(colConfig: ColConfig[]) {
@@ -86,7 +116,8 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
     }
     case "tipo":        return <ChipTipo tipo={val} />;
     case "status":      return <ChipStatus status={val} />;
-    case "statusAuto":  return <ChipStatusAuto s={val} />;
+    case "statusAuto":  return <><ChipStatusAuto s={val} />{row.problemasFinanceiros?.length ?
+      <span className="lanc-review" title={row.problemasFinanceiros.map(problema => PROBLEMAS[problema] || problema).join("; ")}>Revisar</span> : null}</>;
     case "valor":
     case "valorPrevisto": return <span className={row.tipo === "ENTRADA" ? "val-entrada" : undefined} style={row.tipo === "ENTRADA" ? undefined : { color: "var(--accent-yellow)", fontWeight: 600 }}>{formatCurrency(val)}</span>;
     case "statusManual": {
@@ -106,7 +137,7 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
 }
 
 // ── Componente principal ──────────────────────────────────────
-export default function LancamentosClient() {
+export default function LancamentosClient({ hoje }: { hoje: string }) {
   // Estado principal
   const [lancamentos, setLancamentos] = useState<LancamentoDTO[]>([]);
   const [total, setTotal] = useState(0);
@@ -124,7 +155,11 @@ export default function LancamentosClient() {
   const bodyScrollRef = useRef<HTMLDivElement>(null);
 
   // Filtros
-  const [filtros, setFiltros] = useState({ tipo: "", status: "", statusManual: "", centroCusto: "", fornecedor: "", busca: "", dataInicio: "", dataFim: "" });
+  const [filtros, setFiltros] = useState<Filtros>(() => filtrosIniciais(hoje));
+  const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
+  const [resumoErro, setResumoErro] = useState("");
+  const [listErro, setListErro] = useState("");
+  const requestId = useRef(0);
   const [pagina, setPagina] = useState(1);
 
   // Ordenação
@@ -146,8 +181,8 @@ export default function LancamentosClient() {
   const [importModalOpen, setImportModalOpen] = useState(false);
 
   // Accordion
-  const [filtrosOpen, setFiltrosOpen] = useState(true);
-  const [atalhosOpen, setAtalhosOpen] = useState(true);
+  const [avancadosOpen, setAvancadosOpen] = useState(false);
+  const [atalhosOpen, setAtalhosOpen] = useState(false);
 
   // Inserção rápida (linha no final da tabela)
   const [inlineNewOpen, setInlineNewOpen] = useState(true);
@@ -163,6 +198,18 @@ export default function LancamentosClient() {
   // Toast
   const [toast, setToast] = useState({ msg: "", show: false });
   const showToast = (msg: string) => { setToast({ msg, show: true }); setTimeout(() => setToast(t => ({ ...t, show: false })), 2500); };
+  const atualizarFiltro = (key: keyof Filtros, value: string) => {
+    setFiltros(current => ({ ...current, [key]: value,
+      ...(key === "categoria" ? { contaId: "" } : {}),
+      ...(key === "clienteId" && value ? { fornecedorId: "" } : {}),
+      ...(key === "fornecedorId" && value ? { clienteId: "" } : {}),
+    }));
+    setPagina(1);
+  };
+  const parametrosFiltros = () => new URLSearchParams(
+    Object.entries(filtros).filter(([, value]) => value) as [string, string][]);
+  const avancadosAtivos = (["statusManual", "categoria", "contaId", "clienteId", "fornecedorId",
+    "centroCusto", "banco", "fornecedor"] as const).filter(key => filtros[key]).length;
 
   // Carregar dados de apoio
   useEffect(() => {
@@ -240,36 +287,45 @@ export default function LancamentosClient() {
 
   // Carregar lançamentos
   const loadData = useCallback(async () => {
+    const currentRequest = ++requestId.current;
     setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        pagina: String(pagina),
-        porPagina: "50",
-        ...Object.fromEntries(Object.entries(filtros).filter(([, v]) => v)),
-        ...(sortKey && !SORT_COMPUTED.has(sortKey) ? { sortKey, sortDir } : {}),
+    const params = new URLSearchParams(Object.entries(filtros).filter(([, value]) => value) as [string, string][]);
+    params.set("pagina", String(pagina));
+    params.set("porPagina", "50");
+    if (sortKey && !SORT_COMPUTED.has(sortKey)) { params.set("sortKey", sortKey); params.set("sortDir", sortDir); }
+    const summaryParams = new URLSearchParams(Object.entries(filtros).filter(([, value]) => value) as [string, string][]);
+    summaryParams.set("dataReferencia", hoje);
+    const [lista, financeiro] = await Promise.allSettled([
+      fetch(`/api/lancamentos?${params}`).then(async response => {
+        if (!response.ok) throw new Error("Não foi possível carregar os lançamentos.");
+        return response.json();
+      }),
+      filtros.inicio && filtros.fim
+        ? fetch(`/api/fluxo-caixa/resumo?${summaryParams}`).then(lerResumoFluxoCaixa)
+        : Promise.reject(new Error("Informe De e Até para calcular o resumo.")),
+    ]);
+    if (currentRequest !== requestId.current) return;
+    if (lista.status === "fulfilled") {
+      let rows: LancamentoDTO[] = lista.value.data ?? [];
+      if (sortKey && SORT_COMPUTED.has(sortKey)) rows = [...rows].sort((a, b) => {
+        const av = (a as any)[sortKey] ?? "";
+        const bv = (b as any)[sortKey] ?? "";
+        const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true });
+        return sortDir === "asc" ? cmp : -cmp;
       });
-      const res = await fetch(`/api/lancamentos?${params}`);
-      const json = await res.json();
-      let rows: LancamentoDTO[] = json.data ?? [];
-      // Campos calculados: ordenação no cliente (página atual)
-      if (sortKey && SORT_COMPUTED.has(sortKey)) {
-        rows = [...rows].sort((a, b) => {
-          const av = (a as any)[sortKey] ?? "";
-          const bv = (b as any)[sortKey] ?? "";
-          const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true });
-          return sortDir === "asc" ? cmp : -cmp;
-        });
-      }
       setLancamentos(rows);
-      setTotal(json.total ?? 0);
-    } finally { setLoading(false); }
-  }, [filtros, pagina, sortKey, sortDir]);
+      setTotal(lista.value.total ?? 0);
+      setListErro("");
+    } else { setLancamentos([]); setTotal(0); setListErro(lista.reason?.message || "Erro ao carregar lançamentos."); }
+    if (financeiro.status === "fulfilled") { setResumo(financeiro.value); setResumoErro(""); }
+    else { setResumo(null); setResumoErro(financeiro.reason?.message || "Erro ao carregar resumo financeiro."); }
+    setLoading(false);
+  }, [filtros, pagina, sortKey, sortDir, hoje]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // KPIs
-  const entradas = lancamentos.filter(l => l.tipo === "ENTRADA").reduce((s, l) => s + l.valor, 0);
-  const saidas   = lancamentos.filter(l => l.tipo === "SAIDA").reduce((s, l) => s + l.valor, 0);
+  // O motor compartilha os componentes financeiros com a Visão Geral; a tabela permanece paginada.
+  const resumoPeriodo = filtros.dataBase === "REALIZACAO" ? resumo?.realizado : resumo?.consulta.realizado;
 
   // ── Edição inline ─────────────────────────────────────────
   const startEdit = (row: LancamentoDTO) => {
@@ -298,6 +354,7 @@ export default function LancamentosClient() {
         const updated = await res.json();
         setLancamentos(prev => prev.map(l => l.id === id ? { ...l, ...updated } : l));
         showToast("✅ Salvo");
+        void loadData();
       } else {
         const err = await res.json().catch(() => ({}));
         showToast(`❌ ${err.error || "Erro ao salvar"}`);
@@ -338,7 +395,7 @@ export default function LancamentosClient() {
       editValuesRef.current = {};
     }
     const res = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
-    if (res.ok) { setLancamentos(prev => prev.filter(l => l.id !== id)); setTotal(t => t - 1); showToast("🗑️ Excluído"); }
+    if (res.ok) { showToast("🗑️ Excluído"); void loadData(); }
     setPendingDelete(null);
   };
 
@@ -630,19 +687,17 @@ export default function LancamentosClient() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div className="lanc-page" style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
         {/* Topbar */}
         <div className="topbar">
-          <div><h1 className="page-title">Lançamentos</h1><p className="page-sub">Fluxo de Caixa — clique em qualquer linha para editar</p></div>
+          <div><h1 className="page-title">Lançamentos</h1><p className="page-sub">Operação e consulta do fluxo de caixa</p></div>
           <div className="topbar-actions">
             <button className="btn btn-outline" onClick={() => setImportModalOpen(true)}>📥 Importar</button>
             <button className="btn btn-outline" onClick={async () => {
               showToast("⏳ Gerando CSV completo...");
               try {
-                const params = new URLSearchParams({
-                  ...Object.fromEntries(Object.entries(filtros).filter(([, v]) => v)),
-                  ...(sortKey ? { sortKey, sortDir } : {}),
-                });
+                const params = parametrosFiltros();
+                if (sortKey) { params.set("sortKey", sortKey); params.set("sortDir", sortDir); }
                 const res = await fetch(`/api/lancamentos/exportar?${params}`);
                 if (!res.ok) { showToast("❌ Erro ao exportar"); return; }
                 const totalReg = res.headers.get("X-Total-Registros") || "?";
@@ -659,66 +714,83 @@ export default function LancamentosClient() {
           </div>
         </div>
 
-        {/* KPIs */}
-
-        {/* Filtros e Atalhos */}
-        <div className="filters-section">
-          {/* Accordion: Filtros */}
-          <div className="accordion-item">
-            <button className="accordion-trigger" onClick={() => setFiltrosOpen(p => !p)}>
-              <span className={`accordion-chevron ${filtrosOpen ? "open" : ""}`}>›</span>
-              <span className="accordion-title">Filtros</span>
-            </button>
-            {filtrosOpen && (
-              <div className="accordion-content">
-                <div className="kpi-grid" style={{ padding: 0, marginBottom: 8 }}>
-                  <div className="kpi kpi-green" style={{ padding: "10px 10px" }}><div className="kpi-label">Entradas</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatCurrency(entradas)}</div><div className="kpi-sub">Período filtrado</div></div>
-                  <div className="kpi" style={{ padding: "10px 10px", background: "color-mix(in srgb, var(--accent-yellow) 6%, transparent)", borderColor: "color-mix(in srgb, var(--accent-yellow) 20%, transparent)" }}><div className="kpi-label">Saídas</div><div className="kpi-value" style={{ fontSize: 20, color: "var(--accent-yellow)" }}>{formatCurrency(saidas)}</div><div className="kpi-sub">Período filtrado</div></div>
-                  <div className="kpi kpi-blue" style={{ padding: "10px 10px" }}><div className="kpi-label">Saldo do Período</div><div className="kpi-value" style={{ fontSize: 20 }}>{formatCurrency(entradas - saidas)}</div><div className="kpi-sub">Saldo acumulado</div></div>
-                </div>
-                <div className="filters-row">
-                  <div className="filter-group"><label className="filter-label">De</label><input type="date" className="filter-input" value={filtros.dataInicio} onChange={e => { setFiltros(f => ({ ...f, dataInicio: e.target.value })); setPagina(1); }} /></div>
-                  <div className="filter-group"><label className="filter-label">Até</label><input type="date" className="filter-input" value={filtros.dataFim} onChange={e => { setFiltros(f => ({ ...f, dataFim: e.target.value })); setPagina(1); }} /></div>
-                  <div className="filter-group"><label className="filter-label">Tipo</label>
-                    <select className="filter-input" value={filtros.tipo} onChange={e => { setFiltros(f => ({ ...f, tipo: e.target.value })); setPagina(1); }}>
-                      <option value="">Todos</option><option value="ENTRADA">Entrada</option><option value="SAIDA">Saída</option>
-                    </select></div>
-                  <div className="filter-group"><label className="filter-label">St. Manual</label>
-                    <select className="filter-input" value={filtros.statusManual} onChange={e => { setFiltros(f => ({ ...f, statusManual: e.target.value })); setPagina(1); }}>
-                      <option value="">Todos</option>
-                      {statusTipos.map(st => <option key={st.id} value={st.codigo}>{st.nome}</option>)}
-                    </select></div>
-                  <div className="filter-group filter-search-group"><label className="filter-label">Busca Rápida</label><input type="text" className="filter-input" placeholder="Descrição, fornecedor..." value={filtros.busca} onChange={e => { setFiltros(f => ({ ...f, busca: e.target.value })); setPagina(1); }} /></div>
-                </div>
-              </div>
-            )}
+        <section className="lanc-filters" aria-label="Filtros de lançamentos">
+          <div className="lanc-filter-main">
+            <label className="filter-group lanc-search"><span className="filter-label">Busca</span>
+              <input className="filter-input" value={filtros.busca} placeholder="Cliente, fornecedor, fantasia, descrição, anotação"
+                onChange={event => atualizarFiltro("busca", event.target.value)} /></label>
+            <label className="filter-group"><span className="filter-label">Status financeiro</span>
+              <select className="filter-input" value={filtros.status} onChange={event => atualizarFiltro("status", event.target.value)}>
+                <option value="">Todos</option>{STATUS_FINANCEIROS.map(status =>
+                  <option key={status} value={status}>{status === "REALIZADO" ? "REALIZADO / PAGO" : status}</option>)}</select></label>
+            <label className="filter-group"><span className="filter-label">Direção</span>
+              <select className="filter-input" value={filtros.tipo} onChange={event => atualizarFiltro("tipo", event.target.value)}>
+                <option value="">Todas</option><option value="ENTRADA">Entrada</option><option value="SAIDA">Saída</option></select></label>
+            <label className="filter-group"><span className="filter-label">Data-base</span>
+              <select className="filter-input" value={filtros.dataBase} onChange={event => atualizarFiltro("dataBase", event.target.value)}>
+                {DATA_BASES.map(item => <option key={item.valor} value={item.valor}>{item.nome}</option>)}</select></label>
+            <label className="filter-group"><span className="filter-label">Mês / Ano</span>
+              <input className="filter-input" type="month" value={filtros.inicio && filtros.fim && filtros.inicio.slice(0, 7) === filtros.fim.slice(0, 7) ? filtros.inicio.slice(0, 7) : ""}
+                onChange={event => { const month = event.target.value; if (!month) return;
+                  const [year, number] = month.split("-").map(Number);
+                  const end = new Date(Date.UTC(year, number, 0)).toISOString().slice(0, 10);
+                  setFiltros(current => ({ ...current, inicio: `${month}-01`, fim: month === hoje.slice(0, 7) ? hoje : end })); setPagina(1); }} /></label>
+            <label className="filter-group"><span className="filter-label">De</span>
+              <input className="filter-input" type="date" value={filtros.inicio} onChange={event => atualizarFiltro("inicio", event.target.value)} /></label>
+            <label className="filter-group"><span className="filter-label">Até</span>
+              <input className="filter-input" type="date" value={filtros.fim} onChange={event => atualizarFiltro("fim", event.target.value)} /></label>
+            <button className="btn btn-outline lanc-year" type="button" onClick={() => {
+              setFiltros(current => ({ ...current, inicio: `${hoje.slice(0, 4)}-01-01`, fim: hoje })); setPagina(1);
+            }}>Ano atual</button>
+            <button className="btn btn-outline" type="button" aria-expanded={avancadosOpen} onClick={() => setAvancadosOpen(open => !open)}>
+              + Filtros{avancadosAtivos ? ` (${avancadosAtivos})` : ""}</button>
+            <button className="btn btn-outline" type="button" onClick={() => { setFiltros(filtrosIniciais(hoje)); setPagina(1); }}>
+              Limpar filtros</button>
           </div>
-
-          {/* Accordion: Atalhos */}
-          <div className="accordion-item">
-            <button className="accordion-trigger" onClick={() => setAtalhosOpen(p => !p)}>
-              <span className={`accordion-chevron ${atalhosOpen ? "open" : ""}`}>›</span>
-              <span className="accordion-title">Atalhos</span>
-            </button>
-            {atalhosOpen && (
-              <div className="accordion-content">
-                <div className="filter-actions">
-                  <button className="btn btn-outline" onClick={() => setStatusModalOpen(true)} title="Configurar Status Manual" style={{ gap: 5 }}>
-                    <span>⚙️</span> Status
-                  </button>
-                  <LayoutManager onLayoutChange={setColConfig} />
-                </div>
-              </div>
-            )}
+          {avancadosOpen && <div className="lanc-advanced" aria-label="Filtros avançados">
+            <p>Status Manual é uma classificação operacional; não comprova pagamento ou recebimento.</p>
+            <label className="filter-group"><span className="filter-label">Status Manual</span><select className="filter-input" value={filtros.statusManual} onChange={event => atualizarFiltro("statusManual", event.target.value)}>
+              <option value="">Todos</option>{statusTipos.map(st => <option key={st.id} value={st.codigo}>{st.nome}</option>)}</select></label>
+            <label className="filter-group"><span className="filter-label">Categoria N1</span><select className="filter-input" value={filtros.categoria} onChange={event => atualizarFiltro("categoria", event.target.value)}>
+              <option value="">Todas</option>{categories.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)}</select></label>
+            <label className="filter-group"><span className="filter-label">Conta N2</span><select className="filter-input" value={filtros.contaId} onChange={event => {
+              const account = accounts.find(item => item.id === event.target.value);
+              const category = categories.find(item => item.id === account?.categoriaId);
+              setFiltros(current => ({ ...current, contaId: account?.id || "", categoria: category?.codigo || current.categoria })); setPagina(1);
+            }}><option value="">Todas</option>{accounts.filter(item => !filtros.categoria || item.categoriaId === categories.find(cat => cat.codigo === filtros.categoria)?.id)
+              .map(item => <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}</select></label>
+            <label className="filter-group"><span className="filter-label">Cliente</span><select className="filter-input" value={filtros.clienteId} onChange={event => atualizarFiltro("clienteId", event.target.value)}>
+              <option value="">Todos</option>{clientes.map((item: any) => <option key={item.id} value={item.id}>{item.nomeFantasia || item.nome}</option>)}</select></label>
+            <label className="filter-group"><span className="filter-label">Fornecedor</span><select className="filter-input" value={filtros.fornecedorId} onChange={event => atualizarFiltro("fornecedorId", event.target.value)}>
+              <option value="">Todos</option>{fornecedores.map(item => <option key={item.id} value={item.id}>{item.display || item.nome}</option>)}</select></label>
+            <label className="filter-group"><span className="filter-label">Centro de Custo legado</span><input className="filter-input" value={filtros.centroCusto} onChange={event => atualizarFiltro("centroCusto", event.target.value)} /></label>
+            <label className="filter-group"><span className="filter-label">Banco legado</span><input className="filter-input" value={filtros.banco} onChange={event => atualizarFiltro("banco", event.target.value)} /></label>
+            <label className="filter-group"><span className="filter-label">Fornecedor legado</span><input className="filter-input" value={filtros.fornecedor} onChange={event => atualizarFiltro("fornecedor", event.target.value)} /></label>
+          </div>}
+          <div className="lanc-settings"><button className="accordion-trigger" type="button" aria-expanded={atalhosOpen} onClick={() => setAtalhosOpen(open => !open)}>
+            <span className={`accordion-chevron ${atalhosOpen ? "open" : ""}`}>›</span><span className="accordion-title">Configurações e Atalhos</span></button>
+            {atalhosOpen && <div className="lanc-settings-content"><button className="btn btn-outline" onClick={() => setStatusModalOpen(true)}>Status Manual</button>
+              <LayoutManager onLayoutChange={setColConfig} />
+              <Link className="btn btn-outline" href="/estrutura/dimensao-empresa">Dimensão da Empresa</Link>
+              <Link className="btn btn-outline" href="/estrutura/dimensoes-financeiras">Dimensões Financeiras</Link>
+              <Link className="btn btn-outline" href="/estrutura/dimensoes-cadastrais">Dimensões Cadastrais</Link>
+              <Link className="btn btn-outline" href="/estrutura/dimensao-produtos">Dimensão de Portfólio</Link></div>}
           </div>
-
-          <div className="filter-hint">
-            💡 Clique em uma linha para editar · <kbd>Enter</kbd> salva · <kbd>Esc</kbd> cancela · Use a linha <strong>+</strong> no final da tabela para inserir
-          </div>
-        </div>
+        </section>
+        <section className="lanc-summary" aria-label="Resumo financeiro dos filtros">
+          {resumoErro ? <div className="lanc-summary-error">{resumoErro}</div> : !resumo || !resumoPeriodo ?
+            <div className="lanc-summary-loading">Carregando resumo financeiro…</div> : <>
+              <div className="lanc-summary-card entrada"><span>Entradas</span><strong>{formatCurrency(Number(resumoPeriodo.entradas))}</strong></div>
+              <div className="lanc-summary-card saida"><span>Saídas</span><strong>{formatCurrency(Number(resumoPeriodo.saidas))}</strong></div>
+              <div className="lanc-summary-card saldo"><span>Saldo do período</span><strong>{formatCurrency(Number(resumoPeriodo.saldo))}</strong></div>
+              <small>{filtros.dataBase === "REALIZACAO" ? "Caixa realizado por data financeira" :
+                `Movimentos realizados por ${DATA_BASES.find(item => item.valor === filtros.dataBase)?.nome}; não representa posição de caixa`}</small>
+            </>}
+        </section>
+        {listErro && <div className="lanc-list-error" role="alert">{listErro}</div>}
 
         {/* Tabela — header fixo + body scrollável com scroll sincronizado */}
-        <div style={{ margin: "14px 28px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)", overflow: "hidden" }}>
+        <div className="lanc-table-shell" style={{ margin: "14px 28px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)", overflow: "hidden" }}>
           {/* Header fixo */}
           <div ref={headerScrollRef} style={{ overflowX: "hidden", flexShrink: 0 }}>
             <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
@@ -966,6 +1038,7 @@ export default function LancamentosClient() {
         {/* Footer */}
         <div className="table-footer" style={{ margin: "0 28px 14px" }}>
           <span>{total} lançamentos</span>
+          <span className="lanc-footer-help">💡 Clique para editar · Enter salva · Esc cancela · Linha + inclui</span>
           <span style={{ marginLeft: "auto", marginRight: total > 50 ? 12 : 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)", fontSize: 11 }}>↔ Barra horizontal acima · Ações no extremo direito →</span>
           {total > 50 && (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

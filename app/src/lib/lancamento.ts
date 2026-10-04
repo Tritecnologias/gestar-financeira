@@ -107,6 +107,9 @@ export function calcularCamposDerivados(l: any): Partial<LancamentoDTO> {
  */
 export function toLancamentoDTO(l: any, seq?: number): LancamentoDTO {
   const derivados = calcularCamposDerivados(l);
+  const referencia = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo",
+    year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const problemasFinanceiros = classificarLancamento(l, referencia).problemas;
   const linked = l.clienteRef || l.fornecedorRef;
   const fmt = (d: Date | string | null | undefined) => {
     if (!d) return null;
@@ -132,6 +135,7 @@ export function toLancamentoDTO(l: any, seq?: number): LancamentoDTO {
     statusManual:     l.statusManual ?? null,
     statusExtrato:    l.statusExtrato ?? null,
     statusAuto:       (derivados.statusAuto ?? "PREVISTO") as StatusAuto,
+    problemasFinanceiros,
     descricao:        l.descricao,
     fornecedor:       l.fornecedor ?? null,
     fornecedorId:     l.fornecedorId ?? null,

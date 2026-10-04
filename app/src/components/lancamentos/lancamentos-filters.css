@@ -1,0 +1,50 @@
+.lanc-page { min-width: 0; }
+.lanc-page .topbar { flex-shrink: 0; }
+.lanc-page .topbar-actions { flex-wrap: wrap; justify-content: flex-end; }
+.lanc-filters { padding: 10px 28px 6px; border-bottom: 1px solid var(--border); min-width: 0; }
+.lanc-filter-main { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.lanc-filter-main .filter-group { min-width: 112px; }
+.lanc-filter-main .filter-input { width: 100%; min-width: 0; min-height: 34px; }
+.lanc-filter-main .lanc-search { flex: 1 1 220px; max-width: 340px; }
+.lanc-filter-main .lanc-year { white-space: nowrap; }
+.lanc-advanced { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 10px;
+  padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); }
+.lanc-advanced p { flex-basis: 100%; margin: 0 0 4px; color: var(--text-secondary); font-size: 12px; }
+.lanc-advanced .filter-group { flex: 1 1 150px; min-width: 135px; }
+.lanc-advanced .filter-input { width: 100%; min-width: 0; min-height: 34px; }
+.lanc-settings { margin-top: 6px; }
+.lanc-settings .accordion-trigger { width: auto; min-height: 28px; padding: 2px 4px; font-size: 12px; }
+.lanc-settings-content { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0 4px; }
+.lanc-settings-content .btn { font-size: 12px; }
+.lanc-summary { display: flex; align-items: stretch; gap: 8px; padding: 8px 28px 0; min-width: 0; }
+.lanc-summary-card { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0;
+  padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.lanc-summary-card span { color: var(--text-secondary); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.lanc-summary-card strong { font-size: 17px; color: var(--text-primary); }
+.lanc-summary-card.entrada strong { color: var(--success); }
+.lanc-summary-card.saida strong { color: var(--outflow); }
+.lanc-summary-card.saldo strong { color: var(--action); }
+.lanc-summary small { align-self: center; max-width: 220px; font-size: 10px; color: var(--text-muted); }
+.lanc-summary-error, .lanc-summary-loading, .lanc-list-error { padding: 8px 12px; color: var(--text-secondary);
+  background: var(--surface-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; }
+.lanc-summary-error, .lanc-list-error { color: var(--danger); }
+.lanc-list-error { margin: 8px 28px 0; }
+.lanc-footer-help { margin-left: 12px; white-space: nowrap; }
+.lanc-review { display: inline-block; margin-left: 4px; padding: 1px 5px; font-size: 10px; font-weight: 700;
+  color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); border-radius: 4px; }
+@media (max-width: 1279px) {
+  .lanc-filters { padding-inline: 14px; }
+  .lanc-summary { padding-inline: 14px; flex-wrap: wrap; }
+  .lanc-summary small { flex-basis: 100%; max-width: none; }
+  .lanc-page .table-footer { flex-wrap: wrap; gap: 6px; }
+}
+@media (max-width: 700px) {
+  .lanc-page { height: auto !important; min-height: 100vh; overflow: visible !important; }
+  .lanc-page .topbar-actions { width: 100%; justify-content: flex-start; }
+  .lanc-page .lanc-table-shell { min-height: 420px !important; height: 55vh; flex: none !important; margin: 10px 14px !important; }
+  .lanc-filter-main .lanc-search { flex-basis: 100%; max-width: none; }
+  .lanc-filter-main .filter-group { flex: 1 1 130px; }
+  .lanc-summary-card { flex-basis: 100%; }
+  .lanc-page .table-footer { margin-inline: 14px !important; }
+  .lanc-footer-help { margin-left: 0; white-space: normal; }
+}
