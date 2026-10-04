@@ -1,11 +1,14 @@
 .lanc-page { min-width: 0; }
 .lanc-page .topbar { flex-shrink: 0; }
-.lanc-page .topbar-actions { flex-wrap: wrap; justify-content: flex-end; }
 .lanc-filters { padding: 10px 28px 6px; border-bottom: 1px solid var(--border); min-width: 0; }
+.lanc-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; min-height: 57px; margin-bottom: 10px; }
+.lanc-toolbar .lanc-search { flex: 0 1 300px; min-width: 210px; }
+.lanc-toolbar .filter-input { width: 100%; min-width: 0; min-height: 34px; }
+.lanc-toolbar-count { padding-bottom: 9px; color: var(--text-muted); font-size: var(--font-size-table); }
+.lanc-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
 .lanc-filter-main { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
 .lanc-filter-main .filter-group { min-width: 112px; }
 .lanc-filter-main .filter-input { width: 100%; min-width: 0; min-height: 34px; }
-.lanc-filter-main .lanc-search { flex: 1 1 220px; max-width: 340px; }
 .lanc-filter-main .lanc-year { white-space: nowrap; }
 .lanc-advanced { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 10px;
   padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); }
@@ -16,7 +19,13 @@
 .lanc-settings .accordion-trigger { width: auto; min-height: 28px; padding: 2px 4px; font-size: 12px; }
 .lanc-settings-content { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0 4px; }
 .lanc-settings-content .btn { font-size: 12px; }
-.lanc-summary { display: flex; align-items: stretch; gap: 8px; padding: 8px 28px 0; min-width: 0; }
+.lanc-summary { position: relative; display: flex; align-items: stretch; gap: 8px; padding: 8px 28px 0; min-width: 0; min-height: 62px; }
+.lanc-summary-updating { position: absolute; right: 28px; bottom: 1px; color: var(--text-muted);
+  background: var(--surface); font-size: 11px; white-space: nowrap; }
+.lanc-table-shell { position: relative; }
+.lanc-list-updating { position: absolute; z-index: 8; right: 12px; top: 42px; padding: 5px 9px;
+  color: var(--text-secondary); background: var(--surface-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 11px; pointer-events: none; }
 .lanc-summary-card { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0;
   padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .lanc-summary-card span { color: var(--text-secondary); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
@@ -47,16 +56,24 @@
 @media (max-width: 1279px) {
   .lanc-filters { padding-inline: 14px; }
   .lanc-summary { padding-inline: 14px; flex-wrap: wrap; }
+  .lanc-summary-updating { right: 14px; }
   .lanc-summary small { flex-basis: 100%; max-width: none; }
   .lanc-page .table-footer { flex-wrap: wrap; gap: 6px; }
 }
 @media (max-width: 700px) {
   .lanc-page { height: auto !important; min-height: 100vh; overflow: visible !important; }
-  .lanc-page .topbar-actions { width: 100%; justify-content: flex-start; }
+  .lanc-toolbar { align-items: stretch; }
+  .lanc-toolbar .lanc-search { flex-basis: 100%; min-width: 0; }
+  .lanc-toolbar-actions { width: 100%; margin-left: 0; }
+  .lanc-toolbar-actions .btn { min-height: 40px; }
   .lanc-page .lanc-table-shell { min-height: 420px !important; height: 55vh; flex: none !important; margin: 10px 14px !important; }
-  .lanc-filter-main .lanc-search { flex-basis: 100%; max-width: none; }
   .lanc-filter-main .filter-group { flex: 1 1 130px; }
   .lanc-summary-card { flex-basis: 100%; }
   .lanc-page .table-footer { margin-inline: 14px !important; }
   .lanc-footer-help { margin-left: 0; white-space: normal; }
+}
+@media (max-width: 1024px) and (max-height: 600px) {
+  .lanc-page { height: auto !important; min-height: 100vh; overflow: visible !important; }
+  .lanc-page .lanc-table-shell { min-height: 420px !important; height: 55vh; flex: none !important; margin: 10px 14px !important; }
+  .lanc-page .table-footer { margin-inline: 14px !important; }
 }

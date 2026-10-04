@@ -30,6 +30,8 @@
   --selection-hover:  rgba(8, 145, 178, 0.17);
   --success:          #047857;
   --warning:          #B45309;
+  --filter-active:    #9A6700;
+  --filter-active-bg: #FFF9E6;
   --outflow:          #B91C1C;
   --danger:           #B91C1C;
   --financial-positive:   var(--success);
@@ -120,6 +122,8 @@ body {
   --selection-hover:  rgba(34, 211, 238, 0.2);
   --success:          #34D399;
   --warning:          #FBBF24;
+  --filter-active:    #FACC15;
+  --filter-active-bg: #3B341D;
   --outflow:          #F87171;
   --danger:           #F87171;
   --financial-receivable: #60A5FA;
@@ -782,6 +786,12 @@ body {
   transition: border-color 0.15s;
 }
 .filter-input:focus { border-color: var(--focus); }
+.filter-group.filter-active .filter-label { color: var(--filter-active); font-weight: 700; }
+.filter-group.filter-active .filter-input,
+.btn.filter-active { border-color: var(--filter-active); background: var(--filter-active-bg); }
+.btn.filter-active { color: var(--filter-active); }
+.filter-group.filter-active .filter-input:focus-visible,
+.btn.filter-active:focus-visible { outline-color: var(--filter-active); }
 .filter-search-group .filter-input { min-width: 200px; }
 .filter-actions { display: flex; gap: 6px; align-items: flex-end; }
 .filter-hint {
