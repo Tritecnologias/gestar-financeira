@@ -45,6 +45,32 @@
 .lanc-value-neutral { color: var(--text-secondary); font-weight: 600; }
 .lanc-page .data-table .lanc-financial-start { border-left: 1px solid var(--border-light); }
 .lanc-page .data-table .lanc-financial-end { border-right: 1px solid var(--border); }
+.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td:is([data-col-key="descricao"], [data-col-key="anotacao"]) > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lanc-page .data-table tr.lanc-inline-editing td {
+  padding: 10px 8px;
+  vertical-align: top;
+  background: var(--selection);
+}
+.lanc-page .lanc-inline-editing .cell-input {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 8px;
+}
+.lanc-page .lanc-inline-editing .lanc-inline-textarea {
+  display: block;
+  min-height: 108px;
+  max-height: 220px;
+  line-height: 1.4;
+  overflow-y: auto;
+  resize: none;
+  field-sizing: content;
+}
 .lanc-summary small { align-self: center; max-width: 220px; font-size: 10px; color: var(--text-muted); }
 .lanc-summary-error, .lanc-summary-loading, .lanc-list-error { padding: 8px 12px; color: var(--text-secondary);
   background: var(--surface-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; }

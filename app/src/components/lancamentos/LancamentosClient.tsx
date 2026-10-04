@@ -148,9 +148,11 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
 
   // Edição inline
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editRowHeight, setEditRowHeight] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<Partial<LancamentoDTO>>({});
   const editValuesRef = useRef<Partial<LancamentoDTO>>({});
+  const initialEditValuesRef = useRef<Partial<LancamentoDTO>>({});
+  const savingRef = useRef(false);
+  const editFocusKey = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -364,24 +366,43 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const resumoPeriodo = filtros.dataBase === "REALIZACAO" ? resumo?.realizado : resumo?.consulta.realizado;
 
   // ── Edição inline ─────────────────────────────────────────
-  const startEdit = (row: LancamentoDTO) => {
+  useEffect(() => {
+    if (!editingId) return;
+    const frame = requestAnimationFrame(() => {
+      const row = Array.from(bodyScrollRef.current?.querySelectorAll<HTMLTableRowElement>("tr[data-row-id]") ?? [])
+        .find(element => element.dataset.rowId === editingId);
+      const cell = Array.from(row?.cells ?? []).find(element => element.dataset.colKey === editFocusKey.current);
+      const target = (cell?.querySelector("input, select, textarea, button")
+        ?? row?.querySelector<HTMLButtonElement>('button[title^="Salvar"]')) as HTMLElement | null;
+      target?.focus({ preventScroll: true });
+      editFocusKey.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editingId]);
+
+  const startEdit = async (row: LancamentoDTO, focusKey = "acoes") => {
+    if (savingRef.current) return;
     if (editingId && editingId !== row.id) {
-      saveEdit(editingId);
+      if (!await saveEdit(editingId)) return;
     }
-    const rowElement = Array.from(bodyScrollRef.current?.querySelectorAll<HTMLTableRowElement>("tr[data-row-id]") ?? [])
-      .find(element => element.dataset.rowId === row.id);
-    setEditRowHeight(rowElement ? Math.ceil(rowElement.getBoundingClientRect().height) : null);
     setEditingId(row.id);
     const initial = { ...row };
     setEditValues(initial);
     editValuesRef.current = initial;
+    initialEditValuesRef.current = initial;
+    editFocusKey.current = focusKey;
   };
 
-  const saveEdit = async (id: string, valuesOverride?: Partial<LancamentoDTO>) => {
-    if (!id) return;
+  const saveEdit = async (id: string, valuesOverride?: Partial<LancamentoDTO>): Promise<boolean> => {
+    if (!id || savingRef.current) return false;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     const dataToSave = valuesOverride || editValuesRef.current;
-    if (!dataToSave || Object.keys(dataToSave).length === 0) return;
+    if (!dataToSave || Object.keys(dataToSave).length === 0) return false;
+    if (JSON.stringify(dataToSave) === JSON.stringify(initialEditValuesRef.current)) {
+      cancelEdit();
+      return true;
+    }
+    savingRef.current = true;
     setSaving(true);
     try {
       const res = await fetch(`/api/lancamentos/${id}`, {
@@ -394,27 +415,32 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         setLancamentos(prev => prev.map(l => l.id === id ? { ...l, ...updated } : l));
         showToast("✅ Salvo");
         refreshData();
+        finishEdit();
+        return true;
       } else {
         const err = await res.json().catch(() => ({}));
         showToast(`❌ ${err.error || "Erro ao salvar"}`);
+        return false;
       }
     } catch {
       showToast("❌ Erro de conexão ao salvar");
+      return false;
     } finally {
+      savingRef.current = false;
       setSaving(false);
-      setEditingId(null);
-      setEditRowHeight(null);
-      setEditValues({});
-      editValuesRef.current = {};
     }
   };
 
-  const cancelEdit = () => {
+  const finishEdit = () => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setEditingId(null);
-    setEditRowHeight(null);
     setEditValues({});
     editValuesRef.current = {};
+    initialEditValuesRef.current = {};
+  };
+
+  const cancelEdit = () => {
+    if (!savingRef.current) finishEdit();
   };
 
   const handleBlur = (id: string) => {
@@ -432,9 +458,9 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     if (editingId === id) {
       setEditingId(null);
-      setEditRowHeight(null);
       setEditValues({});
       editValuesRef.current = {};
+      initialEditValuesRef.current = {};
     }
     const res = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
     if (res.ok) { showToast("🗑️ Excluído"); refreshData(); }
@@ -566,8 +592,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     const cfg = colConfig.find(c => c.key === def.key);
     const w = cfg?.width ?? def.width;
     const style: React.CSSProperties = { width: w, minWidth: w, maxWidth: w };
-    if (def.stickyLeft)  { style.position = "sticky"; style.left  = leftOffsets[def.key] ?? 0; style.zIndex = 1; style.background = isEditing ? "rgba(37,99,235,0.06)" : "var(--bg-card)"; }
-    if (def.stickyRight) { style.position = "sticky"; style.right = rightOffsets[def.key] ?? 0; style.zIndex = 1; style.background = isEditing ? "rgba(37,99,235,0.06)" : "var(--bg-card)"; }
+    if (def.stickyLeft)  { style.position = "sticky"; style.left  = leftOffsets[def.key] ?? 0; style.zIndex = 1; style.background = isEditing ? "var(--selection)" : "var(--bg-card)"; }
+    if (def.stickyRight) { style.position = "sticky"; style.right = rightOffsets[def.key] ?? 0; style.zIndex = 1; style.background = isEditing ? "var(--selection)" : "var(--bg-card)"; }
     if (def.align) style.textAlign = def.align;
     return style;
   };
@@ -580,8 +606,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
       className: "cell-input",
       onFocus: handleFocus,
       onKeyDown: (e: React.KeyboardEvent) => {
-        if (e.key === "Enter") saveEdit(rowId);
-        if (e.key === "Escape") cancelEdit();
+        if (e.key === "Enter") { e.preventDefault(); void saveEdit(rowId); }
+        if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
       },
     };
 
@@ -710,6 +736,22 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         </select>
       );
     }
+    if (def.key === "descricao" || def.key === "anotacao") return (
+      <textarea
+        className="cell-input lanc-inline-textarea"
+        aria-label={def.label}
+        rows={4}
+        value={val ?? ""}
+        onFocus={handleFocus}
+        onBlur={() => handleBlur(rowId)}
+        onKeyDown={e => { if (e.key === "Escape") { e.preventDefault(); cancelEdit(); } }}
+        onChange={e => {
+          const updated = { ...editValuesRef.current, [def.key]: e.target.value };
+          editValuesRef.current = updated;
+          setEditValues(updated);
+        }}
+      />
+    );
     return (
       <input
         {...common}
@@ -937,7 +979,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             </table>
           </div>
           {/* Body scrollável */}
-          <div ref={bodyScrollRef} className="lancamentos-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto", userSelect: editingId ? "none" : "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
+          <div ref={bodyScrollRef} className="lancamentos-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
             <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
             <tbody>
               {loading ? (
@@ -947,9 +989,14 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               ) : lancamentos.map(row => {
                 const isEditing = editingId === row.id;
                 return (
-                  <tr key={row.id} data-row-id={row.id} className={isEditing ? "editing" : ""} onClick={() => !isEditing && startEdit(row)} style={{ cursor: isEditing ? "default" : "pointer", height: isEditing ? editRowHeight ?? undefined : undefined }}>
+                  <tr key={row.id} data-row-id={row.id} className={isEditing ? "editing lanc-inline-editing" : ""} onClick={e => {
+                    if (!isEditing) {
+                      const cell = (e.target as HTMLElement).closest<HTMLTableCellElement>("td");
+                      void startEdit(row, cell?.dataset.colKey ?? "acoes");
+                    }
+                  }} style={{ cursor: isEditing ? "default" : "pointer" }}>
                     {visibleCols.map(def => (
-                      <td key={def.key} className={def.key === "tipo" ? "lanc-financial-start" : def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, isEditing)}>
+                      <td key={def.key} data-col-key={def.key} className={def.key === "tipo" ? "lanc-financial-start" : def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, isEditing)}>
                         {def.key === "acoes" ? (
                           <div className="actions-cell">
                             {isEditing ? (
@@ -958,7 +1005,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                                 <button
                                   className="action-btn"
                                   style={{ color: "#fff", background: "var(--accent-green)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }}
-                                  onClick={e => { e.stopPropagation(); saveEdit(row.id); }}
+                                  onClick={e => { e.stopPropagation(); void saveEdit(row.id); }}
                                   title="Salvar alterações (Enter)"
                                   disabled={saving}
                                 >
@@ -969,6 +1016,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                                   style={{ color: "#fff", background: "var(--accent-red)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }}
                                   onClick={e => { e.stopPropagation(); cancelEdit(); }}
                                   title="Cancelar (Esc)"
+                                  disabled={saving}
                                 >
                                   ✕
                                 </button>
@@ -980,7 +1028,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                               </>
                             ) : (
                               <>
-                                <button className="action-btn" onClick={e => { e.stopPropagation(); startEdit(row); }} title="Editar">✏️</button>
+                                <button className="action-btn" onClick={e => { e.stopPropagation(); void startEdit(row); }} title="Editar">✏️</button>
                                 <button className="action-btn" onClick={e => { e.stopPropagation(); setPendingDelete(row.id); }} title="Excluir">🗑️</button>
                               </>
                             )}
