@@ -56,12 +56,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
   try {
     Object.assign(updateData, await resolveCounterpartyLink(db, session.tenantId,
       Object.fromEntries([["clienteId", clienteId], ["fornecedorId", fornecedorId]].filter(([, value]) => value !== undefined)), existente));
-    Object.assign(updateData, await resolveAccountSelection(db, session.tenantId, contaId, existente.contaId));
+    const accountChanged = contaId !== undefined && contaId !== existente.contaId;
+    const directionChanged = tipo !== undefined && tipo !== existente.tipo;
+    if (accountChanged || directionChanged) {
+      Object.assign(updateData, await resolveAccountSelection(db, session.tenantId,
+        accountChanged ? contaId : existente.contaId, existente.contaId, tipo ?? existente.tipo, categoria));
+    }
   } catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 400 }); }
   if (centroCusto !== undefined) updateData.centroCusto = centroCusto || null;
   if (referencia !== undefined) updateData.referencia = referencia || null;
   if (contaId !== undefined) updateData.contaId = contaId || null;
-  if (categoria !== undefined) updateData.categoria = categoria || null;
+  const effectiveAccountId = Object.hasOwn(updateData, "contaId") ? updateData.contaId : existente.contaId;
+  if (categoria !== undefined && !effectiveAccountId) updateData.categoria = categoria || null;
   if (dre !== undefined) updateData.dre = dre || null;
   if (cont !== undefined) updateData.cont = cont || null;
   if (anotacao !== undefined) updateData.anotacao = anotacao || null;

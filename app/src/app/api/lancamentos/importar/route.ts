@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
           dataLanc:         dataLancDate,
           dataEmissao:      parseDateOnly(dataEmissao),
           dataVencOriginal: dataVencOrigDate,
-          dataVencPlano:    parseDateOnly(dataVencPlano),
+          dataVencPlano:    parseDateOnly(dataVencPlano || dataVencOriginal),
           dataEvento:       parseDateOnly(dataEvento),
           dataPagamento:    parseDateOnly(dataPagamento),
           descricao:        descricao.trim(),

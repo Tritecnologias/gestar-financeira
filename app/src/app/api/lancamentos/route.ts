@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
     statusExtrato:    { statusExtrato:    sortDir },
     centroCusto:      { centroCusto:      sortDir },
     categoria:        { categoria:        sortDir },
+    contaId:          { conta: { codigo: sortDir } },
     dre:              { dre:              sortDir },
     cont:             { cont:             sortDir },
     anotacao:         { anotacao:         sortDir },
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
   let counterpart: Record<string, unknown>, account: Record<string, unknown>;
   try {
     counterpart = await resolveCounterpartyLink(db, session.tenantId, { clienteId, fornecedorId });
-    account = await resolveAccountSelection(db, session.tenantId, contaId);
+    account = await resolveAccountSelection(db, session.tenantId, contaId, undefined, tipo, categoria);
   }
   catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 400 }); }
 
@@ -157,7 +158,7 @@ export async function POST(req: NextRequest) {
         dataLanc:         parseDateOnly(dataLanc) ?? new Date(),
         dataEmissao:      parseDateOnly(dataEmissao),
         dataVencOriginal: parseDateOnly(dataVencOriginal),
-        dataVencPlano:    parseDateOnly(dataVencPlano),
+        dataVencPlano:    parseDateOnly(dataVencPlano || dataVencOriginal),
         dataEvento:       parseDateOnly(dataEvento),
         dataPagamento:    parseDateOnly(dataPagamento),
         descricao:        descricao.trim(),

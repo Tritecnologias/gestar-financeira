@@ -27,6 +27,8 @@ function ChipStatusAuto({ s }: { s: string }) {
     "ATRASADO": { cls: "chip-saida",     label: "ATRASADO" },
     "A VENCER": { cls: "chip-previsto",  label: "A VENCER" },
     "PREVISTO": { cls: "chip-cancelado", label: "PREVISTO" },
+    "CANCELADO": { cls: "chip-cancelado", label: "CANCELADO" },
+    "INCONSISTENTE": { cls: "chip-cancelado", label: "INCONSISTENTE" },
   };
   const info = map[s] ?? { cls: "chip-cancelado", label: s };
   return <span className={`chip ${info.cls}`}>{info.label}</span>;
@@ -65,7 +67,7 @@ function calcStickyOffsets(colConfig: ColConfig[]) {
 }
 
 // ── Renderizar valor de célula (modo leitura) ─────────────────
-function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualTipoDTO[]): React.ReactNode {
+function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualTipoDTO[], accounts?: AccountOption[]): React.ReactNode {
   const val = (row as any)[key];
   if (val === null || val === undefined || val === "") return <span style={{ color: "var(--text-muted)" }}>—</span>;
 
@@ -77,6 +79,11 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
   if (key === "seq") return <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{val}</span>;
 
   switch (key) {
+    case "contaId": {
+      const account = accounts?.find(item => item.id === val);
+      return <span>{account ? `${account.codigo ?? ""} – ${account.descricao}`
+        : row.contaN2Descricao ? `${row.contaN2Codigo ?? ""} – ${row.contaN2Descricao}` : "Conta N2 vinculada"}</span>;
+    }
     case "tipo":        return <ChipTipo tipo={val} />;
     case "status":      return <ChipStatus status={val} />;
     case "statusAuto":  return <ChipStatusAuto s={val} />;
@@ -468,7 +475,7 @@ export default function LancamentosClient() {
 
   // ── Render de célula no modo edição ───────────────────────
   const renderEditCell = (def: (typeof COLUNAS_DEF)[0], rowId: string) => {
-    if (def.editavel === false) return renderCell(def.key, (editValuesRef.current.id === rowId ? editValuesRef.current : editValues) as LancamentoDTO, statusTipos);
+    if (def.editavel === false) return renderCell(def.key, (editValuesRef.current.id === rowId ? editValuesRef.current : editValues) as LancamentoDTO, statusTipos, accounts);
     const val = (editValues as any)[def.key] ?? "";
     const common = {
       className: "cell-input",
@@ -544,6 +551,31 @@ export default function LancamentosClient() {
       );
     }
     if (def.tipo === "select-api") {
+      if (def.source === "categorias" || def.source === "plano-contas") {
+        const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
+        const selectedCategory = current.categoria || "";
+        return (
+          <select {...common} value={val ?? ""} onBlur={() => handleBlur(rowId)}
+            onChange={e => {
+              const updated = def.source === "categorias"
+                ? { ...current, categoria: e.target.value || null, contaId: null }
+                : (() => {
+                    const account = accounts.find(item => item.id === e.target.value);
+                    const category = categories.find(item => item.id === account?.categoriaId);
+                    return { ...current, contaId: account?.id || null, categoria: category?.codigo || current.categoria || null };
+                  })();
+              editValuesRef.current = updated;
+              setEditValues(updated);
+              if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+            }}>
+            <option value="">—</option>
+            {def.source === "categorias"
+              ? categories.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)
+              : accounts.filter(item => item.categoriaId === categories.find(cat => cat.codigo === selectedCategory)?.id)
+                .map(item => <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}
+          </select>
+        );
+      }
       if (def.source === "fornecedores") {
         const selected = counterparties.find(item => item.id === (editValues.clienteId || editValues.fornecedorId)) || null;
         return (
@@ -833,7 +865,7 @@ export default function LancamentosClient() {
                               </>
                             )}
                           </div>
-                        ) : isEditing ? renderEditCell(def, row.id) : renderCell(def.key, row, statusTipos)}
+                        ) : isEditing ? renderEditCell(def, row.id) : renderCell(def.key, row, statusTipos, accounts)}
                       </td>
                     ))}
                   </tr>
@@ -892,18 +924,27 @@ export default function LancamentosClient() {
                                       ...(account ? { contaId: account.contaId, categoria: account.categoria } : {}),
                                     }));
                                   }} />
-                                <select className="cell-input" aria-label="Conta N2 do novo lançamento" value={inlineNewValues.contaId || ""}
-                                  onChange={event => {
-                                    const account = accounts.find(item => item.id === event.target.value);
-                                    const category = categories.find(item => item.id === account?.categoriaId);
-                                    setInlineNewValues(current => ({ ...current, contaId: account?.id || "", categoria: category?.codigo || current.categoria || "" }));
-                                  }}>
-                                  <option value="">Conta N2 —</option>
-                                  {accounts.map(account => <option key={account.id} value={account.id}>{account.codigo} – {account.descricao}</option>)}
-                                </select>
                               </div>
                             );
                           }
+                          if (def.source === "categorias") return (
+                            <select {...commonProps} value={inlineNewValues.categoria || ""} onChange={event =>
+                              setInlineNewValues(current => ({ ...current, categoria: event.target.value, contaId: "" }))}>
+                              <option value="">—</option>
+                              {categories.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)}
+                            </select>
+                          );
+                          if (def.source === "plano-contas") return (
+                            <select {...commonProps} value={inlineNewValues.contaId || ""} onChange={event => {
+                              const account = accounts.find(item => item.id === event.target.value);
+                              const category = categories.find(item => item.id === account?.categoriaId);
+                              setInlineNewValues(current => ({ ...current, contaId: account?.id || "", categoria: category?.codigo || current.categoria || "" }));
+                            }}>
+                              <option value="">—</option>
+                              {accounts.filter(item => item.categoriaId === categories.find(cat => cat.codigo === inlineNewValues.categoria)?.id)
+                                .map(item => <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}
+                            </select>
+                          );
                           return (
                             <select {...commonProps}>
                               <option value="">—</option>

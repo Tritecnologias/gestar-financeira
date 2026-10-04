@@ -2,7 +2,7 @@
 
 export type TipoLancamento  = "ENTRADA" | "SAIDA";
 export type StatusLancamento = "realizado" | "previsto" | "cancelado";
-export type StatusAuto      = "PAGO" | "ATRASADO" | "A VENCER" | "PREVISTO";
+export type StatusAuto      = "PAGO" | "ATRASADO" | "A VENCER" | "PREVISTO" | "CANCELADO" | "INCONSISTENTE";
 export type TipoConta       = "RECEITA" | "DESPESA" | "TRANSFERENCIA";
 export type Papel           = "admin_global" | "admin" | "membro";
 export type Plano           = "trial" | "mensal" | "anual";
@@ -45,6 +45,8 @@ export interface LancamentoDTO {
   centroCusto:    string | null;
   referencia:     string | null;
   contaId:        string | null;
+  contaN2Codigo:  string | null;
+  contaN2Descricao: string | null;
   categoria:      string | null;
   dre:            string | null;
   cont:           string | null;

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { toNumber } from "@/lib/formatters";
+import { obterResumoFluxoCaixa } from "@/lib/cash-flow-service";
 import type { KpiData } from "@/types";
 
 // ── GET /api/dashboard ────────────────────────────────────────
 // Retorna KPIs do mês atual para o tenant logado
 export async function GET(req: NextRequest) {
-  let db: any;
+  let db: any, session: any;
   try {
-    ({ db } = await requireSession());
+    ({ db, session } = await requireSession());
   } catch {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
@@ -17,37 +18,33 @@ export async function GET(req: NextRequest) {
   const ano = parseInt(searchParams.get("ano") || String(new Date().getFullYear()));
   const mes = parseInt(searchParams.get("mes") || String(new Date().getMonth() + 1));
 
-  const dataInicio = new Date(ano, mes - 1, 1);
-  const dataFim = new Date(ano, mes, 0); // último dia do mês
+  if (!Number.isInteger(ano) || !Number.isInteger(mes) || mes < 1 || mes > 12) {
+    return NextResponse.json({ error: "Período inválido" }, { status: 400 });
+  }
+  const dataInicio = new Date(Date.UTC(ano, mes - 1, 1)).toISOString().slice(0, 10);
+  const dataFim = new Date(Date.UTC(ano, mes, 0)).toISOString().slice(0, 10);
 
   // ⚡ tenantId injetado automaticamente em todas as queries via Extension
-  const [entradas, saidas, totalLancamentos] = await Promise.all([
-    db.lancamento.aggregate({
-      where: { tipo: "ENTRADA", dataLanc: { gte: dataInicio, lte: dataFim } },
-      _sum: { valor: true },
-      _count: true,
-    }),
-    db.lancamento.aggregate({
-      where: { tipo: "SAIDA", dataLanc: { gte: dataInicio, lte: dataFim } },
-      _sum: { valor: true },
-    }),
-    db.lancamento.count({ where: {} }),
+  const [resumo, totalLancamentos] = await Promise.all([
+    obterResumoFluxoCaixa(db, { tenantId: session.tenantId, inicio: dataInicio, fim: dataFim,
+      dataReferencia: dataFim, dataBase: "REALIZACAO" }),
+    db.lancamento.count({ where: { tenantId: session.tenantId } }),
   ]);
 
   // Últimos 5 lançamentos para preview no dashboard
   const ultimosLancamentos = await db.lancamento.findMany({
-    where: {},
+    where: { tenantId: session.tenantId },
     orderBy: [{ dataLanc: "desc" }, { criadoEm: "desc" }],
     take: 5,
   });
 
-  const entradasVal = toNumber(entradas._sum.valor);
-  const saidasVal = toNumber(saidas._sum.valor);
+  const entradasVal = toNumber(resumo.entradas.total);
+  const saidasVal = toNumber(resumo.saidas.total);
 
   const kpi: KpiData = {
     entradas: entradasVal,
     saidas: saidasVal,
-    saldo: entradasVal - saidasVal,
+    saldo: toNumber(resumo.saldoPeriodo.total),
     totalLancamentos,
   };
 

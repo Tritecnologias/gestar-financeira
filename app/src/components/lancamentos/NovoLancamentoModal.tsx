@@ -240,7 +240,11 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
           <div className="form-row-3">
             <div className="form-group">
               <label>Conta N2</label>
-              <select value={form.contaId} onChange={e => set("contaId", e.target.value)}>
+              <select value={form.contaId} onChange={e => {
+                const account = accounts.find(item => item.id === e.target.value);
+                const category = categories.find(item => item.id === account?.categoriaId);
+                setForm(current => ({ ...current, contaId: account?.id || "", categoria: category?.codigo || current.categoria }));
+              }}>
                 <option value="">—</option>
                 {accounts.filter(account => account.categoriaId === categories.find(category => category.codigo === form.categoria)?.id)
                   .map(account => <option key={account.id} value={account.id}>{account.codigo} – {account.descricao}</option>)}
