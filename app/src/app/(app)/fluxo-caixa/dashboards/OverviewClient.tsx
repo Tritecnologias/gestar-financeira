@@ -161,7 +161,9 @@ export default function OverviewClient({ hoje }: { hoje: string }) {
           <Link href="/lancamentos">Revisar lançamentos</Link></div>}
         <section className="fc-kpis" aria-label="Indicadores do caixa realizado">{indicadores.map(item => {
           const valor = resumo[item.chave].total;
-          return <button type="button" key={item.chave} className={`fc-kpi ${item.classe} ${Number(valor) < 0 ? "negative" : ""}`}
+          const saldo = item.chave === "saldoAnterior" || item.chave === "saldoPeriodo" || item.chave === "saldoFinal";
+          const sinal = saldo ? (Number(valor) > 0 ? "positive" : Number(valor) < 0 ? "negative" : "zero") : "";
+          return <button type="button" key={item.chave} className={`fc-kpi ${item.classe} ${sinal}`}
             aria-label={`${nomeKpi(item.chave)}: ${dinheiro(valor)}. Ver lançamentos componentes.`} onClick={() => setDetalhe(item.chave)}>
             <span>{nomeKpi(item.chave)}</span><strong>{dinheiro(valor)}</strong><small>{item.apoio}</small></button>;
         })}</section>

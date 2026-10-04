@@ -127,7 +127,7 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
         <form onSubmit={handleSubmit} className="modal-body">
           {error && <div className="alert alert-error">{error}</div>}
 
-          {/* Linha 1: Tipo + Data + Descrição */}
+          {/* Classificação financeira: Direção → Categoria N1 → Conta N2 */}
           <div className="form-row-3">
             <div className="form-group">
               <label>Direção *</label>
@@ -136,6 +136,28 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                 <option value="ENTRADA">ENTRADA</option>
               </select>
             </div>
+            <div className="form-group">
+              <label>Categoria N1</label>
+              <select value={form.categoria} onChange={e => setForm(current => ({ ...current, categoria: e.target.value, contaId: "" }))}>
+                <option value="">—</option>
+                {categories.map(category => <option key={category.id} value={category.codigo}>{category.codigo} – {category.nome}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Conta N2</label>
+              <select value={form.contaId} onChange={e => {
+                const account = accounts.find(item => item.id === e.target.value);
+                const category = categories.find(item => item.id === account?.categoriaId);
+                setForm(current => ({ ...current, contaId: account?.id || "", categoria: category?.codigo || current.categoria }));
+              }}>
+                <option value="">—</option>
+                {accounts.filter(account => account.categoriaId === categories.find(category => category.codigo === form.categoria)?.id)
+                  .map(account => <option key={account.id} value={account.id}>{account.codigo} – {account.descricao}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="form-row-3">
             <div className="form-group">
               <label>Data Lanç. *</label>
               <input type="date" value={form.dataLanc} onChange={e => set("dataLanc", e.target.value)} />
@@ -216,7 +238,7 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
             </div>
           </div>
 
-          {/* Linha 5: Classificação */}
+          {/* Demais vínculos */}
           <div className="form-row-3">
             <div className="form-group">
               <label>Fantasia (n4)</label>
@@ -227,28 +249,6 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
             <div className="form-group">
               <label>Centro de Custo</label>
               <input type="text" value={form.centroCusto} onChange={e => set("centroCusto", e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>Categoria N1</label>
-              <select value={form.categoria} onChange={e => setForm(current => ({ ...current, categoria: e.target.value, contaId: "" }))}>
-                <option value="">—</option>
-                {categories.map(category => <option key={category.id} value={category.codigo}>{category.codigo} – {category.nome}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="form-row-3">
-            <div className="form-group">
-              <label>Conta N2</label>
-              <select value={form.contaId} onChange={e => {
-                const account = accounts.find(item => item.id === e.target.value);
-                const category = categories.find(item => item.id === account?.categoriaId);
-                setForm(current => ({ ...current, contaId: account?.id || "", categoria: category?.codigo || current.categoria }));
-              }}>
-                <option value="">—</option>
-                {accounts.filter(account => account.categoriaId === categories.find(category => category.codigo === form.categoria)?.id)
-                  .map(account => <option key={account.id} value={account.id}>{account.codigo} – {account.descricao}</option>)}
-              </select>
             </div>
           </div>
 

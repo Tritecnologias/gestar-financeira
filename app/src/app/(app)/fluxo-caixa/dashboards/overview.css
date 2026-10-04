@@ -42,8 +42,10 @@
 .fc-kpi.saida strong { color: var(--outflow); }
 .fc-kpi.periodo { border-top-color: var(--border-light); }
 .fc-kpi.final { border-top-color: var(--action); background: var(--selection); }
-.fc-kpi.final strong { color: var(--action); }
-.fc-kpi.negative strong { color: var(--danger); }
+.fc-kpi.final strong { color: var(--text-primary); }
+.fc-kpi.positive strong { color: var(--success); }
+.fc-kpi.negative strong { color: var(--outflow); }
+.fc-kpi.zero strong { color: var(--text-primary); }
 .fc-visuals { margin-top: 18px; display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(260px, .9fr); gap: 16px; align-items: stretch; }
 .fc-panel { min-width: 0; padding: 18px; }
 .fc-panel-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }

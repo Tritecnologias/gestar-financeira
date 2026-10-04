@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { ColConfig, LayoutColunasDTO } from "@/types";
-import { DEFAULT_COLUNAS_CONFIG, COLUNAS_DEF } from "./colunasConfig";
+import { DEFAULT_COLUNAS_CONFIG, COLUNAS_DEF, alignLegacyDefaultColumns } from "./colunasConfig";
 
 interface Props {
   onLayoutChange: (colunas: ColConfig[]) => void;
@@ -15,7 +15,7 @@ export default function LayoutManager({ onLayoutChange }: Props) {
   const [colConfig, setColConfig] = useState<ColConfig[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("gestar_col_config");
-      if (saved) try { return JSON.parse(saved); } catch {}
+      if (saved) try { return alignLegacyDefaultColumns(JSON.parse(saved)); } catch {}
     }
     return DEFAULT_COLUNAS_CONFIG;
   });
@@ -83,7 +83,7 @@ export default function LayoutManager({ onLayoutChange }: Props) {
   }, [colConfig]);
 
   const applyLayout = (colunas: ColConfig[]) => {
-    setColConfig(colunas);
+    setColConfig(alignLegacyDefaultColumns(colunas));
   };
 
   const toggleCol = (key: string) => {

@@ -37,7 +37,7 @@ const filtrosIniciais = (hoje: string): Filtros => ({ busca: "", status: "", tip
 
 // ── Chip helpers ─────────────────────────────────────────────
 function ChipTipo({ tipo }: { tipo: string }) {
-  return <span className={tipo === "SAIDA" ? "chip" : `chip chip-${tipo.toLowerCase()}`} style={tipo === "SAIDA" ? { background: "color-mix(in srgb, var(--accent-yellow) 10%, transparent)", color: "var(--accent-yellow)" } : undefined}>{tipo === "ENTRADA" ? "ENTRADA" : "SAÍDA"}</span>;
+  return <span className={`chip chip-${tipo.toLowerCase()}`}>{tipo === "ENTRADA" ? "ENTRADA" : "SAÍDA"}</span>;
 }
 function ChipStatus({ status }: { status: string }) {
   const cls: Record<string, string> = { realizado: "chip-realizado", previsto: "chip-previsto", cancelado: "chip-cancelado" };
@@ -48,7 +48,7 @@ function ChipStatusAuto({ s }: { s: string }) {
     "PAGO":     { cls: "chip-realizado", label: "PAGO" },
     "ATRASADO": { cls: "chip-saida",     label: "ATRASADO" },
     "A VENCER": { cls: "chip-previsto",  label: "A VENCER" },
-    "PREVISTO": { cls: "chip-cancelado", label: "PREVISTO" },
+    "PREVISTO": { cls: "chip-previsto", label: "PREVISTO" },
     "CANCELADO": { cls: "chip-cancelado", label: "CANCELADO" },
     "INCONSISTENTE": { cls: "chip-cancelado", label: "INCONSISTENTE" },
   };
@@ -118,8 +118,8 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
     case "status":      return <ChipStatus status={val} />;
     case "statusAuto":  return <><ChipStatusAuto s={val} />{row.problemasFinanceiros?.length ?
       <span className="lanc-review" title={row.problemasFinanceiros.map(problema => PROBLEMAS[problema] || problema).join("; ")}>Revisar</span> : null}</>;
-    case "valor":
-    case "valorPrevisto": return <span className={row.tipo === "ENTRADA" ? "val-entrada" : undefined} style={row.tipo === "ENTRADA" ? undefined : { color: "var(--accent-yellow)", fontWeight: 600 }}>{formatCurrency(val)}</span>;
+    case "valorPrevisto": return <span className="lanc-value-forecast">{formatCurrency(val)}</span>;
+    case "valor": return <span className={row.status === "previsto" ? "lanc-value-forecast" : row.statusAuto === "PAGO" ? (row.tipo === "ENTRADA" ? "val-entrada" : "val-saida") : "lanc-value-neutral"}>{formatCurrency(val)}</span>;
     case "statusManual": {
       const tipo = statusTipos?.find(st => st.codigo === val);
       const label = tipo ? tipo.nome : val;
@@ -782,7 +782,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <div className="lanc-summary-loading">Carregando resumo financeiro…</div> : <>
               <div className="lanc-summary-card entrada"><span>Entradas</span><strong>{formatCurrency(Number(resumoPeriodo.entradas))}</strong></div>
               <div className="lanc-summary-card saida"><span>Saídas</span><strong>{formatCurrency(Number(resumoPeriodo.saidas))}</strong></div>
-              <div className="lanc-summary-card saldo"><span>Saldo do período</span><strong>{formatCurrency(Number(resumoPeriodo.saldo))}</strong></div>
+              <div className={`lanc-summary-card saldo ${Number(resumoPeriodo.saldo) > 0 ? "positive" : Number(resumoPeriodo.saldo) < 0 ? "negative" : "zero"}`}><span>Saldo do período</span><strong>{formatCurrency(Number(resumoPeriodo.saldo))}</strong></div>
               <small>{filtros.dataBase === "REALIZACAO" ? "Caixa realizado por data financeira" :
                 `Movimentos realizados por ${DATA_BASES.find(item => item.valor === filtros.dataBase)?.nome}; não representa posição de caixa`}</small>
             </>}
@@ -806,6 +806,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                   return (
                     <th
                       key={def.key}
+                      className={def.key === "tipo" ? "lanc-financial-start" : def.key === "contaId" ? "lanc-financial-end" : undefined}
                       style={{
                         ...getThStyle(def),
                         padding: def.key === "seq" ? "8px 4px" : "8px 8px",
@@ -816,7 +817,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                         borderLeft: isDragOver ? "3px solid var(--accent-blue)" : undefined,
                         opacity: dragKey.current === def.key ? 0.45 : 1,
                         transition: "opacity 0.15s, border-left 0.1s, background 0.15s",
-                        background: isSorted ? "rgba(37,99,235,0.08)" : undefined,
+                        background: isSorted ? "var(--selection)" : undefined,
                         ...(!getThStyle(def).position && { position: "relative" }),
                       }}
                       draggable={!isSticky}
@@ -852,7 +853,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                           <span style={{
                             fontSize: 9,
                             opacity: isSorted ? 1 : 0.2,
-                            color: isSorted ? "var(--accent-blue)" : "inherit",
+                            color: isSorted ? "var(--action)" : "inherit",
                             transition: "opacity 0.15s",
                             marginLeft: 1,
                             flexShrink: 0,
@@ -901,7 +902,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                 return (
                   <tr key={row.id} className={isEditing ? "editing" : ""} onClick={() => !isEditing && startEdit(row)} style={{ cursor: isEditing ? "default" : "pointer" }}>
                     {visibleCols.map(def => (
-                      <td key={def.key} style={getTdStyle(def, isEditing)}>
+                      <td key={def.key} className={def.key === "tipo" ? "lanc-financial-start" : def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, isEditing)}>
                         {def.key === "acoes" ? (
                           <div className="actions-cell">
                             {isEditing ? (
@@ -947,7 +948,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               {inlineNewOpen && (
                 <tr className="editing" style={{ background: "rgba(5,150,105,0.06)" }}>
                   {visibleCols.map((def, idx) => (
-                    <td key={def.key} style={getTdStyle(def, true)}>
+                    <td key={def.key} className={def.key === "tipo" ? "lanc-financial-start" : def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, true)}>
                       {def.key === "seq" ? (
                         <span style={{ color: "var(--accent-green)", fontWeight: 700, fontSize: 11 }}>+</span>
                       ) : def.key === "acoes" ? (

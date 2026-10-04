@@ -30,7 +30,7 @@
   --selection-hover:  rgba(8, 145, 178, 0.17);
   --success:          #047857;
   --warning:          #B45309;
-  --outflow:          #B45309;
+  --outflow:          #B91C1C;
   --danger:           #B91C1C;
   --scrollbar-thumb:  #4C91A3;
   --scrollbar-track:  #E2EAF0;
@@ -45,7 +45,7 @@
   --accent-blue-h: #1D4ED8;
   --accent-green:  var(--success);
   --accent-red:    var(--danger);
-  --accent-yellow: var(--outflow);
+  --accent-yellow: var(--warning);
 
   /* KPIs */
   --kpi-green-bg:     color-mix(in srgb, var(--success) 7%, var(--surface));
@@ -115,7 +115,7 @@ body {
   --selection-hover:  rgba(34, 211, 238, 0.2);
   --success:          #34D399;
   --warning:          #FBBF24;
-  --outflow:          #FBBF24;
+  --outflow:          #F87171;
   --danger:           #F87171;
   --scrollbar-thumb:  #2F9FB1;
   --scrollbar-track:  #27364B;

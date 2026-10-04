@@ -30,11 +30,11 @@ export const COLUNAS_DEF: ColDef[] = [
   { key: "valorPrevisto",    label: "Vl. Previsto",  width: 115, tipo: "number", align: "right" },
   { key: "dataPagamento",    label: "Dt. Pagamento", width: 110, tipo: "date" },
   { key: "valor",            label: "Vl. Realizado", width: 115, tipo: "number", align: "right" },
-  { key: "categoria",        label: "Categoria N1",  width: 110, tipo: "select-api", source: "categorias" },
-  { key: "contaId",          label: "Conta N2",      width: 110, tipo: "select-api", source: "plano-contas" },
-  { key: "statusAuto",       label: "Status Auto",   width: 100, editavel: false },
   { key: "tipo",             label: "Direção",       width: 85,  tipo: "select",
     options: [{ value: "ENTRADA", label: "ENTRADA" }, { value: "SAIDA", label: "SAÍDA" }] },
+  { key: "categoria",        label: "Categoria N1",  width: 110, tipo: "select-api", source: "categorias" },
+  { key: "contaId",          label: "Conta N2",      width: 110, tipo: "select-api", source: "plano-contas" },
+  { key: "statusAuto",       label: "Status Auto",   width: 145, editavel: false },
   { key: "centroCusto",      label: "C. Custo",      width: 110, tipo: "text" },
   { key: "dre",              label: "DRE",           width: 100, tipo: "text" },
   { key: "cont",             label: "Cont.",         width: 80,  tipo: "text" },
@@ -57,3 +57,22 @@ export const DEFAULT_COLUNAS_CONFIG: ColConfig[] = COLUNAS_DEF.map((c, i) => ({
   order:   i,
   width:   c.width,
 }));
+
+// Atualiza somente a antiga ordem padrão; layouts personalizados mantêm sua ordem e larguras.
+const legacyDefaultKeys = COLUNAS_DEF.map(col => col.key);
+legacyDefaultKeys.splice(legacyDefaultKeys.indexOf("tipo"), 1);
+legacyDefaultKeys.splice(legacyDefaultKeys.indexOf("statusAuto") + 1, 0, "tipo");
+
+export function alignLegacyDefaultColumns(config: ColConfig[]): ColConfig[] {
+  const ordered = [...config].sort((a, b) => a.order - b.order);
+  const originalDefault = ordered.length === legacyDefaultKeys.length &&
+    ordered.every((col, index) => col.key === legacyDefaultKeys[index]);
+  const currentDefault = ordered.length === COLUNAS_DEF.length &&
+    ordered.every((col, index) => col.key === COLUNAS_DEF[index].key);
+  if (!originalDefault && !currentDefault) return config;
+  const nextOrder = new Map(COLUNAS_DEF.map((col, index) => [col.key, index]));
+  return config.map(col => ({ ...col,
+    order: nextOrder.get(col.key) ?? col.order,
+    width: col.key === "statusAuto" && col.width === 100 ? 145 : col.width,
+  }));
+}

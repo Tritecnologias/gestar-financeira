@@ -12,7 +12,7 @@
 .lanc-advanced p { flex-basis: 100%; margin: 0 0 4px; color: var(--text-secondary); font-size: 12px; }
 .lanc-advanced .filter-group { flex: 1 1 150px; min-width: 135px; }
 .lanc-advanced .filter-input { width: 100%; min-width: 0; min-height: 34px; }
-.lanc-settings { margin-top: 6px; }
+.lanc-settings { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
 .lanc-settings .accordion-trigger { width: auto; min-height: 28px; padding: 2px 4px; font-size: 12px; }
 .lanc-settings-content { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0 4px; }
 .lanc-settings-content .btn { font-size: 12px; }
@@ -23,13 +23,19 @@
 .lanc-summary-card strong { font-size: 17px; color: var(--text-primary); }
 .lanc-summary-card.entrada strong { color: var(--success); }
 .lanc-summary-card.saida strong { color: var(--outflow); }
-.lanc-summary-card.saldo strong { color: var(--action); }
+.lanc-summary-card.saldo.positive strong { color: var(--success); }
+.lanc-summary-card.saldo.negative strong { color: var(--outflow); }
+.lanc-summary-card.saldo.zero strong { color: var(--text-primary); }
+.lanc-value-forecast { color: var(--warning); font-weight: 600; }
+.lanc-value-neutral { color: var(--text-secondary); font-weight: 600; }
+.lanc-page .data-table .lanc-financial-start { border-left: 1px solid var(--border-light); }
+.lanc-page .data-table .lanc-financial-end { border-right: 1px solid var(--border); }
 .lanc-summary small { align-self: center; max-width: 220px; font-size: 10px; color: var(--text-muted); }
 .lanc-summary-error, .lanc-summary-loading, .lanc-list-error { padding: 8px 12px; color: var(--text-secondary);
   background: var(--surface-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; }
 .lanc-summary-error, .lanc-list-error { color: var(--danger); }
 .lanc-list-error { margin: 8px 28px 0; }
-.lanc-footer-help { margin-left: 12px; white-space: nowrap; }
+.lanc-footer-help { margin-left: 12px; white-space: nowrap; color: var(--text-muted); font-size: 11px; }
 .lanc-review { display: inline-block; margin-left: 4px; padding: 1px 5px; font-size: 10px; font-weight: 700;
   color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); border-radius: 4px; }
 @media (max-width: 1279px) {
