@@ -31,7 +31,8 @@ export type LancamentoFinanceiro = {
   dataPagamento?: Date | string | null;
   contaId?: string | null;
   conta?: { tipo: string; tenantId: string; codigo?: string | null; descricao?: string;
-    categoria?: { codigo: string; nome?: string; tenantId: string } | null } | null;
+    categoriaId?: string | null;
+    categoria?: { id?: string; codigo: string; nome?: string; tenantId: string } | null } | null;
   categoria?: string | null;
   clienteId?: string | null;
   fornecedorId?: string | null;
@@ -62,6 +63,10 @@ export type ComponenteFinanceiro = {
   status?: StatusFinanceiro;
   categoriaN1?: string | null;
   contaN2?: string | null;
+  categoriaId?: string | null;
+  contaId?: string | null;
+  categoriaCodigo?: string | null;
+  contaCodigo?: string | null;
   dataVencPlano?: string | null;
   dataRealizacao?: string | null;
 };
@@ -214,6 +219,10 @@ function component(entry: LancamentoFinanceiro, date: string, value: Prisma.Deci
       ? `${entry.conta.categoria.codigo} · ${entry.conta.categoria.nome || ""}`.trim() : entry.categoria,
     contaN2: entry.conta?.tenantId === entry.tenantId
       ? [entry.conta.codigo, entry.conta.descricao].filter(Boolean).join(" · ") : null,
+    categoriaId: entry.conta?.categoria?.tenantId === entry.tenantId ? entry.conta.categoria.id : null,
+    contaId: entry.conta?.tenantId === entry.tenantId ? entry.contaId : null,
+    categoriaCodigo: entry.conta?.categoria?.tenantId === entry.tenantId ? entry.conta.categoria.codigo : null,
+    contaCodigo: entry.conta?.tenantId === entry.tenantId ? entry.conta.codigo : null,
     dataVencPlano: dataCivil(entry.dataVencPlano), dataRealizacao: dataCivil(entry.dataPagamento) };
 }
 
