@@ -30,7 +30,8 @@ export type LancamentoFinanceiro = {
   dataVencPlano?: Date | string | null;
   dataPagamento?: Date | string | null;
   contaId?: string | null;
-  conta?: { tipo: string; tenantId: string; categoria?: { codigo: string; tenantId: string } | null } | null;
+  conta?: { tipo: string; tenantId: string; codigo?: string | null; descricao?: string;
+    categoria?: { codigo: string; nome?: string; tenantId: string } | null } | null;
   categoria?: string | null;
   clienteId?: string | null;
   fornecedorId?: string | null;
@@ -59,6 +60,10 @@ export type ComponenteFinanceiro = {
   descricao?: string;
   contraparte?: string | null;
   status?: StatusFinanceiro;
+  categoriaN1?: string | null;
+  contaN2?: string | null;
+  dataVencPlano?: string | null;
+  dataRealizacao?: string | null;
 };
 
 type GrupoFinanceiro = {
@@ -204,7 +209,12 @@ function component(entry: LancamentoFinanceiro, date: string, value: Prisma.Deci
   return { id: entry.id, seq: entry.seq, data: date, direcao: entry.tipo as "ENTRADA" | "SAIDA",
     valor: money(value), valorAssinado: money(signed),
     operacional: entry.conta?.tipo !== "TRANSFERENCIA", descricao: entry.descricao,
-    contraparte: nomeContraparte(entry), status };
+    contraparte: nomeContraparte(entry), status,
+    categoriaN1: entry.conta?.categoria?.tenantId === entry.tenantId
+      ? `${entry.conta.categoria.codigo} · ${entry.conta.categoria.nome || ""}`.trim() : entry.categoria,
+    contaN2: entry.conta?.tenantId === entry.tenantId
+      ? [entry.conta.codigo, entry.conta.descricao].filter(Boolean).join(" · ") : null,
+    dataVencPlano: dataCivil(entry.dataVencPlano), dataRealizacao: dataCivil(entry.dataPagamento) };
 }
 
 function group(components: ComponenteFinanceiro[]): GrupoFinanceiro {
