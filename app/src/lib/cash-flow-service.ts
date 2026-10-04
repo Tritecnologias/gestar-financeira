@@ -17,6 +17,9 @@ export async function obterResumoFluxoCaixa(db: any, options: OpcoesFluxoCaixa) 
     where,
     select: {
       id: true, tenantId: true, seq: true, status: true, statusManual: true, tipo: true,
+      descricao: true, fantasiaPadrao: true,
+      clienteRef: { select: { tenantId: true, nome: true, nomeFantasia: true } },
+      fornecedorRef: { select: { tenantId: true, nome: true, nomeFantasia: true } },
       valor: true, valorPrevisto: true, dataLanc: true, dataEmissao: true,
       dataVencOriginal: true, dataVencPlano: true, dataPagamento: true,
       contaId: true, conta: { select: { tipo: true, tenantId: true,

@@ -38,6 +38,10 @@ export type LancamentoFinanceiro = {
   centroCusto?: string | null;
   banco?: string | null;
   dre?: string | null;
+  descricao?: string;
+  fantasiaPadrao?: string | null;
+  clienteRef?: { tenantId: string; nome: string; nomeFantasia?: string | null } | null;
+  fornecedorRef?: { tenantId: string; nome: string; nomeFantasia?: string | null } | null;
 };
 
 export type FiltrosFinanceiros = Partial<Pick<LancamentoFinanceiro,
@@ -46,11 +50,15 @@ export type FiltrosFinanceiros = Partial<Pick<LancamentoFinanceiro,
 
 export type ComponenteFinanceiro = {
   id: string;
+  seq?: number;
   data: string;
   direcao: "ENTRADA" | "SAIDA";
   valor: string;
   valorAssinado: string;
   operacional: boolean;
+  descricao?: string;
+  contraparte?: string | null;
+  status?: StatusFinanceiro;
 };
 
 type GrupoFinanceiro = {
@@ -141,7 +149,7 @@ export function classificarLancamento(entry: LancamentoFinanceiro, dataReferenci
     const valido = Boolean(realizadoEm && valorReal && direcaoValida);
     return { status: valido && !problemaConta ? "REALIZADO" as StatusFinanceiro : "INCONSISTENTE" as StatusFinanceiro,
       problemas, realizadoEm, previstoPara,
-      valorRealizado: valido ? valorReal : null,
+      valorRealizado: valido && (!problemaConta || problemaConta === "TRANSFERENCIA_SEM_PAREAMENTO") ? valorReal : null,
       valorPrevisto: direcaoValida && previstoPara && valorPlano ? valorPlano : null,
       previsaoAberta: false };
   }
@@ -180,11 +188,23 @@ function matches(entry: LancamentoFinanceiro, tenantId: string, filtros: Filtros
   });
 }
 
-function component(entry: LancamentoFinanceiro, date: string, value: Prisma.Decimal): ComponenteFinanceiro {
+function nomeContraparte(entry: LancamentoFinanceiro): string | null {
+  if (entry.clienteRef?.tenantId === entry.tenantId) {
+    return entry.clienteRef.nomeFantasia || entry.clienteRef.nome;
+  }
+  if (entry.fornecedorRef?.tenantId === entry.tenantId) {
+    return entry.fornecedorRef.nomeFantasia || entry.fornecedorRef.nome;
+  }
+  return entry.fantasiaPadrao || entry.fornecedor || null;
+}
+
+function component(entry: LancamentoFinanceiro, date: string, value: Prisma.Decimal,
+  status: StatusFinanceiro): ComponenteFinanceiro {
   const signed = entry.tipo === "ENTRADA" ? value : value.negated();
-  return { id: entry.id, data: date, direcao: entry.tipo as "ENTRADA" | "SAIDA",
+  return { id: entry.id, seq: entry.seq, data: date, direcao: entry.tipo as "ENTRADA" | "SAIDA",
     valor: money(value), valorAssinado: money(signed),
-    operacional: entry.conta?.tipo !== "TRANSFERENCIA" };
+    operacional: entry.conta?.tipo !== "TRANSFERENCIA", descricao: entry.descricao,
+    contraparte: nomeContraparte(entry), status };
 }
 
 function group(components: ComponenteFinanceiro[]): GrupoFinanceiro {
@@ -223,6 +243,9 @@ export function calcularFluxoCaixa(entries: readonly LancamentoFinanceiro[], opt
   const classificacoes: { id: string; status: StatusFinanceiro; realizado: boolean;
     previstoHistorico: boolean; previsaoAberta: boolean }[] = [];
   const variacoes: { id: string; previsto: string; realizado: string; diferenca: string; aberto: string }[] = [];
+  const ultimosCandidatos: { id: string; seq?: number; data: string; dataFinanceira: string | null;
+    descricao: string; contraparte: string | null; direcao: string; valor: string;
+    status: StatusFinanceiro }[] = [];
 
   for (const entry of entries) {
     if (entry.tenantId !== tenantId) continue;
@@ -232,21 +255,30 @@ export function calcularFluxoCaixa(entries: readonly LancamentoFinanceiro[], opt
       realizado: Boolean(classified.valorRealizado), previstoHistorico: Boolean(classified.valorPrevisto),
       previsaoAberta: classified.previsaoAberta });
     if (classified.problemas.length) inconsistencias.push({ id: entry.id, problemas: classified.problemas });
+    const dataLancamento = dataCivil(entry.dataLanc);
+    const dataRecente = classified.realizadoEm || dataLancamento;
+    if (dataRecente && dataRecente >= inicio && dataRecente <= fim) {
+      const valorExibido = classified.valorRealizado || classified.valorPrevisto || positive(entry.valor) || ZERO;
+      ultimosCandidatos.push({ id: entry.id, seq: entry.seq, data: dataRecente,
+        dataFinanceira: classified.realizadoEm, descricao: entry.descricao || "Lançamento sem descrição",
+        contraparte: nomeContraparte(entry), direcao: entry.tipo,
+        valor: money(valorExibido), status: classified.status });
+    }
     const baseDate = dataDaBase(entry, dataBase);
     if (classified.valorRealizado && classified.realizadoEm) {
-      const item = component(entry, classified.realizadoEm, classified.valorRealizado);
+      const item = component(entry, classified.realizadoEm, classified.valorRealizado, classified.status);
       if (classified.realizadoEm < inicio) saldoAnterior.push(item);
       else if (classified.realizadoEm <= fim) periodo.push(item);
-      if (baseDate && baseDate >= inicio && baseDate <= fim) consultaRealizado.push(component(entry, baseDate, classified.valorRealizado));
+      if (baseDate && baseDate >= inicio && baseDate <= fim) consultaRealizado.push(component(entry, baseDate, classified.valorRealizado, classified.status));
     }
     if (classified.valorPrevisto && classified.previstoPara) {
       if (classified.previstoPara >= inicio && classified.previstoPara <= fim) {
-        const item = component(entry, classified.previstoPara, classified.valorPrevisto);
+        const item = component(entry, classified.previstoPara, classified.valorPrevisto, classified.status);
         previstoHistorico.push(item);
         if (classified.previsaoAberta) previsaoAberta.push(item);
       }
       if (baseDate && baseDate >= inicio && baseDate <= fim) {
-        consultaPrevisto.push(component(entry, baseDate, classified.valorPrevisto));
+        consultaPrevisto.push(component(entry, baseDate, classified.valorPrevisto, classified.status));
       }
       if (classified.valorRealizado && classified.realizadoEm &&
         classified.realizadoEm >= inicio && classified.realizadoEm <= fim) {
@@ -272,6 +304,15 @@ export function calcularFluxoCaixa(entries: readonly LancamentoFinanceiro[], opt
     return [...days.entries()].sort(([left], [right]) => left.localeCompare(right))
       .map(([data, parts]) => ({ data, ...group(parts) }));
   };
+  let saldoAcumulado = new Prisma.Decimal(opening.saldo);
+  const serieCaixa = groupByDay(periodo).map(day => {
+    saldoAcumulado = saldoAcumulado.plus(new Prisma.Decimal(day.saldo));
+    return { data: day.data, entradas: day.entradas, saidas: day.saidas,
+      saldoPeriodo: day.saldo, saldoAcumulado: money(saldoAcumulado) };
+  });
+  const ultimosLancamentos = ultimosCandidatos
+    .sort((left, right) => right.data.localeCompare(left.data) || (right.seq ?? 0) - (left.seq ?? 0))
+    .slice(0, 5);
 
   return {
     periodo: { inicio, fim, dataReferencia },
@@ -290,5 +331,7 @@ export function calcularFluxoCaixa(entries: readonly LancamentoFinanceiro[], opt
       realizadoPorData: groupByDay(consultaRealizado), previstoPorData: groupByDay(consultaPrevisto) },
     inconsistencias,
     classificacoes,
+    serieCaixa,
+    ultimosLancamentos,
   };
 }

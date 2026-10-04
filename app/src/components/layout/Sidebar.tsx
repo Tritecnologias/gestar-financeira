@@ -46,15 +46,10 @@ const MENU: MenuGroup[] = [
     { letra: "f", label: "Dimensões Comerciais",   href: "/estrutura/dimensoes-comerciais"  },
   ]},
   { num: 3,  icon: "💰", label: "Fluxo de Caixa",          sub: [
-    { letra: "a", label: "Lançamento", href: "/lancamentos"             },
-    { letra: "b", label: "Relatórios", href: "/fluxo-caixa/relatorios" },
-    { letra: "c", label: "Gráficos",   href: "/fluxo-caixa/graficos"   },
-    { letra: "—", label: "—", href: "---" },
-    { letra: "d", label: "Dashboards", href: "/fluxo-caixa/dashboards" },
-    { letra: "—", label: "—", href: "---2" },
-    { letra: "e", label: "Investimentos", href: "/fluxo-caixa/investimentos" },
-    { letra: "f", label: "Endividamento", href: "/fluxo-caixa/endividamento" },
-    { letra: "g", label: "Cartão de Crédito", href: "/fluxo-caixa/cartao-credito" },
+    { letra: "a", label: "Visão Geral", href: "/fluxo-caixa/dashboards" },
+    { letra: "b", label: "Lançamentos", href: "/lancamentos" },
+    { letra: "c", label: "Relatórios", href: "/fluxo-caixa/relatorios" },
+    { letra: "d", label: "Análises", href: "/fluxo-caixa/graficos" },
   ]},
   { num: 4,  icon: "📊", label: "Orçamento Empresarial",   sub: [
     { letra: "a", label: "Vendas por Produto", href: "/orcamento/vendas-produto" },
@@ -86,8 +81,6 @@ const MENU: MenuGroup[] = [
 ];
 
 const DISABLED_HREFS = new Set([
-  "/fluxo-caixa/dashboards",
-  "/fluxo-caixa/investimentos", "/fluxo-caixa/endividamento", "/fluxo-caixa/cartao-credito",
   "/acao/5w2h", "/acao/calendario", "/acao/cronograma",
   "/orcamento/vendas-produto", "/orcamento/folha", "/orcamento/opex", "/orcamento/capex",
   "/relacionamento/fornecedores", "/relacionamento/clientes",
