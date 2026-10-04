@@ -39,15 +39,15 @@ const filtrosIniciais = (hoje: string): Filtros => ({ busca: "", status: "", tip
 function ChipTipo({ tipo }: { tipo: string }) {
   return <span className={`chip chip-${tipo.toLowerCase()}`}>{tipo === "ENTRADA" ? "ENTRADA" : "SAÍDA"}</span>;
 }
-function ChipStatus({ status }: { status: string }) {
+function ChipStatus({ status, tipo }: { status: string; tipo: string }) {
   const cls: Record<string, string> = { realizado: "chip-realizado", previsto: "chip-previsto", cancelado: "chip-cancelado" };
-  return <span className={`chip ${cls[status] ?? "chip-cancelado"}`}>{status}</span>;
+  return <span className={`chip ${status === "realizado" && tipo === "SAIDA" ? "lanc-chip-real-out" : cls[status] ?? "chip-cancelado"}`}>{status}</span>;
 }
-function ChipStatusAuto({ s }: { s: string }) {
+function ChipStatusAuto({ s, tipo }: { s: string; tipo: string }) {
   const map: Record<string, { cls: string; label: string }> = {
-    "PAGO":     { cls: "chip-realizado", label: "PAGO" },
-    "ATRASADO": { cls: "chip-saida",     label: "ATRASADO" },
-    "A VENCER": { cls: "chip-previsto",  label: "A VENCER" },
+    "PAGO":     { cls: tipo === "SAIDA" ? "lanc-chip-real-out" : "chip-realizado", label: "PAGO" },
+    "ATRASADO": { cls: tipo === "ENTRADA" ? "lanc-chip-receivable" : "lanc-chip-payable", label: "ATRASADO" },
+    "A VENCER": { cls: tipo === "ENTRADA" ? "lanc-chip-receivable" : "lanc-chip-payable", label: "A VENCER" },
     "PREVISTO": { cls: "chip-previsto", label: "PREVISTO" },
     "CANCELADO": { cls: "chip-cancelado", label: "CANCELADO" },
     "INCONSISTENTE": { cls: "chip-cancelado", label: "INCONSISTENTE" },
@@ -115,11 +115,11 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
         : row.contaN2Descricao ? `${row.contaN2Codigo ?? ""} – ${row.contaN2Descricao}` : "Conta N2 vinculada"}</span>;
     }
     case "tipo":        return <ChipTipo tipo={val} />;
-    case "status":      return <ChipStatus status={val} />;
-    case "statusAuto":  return <><ChipStatusAuto s={val} />{row.problemasFinanceiros?.length ?
+    case "status":      return <ChipStatus status={val} tipo={row.tipo} />;
+    case "statusAuto":  return <><ChipStatusAuto s={val} tipo={row.tipo} />{row.problemasFinanceiros?.length ?
       <span className="lanc-review" title={row.problemasFinanceiros.map(problema => PROBLEMAS[problema] || problema).join("; ")}>Revisar</span> : null}</>;
     case "valorPrevisto": return <span className="lanc-value-forecast">{formatCurrency(val)}</span>;
-    case "valor": return <span className={row.status === "previsto" ? "lanc-value-forecast" : row.statusAuto === "PAGO" ? (row.tipo === "ENTRADA" ? "val-entrada" : "val-saida") : "lanc-value-neutral"}>{formatCurrency(val)}</span>;
+    case "valor": return <span className={row.status === "previsto" ? row.tipo === "ENTRADA" ? "lanc-value-receivable" : "lanc-value-payable" : row.statusAuto === "PAGO" ? (row.tipo === "ENTRADA" ? "val-entrada" : "val-saida") : "lanc-value-neutral"}>{formatCurrency(val)}</span>;
     case "statusManual": {
       const tipo = statusTipos?.find(st => st.codigo === val);
       const label = tipo ? tipo.nome : val;
@@ -780,8 +780,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         <section className="lanc-summary" aria-label="Resumo financeiro dos filtros">
           {resumoErro ? <div className="lanc-summary-error">{resumoErro}</div> : !resumo || !resumoPeriodo ?
             <div className="lanc-summary-loading">Carregando resumo financeiro…</div> : <>
-              <div className="lanc-summary-card entrada"><span>Entradas</span><strong>{formatCurrency(Number(resumoPeriodo.entradas))}</strong></div>
-              <div className="lanc-summary-card saida"><span>Saídas</span><strong>{formatCurrency(Number(resumoPeriodo.saidas))}</strong></div>
+              <div className={`lanc-summary-card entrada ${Number(resumoPeriodo.entradas) === 0 ? "zero" : ""}`}><span>Entradas</span><strong>{formatCurrency(Number(resumoPeriodo.entradas))}</strong></div>
+              <div className={`lanc-summary-card saida ${Number(resumoPeriodo.saidas) === 0 ? "zero" : ""}`}><span>Saídas</span><strong>{formatCurrency(Number(resumoPeriodo.saidas))}</strong></div>
               <div className={`lanc-summary-card saldo ${Number(resumoPeriodo.saldo) > 0 ? "positive" : Number(resumoPeriodo.saldo) < 0 ? "negative" : "zero"}`}><span>Saldo do período</span><strong>{formatCurrency(Number(resumoPeriodo.saldo))}</strong></div>
               <small>{filtros.dataBase === "REALIZACAO" ? "Caixa realizado por data financeira" :
                 `Movimentos realizados por ${DATA_BASES.find(item => item.valor === filtros.dataBase)?.nome}; não representa posição de caixa`}</small>

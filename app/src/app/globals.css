@@ -32,6 +32,11 @@
   --warning:          #B45309;
   --outflow:          #B91C1C;
   --danger:           #B91C1C;
+  --financial-positive:   var(--success);
+  --financial-negative:   var(--outflow);
+  --financial-receivable: #1D4ED8;
+  --financial-payable:    var(--warning);
+  --financial-forecast:   #C2410C;
   --scrollbar-thumb:  #4C91A3;
   --scrollbar-track:  #E2EAF0;
   --shadow-elevated:  0 8px 24px rgba(15, 23, 42, 0.12);
@@ -117,6 +122,8 @@ body {
   --warning:          #FBBF24;
   --outflow:          #F87171;
   --danger:           #F87171;
+  --financial-receivable: #60A5FA;
+  --financial-forecast:   #FB923C;
   --scrollbar-thumb:  #2F9FB1;
   --scrollbar-track:  #27364B;
   --shadow-elevated:  0 8px 24px rgba(0, 0, 0, 0.22);
@@ -858,7 +865,7 @@ body {
 .chip-entrada  { background: rgba(5, 150, 105, 0.1);  color: var(--accent-green); }
 .chip-saida    { background: color-mix(in srgb, var(--outflow) 10%, transparent); color: var(--outflow); }
 .chip-realizado { background: rgba(5, 150, 105, 0.1); color: var(--accent-green); }
-.chip-previsto  { background: color-mix(in srgb, var(--warning) 10%, transparent); color: var(--warning); }
+.chip-previsto  { background: color-mix(in srgb, var(--financial-forecast) 10%, transparent); color: var(--financial-forecast); }
 .chip-cancelado { background: rgba(100,116,139,0.1);  color: var(--text-muted); }
 
 /* ── Edição Inline ────────────────────────────────────────── */

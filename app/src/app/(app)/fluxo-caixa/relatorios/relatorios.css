@@ -33,7 +33,8 @@
 .fcr-week-heading span { font-size: 12px; color: var(--text-secondary); }
 .fcr-week-scroll { width: 100%; min-width: 0; overflow-x: auto; padding-bottom: 5px; }
 .fcr-week-grid { min-width: 1120px; display: grid; grid-template-columns: repeat(7, minmax(130px, 1fr)) minmax(150px, 1.12fr); gap: 8px; }
-.fcr-card { min-width: 0; min-height: 206px; display: flex; flex-direction: column; align-items: stretch; padding: 12px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.fcr-card { position: relative; min-width: 0; min-height: 206px; display: flex; flex-direction: column; align-items: stretch; padding: 12px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.fcr-card-saturday::before, .fcr-card-week::before { content: ""; position: absolute; left: -5px; top: 8px; bottom: 8px; width: 1px; background: var(--border-light); }
 .fcr-card:hover { border-color: var(--action); background: var(--surface-hover); }
 .fcr-card:focus-visible, .fcr-navigation button:focus-visible, .fcr-measure button:focus-visible, .fcr-filter-list select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .fcr-card-top { display: flex; justify-content: space-between; align-items: start; gap: 3px; min-height: 25px; }
@@ -44,6 +45,11 @@
 .fcr-card-weekend .fcr-card-day { color: var(--text-secondary); }
 .fcr-card-today { border-color: var(--action); background: var(--selection); }
 .fcr-card-week { background: var(--surface-elevated); border-color: color-mix(in srgb, var(--action) 30%, var(--border)); }
+.fcr-card-past { background: color-mix(in srgb, var(--surface) 64%, var(--background)); border-color: color-mix(in srgb, var(--border) 72%, var(--background)); color: var(--text-secondary); }
+.fcr-card-past:hover { background: var(--surface-hover); }
+.fcr-card-past .fcr-card-top > strong, .fcr-card-past .fcr-card-day { color: var(--text-muted); }
+.fcr-card-past .fcr-card-metric small, .fcr-card-past .fcr-card-result small, .fcr-card-past .fcr-card-foot { color: color-mix(in srgb, var(--text-muted) 73%, var(--background)); }
+.fcr-card-top .fcr-card-open-mark { background: color-mix(in srgb, var(--financial-payable) 10%, var(--surface)); color: var(--financial-payable); font-size: 8px; }
 .fcr-card-week .fcr-card-top > strong { font-size: 13px; }
 .fcr-card-metric { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
 .fcr-card-metric small, .fcr-card-result small { color: var(--text-muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
@@ -51,10 +57,18 @@
 .fcr-card-result { display: flex; flex-direction: column; gap: 2px; padding-top: 7px; margin-top: 8px; border-top: 1px solid var(--border); }
 .fcr-card-result strong { font-size: 15px; }
 .fcr-card-foot { display: flex; justify-content: space-between; gap: 4px; margin-top: auto; padding-top: 9px; color: var(--text-muted); font-size: 10px; }
-.fcr-card-real .fcr-entry, .fcr-modal:not(.fcr-modal-forecast) .fcr-entry, .fcr-card-real .positivo, .fcr-modal:not(.fcr-modal-forecast) .positivo { color: var(--success); }
-.fcr-card-real .fcr-outflow, .fcr-modal:not(.fcr-modal-forecast) .fcr-outflow, .fcr-card-real .negativo, .fcr-modal:not(.fcr-modal-forecast) .negativo { color: var(--outflow); }
+.fcr-card-real .fcr-entry, .fcr-modal:not(.fcr-modal-forecast) .fcr-entry, .fcr-card-real .positivo, .fcr-modal:not(.fcr-modal-forecast) .positivo { color: var(--financial-positive); }
+.fcr-card-real .fcr-outflow, .fcr-modal:not(.fcr-modal-forecast) .fcr-outflow, .fcr-card-real .negativo, .fcr-modal:not(.fcr-modal-forecast) .negativo { color: var(--financial-negative); }
 .fcr-card-real .neutro { color: var(--text-secondary); }
-.fcr-card-forecast .fcr-entry, .fcr-card-forecast .fcr-outflow, .fcr-card-forecast .fcr-card-result strong, .fcr-modal-forecast .fcr-modal-totals strong, .fcr-modal-forecast .fcr-detail-value { color: var(--warning); }
+.fcr-card-forecast .fcr-entry, .fcr-modal-forecast .fcr-entry { color: var(--financial-receivable); }
+.fcr-card-forecast .fcr-outflow, .fcr-modal-forecast .fcr-outflow { color: var(--financial-payable); }
+.fcr-card-forecast .fcr-card-result strong, .fcr-modal-forecast .fcr-modal-totals span:last-child strong { color: var(--financial-forecast); }
+.fcr-card-past.fcr-card-real .fcr-entry, .fcr-card-past.fcr-card-real .positivo { color: color-mix(in srgb, var(--financial-positive) 44%, var(--text-muted)); }
+.fcr-card-past.fcr-card-real .fcr-outflow, .fcr-card-past.fcr-card-real .negativo { color: color-mix(in srgb, var(--financial-negative) 44%, var(--text-muted)); }
+.fcr-card-past.fcr-card-forecast .fcr-entry:not(.fcr-pending-live) { color: color-mix(in srgb, var(--financial-receivable) 44%, var(--text-muted)); }
+.fcr-card-past.fcr-card-forecast .fcr-outflow:not(.fcr-pending-live) { color: color-mix(in srgb, var(--financial-payable) 44%, var(--text-muted)); }
+.fcr-card-past.fcr-card-forecast .fcr-card-result strong { color: color-mix(in srgb, var(--financial-forecast) 44%, var(--text-muted)); }
+.fcr-card .fcr-zero, .fcr-modal-totals .fcr-zero { color: var(--text-muted) !important; }
 .fcr-chart-panel { min-width: 0; padding: 16px; margin-top: 18px; }
 .fcr-chart-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; flex-wrap: wrap; }
 .fcr-chart-heading h2 { margin: 0; font-size: 15px; }
@@ -72,13 +86,13 @@
 .fcr-chart-point { fill: var(--action); stroke: var(--surface); stroke-width: 1.5; }
 .fcr-chart-income { fill: var(--success); }
 .fcr-chart-expense { fill: var(--outflow); }
-.fcr-chart-forecast .fcr-chart-line { stroke: var(--warning); }
-.fcr-chart-forecast .fcr-chart-point { fill: var(--warning); }
-.fcr-chart-forecast .fcr-chart-income { fill: var(--warning); opacity: .9; }
-.fcr-chart-forecast .fcr-chart-expense { fill: var(--warning); opacity: .45; }
-.fcr-chart-forecast .fcr-chart-legend .balance { background: var(--warning); }
-.fcr-chart-forecast .fcr-chart-legend .income { background: var(--warning); opacity: .9; }
-.fcr-chart-forecast .fcr-chart-legend .expense { background: var(--warning); opacity: .45; }
+.fcr-chart-forecast .fcr-chart-line { stroke: var(--financial-forecast); }
+.fcr-chart-forecast .fcr-chart-point { fill: var(--financial-forecast); }
+.fcr-chart-forecast .fcr-chart-income { fill: var(--financial-receivable); }
+.fcr-chart-forecast .fcr-chart-expense { fill: var(--financial-payable); }
+.fcr-chart-forecast .fcr-chart-legend .balance { background: var(--financial-forecast); }
+.fcr-chart-forecast .fcr-chart-legend .income { background: var(--financial-receivable); }
+.fcr-chart-forecast .fcr-chart-legend .expense { background: var(--financial-payable); }
 .fcr-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--background) 70%, transparent); }
 .fcr-modal { width: min(900px, 100%); max-height: min(760px, 92dvh); min-width: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-elevated); }
 .fcr-modal-header, .fcr-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 18px; }

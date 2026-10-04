@@ -41,7 +41,7 @@ function Modal({ detalhe, fechar }: { detalhe: Detalhe; fechar: () => void }) {
           <div><span>Categoria N1: {item.categoriaN1 || "—"}</span><span>Conta N2: {item.contaN2 || "—"}</span></div>
           <div><span>{origem === "PREVISTO" ? "Previsto" : "Realizado"} · {item.direcao === "ENTRADA" ? "Entrada" : "Saída"} · {item.status}</span>
             <span>Data do recorte {dataBR(item.data)} · Plano {item.dataVencPlano ? dataBR(item.dataVencPlano) : "—"} · Realização {item.dataRealizacao ? dataBR(item.dataRealizacao) : "—"}</span></div>
-          <strong className={`fca-detail-value ${origem === "PREVISTO" ? "previsto" : item.direcao === "ENTRADA" ? "entrada" : "saida"}`}>{valor(item.valorAssinado)}</strong>
+          <strong className={`fca-detail-value ${origem === "PREVISTO" ? item.direcao === "ENTRADA" ? "previsto-entrada" : "previsto-saida" : item.direcao === "ENTRADA" ? "entrada" : "saida"}`}>{valor(item.valorAssinado)}</strong>
           <Link href="/lancamentos">Ver em Lançamentos →</Link>
         </article>)}</div>
       <footer><Link className="btn btn-outline" href="/lancamentos">Abrir Lançamentos</Link><button type="button" className="btn btn-primary" onClick={fechar}>Fechar</button></footer>
@@ -236,7 +236,7 @@ export default function AnalisesClient({ hoje }: { hoje: string }) {
         {medida === "COMPARAR" && <section className="fca-panel fca-comparison" aria-labelledby="fca-comparison-title"><div className="fca-section-heading"><div><h2 id="fca-comparison-title">Aderência ao previsto</h2>
           <p>Totais do período nas respectivas datas financeiras</p></div></div>
           <div className="fca-comparison-table"><span>Medida</span><span>Previsto</span><span>Realizado</span><span>Variação</span>
-            {([ ["Entradas", "entradas"], ["Saídas", "saidas"], ["Resultado", "resultado"] ] as const).map(([titulo, campo]) => <button type="button" key={campo}
+            {([ ["Entradas", "entradas"], ["Saídas", "saidas"], ["Resultado", "resultado"] ] as const).map(([titulo, campo]) => <button type="button" key={campo} className={`fca-compare-${campo}`}
               onClick={() => abrirComparacao(titulo, dados.variacao[campo],
                 dados.realizado.componentes.filter(item => campo === "resultado" || item.direcao === (campo === "entradas" ? "ENTRADA" : "SAIDA")),
                 dados.previsto.componentes.filter(item => campo === "resultado" || item.direcao === (campo === "entradas" ? "ENTRADA" : "SAIDA")))}>

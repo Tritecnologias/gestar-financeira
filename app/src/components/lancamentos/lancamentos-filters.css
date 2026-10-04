@@ -26,7 +26,13 @@
 .lanc-summary-card.saldo.positive strong { color: var(--success); }
 .lanc-summary-card.saldo.negative strong { color: var(--outflow); }
 .lanc-summary-card.saldo.zero strong { color: var(--text-primary); }
-.lanc-value-forecast { color: var(--warning); font-weight: 600; }
+.lanc-summary-card.zero strong { color: var(--text-secondary); }
+.lanc-value-forecast { color: var(--financial-forecast); font-weight: 600; }
+.lanc-value-receivable { color: var(--financial-receivable); font-weight: 600; }
+.lanc-value-payable { color: var(--financial-payable); font-weight: 600; }
+.lanc-chip-receivable { color: var(--financial-receivable); background: color-mix(in srgb, var(--financial-receivable) 10%, transparent); }
+.lanc-chip-payable { color: var(--financial-payable); background: color-mix(in srgb, var(--financial-payable) 10%, transparent); }
+.lanc-chip-real-out { color: var(--financial-negative); background: color-mix(in srgb, var(--financial-negative) 10%, transparent); }
 .lanc-value-neutral { color: var(--text-secondary); font-weight: 600; }
 .lanc-page .data-table .lanc-financial-start { border-left: 1px solid var(--border-light); }
 .lanc-page .data-table .lanc-financial-end { border-right: 1px solid var(--border); }

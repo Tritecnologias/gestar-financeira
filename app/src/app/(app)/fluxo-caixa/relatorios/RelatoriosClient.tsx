@@ -40,16 +40,25 @@ function Cartao({ item, hoje, previsto, semanal, abrir }: {
   const fim = semanal ? (item as Semana).fim : data;
   const diaSemana = indiceDia(data);
   const atual = !semanal && data === hoje;
+  const passado = !semanal && data < hoje;
   const fimSemana = !semanal && (diaSemana === 0 || diaSemana === 6);
+  const emAberto = (componente: ComponenteFinanceiro) => ["ATRASADO", "A VENCER", "PREVISTO"].includes(componente.status || "");
+  const pendencias = previsto && !semanal && item.componentes.some(emAberto);
+  const pendente = (direcao: "ENTRADA" | "SAIDA") => {
+    const partes = item.componentes.filter(componente => componente.direcao === direcao);
+    return previsto && !semanal && partes.length > 0 && partes.every(emAberto);
+  };
+  const entradaPendente = pendente("ENTRADA"), saidaPendente = pendente("SAIDA");
   return <button type="button" onClick={abrir}
-    className={`fcr-card ${semanal ? "fcr-card-week" : ""} ${atual ? "fcr-card-today" : ""} ${fimSemana ? "fcr-card-weekend" : ""} ${previsto ? "fcr-card-forecast" : "fcr-card-real"}`}
+    className={`fcr-card ${semanal ? "fcr-card-week" : ""} ${atual ? "fcr-card-today" : ""} ${passado ? "fcr-card-past" : ""} ${diaSemana === 6 && !semanal ? "fcr-card-saturday" : ""} ${fimSemana ? "fcr-card-weekend" : ""} ${previsto ? "fcr-card-forecast" : "fcr-card-real"}`}
     aria-label={`${semanal ? "Total da semana" : nomesDia[diaSemana]} ${dataBR(data)}${semanal ? ` a ${dataBR(fim)}` : ""}, ${item.quantidade} lançamentos. Ver detalhes.`}>
-    <span className="fcr-card-top"><strong>{semanal ? "Total da semana" : diaMes(data)}</strong>{atual && <em>HOJE</em>}</span>
+    <span className="fcr-card-top"><strong>{semanal ? "Total da semana" : diaMes(data)}</strong>{atual && <em>HOJE</em>}
+      {passado && pendencias && <em className="fcr-card-open-mark">EM ABERTO</em>}</span>
     <span className="fcr-card-day">{semanal ? `${diaMes(data)} – ${diaMes(fim)}` : nomesDia[diaSemana]}</span>
-    <span className="fcr-card-metric"><small>{previsto ? "A receber" : "Entradas"}</small><strong className="fcr-entry">{valor(item.entradas)}</strong></span>
-    <span className="fcr-card-metric"><small>{previsto ? "A pagar" : "Saídas"}</small><strong className="fcr-outflow">{valor(item.saidas)}</strong></span>
+    <span className="fcr-card-metric"><small>{previsto ? "A receber" : "Entradas"}</small><strong className={`fcr-entry ${entradaPendente ? "fcr-pending-live" : ""} ${Number(item.entradas) === 0 ? "fcr-zero" : ""}`}>{valor(item.entradas)}</strong></span>
+    <span className="fcr-card-metric"><small>{previsto ? "A pagar" : "Saídas"}</small><strong className={`fcr-outflow ${saidaPendente ? "fcr-pending-live" : ""} ${Number(item.saidas) === 0 ? "fcr-zero" : ""}`}>{valor(item.saidas)}</strong></span>
     <span className="fcr-card-result"><small>{previsto ? "Resultado previsto" : "Saldo do período"}</small>
-      <strong className={previsto ? "" : sinal(item.resultado)}>{valor(item.resultado)}</strong></span>
+      <strong className={previsto ? Number(item.resultado) === 0 ? "fcr-zero" : "" : sinal(item.resultado)}>{valor(item.resultado)}</strong></span>
     <span className="fcr-card-foot">{item.quantidade === 0 ? "Sem movimentação" : `${item.quantidade} ${item.quantidade === 1 ? "lançamento" : "lançamentos"}`} <span aria-hidden>↗</span></span>
   </button>;
 }
@@ -102,16 +111,16 @@ function Modal({ detalhe, previsto, fechar }: { detalhe: Detalhe; previsto: bool
       <header className="fcr-modal-header"><div><h2 id="fcr-modal-title">{detalhe.titulo}</h2>
         <p>{dataBR(detalhe.inicio)}{detalhe.inicio !== detalhe.fim && ` a ${dataBR(detalhe.fim)}`} · {previsto ? "Previsto" : "Realizado"} · {detalhe.quantidade} lançamentos</p></div>
         <button type="button" autoFocus aria-label="Fechar detalhes" onClick={fechar}>✕</button></header>
-      <div className="fcr-modal-totals"><span>{previsto ? "A receber" : "Entradas"}<strong className="fcr-entry">{valor(detalhe.entradas)}</strong></span>
-        <span>{previsto ? "A pagar" : "Saídas"}<strong className="fcr-outflow">{valor(detalhe.saidas)}</strong></span>
-        <span>{previsto ? "Resultado previsto" : "Saldo"}<strong className={previsto ? "" : sinal(detalhe.resultado)}>{valor(detalhe.resultado)}</strong></span></div>
+      <div className="fcr-modal-totals"><span>{previsto ? "A receber" : "Entradas"}<strong className={`fcr-entry ${Number(detalhe.entradas) === 0 ? "fcr-zero" : ""}`}>{valor(detalhe.entradas)}</strong></span>
+        <span>{previsto ? "A pagar" : "Saídas"}<strong className={`fcr-outflow ${Number(detalhe.saidas) === 0 ? "fcr-zero" : ""}`}>{valor(detalhe.saidas)}</strong></span>
+        <span>{previsto ? "Resultado previsto" : "Saldo"}<strong className={Number(detalhe.resultado) === 0 ? "fcr-zero" : previsto ? "" : sinal(detalhe.resultado)}>{valor(detalhe.resultado)}</strong></span></div>
       <div className="fcr-modal-list">{detalhe.componentes.length === 0 ? <div className="fcr-modal-empty">Nenhum lançamento compõe este período.</div> :
         detalhe.componentes.map(item => <article className="fcr-detail" key={`${item.id}-${item.data}`}>
           <div className="fcr-detail-main"><strong>{item.descricao || `Lançamento #${item.seq ?? "—"}`}</strong><span>{item.contraparte || "Sem contraparte"}</span></div>
           <div className="fcr-detail-class"><span>Categoria N1: {item.categoriaN1 || "—"}</span><span>Conta N2: {item.contaN2 || "—"}</span></div>
           <div className="fcr-detail-meta"><span>{dataBR(item.data)} · {item.direcao === "ENTRADA" ? "Entrada" : "Saída"} · {item.status || "—"}</span>
             <span>Venc. plano {item.dataVencPlano ? dataBR(item.dataVencPlano) : "—"} · Realização {item.dataRealizacao ? dataBR(item.dataRealizacao) : "—"}</span></div>
-          <strong className={`fcr-detail-value ${previsto ? "" : item.direcao === "ENTRADA" ? "fcr-entry" : "fcr-outflow"}`}>{valor(item.valorAssinado)}</strong>
+          <strong className={`fcr-detail-value ${item.direcao === "ENTRADA" ? "fcr-entry" : "fcr-outflow"}`}>{valor(item.valorAssinado)}</strong>
           <Link href="/lancamentos" className="fcr-detail-link">Ver em Lançamentos →</Link>
         </article>)}</div>
       <footer className="fcr-modal-footer"><Link href="/lancamentos" className="btn btn-outline">Abrir Lançamentos</Link>
