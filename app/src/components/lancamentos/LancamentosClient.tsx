@@ -945,7 +945,6 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             </div>
           </div>
           {avancadosOpen && <div className="lanc-advanced" aria-label="Filtros avançados">
-            <p>Status Manual é uma classificação operacional; não comprova pagamento ou recebimento.</p>
             <label className={`filter-group ${filtros.statusManual ? "lanc-criterion-active" : ""}`}><span className="filter-label">Status Manual</span><select className="filter-input" value={filtros.statusManual} onChange={event => atualizarFiltro("statusManual", event.target.value)}>
               <option value="">Todos</option>{statusTipos.map(st => <option key={st.id} value={st.codigo}>{st.nome}</option>)}</select></label>
             <div className={`filter-group ${filtros.categoria ? "lanc-criterion-active" : ""}`}><span className="filter-label">Categoria N1</span><SearchableSelect
