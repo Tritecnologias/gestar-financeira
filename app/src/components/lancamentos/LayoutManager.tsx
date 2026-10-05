@@ -1,24 +1,18 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { ColConfig, LayoutColunasDTO } from "@/types";
 import { DEFAULT_COLUNAS_CONFIG, COLUNAS_DEF, alignLegacyDefaultColumns } from "./colunasConfig";
 
 interface Props {
-  onLayoutChange: (colunas: ColConfig[]) => void;
+  colConfig: ColConfig[];
+  onLayoutChange: Dispatch<SetStateAction<ColConfig[]>>;
 }
 
-export default function LayoutManager({ onLayoutChange }: Props) {
+export default function LayoutManager({ colConfig, onLayoutChange }: Props) {
   const [layouts, setLayouts] = useState<LayoutColunasDTO[]>([]);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [novoNome, setNovoNome] = useState("");
-  const [colConfig, setColConfig] = useState<ColConfig[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("gestar_col_config");
-      if (saved) try { return alignLegacyDefaultColumns(JSON.parse(saved)); } catch {}
-    }
-    return DEFAULT_COLUNAS_CONFIG;
-  });
   const [selectorOpen, setSelectorOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -38,7 +32,7 @@ export default function LayoutManager({ onLayoutChange }: Props) {
   const handlePanelDrop = (targetKey: string) => {
     const srcKey = panelDragKey.current;
     if (!srcKey || srcKey === targetKey) { setPanelDragOver(null); panelDragKey.current = null; return; }
-    setColConfig(prev => {
+    onLayoutChange(prev => {
       const ordered = [...prev].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       const si = ordered.findIndex(c => c.key === srcKey);
       const ti = ordered.findIndex(c => c.key === targetKey);
@@ -70,29 +64,21 @@ export default function LayoutManager({ onLayoutChange }: Props) {
     fetch("/api/layouts").then(r => r.json()).then(data => {
       if (Array.isArray(data)) {
         setLayouts(data);
-        const def = data.find((l: LayoutColunasDTO) => l.isDefault);
-        if (def) applyLayout(def.colunas);
       }
     }).catch(() => {});
   }, []);
 
-  // Propagar mudanças
-  useEffect(() => {
-    onLayoutChange(colConfig);
-    localStorage.setItem("gestar_col_config", JSON.stringify(colConfig));
-  }, [colConfig]);
-
   const applyLayout = (colunas: ColConfig[]) => {
-    setColConfig(alignLegacyDefaultColumns(colunas));
+    onLayoutChange(alignLegacyDefaultColumns(colunas));
   };
 
   const toggleCol = (key: string) => {
     // Não ocultar coluna de ações
     if (key === "acoes") return;
-    setColConfig(prev => prev.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
+    onLayoutChange(prev => prev.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
   };
 
-  const resetLayout = () => setColConfig(DEFAULT_COLUNAS_CONFIG);
+  const resetLayout = () => onLayoutChange(DEFAULT_COLUNAS_CONFIG);
 
   const saveLayout = async () => {
     if (!novoNome.trim()) return;

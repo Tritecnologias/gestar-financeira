@@ -5,9 +5,10 @@
 .lanc-toolbar .lanc-search { flex: 0 1 300px; min-width: 210px; }
 .lanc-toolbar .filter-input { width: 100%; min-width: 0; min-height: 34px; }
 .lanc-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
-.lanc-filters-title { margin: 0 0 6px; color: var(--text-secondary); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .lanc-filter-main { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
 .lanc-filter-main .filter-group { min-width: 108px; }
+.lanc-filter-main .lanc-filter-action { min-width: 0; }
+.lanc-filter-actions { display: flex; flex-wrap: wrap; align-items: end; justify-content: flex-end; gap: 8px; margin-left: auto; max-width: 100%; }
 .lanc-filter-main .filter-input { width: 100%; min-width: 0; min-height: 34px; }
 .lanc-page select.filter-input { color-scheme: light; }
 [data-theme="dark"] .lanc-page select.filter-input { color-scheme: dark; }
@@ -30,7 +31,7 @@
 .lanc-page .filter-group.lanc-direction-out .filter-label,
 .lanc-page .filter-group.lanc-direction-out .filter-input { color: var(--danger); }
 .lanc-page .filter-group.lanc-direction-out .filter-input { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
-.lanc-clear-filters { display: inline-flex; align-items: center; margin-left: auto; min-height: 34px; }
+.lanc-clear-filters { display: inline-flex; align-items: center; min-height: 34px; }
 .lanc-clear-filters svg { flex: none; }
 .lanc-page .lanc-search.filter-active .filter-label { color: var(--action); }
 .lanc-page .lanc-search.filter-active .filter-input { border-color: var(--action); background: var(--selection); }
@@ -41,11 +42,10 @@
 .lanc-advanced p { flex-basis: 100%; margin: 0 0 4px; color: var(--text-secondary); font-size: 12px; }
 .lanc-advanced .filter-group { flex: 1 1 150px; min-width: 135px; }
 .lanc-advanced .filter-input { width: 100%; min-width: 0; min-height: 34px; }
-.lanc-settings { margin-top: 8px; }
-.lanc-settings .lanc-settings-trigger { width: auto; min-height: 34px; padding: 5px 9px; gap: 5px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); }
-.lanc-settings .lanc-settings-trigger:hover { opacity: 1; background: var(--bg-hover); color: var(--text-primary); }
+.lanc-filter-actions .lanc-settings-trigger { width: auto; min-height: 34px; padding: 5px 9px; gap: 5px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); }
+.lanc-filter-actions .lanc-settings-trigger:hover { opacity: 1; background: var(--bg-hover); color: var(--text-primary); }
 .lanc-settings-trigger svg { flex: none; }
-.lanc-settings-content { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0 4px; }
+.lanc-settings-content { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0 4px; margin-top: 8px; }
 .lanc-settings-content .btn { font-size: 12px; }
 .lanc-summary { position: relative; display: flex; flex-direction: column; padding: 0 0 10px; min-width: 0; }
 .lanc-summary-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; width: 100%; }
@@ -153,7 +153,7 @@
   .lanc-toolbar-actions .btn { min-height: 40px; }
   .lanc-page .lanc-table-shell { min-height: 420px !important; height: 55vh; flex: none !important; margin: 10px 14px !important; }
   .lanc-filter-main .filter-group { flex: 1 1 130px; }
-  .lanc-advanced-toggle, .lanc-clear-filters, .lanc-settings .lanc-settings-trigger { min-height: 40px; }
+  .lanc-advanced-toggle, .lanc-clear-filters, .lanc-filter-actions .lanc-settings-trigger { min-height: 40px; }
   .lanc-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lanc-page .table-footer { margin-inline: 14px !important; }
   .lanc-footer-totals { gap: 6px 14px; }

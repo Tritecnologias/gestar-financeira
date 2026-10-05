@@ -63,15 +63,52 @@ const legacyDefaultKeys = COLUNAS_DEF.map(col => col.key);
 legacyDefaultKeys.splice(legacyDefaultKeys.indexOf("tipo"), 1);
 legacyDefaultKeys.splice(legacyDefaultKeys.indexOf("statusAuto") + 1, 0, "tipo");
 
+const legacyKeys: Record<string, string> = {
+  conta: "contaId",
+  "Conta N5": "contaId",
+  "Conta (n5)": "contaId",
+  Categoria: "categoria",
+  "Categoria N1": "categoria",
+};
+
+function reconcileColumnKeys(config: ColConfig[]): ColConfig[] {
+  const known = new Set(COLUNAS_DEF.map(col => col.key));
+  const direct = new Set(config.filter(col => col && known.has(col.key)).map(col => col.key));
+  const ordered = [...config].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  const seen = new Set<string>();
+  const result: ColConfig[] = [];
+
+  for (const col of ordered) {
+    if (!col || typeof col.key !== "string") continue;
+    const key = legacyKeys[col.key] ?? col.key;
+    if (!known.has(key) || seen.has(key) || (col.key !== key && direct.has(key))) continue;
+    result.push({ ...col, key });
+    seen.add(key);
+  }
+
+  for (const [index, def] of COLUNAS_DEF.entries()) {
+    if (seen.has(def.key)) continue;
+    const preceding = COLUNAS_DEF.slice(0, index).reverse().find(col => seen.has(col.key));
+    const following = COLUNAS_DEF.slice(index + 1).find(col => seen.has(col.key));
+    const at = preceding ? result.findIndex(col => col.key === preceding.key) + 1
+      : following ? result.findIndex(col => col.key === following.key) : result.length;
+    result.splice(at, 0, { ...DEFAULT_COLUNAS_CONFIG[index] });
+    seen.add(def.key);
+  }
+
+  return result.map((col, order) => ({ ...col, order }));
+}
+
 export function alignLegacyDefaultColumns(config: ColConfig[]): ColConfig[] {
-  const ordered = [...config].sort((a, b) => a.order - b.order);
+  const complete = reconcileColumnKeys(Array.isArray(config) ? config : []);
+  const ordered = [...complete].sort((a, b) => a.order - b.order);
   const originalDefault = ordered.length === legacyDefaultKeys.length &&
     ordered.every((col, index) => col.key === legacyDefaultKeys[index]);
   const currentDefault = ordered.length === COLUNAS_DEF.length &&
     ordered.every((col, index) => col.key === COLUNAS_DEF[index].key);
-  if (!originalDefault && !currentDefault) return config;
+  if (!originalDefault && !currentDefault) return complete;
   const nextOrder = new Map(COLUNAS_DEF.map((col, index) => [col.key, index]));
-  return config.map(col => ({ ...col,
+  return complete.map(col => ({ ...col,
     order: nextOrder.get(col.key) ?? col.order,
     width: col.key === "statusAuto" && col.width === 100 ? 145 : col.width,
   }));

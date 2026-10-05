@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { LancamentoDTO, ColConfig, FornecedorDTO, StatusManualTipoDTO } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
-import { COLUNAS_DEF, DEFAULT_COLUNAS_CONFIG } from "./colunasConfig";
+import { COLUNAS_DEF, DEFAULT_COLUNAS_CONFIG, alignLegacyDefaultColumns } from "./colunasConfig";
 import LayoutManager from "./LayoutManager";
 import StatusTiposModal from "./StatusTiposModal";
 import NovoLancamentoModal from "./NovoLancamentoModal";
@@ -150,6 +150,28 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const [updating, setUpdating] = useState(false);
   const loadedList = useRef(false);
   const [colConfig, setColConfig] = useState<ColConfig[]>(DEFAULT_COLUNAS_CONFIG);
+  const [colConfigReady, setColConfigReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const saved = localStorage.getItem("gestar_col_config");
+    if (saved) {
+      try {
+        setColConfig(alignLegacyDefaultColumns(JSON.parse(saved)));
+        setColConfigReady(true);
+        return;
+      } catch { /* usa o layout padrão salvo, se houver */ }
+    }
+    fetch("/api/layouts").then(response => response.json()).then(layouts => {
+      const defaultLayout = Array.isArray(layouts) && layouts.find(layout => layout.isDefault);
+      if (active && defaultLayout) setColConfig(alignLegacyDefaultColumns(defaultLayout.colunas));
+    }).catch(() => {}).finally(() => { if (active) setColConfigReady(true); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (colConfigReady) localStorage.setItem("gestar_col_config", JSON.stringify(colConfig));
+  }, [colConfig, colConfigReady]);
 
   // Edição inline
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -582,8 +604,6 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
       document.removeEventListener("mouseup", handleMouseUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      // Persistir no localStorage
-      setColConfig(prev => { localStorage.setItem("gestar_col_config", JSON.stringify(prev)); return prev; });
     };
 
     document.addEventListener("mousemove", handleMouseMove);
@@ -830,18 +850,19 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               </>}
             {resumoAtualizando && resumo && <span className="lanc-summary-updating" role="status">Atualizando resumo…</span>}
           </section>
-          <h2 className="lanc-filters-title">Filtros</h2>
           <div className="lanc-filter-main">
-            <button className={`btn btn-outline lanc-advanced-toggle ${avancadosAtivos ? "lanc-criterion-active" : ""}`} type="button"
-              aria-label={avancadosAtivos ? `Filtros avançados, ${avancadosAtivos} ${avancadosAtivos === 1 ? "ativo" : "ativos"}` : "Filtros avançados"}
-              title="Filtros avançados" aria-expanded={avancadosOpen}
-              onClick={() => setAvancadosOpen(open => !open)}>
-              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" />
-              </svg>
-              <span>+ Filtros</span>
-              {avancadosAtivos > 0 && <span className="lanc-advanced-count" aria-hidden="true">{avancadosAtivos}</span>}
-            </button>
+            <div className="filter-group lanc-filter-action"><span className="filter-label">Filtros</span>
+              <button className={`btn btn-outline lanc-advanced-toggle ${avancadosAtivos ? "lanc-criterion-active" : ""}`} type="button"
+                aria-label={avancadosAtivos ? `Filtros avançados, ${avancadosAtivos} ${avancadosAtivos === 1 ? "ativo" : "ativos"}` : "Filtros avançados"}
+                title="Filtros avançados" aria-expanded={avancadosOpen}
+                onClick={() => setAvancadosOpen(open => !open)}>
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" />
+                </svg>
+                <span>+ Filtros</span>
+                {avancadosAtivos > 0 && <span className="lanc-advanced-count" aria-hidden="true">{avancadosAtivos}</span>}
+              </button>
+            </div>
             <label className={`filter-group ${filtros.status ? "lanc-criterion-active" : ""}`}><span className="filter-label">Status financeiro</span>
               <select className="filter-input" value={filtros.status} onChange={event => atualizarFiltro("status", event.target.value)}>
                 <option value="">Todos</option>{STATUS_FINANCEIROS.map(status =>
@@ -865,11 +886,19 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <input className="filter-input" type="date" value={filtros.inicio} onChange={event => atualizarFiltro("inicio", event.target.value)} /></label>
             <label className={`filter-group ${periodoAtivo ? "filter-active" : ""}`}><span className="filter-label">Até</span>
               <input className="filter-input" type="date" value={filtros.fim} onChange={event => atualizarFiltro("fim", event.target.value)} /></label>
-            <button className="btn btn-outline lanc-clear-filters" type="button" onClick={() => { setBuscaInput(""); setFiltros({ ...filtrosIniciais(hoje), inicio: "", fim: "" }); setCardAtivo(null); setPagina(1); }}>
-              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M5.8 9A7 7 0 0 1 18 7l2 5M4 12l2 5a7 7 0 0 0 12.2-2" />
-              </svg>
-              Limpar filtros</button>
+            <div className="lanc-filter-actions">
+              <button className="btn btn-outline lanc-clear-filters" type="button" onClick={() => { setBuscaInput(""); setFiltros({ ...filtrosIniciais(hoje), inicio: "", fim: "" }); setCardAtivo(null); setPagina(1); }}>
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M5.8 9A7 7 0 0 1 18 7l2 5M4 12l2 5a7 7 0 0 0 12.2-2" />
+                </svg>
+                Limpar filtros</button>
+              <button className="accordion-trigger lanc-settings-trigger" type="button" aria-expanded={atalhosOpen} onClick={() => setAtalhosOpen(open => !open)}>
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 2h4l.5 2.3a8 8 0 0 1 1.7.7l2-1.3 2.8 2.8-1.3 2a8 8 0 0 1 .7 1.7L22 10v4l-2.3.5a8 8 0 0 1-.7 1.7l1.3 2-2.8 2.8-2-1.3a8 8 0 0 1-1.7.7L14 22h-4l-.5-2.3a8 8 0 0 1-1.7-.7l-2 1.3L3 17.5l1.3-2a8 8 0 0 1-.7-1.7L2 14v-4l2.3-.5a8 8 0 0 1 1.7-.7l-1.3-2L6.5 3l2 1.3a8 8 0 0 1 1.7-.7L10 2Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <span className="accordion-title">Configurações e Atalhos</span><span className={`accordion-chevron ${atalhosOpen ? "open" : ""}`}>›</span></button>
+            </div>
           </div>
           {avancadosOpen && <div className="lanc-advanced" aria-label="Filtros avançados">
             <p>Status Manual é uma classificação operacional; não comprova pagamento ou recebimento.</p>
@@ -891,14 +920,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <label className={`filter-group ${filtros.banco ? "lanc-criterion-active" : ""}`}><span className="filter-label">Banco legado</span><input className="filter-input" value={filtros.banco} onChange={event => atualizarFiltro("banco", event.target.value)} /></label>
             <label className={`filter-group ${filtros.fornecedor ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor legado</span><input className="filter-input" value={filtros.fornecedor} onChange={event => atualizarFiltro("fornecedor", event.target.value)} /></label>
           </div>}
-          <div className="lanc-settings"><button className="accordion-trigger lanc-settings-trigger" type="button" aria-expanded={atalhosOpen} onClick={() => setAtalhosOpen(open => !open)}>
-            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 2h4l.5 2.3a8 8 0 0 1 1.7.7l2-1.3 2.8 2.8-1.3 2a8 8 0 0 1 .7 1.7L22 10v4l-2.3.5a8 8 0 0 1-.7 1.7l1.3 2-2.8 2.8-2-1.3a8 8 0 0 1-1.7.7L14 22h-4l-.5-2.3a8 8 0 0 1-1.7-.7l-2 1.3L3 17.5l1.3-2a8 8 0 0 1-.7-1.7L2 14v-4l2.3-.5a8 8 0 0 1 .7-1.7l-1.3-2L6.5 3l2 1.3a8 8 0 0 1 1.7-.7L10 2Z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-            <span className="accordion-title">Configurações e Atalhos</span><span className={`accordion-chevron ${atalhosOpen ? "open" : ""}`}>›</span></button>
-            {atalhosOpen && <div className="lanc-settings-content"><button className="btn btn-outline" onClick={() => setStatusModalOpen(true)}>Status Manual</button>
-              <LayoutManager onLayoutChange={setColConfig} />
+          {atalhosOpen && <div className="lanc-settings-content"><button className="btn btn-outline" onClick={() => setStatusModalOpen(true)}>Status Manual</button>
+              <LayoutManager colConfig={colConfig} onLayoutChange={setColConfig} />
               <label className="lanc-page-size">Linhas por página
                 <select value={porPagina} onChange={event => { setPorPagina(event.target.value === "all" ? "all" : Number(event.target.value) as LinhasPorPagina); setPagina(1); }}>
                   {LINHAS_POR_PAGINA.map(size => <option key={size} value={size}>{size}</option>)}
@@ -909,7 +932,6 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <Link className="btn btn-outline" href="/estrutura/dimensoes-financeiras">Dimensões Financeiras</Link>
               <Link className="btn btn-outline" href="/estrutura/dimensoes-cadastrais">Dimensões Cadastrais</Link>
               <Link className="btn btn-outline" href="/estrutura/dimensao-produtos">Dimensão de Portfólio</Link></div>}
-          </div>
         </section>
         {listErro && <div className="lanc-list-error" role="alert">{listErro}</div>}
 
