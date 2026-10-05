@@ -48,3 +48,10 @@ test("contaId oficial prevalece quando um alias antigo também estiver salvo", (
   assert.equal(result.length, COLUNAS_DEF.length);
   assert.deepEqual(result.find(col => col.key === "contaId"), direct);
 });
+
+test("layouts antigos removem a coluna Ações e preservam as colunas de dados", () => {
+  const antigo = [...DEFAULT_COLUNAS_CONFIG, { key: "acoes", visible: true, order: 31, width: 75 }];
+  const result = alignLegacyDefaultColumns(antigo);
+  assert.equal(result.some(col => col.key === "acoes"), false);
+  assert.deepEqual(keys(result), keys(DEFAULT_COLUNAS_CONFIG));
+});

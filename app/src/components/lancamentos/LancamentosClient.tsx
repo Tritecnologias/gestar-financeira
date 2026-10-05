@@ -178,18 +178,23 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Partial<LancamentoDTO>>({});
   const editValuesRef = useRef<Partial<LancamentoDTO>>({});
-  const initialEditValuesRef = useRef<Partial<LancamentoDTO>>({});
-  const savingRef = useRef(false);
+  const savedEditValuesRef = useRef<Partial<LancamentoDTO>>({});
+  const pendingEditKeysRef = useRef<Set<keyof LancamentoDTO>>(new Set());
+  const inFlightEditKeysRef = useRef<Set<keyof LancamentoDTO>>(new Set());
+  const flushRef = useRef<Promise<boolean> | null>(null);
+  const editSessionRef = useRef(0);
+  const [saveState, setSaveState] = useState<{ kind: "idle" | "saving" | "saved" | "error"; message: string }>({ kind: "idle", message: "" });
+  useEffect(() => {
+    if (saveState.kind !== "saved") return;
+    const timer = setTimeout(() => setSaveState(current => current.kind === "saved" ? { kind: "idle", message: "" } : current), 1800);
+    return () => clearTimeout(timer);
+  }, [saveState]);
   const editFocusKey = useRef<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const bodyScrollRef = useRef<HTMLDivElement>(null);
-  const tableShellRef = useRef<HTMLDivElement>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [ghost, setGhost] = useState<{ id: string; top: number } | null>(null);
 
   // Filtros
   const [filtros, setFiltros] = useState<Filtros>(() => filtrosIniciais(hoje));
@@ -203,7 +208,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const summaryRequestId = useRef(0);
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState<LinhasPorPagina>(500);
-  useEffect(() => { setSelectedIds(new Set()); setGhost(null); }, [filtros, cardAtivo, pagina, porPagina]);
+  useEffect(() => { setSelectedIds(new Set()); }, [filtros, cardAtivo, pagina, porPagina]);
 
   // Ordenação
   const [sortKey, setSortKey] = useState("seq");
@@ -434,94 +439,138 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         .find(element => element.dataset.rowId === editingId);
       const cell = Array.from(row?.cells ?? []).find(element => element.dataset.colKey === editFocusKey.current);
       const target = (cell?.querySelector("input, select, textarea, button")
-        ?? row?.querySelector<HTMLButtonElement>('button[title^="Salvar"]')) as HTMLElement | null;
+        ?? row?.querySelector<HTMLInputElement>('td[data-col-key="descricao"] textarea')) as HTMLElement | null;
       target?.focus({ preventScroll: true });
       editFocusKey.current = null;
     });
     return () => cancelAnimationFrame(frame);
   }, [editingId]);
 
-  const startEdit = async (row: LancamentoDTO, focusKey = "acoes") => {
-    if (savingRef.current) return;
-    if (editingId && editingId !== row.id) {
-      if (!await saveEdit(editingId)) return;
-    }
-    setEditingId(row.id);
-    const initial = { ...row };
-    setEditValues(initial);
-    editValuesRef.current = initial;
-    initialEditValuesRef.current = initial;
-    editFocusKey.current = focusKey;
+  const editValueChanged = (key: keyof LancamentoDTO) =>
+    String(editValuesRef.current[key] ?? "") !== String(savedEditValuesRef.current[key] ?? "");
+
+  // Um único escritor por linha: respostas antigas jamais substituem o rascunho mais recente.
+  const flushEdits = (id: string): Promise<boolean> => {
+    if (flushRef.current) return flushRef.current;
+    const session = editSessionRef.current;
+    const run = async (): Promise<boolean> => {
+      while (pendingEditKeysRef.current.size) {
+        const keys = [...pendingEditKeysRef.current];
+        pendingEditKeysRef.current.clear();
+        const patch: Partial<LancamentoDTO> = {};
+        for (const key of keys) {
+          if (editValueChanged(key)) (patch as Record<string, unknown>)[key] = editValuesRef.current[key];
+        }
+        if (!Object.keys(patch).length) continue;
+        inFlightEditKeysRef.current = new Set(keys);
+        setSaveState({ kind: "saving", message: "Salvando…" });
+        try {
+          const response = await fetch(`/api/lancamentos/${id}`, {
+            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
+          });
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || `Não foi possível salvar esta alteração (HTTP ${response.status}).`);
+          }
+          const updated: LancamentoDTO = await response.json();
+          if (session !== editSessionRef.current) return false;
+          savedEditValuesRef.current = { ...savedEditValuesRef.current, ...updated };
+          setLancamentos(previous => previous.map(item => item.id === id ? updated : item));
+          setSaveState({ kind: "saved", message: "Salvo" });
+          void loadSummary();
+        } catch (error) {
+          if (session !== editSessionRef.current) return false;
+          keys.forEach(key => pendingEditKeysRef.current.add(key));
+          setSaveState({ kind: "error", message: error instanceof Error ? error.message : "Erro ao salvar." });
+          return false;
+        } finally {
+          inFlightEditKeysRef.current.clear();
+        }
+      }
+      return true;
+    };
+    const promise = run();
+    flushRef.current = promise;
+    void promise.then(success => {
+      if (flushRef.current === promise) flushRef.current = null;
+      if (success && session === editSessionRef.current && pendingEditKeysRef.current.size) void flushEdits(id);
+    });
+    return promise;
   };
 
-  const saveEdit = async (id: string, valuesOverride?: Partial<LancamentoDTO>): Promise<boolean> => {
-    if (!id || savingRef.current) return false;
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    const dataToSave = valuesOverride || editValuesRef.current;
-    if (!dataToSave || Object.keys(dataToSave).length === 0) return false;
-    if (JSON.stringify(dataToSave) === JSON.stringify(initialEditValuesRef.current)) {
-      cancelEdit();
-      return true;
+  const queueEdit = (id: string, ...keys: (keyof LancamentoDTO)[]) => {
+    keys.forEach(key => pendingEditKeysRef.current.add(key));
+    if (!flushRef.current) void flushEdits(id);
+  };
+
+  const changeEdit = (id: string, patch: Partial<LancamentoDTO>, saveNow = false) => {
+    const updated = { ...editValuesRef.current, ...patch };
+    editValuesRef.current = updated;
+    setEditValues(updated);
+    setSaveState({ kind: "idle", message: "" });
+    if (saveNow) queueEdit(id, ...Object.keys(patch) as (keyof LancamentoDTO)[]);
+  };
+
+  const commitCell = (id: string, key: keyof LancamentoDTO) => {
+    if (key === "categoria" || key === "contaId") {
+      if (editValueChanged("categoria") || editValueChanged("contaId")) queueEdit(id, "categoria", "contaId");
+    } else if (key === "dataVencOriginal" && editValueChanged("dataVencPlano")) {
+      queueEdit(id, "dataVencOriginal", "dataVencPlano");
+    } else if (editValueChanged(key)) queueEdit(id, key);
+  };
+
+  const resetCell = (key: keyof LancamentoDTO) => {
+    const keys: (keyof LancamentoDTO)[] = key === "categoria" || key === "contaId" ? ["categoria", "contaId"]
+      : key === "fantasiaPadrao" ? ["fantasiaPadrao", "clienteId", "fornecedorId"] : [key];
+    // Uma requisição já enviada não pode ser desfeita pelo Esc; evite mostrar um valor falso.
+    if (keys.some(field => inFlightEditKeysRef.current.has(field))) return;
+    const restored = { ...editValuesRef.current };
+    for (const field of keys) {
+      (restored as Record<string, unknown>)[field] = savedEditValuesRef.current[field];
+      pendingEditKeysRef.current.delete(field);
     }
-    savingRef.current = true;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/lancamentos/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dataToSave),
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setLancamentos(prev => prev.map(l => l.id === id ? { ...l, ...updated } : l));
-        showToast("✅ Salvo");
-        refreshData();
-        finishEdit();
-        return true;
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(`❌ ${err.error || "Erro ao salvar"}`);
-        return false;
-      }
-    } catch {
-      showToast("❌ Erro de conexão ao salvar");
-      return false;
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
+    editValuesRef.current = restored;
+    setEditValues(restored);
+    setSaveState({ kind: "idle", message: "" });
   };
 
   const finishEdit = () => {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    editSessionRef.current++;
+    pendingEditKeysRef.current.clear();
     setEditingId(null);
     setEditValues({});
     editValuesRef.current = {};
-    initialEditValuesRef.current = {};
+    savedEditValuesRef.current = {};
+    setSaveState({ kind: "idle", message: "" });
   };
 
-  const cancelEdit = () => {
-    if (!savingRef.current) finishEdit();
-  };
-
-  const handleBlur = (id: string) => {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
-      saveEdit(id);
-    }, 600);
-  };
-  const handleFocus = () => {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+  const startEdit = async (row: LancamentoDTO, focusKey = "descricao") => {
+    if (editingId && editingId !== row.id) {
+      for (const key of Object.keys(editValuesRef.current) as (keyof LancamentoDTO)[]) {
+        if (editValueChanged(key)) pendingEditKeysRef.current.add(key);
+      }
+      if (pendingEditKeysRef.current.size && !await flushEdits(editingId)) return;
+      if (flushRef.current && !await flushRef.current) return;
+      finishEdit();
+    }
+    if (editingId === row.id) return;
+    const linked = accounts.find(account => account.id === row.contaId);
+    const officialCategory = categories.find(category => category.id === linked?.categoriaId)
+      ?? categories.find(category => category.codigo === row.categoria);
+    const initial = { ...row, categoria: officialCategory?.codigo ?? (row.contaId ? row.categoria : null) };
+    editValuesRef.current = initial;
+    savedEditValuesRef.current = initial;
+    pendingEditKeysRef.current.clear();
+    setEditValues(initial);
+    setSaveState({ kind: "idle", message: "" });
+    editFocusKey.current = focusKey;
+    setEditingId(row.id);
   };
 
   const handleDelete = async (id: string) => {
-    // Cancelar qualquer auto-save pendente para evitar restauração do valor excluído
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    if (flushRef.current) await flushRef.current;
     if (editingId === id) {
-      setEditingId(null);
-      setEditValues({});
-      editValuesRef.current = {};
-      initialEditValuesRef.current = {};
+      finishEdit();
     }
     const res = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
     if (res.ok) { showToast("🗑️ Excluído"); setSelectedIds(current => { const next = new Set(current); next.delete(id); return next; }); refreshData(); }
@@ -536,45 +585,20 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
       const ob = colConfig.find(c => c.key === b.key)?.order ?? 999;
       return oa - ob;
     });
-  const actionsVisible = visibleCols.some(def => def.key === "acoes");
   const selectedLoaded = lancamentos.filter(row => selectedIds.has(row.id));
   const allLoadedSelected = lancamentos.length > 0 && selectedLoaded.length === lancamentos.length;
-  const tableWidth = 54 + visibleCols.reduce((sum, def) => sum + (colConfig.find(config => config.key === def.key)?.width ?? def.width), 0);
+  const tableWidth = 104 + visibleCols.reduce((sum, def) => sum + (colConfig.find(config => config.key === def.key)?.width ?? def.width), 0);
 
   const toggleSelection = (id: string) => setSelectedIds(current => {
     const next = new Set(current);
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
-  const showGhost = (row: HTMLTableRowElement, id: string) => {
-    const shell = tableShellRef.current;
-    const scroller = bodyScrollRef.current;
-    if (!shell || !scroller) return;
-    const rect = row.getBoundingClientRect();
-    const body = scroller.getBoundingClientRect();
-    if (rect.bottom < body.top || rect.top > body.bottom) return;
-    setGhost({ id, top: rect.top - shell.getBoundingClientRect().top + rect.height / 2 });
-  };
-  const rowActions = (row: LancamentoDTO) => <div className="actions-cell">
-    {editingId === row.id ? <>
-      <button className="action-btn" onClick={event => { event.stopPropagation(); void saveEdit(row.id); }} title="Salvar alterações" disabled={saving}>✓</button>
-      <button className="action-btn" onClick={event => { event.stopPropagation(); cancelEdit(); }} title="Cancelar edição" disabled={saving}>✕</button>
-    </> : pendingDelete === row.id ? <>
-      <button className="action-btn" onClick={event => { event.stopPropagation(); void handleDelete(row.id); }} title="Confirmar exclusão">✓</button>
-      <button className="action-btn" onClick={event => { event.stopPropagation(); setPendingDelete(null); }} title="Cancelar exclusão">✕</button>
-    </> : <>
-      <button className="action-btn" onClick={event => { event.stopPropagation(); void startEdit(row, visibleCols.find(def => def.editavel !== false)?.key ?? "descricao"); }} title="Editar">✏️</button>
-      <button className="action-btn" onClick={event => { event.stopPropagation(); setPendingDelete(row.id); }} title="Excluir">🗑️</button>
-    </>}
-  </div>;
-
   const { leftOffsets, rightOffsets } = calcStickyOffsets(colConfig);
 
   // ── Drag & drop de colunas ────────────────────────────────
-  // STICKY_KEYS: não podem ser arrastadas/receber drop (posição fixa)
-  // NO_SORT_KEYS: não podem ser ordenadas (só a coluna de ações)
-  const STICKY_KEYS  = new Set(["acoes"]);
-  const NO_SORT_KEYS = new Set(["acoes"]);
+  const STICKY_KEYS = new Set<string>();
+  const NO_SORT_KEYS = new Set<string>();
   const dragKey = useRef<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
@@ -694,10 +718,9 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     const val = (editValues as any)[def.key] ?? "";
     const common = {
       className: "cell-input",
-      onFocus: handleFocus,
       onKeyDown: (e: React.KeyboardEvent) => {
-        if (e.key === "Enter") { e.preventDefault(); void saveEdit(rowId); }
-        if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
+        if (e.key === "Enter") { e.preventDefault(); (e.currentTarget as HTMLElement).blur(); }
+        if (e.key === "Escape") { e.preventDefault(); resetCell(def.key as keyof LancamentoDTO); (e.currentTarget as HTMLElement).blur(); }
       },
     };
 
@@ -709,20 +732,12 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
           type="date"
           value={dateStr}
           onChange={e => {
-            // Atualiza estado local imediatamente — sem auto-save no onChange para
-            // evitar que o timer reverta a data enquanto o usuário ainda está
-            // navegando no calendário (Bug #1 identificado na reunião 05/09)
-            const newVal = e.target.value;
-            const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
-            const updated = { ...current, [def.key]: newVal || null };
-            if (def.key === "dataVencOriginal" && !updated.dataVencPlano) {
-              updated.dataVencPlano = newVal || null;
-            }
-            editValuesRef.current = updated;
-            setEditValues(updated);
-            if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+            const next = e.target.value || null;
+            changeEdit(rowId, def.key === "dataVencOriginal" && !editValuesRef.current.dataVencPlano
+              ? { dataVencOriginal: next, dataVencPlano: next }
+              : { [def.key]: next });
           }}
-          onBlur={() => handleBlur(rowId)}
+          onBlur={() => commitCell(rowId, def.key as keyof LancamentoDTO)}
         />
       );
     }
@@ -730,17 +745,11 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
       return (
         <input
           {...common}
-          onBlur={() => handleBlur(rowId)}
+          onBlur={() => commitCell(rowId, def.key as keyof LancamentoDTO)}
           type="number"
           step="0.01"
           value={val ?? ""}
-          onChange={e => {
-            const newVal = e.target.value;
-            const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
-            const updated = { ...current, [def.key]: newVal };
-            editValuesRef.current = updated;
-            setEditValues(updated);
-          }}
+          onChange={e => changeEdit(rowId, { [def.key]: e.target.value })}
           className="cell-input num"
         />
       );
@@ -751,13 +760,12 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
           {...common}
           value={val ?? ""}
           onChange={e => {
-            const newVal = e.target.value;
-            const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
-            const updated = { ...current, [def.key]: newVal };
-            editValuesRef.current = updated;
-            setEditValues(updated);
-            if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-            autoSaveTimer.current = setTimeout(() => saveEdit(rowId, updated), 600);
+            const next = e.target.value;
+            if (def.key === "tipo") {
+              const account = accounts.find(item => item.id === editValuesRef.current.contaId);
+              const incompatible = account && ((account.tipo === "RECEITA" && next === "SAIDA") || (account.tipo === "DESPESA" && next === "ENTRADA") || account.tipo === "TRANSFERENCIA");
+              changeEdit(rowId, incompatible ? { tipo: next as LancamentoDTO["tipo"], contaId: null, categoria: editValuesRef.current.categoria || null } : { tipo: next as LancamentoDTO["tipo"] }, true);
+            } else changeEdit(rowId, { [def.key]: next }, true);
           }}
           className="cell-input"
         >
@@ -767,27 +775,31 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     }
     if (def.tipo === "select-api") {
       if (def.source === "categorias" || def.source === "plano-contas") {
-        const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
-        const selectedCategory = current.categoria || "";
+        const selectedCategory = editValues.categoria || "";
+        const linked = accounts.find(item => item.id === editValues.contaId);
+        const categoryOptions = categories.some(item => item.codigo === selectedCategory) ? categories :
+          editValues.contaId && selectedCategory ? [...categories, { id: linked?.categoriaId || "linked", codigo: selectedCategory, nome: "Vínculo atual" }] : categories;
+        const accountOptions = accounts.filter(item => item.categoriaId === categoryOptions.find(cat => cat.codigo === selectedCategory)?.id);
         return (
-          <select {...common} value={val ?? ""} onBlur={() => handleBlur(rowId)}
+          <select {...common} value={val ?? ""} onBlur={() => commitCell(rowId, def.key as keyof LancamentoDTO)}
             onChange={e => {
-              const updated = def.source === "categorias"
-                ? { ...current, categoria: e.target.value || null, contaId: null }
-                : (() => {
-                    const account = accounts.find(item => item.id === e.target.value);
-                    const category = categories.find(item => item.id === account?.categoriaId);
-                    return { ...current, contaId: account?.id || null, categoria: category?.codigo || current.categoria || null };
-                  })();
-              editValuesRef.current = updated;
-              setEditValues(updated);
-              if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+              if (def.source === "categorias") {
+                const account = accounts.find(item => item.id === editValuesRef.current.contaId);
+                const target = categories.find(item => item.codigo === e.target.value);
+                changeEdit(rowId, { categoria: e.target.value || null,
+                  ...(account && account.categoriaId === target?.id ? {} : { contaId: null }) });
+              } else {
+                const account = accounts.find(item => item.id === e.target.value);
+                const category = categories.find(item => item.id === account?.categoriaId);
+                if (account && !category) { setSaveState({ kind: "error", message: "A Categoria desta Conta não está disponível." }); return; }
+                changeEdit(rowId, { contaId: account?.id || null, categoria: category?.codigo || editValuesRef.current.categoria || null });
+              }
             }}>
             <option value="">—</option>
             {def.source === "categorias"
-              ? categories.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)
-              : accounts.filter(item => item.categoriaId === categories.find(cat => cat.codigo === selectedCategory)?.id)
-                .map(item => <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}
+              ? categoryOptions.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)
+              : <>{accountOptions.map(item => <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}
+                  {editValues.contaId && !accountOptions.some(item => item.id === editValues.contaId) && <option value={editValues.contaId}>{editValues.contaN2Codigo} – {editValues.contaN2Descricao || "Vínculo atual"}</option>}</>}
           </select>
         );
       }
@@ -796,13 +808,10 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         return (
           <CounterpartyPicker className="cell-input" options={counterparties} selected={selected}
             legacyLabel={selected ? null : val}
-            onBlur={() => handleBlur(rowId)}
-            onEnter={() => saveEdit(rowId)} onEscape={cancelEdit}
+            onBlur={() => commitCell(rowId, "fantasiaPadrao")}
+            onEnter={() => commitCell(rowId, "fantasiaPadrao")} onEscape={() => resetCell("fantasiaPadrao")}
             onSelect={item => {
-              const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
-              const updated = { ...current, ...counterpartyIds(item), fantasiaPadrao: item ? counterpartyDisplay(item) : null };
-              editValuesRef.current = updated;
-              setEditValues(updated);
+              changeEdit(rowId, { ...counterpartyIds(item), fantasiaPadrao: item ? counterpartyDisplay(item) : null }, true);
             }} />
         );
       }
@@ -810,15 +819,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         <select
           {...common}
           value={val ?? ""}
-          onChange={e => {
-            const newVal = e.target.value;
-            const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
-            const updated = { ...current, [def.key]: newVal };
-            editValuesRef.current = updated;
-            setEditValues(updated);
-            if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-            autoSaveTimer.current = setTimeout(() => saveEdit(rowId, updated), 600);
-          }}
+          onChange={e => changeEdit(rowId, { [def.key]: e.target.value }, true)}
           className="cell-input"
         >
           <option value="">—</option>
@@ -832,29 +833,18 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         aria-label={def.label}
         rows={4}
         value={val ?? ""}
-        onFocus={handleFocus}
-        onBlur={() => handleBlur(rowId)}
-        onKeyDown={e => { if (e.key === "Escape") { e.preventDefault(); cancelEdit(); } }}
-        onChange={e => {
-          const updated = { ...editValuesRef.current, [def.key]: e.target.value };
-          editValuesRef.current = updated;
-          setEditValues(updated);
-        }}
+        onBlur={() => commitCell(rowId, def.key as keyof LancamentoDTO)}
+        onKeyDown={e => { if (e.key === "Escape") { e.preventDefault(); resetCell(def.key as keyof LancamentoDTO); e.currentTarget.blur(); } }}
+        onChange={e => changeEdit(rowId, { [def.key]: e.target.value })}
       />
     );
     return (
       <input
         {...common}
-        onBlur={() => handleBlur(rowId)}
+        onBlur={() => commitCell(rowId, def.key as keyof LancamentoDTO)}
         type="text"
         value={val ?? ""}
-        onChange={e => {
-          const newVal = e.target.value;
-          const current = editValuesRef.current.id === rowId ? editValuesRef.current : editValues;
-          const updated = { ...current, [def.key]: newVal };
-          editValuesRef.current = updated;
-          setEditValues(updated);
-        }}
+        onChange={e => changeEdit(rowId, { [def.key]: e.target.value })}
         className={`cell-input ${def.key === "descricao" ? "wide" : ""}`}
       />
     );
@@ -983,14 +973,14 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         </div>}
 
         {/* Tabela — header fixo + body scrollável com scroll sincronizado */}
-        <div ref={tableShellRef} className="lanc-table-shell" aria-busy={loading || updating} onMouseLeave={() => setGhost(null)} style={{ margin: "14px 28px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)", overflow: "hidden" }}>
+        <div className="lanc-table-shell" aria-busy={loading || updating} style={{ margin: "14px 28px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)", overflow: "hidden" }}>
           {updating && <div className="lanc-list-updating" role="status">Atualizando lançamentos…</div>}
           {/* Header fixo */}
           <div ref={headerScrollRef} style={{ overflowX: "hidden", flexShrink: 0 }}>
             <table className="data-table" style={{ tableLayout: "fixed", minWidth: tableWidth, borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
                 <tr>
-                  <th className="lanc-select-cell" style={{ width: 54, minWidth: 54, maxWidth: 54, position: "sticky", left: 0, zIndex: 3 }}>
+                  <th className="lanc-select-cell" style={{ width: 104, minWidth: 104, maxWidth: 104, position: "sticky", left: 0, zIndex: 3 }}>
                     <input type="checkbox" aria-label="Selecionar lançamentos carregados" checked={allLoadedSelected} ref={element => { if (element) element.indeterminate = selectedLoaded.length > 0 && !allLoadedSelected; }} onChange={event => setSelectedIds(event.target.checked ? new Set(lancamentos.map(row => row.id)) : new Set())} />
                   </th>
                   {visibleCols.map(def => {
@@ -1087,7 +1077,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             </table>
           </div>
           {/* Body scrollável */}
-          <div ref={bodyScrollRef} className="lancamentos-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; setGhost(null); }}>
+          <div ref={bodyScrollRef} className="lancamentos-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
             <table className="data-table" style={{ tableLayout: "fixed", minWidth: tableWidth, borderCollapse: "separate", borderSpacing: 0 }}>
             <tbody>
               {loading ? (
@@ -1097,63 +1087,21 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               ) : lancamentos.map(row => {
                 const isEditing = editingId === row.id;
                 return (
-                  <tr key={row.id} data-row-id={row.id} tabIndex={!actionsVisible ? 0 : undefined} className={[isEditing ? "editing lanc-inline-editing" : "", selectedIds.has(row.id) ? "lanc-row-selected" : ""].filter(Boolean).join(" ")}
-                    onMouseEnter={event => { if (!actionsVisible) showGhost(event.currentTarget, row.id); }}
-                    onFocus={event => { if (!actionsVisible) showGhost(event.currentTarget, row.id); }}
-                    onKeyDown={event => { if (!actionsVisible && event.target === event.currentTarget && (event.key === "Enter" || event.key === "F10")) {
-                      event.preventDefault(); showGhost(event.currentTarget, row.id);
-                      requestAnimationFrame(() => tableShellRef.current?.querySelector<HTMLButtonElement>(".lanc-row-ghost button")?.focus());
-                    } }}
-                    onClick={e => {
-                    if ((e.target as HTMLElement).closest("button, input, select, textarea")) return;
-                    if (!isEditing) {
-                      const cell = (e.target as HTMLElement).closest<HTMLTableCellElement>("td");
-                      if (cell && !SORT_COMPUTED.has(cell.dataset.colKey ?? "")) void startEdit(row, cell.dataset.colKey ?? "acoes");
-                    }
-                  }} style={{ cursor: isEditing ? "default" : "pointer" }}>
-                    <td className="lanc-select-cell" style={{ width: 54, minWidth: 54, maxWidth: 54, position: "sticky", left: 0, zIndex: 2 }}>
+                  <tr key={row.id} data-row-id={row.id} className={[isEditing ? "editing lanc-inline-editing" : "", selectedIds.has(row.id) ? "lanc-row-selected" : ""].filter(Boolean).join(" ")}>
+                    <td className="lanc-select-cell" style={{ width: 104, minWidth: 104, maxWidth: 104, position: "sticky", left: 0, zIndex: 2 }}>
                       <input type="checkbox" aria-label={`Selecionar lançamento ${row.seq}`} checked={selectedIds.has(row.id)} onChange={() => toggleSelection(row.id)} onClick={event => event.stopPropagation()} />
-                      {!actionsVisible && <button type="button" className="lanc-touch-actions" aria-label={`Ações do lançamento ${row.seq}`} onClick={event => { event.stopPropagation(); showGhost(event.currentTarget.closest("tr")!, row.id); }}>⋯</button>}
+                      {pendingDelete === row.id ? <span className="lanc-row-controls">
+                        <button type="button" className="action-btn" aria-label="Confirmar exclusão" title="Confirmar exclusão" onClick={() => void handleDelete(row.id)}>✓</button>
+                        <button type="button" className="action-btn" aria-label="Cancelar exclusão" title="Cancelar exclusão" onClick={() => setPendingDelete(null)}>✕</button>
+                      </span> : isEditing ? <span className="lanc-row-controls">
+                        <button type="button" className="action-btn" aria-label="Excluir lançamento" title="Excluir lançamento" onClick={() => setPendingDelete(row.id)}>🗑️</button>
+                        {saveState.kind !== "idle" && <span className={`lanc-save-indicator lanc-save-${saveState.kind}`} role="status" title={saveState.message}>{saveState.kind === "saving" ? "…" : saveState.kind === "saved" ? "✓" : "!"}</span>}
+                        {saveState.kind === "error" && <button type="button" className="lanc-save-retry" title={saveState.message} onClick={() => void flushEdits(row.id)}>Tentar novamente</button>}
+                      </span> : <button type="button" className="action-btn lanc-edit-trigger" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => void startEdit(row)}>✏️</button>}
                     </td>
                     {visibleCols.map(def => (
                       <td key={def.key} data-col-key={def.key} className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : ""].filter(Boolean).join(" ")} style={getTdStyle(def, isEditing)}>
-                        {def.key === "acoes" ? (
-                          <div className="actions-cell">
-                            {isEditing ? (
-                              <>
-                                {saving ? <span style={{ fontSize: 12, color: "var(--text-muted)" }}>💾...</span> : null}
-                                <button
-                                  className="action-btn"
-                                  style={{ color: "#fff", background: "var(--accent-green)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }}
-                                  onClick={e => { e.stopPropagation(); void saveEdit(row.id); }}
-                                  title="Salvar alterações (Enter)"
-                                  disabled={saving}
-                                >
-                                  ✓
-                                </button>
-                                <button
-                                  className="action-btn"
-                                  style={{ color: "#fff", background: "var(--accent-red)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }}
-                                  onClick={e => { e.stopPropagation(); cancelEdit(); }}
-                                  title="Cancelar (Esc)"
-                                  disabled={saving}
-                                >
-                                  ✕
-                                </button>
-                              </>
-                            ) : pendingDelete === row.id ? (
-                              <>
-                                <button className="action-btn" style={{ color: "var(--accent-red)" }} onClick={e => { e.stopPropagation(); handleDelete(row.id); }} title="Confirmar exclusão">✓</button>
-                                <button className="action-btn" onClick={e => { e.stopPropagation(); setPendingDelete(null); }} title="Cancelar">✕</button>
-                              </>
-                            ) : (
-                              <>
-                                <button className="action-btn" onClick={e => { e.stopPropagation(); void startEdit(row); }} title="Editar">✏️</button>
-                                <button className="action-btn" onClick={e => { e.stopPropagation(); setPendingDelete(row.id); }} title="Excluir">🗑️</button>
-                              </>
-                            )}
-                          </div>
-                        ) : isEditing ? renderEditCell(def, row.id) : renderCell(def.key, row, statusTipos, accounts)}
+                        {isEditing ? renderEditCell(def, row.id) : renderCell(def.key, row, statusTipos, accounts)}
                       </td>
                     ))}
                   </tr>
@@ -1162,16 +1110,14 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               {/* Linha de inserção rápida (Alt+N) */}
               {inlineNewOpen && (
                 <tr className="editing" style={{ background: "rgba(5,150,105,0.06)" }}>
-                  <td className="lanc-select-cell" style={{ width: 54, minWidth: 54, maxWidth: 54 }} />
+                  <td className="lanc-select-cell" style={{ width: 104, minWidth: 104, maxWidth: 104 }}><span className="lanc-row-controls">
+                    <button className="action-btn" onClick={saveInlineNew} title="Salvar novo lançamento" disabled={inlineNewSaving}>✓</button>
+                    <button className="action-btn" onClick={cancelInlineNew} title="Cancelar novo lançamento">✕</button>
+                  </span></td>
                   {visibleCols.map((def, idx) => (
                     <td key={def.key} className={def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, true)}>
                       {def.key === "seq" ? (
                         <span style={{ color: "var(--accent-green)", fontWeight: 700, fontSize: 11 }}>+</span>
-                      ) : def.key === "acoes" ? (
-                        <div className="actions-cell">
-                          <button className="action-btn" style={{ color: "#fff", background: "var(--accent-green)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }} onClick={saveInlineNew} title="Salvar (Enter)" disabled={inlineNewSaving}>✓</button>
-                          <button className="action-btn" style={{ color: "#fff", background: "var(--accent-red)", borderRadius: 4, opacity: 1, fontSize: 13, padding: "3px 8px" }} onClick={cancelInlineNew} title="Cancelar (Esc)">✕</button>
-                        </div>
                       ) : def.editavel === false ? (
                         <span style={{ color: "var(--text-muted)" }}>—</span>
                       ) : (() => {
@@ -1250,9 +1196,6 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             </tbody>
             </table>
           </div>
-          {!actionsVisible && ghost && lancamentos.some(row => row.id === ghost.id) && <div className="lanc-row-ghost" style={{ top: ghost.top }}>
-            {rowActions(lancamentos.find(row => row.id === ghost.id)!)}
-          </div>}
         </div>
 
         {/* Footer */}

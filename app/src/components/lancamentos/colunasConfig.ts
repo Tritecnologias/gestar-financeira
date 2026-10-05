@@ -1,4 +1,4 @@
-// Configuração das 32 colunas da tabela de lançamentos
+// Configuração das colunas de dados da tabela de lançamentos
 import type { ColConfig } from "@/types";
 
 export interface ColDef {
@@ -47,7 +47,6 @@ export const COLUNAS_DEF: ColDef[] = [
   { key: "rangeAtraso",      label: "Range",         width: 85,  editavel: false },
   { key: "emissaoAM",        label: "Emissão A_M",   width: 80,  editavel: false, align: "center" },
   { key: "anotacao",         label: "Anotação",      width: 180, tipo: "text" },
-  { key: "acoes",            label: "Ações",         width: 75,  editavel: false, align: "center" },
 ];
 
 // Config padrão (todas visíveis)

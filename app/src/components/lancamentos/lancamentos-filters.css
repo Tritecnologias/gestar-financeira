@@ -98,10 +98,13 @@
 .lanc-page .data-table tr.lanc-inline-editing td.lanc-calculated { background-color: color-mix(in srgb, var(--text-muted) 8%, var(--selection)); }
 .lanc-selection-bar { margin: 8px 28px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); color: var(--text-primary); font-size: 12px; }
 .lanc-selection-bar .btn { min-height: 30px; padding: 4px 9px; font-size: 12px; }
-.lanc-row-ghost { position: absolute; right: 12px; transform: translateY(-50%); z-index: 8; padding: 3px 5px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); box-shadow: 0 2px 8px color-mix(in srgb, var(--text-primary) 12%, transparent); }
-.lanc-row-ghost .actions-cell { display: flex; gap: 3px; }
-.lanc-row-ghost .action-btn { min-width: 28px; min-height: 28px; }
-.lanc-touch-actions { display: none; position: absolute; right: 1px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 18px; }
+.lanc-row-controls { display: inline-flex; align-items: center; gap: 3px; margin-left: 5px; }
+.lanc-page .lanc-select-cell .action-btn { min-width: 26px; min-height: 26px; opacity: 1; color: var(--text-secondary); }
+.lanc-page .lanc-select-cell .action-btn:hover { color: var(--action); }
+.lanc-save-indicator { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+.lanc-save-saved { color: var(--success); }
+.lanc-save-error { color: var(--danger); }
+.lanc-save-retry { position: absolute; z-index: 6; left: 92px; top: 50%; transform: translateY(-50%); min-width: 150px; padding: 6px 8px; border: 1px solid var(--danger); border-radius: var(--radius-sm); background: var(--surface-elevated); color: var(--danger); cursor: pointer; font-size: 11px; }
 .lanc-bulk-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgb(0 0 0 / 55%); }
 .lanc-bulk-modal { width: min(720px, 100%); max-height: min(88vh, 900px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-elevated); color: var(--text-primary); box-shadow: 0 18px 50px rgb(0 0 0 / 24%); }
 .lanc-bulk-modal > header, .lanc-bulk-modal > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; flex-shrink: 0; }
@@ -114,13 +117,13 @@
 .lanc-bulk-field { display: grid; gap: 5px; min-width: 0; font-size: 12px; }
 .lanc-bulk-field > span { display: flex; align-items: center; gap: 5px; font-weight: 600; }
 .lanc-bulk-field input:not([type="checkbox"]), .lanc-bulk-field select { width: 100%; min-width: 0; min-height: 36px; padding: 5px 8px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; }
-.lanc-bulk-field :is(input, select):focus-visible, .lanc-touch-actions:focus-visible, .lanc-row-ghost button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.lanc-bulk-field :is(input, select):focus-visible, .lanc-select-cell button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .lanc-bulk-field :is(input, select):disabled { opacity: .48; }
 .lanc-bulk-preview { margin-top: 16px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 12px; }
 .lanc-bulk-preview p { margin: 7px 0 0; }
 .lanc-bulk-preview .lanc-bulk-warning { color: var(--warning); }
 .lanc-bulk-error { color: var(--danger); font-size: 12px; }
-@media (hover: none), (pointer: coarse) { .lanc-touch-actions { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; } .lanc-select-cell input { width: 20px; height: 20px; } }
+@media (hover: none), (pointer: coarse) { .lanc-select-cell input { width: 20px; height: 20px; } .lanc-page .lanc-select-cell .action-btn { min-width: 38px; min-height: 38px; } }
 @media (max-width: 640px) { .lanc-selection-bar { margin-inline: 12px; } .lanc-bulk-fields { grid-template-columns: 1fr; } .lanc-bulk-backdrop { padding: 8px; } .lanc-bulk-modal { max-height: 94vh; } }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td {
   height: 34px;

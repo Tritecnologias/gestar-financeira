@@ -17,7 +17,7 @@ export default function LayoutManager({ colConfig, onLayoutChange }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   // Drag & drop no painel de seletor
-  const OBRIGATORIAS = new Set(["acoes"]);
+  const OBRIGATORIAS = new Set<string>();
   const panelDragKey = useRef<string | null>(null);
   const [panelDragOver, setPanelDragOver] = useState<string | null>(null);
 
