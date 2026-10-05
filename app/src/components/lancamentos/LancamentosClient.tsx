@@ -1114,7 +1114,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               ) : lancamentos.map(row => {
                 const isEditing = editingId === row.id;
                 return (
-                  <tr key={row.id} data-row-id={row.id} className={[isEditing ? "editing lanc-inline-editing" : "", selectedIds.has(row.id) ? "lanc-row-selected" : ""].filter(Boolean).join(" ")}>
+                  <tr key={row.id} data-row-id={row.id} className={[isEditing ? "editing lanc-inline-editing" : "", isEditing && saveState.kind === "error" ? "lanc-inline-error" : "", selectedIds.has(row.id) ? "lanc-row-selected" : ""].filter(Boolean).join(" ")}>
                     <td className="lanc-select-cell" style={{ ...controlsWidth, position: "sticky", left: 0, zIndex: 2 }}>
                       <input type="checkbox" aria-label={`Selecionar lançamento ${row.seq}`} checked={selectedIds.has(row.id)} onChange={() => toggleSelection(row.id)} onClick={event => event.stopPropagation()} />
                       {pendingDelete === row.id ? <span className="lanc-row-controls lanc-row-controls--confirm">
@@ -1125,6 +1125,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                         {saveState.kind !== "idle" && <span className={`lanc-save-indicator lanc-save-${saveState.kind}`} role="status" title={saveState.message}>{saveState.kind === "saving" ? "…" : saveState.kind === "saved" ? "✓" : "!"}</span>}
                         {saveState.kind === "error" && <button type="button" className="lanc-save-retry" title={saveState.message} onClick={() => void flushEdits(row.id)}>Tentar novamente</button>}
                       </span> : <button type="button" className="action-btn lanc-edit-trigger" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => void startEdit(row)}>✏️</button>}
+                      {isEditing && <span className="lanc-row-state-label lanc-row-state-label--editing" aria-hidden="true">{saveState.kind === "error" ? "Erro" : "Editando"}</span>}
                     </td>
                     {visibleCols.map(def => (
                       <td key={def.key} data-col-key={def.key} data-editable={def.editavel === false ? undefined : "true"}
@@ -1141,11 +1142,11 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               })}
               {/* Linha de inserção rápida (Alt+N) */}
               {inlineNewOpen && (
-                <tr className="editing" style={{ background: "rgba(5,150,105,0.06)" }}>
+                <tr className="editing lanc-inline-new" aria-label="Novo lançamento rápido">
                   <td className="lanc-select-cell" style={controlsWidth}><span className="lanc-row-controls lanc-row-controls--confirm">
                     <button className="action-btn" onClick={saveInlineNew} title="Salvar novo lançamento" disabled={inlineNewSaving}>✓</button>
                     <button className="action-btn" onClick={cancelInlineNew} title="Cancelar novo lançamento">✕</button>
-                  </span></td>
+                  </span><span className="lanc-row-state-label lanc-row-state-label--new" aria-hidden="true">Novo</span></td>
                   {visibleCols.map((def, idx) => (
                     <td key={def.key} className={def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, true)}>
                       {def.key === "seq" ? (

@@ -100,9 +100,7 @@
 .lanc-page .data-table .lanc-select-cell { padding: 3px 4px; text-align: center; background: var(--surface); border-right: 1px solid var(--border); }
 .lanc-page .data-table td.lanc-select-cell { overflow: visible !important; position: relative; z-index: 2; }
 .lanc-select-cell input { width: 16px; height: 16px; accent-color: var(--action); cursor: pointer; }
-.lanc-page .data-table tr.lanc-row-selected td { background-color: color-mix(in srgb, var(--selection) 55%, var(--surface)); }
 .lanc-page .data-table :is(th, td).lanc-calculated { background-color: color-mix(in srgb, var(--text-muted) 6%, var(--surface)); color: var(--text-secondary); cursor: default; }
-.lanc-page .data-table tr.lanc-inline-editing td.lanc-calculated { background-color: color-mix(in srgb, var(--text-muted) 8%, var(--selection)); }
 .lanc-selection-bar { margin: 8px 28px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); color: var(--text-primary); font-size: 12px; }
 .lanc-selection-bar .btn { min-height: 30px; padding: 4px 9px; font-size: 12px; }
 .lanc-row-controls { display: inline-flex; align-items: center; gap: 3px; margin-left: 3px; }
@@ -140,8 +138,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing):not(.lanc-row-selected):hover > td { background: var(--surface-hover); }
+.lanc-page .lancamentos-scroll tr.lanc-row-selected:not(.lanc-inline-editing) > td { background: color-mix(in srgb, var(--text-secondary) 9%, var(--surface)); }
+.lanc-page .lancamentos-scroll tr.lanc-row-selected:not(.lanc-inline-editing):hover > td { background: color-mix(in srgb, var(--text-secondary) 9%, var(--surface-hover)); }
+.lanc-page .lancamentos-scroll tr.lanc-row-selected:not(.lanc-inline-editing) > td.lanc-select-cell { box-shadow: inset 3px 0 0 var(--text-muted); }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td[data-editable="true"] { cursor: pointer; }
-.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td[data-editable="true"]:hover { background: var(--bg-hover); }
+.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td[data-editable="true"]:hover { background: var(--surface-hover); }
+.lanc-page .lancamentos-scroll tr.lanc-row-selected:not(.lanc-inline-editing) td[data-editable="true"]:hover { background: color-mix(in srgb, var(--text-secondary) 9%, var(--surface-hover)); }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td[data-editable="true"]:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
 .lanc-page .lancamentos-scroll tr[data-row-id] td.lanc-select-cell { padding: 4px; text-align: left; }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td > * { max-width: 100%; }
@@ -154,8 +157,27 @@
 .lanc-page .data-table tr.lanc-inline-editing td {
   padding: 10px 8px;
   vertical-align: top;
-  background: var(--selection);
 }
+.lanc-page .lancamentos-scroll tr.lanc-inline-editing { --lanc-edit-bg: color-mix(in srgb, var(--action) 15%, var(--surface)); }
+.lanc-page .lancamentos-scroll tr.lanc-inline-editing > td {
+  background: var(--lanc-edit-bg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--action) 42%, var(--border)), inset 0 -1px 0 color-mix(in srgb, var(--action) 42%, var(--border));
+}
+.lanc-page .lancamentos-scroll tr.lanc-inline-editing > td:is(.lanc-calculated, :not([data-editable="true"])) {
+  background: color-mix(in srgb, var(--text-muted) 5%, var(--lanc-edit-bg));
+  color: var(--text-secondary);
+}
+.lanc-page .lancamentos-scroll tr.lanc-inline-editing > td:first-child { box-shadow: inset 3px 0 0 var(--action), inset 0 1px 0 color-mix(in srgb, var(--action) 42%, var(--border)), inset 0 -1px 0 color-mix(in srgb, var(--action) 42%, var(--border)); }
+.lanc-page .lancamentos-scroll tr.lanc-inline-error > td:first-child { box-shadow: inset 3px 0 0 var(--danger), inset 0 1px 0 var(--danger), inset 0 -1px 0 var(--danger); }
+.lanc-page .lanc-inline-editing .cell-input { background: var(--surface-elevated); border-color: color-mix(in srgb, var(--action) 30%, var(--border)); box-shadow: 0 1px 2px rgb(0 0 0 / 9%); }
+.lanc-page .lanc-inline-editing .cell-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.lanc-row-state-label { display: block; width: 100%; margin-top: 3px; font-size: 9px; line-height: 13px; font-weight: 800; text-align: center; text-transform: uppercase; white-space: nowrap; }
+.lanc-row-state-label--editing { color: var(--action); }
+.lanc-inline-error .lanc-row-state-label--editing { color: var(--danger); }
+.lanc-page .lancamentos-scroll tr.lanc-inline-new > td { background: color-mix(in srgb, var(--success) 9%, var(--surface)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--success) 34%, var(--border)), inset 0 -1px 0 color-mix(in srgb, var(--success) 34%, var(--border)); }
+.lanc-page .lancamentos-scroll tr.lanc-inline-new > td:first-child { box-shadow: inset 3px 0 0 var(--success), inset 0 1px 0 color-mix(in srgb, var(--success) 34%, var(--border)), inset 0 -1px 0 color-mix(in srgb, var(--success) 34%, var(--border)); }
+.lanc-inline-new .cell-input { background: var(--surface-elevated); border-color: color-mix(in srgb, var(--success) 25%, var(--border)); }
+.lanc-row-state-label--new { color: var(--success); }
 .lanc-page .lanc-inline-editing .cell-input {
   box-sizing: border-box;
   min-width: 0;
