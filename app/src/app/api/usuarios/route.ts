@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { canAssignLegacyRole, canUseActiveTenant } from "@/lib/access-policy";
 
 // GET /api/usuarios — lista usuários (admin: do próprio tenant, admin_global: todos)
 export async function GET() {
@@ -43,13 +44,23 @@ export async function POST(req: NextRequest) {
 
   // Admin global pode criar em qualquer tenant; admin só no próprio
   const tenantIdFinal = (session.papel === "admin_global" && targetTenantId) ? targetTenantId : session.tenantId;
+  if (targetTenantId && session.papel !== "admin_global" && targetTenantId !== session.tenantId) {
+    return NextResponse.json({ error: "Sem permissão para este tenant" }, { status: 403 });
+  }
+  if (typeof tenantIdFinal !== "string") return NextResponse.json({ error: "Tenant inválido" }, { status: 400 });
+  const targetTenant = await prisma.tenant.findUnique({ where: { id: tenantIdFinal }, select: { ativo: true } });
+  if (!targetTenant || !canUseActiveTenant(session.papel, session.tenantId, tenantIdFinal, targetTenant.ativo)) {
+    return NextResponse.json({ error: "Tenant inexistente ou inativo" }, { status: 403 });
+  }
+
+  const papelFinal = papel || "membro";
+  if (!canAssignLegacyRole(session.papel, papelFinal)) {
+    return NextResponse.json({ error: "Papel não permitido" }, { status: 403 });
+  }
 
   // Verificar se email já existe no tenant
   const existente = await prisma.usuario.findFirst({ where: { email: email.trim(), tenantId: tenantIdFinal } });
   if (existente) return NextResponse.json({ error: "Email já cadastrado neste tenant" }, { status: 409 });
-
-  // Apenas admin_global pode criar outro admin_global
-  const papelFinal = (papel === "admin_global" && session.papel !== "admin_global") ? "admin" : (papel || "membro");
 
   const senhaHash = await bcrypt.hash(senha, 12);
 

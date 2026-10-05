@@ -57,7 +57,7 @@ export default function AdminPage() {
   };
 
   const excluir = async (id: string) => {
-    if (!confirm("Excluir este usuário permanentemente?")) return;
+    if (!confirm("Desativar o acesso deste usuário? O cadastro e o histórico serão preservados.")) return;
     const res = await fetch(`/api/usuarios/${id}`, { method: "DELETE" });
     if (res.ok) load(); else { const e = await res.json(); setError(e.error); }
   };
@@ -139,7 +139,7 @@ export default function AdminPage() {
                         <td style={{textAlign:"center"}}>
                           <button className="action-btn" onClick={()=>{setEditingId(u.id);setEditData({nome:u.nome,email:u.email,papel:u.papel,ativo:u.ativo,senha:""});}} title="Editar">✏️</button>
                           <button className="action-btn" onClick={()=>toggleAtivo(u.id,u.ativo)} title={u.ativo?"Desativar":"Ativar"}>{u.ativo?"🔒":"🔓"}</button>
-                          <button className="action-btn" onClick={()=>excluir(u.id)} title="Excluir" style={{color:"var(--accent-red)"}}>🗑️</button>
+                          <button className="action-btn" onClick={()=>excluir(u.id)} title="Desativar acesso" style={{color:"var(--accent-red)"}}>🗑️</button>
                         </td>
                       </>
                     )}

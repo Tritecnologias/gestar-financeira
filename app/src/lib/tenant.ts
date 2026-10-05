@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma, getTenantPrisma } from "@/lib/db";
 import { cookies } from "next/headers";
 import type { UserSession, Papel } from "@/types";
+import { isActiveLegacySession } from "@/lib/access-policy";
 
 /**
  * Valida a sessão e retorna o Prisma Client já escopado ao tenant.
@@ -11,33 +12,28 @@ import type { UserSession, Papel } from "@/types";
 export async function requireSession() {
   const session = await auth();
   const user = session?.user as any;
-  if (!user?.tenantId) {
+  if (!user?.id) {
     throw Object.assign(new Error("Não autenticado"), { status: 401 });
   }
 
   // Admin global pode operar em qualquer tenant via cookie
-  let activeTenantId = user.tenantId as string;
-  let activeTenantNome = user.tenantNome as string;
-
-  // Verificar papel/status direto do banco (o JWT pode estar desatualizado por até 24h).
-  // Isso garante que mudanças de papel, desativação ou exclusão do usuário tenham
-  // efeito imediato, sem depender do relogin.
+  // O JWT pode estar desatualizado; estado, papel e tenant de origem vêm do banco.
   const dbUser = await prisma.usuario.findUnique({
     where: { id: user.id },
-    select: { papel: true, ativo: true },
+    select: { papel: true, ativo: true, tenantId: true, nome: true, email: true, tenant: { select: { nome: true, ativo: true } } },
   });
 
-  // Usuário removido ou desativado após o login: revoga a sessão.
-  if (!dbUser || !dbUser.ativo) {
+  // Revogação de usuário ou tenant tem efeito mesmo em sessões já emitidas.
+  if (!dbUser || !isActiveLegacySession(dbUser)) {
     throw Object.assign(new Error("Não autenticado"), { status: 401 });
   }
 
   const papelAtual = dbUser.papel as Papel;
+  let activeTenantId = dbUser.tenantId;
+  let activeTenantNome = dbUser.tenant.nome;
 
-  // Para admin/membro o tenant é fixo e legítimo. Para admin_global, o tenant
-  // ativo é sempre legítimo — seja o próprio tenant do usuário (user.tenantId)
-  // ou um override via cookie. A restrição de escrita só se aplicaria se não
-  // houvesse nenhum tenant associado, o que não ocorre no fluxo atual.
+  // Mecanismo temporário até TenantMembership/SupportGrant. Admin Global ainda
+  // pode escolher outro tenant ativo; admin/membro permanecem no de origem.
   let tenantSelecionado = true;
 
   if (papelAtual === "admin_global") {
@@ -56,10 +52,11 @@ export async function requireSession() {
   const db = getTenantPrisma(activeTenantId);
   return {
     db,
+    baseTenantId: dbUser.tenantId,
     session: {
       id:         user.id        as string,
-      nome:       user.name      as string ?? "",
-      email:      user.email     as string ?? "",
+      nome:       dbUser.nome,
+      email:      dbUser.email,
       papel:      papelAtual,
       tenantId:   activeTenantId,
       tenantNome: activeTenantNome,
@@ -90,33 +87,14 @@ export async function requireEscrita() {
  * que as queries sejam sempre filtradas pelo tenant correto.
  */
 export async function getTenantId(): Promise<string> {
-  const session = await auth();
-  if (!session?.user) {
-    throw new Error("Não autenticado");
-  }
-  return (session.user as any).tenantId as string;
+  return (await requireSession()).session.tenantId;
 }
 
 /**
  * Retorna a session completa com dados do tenant e papel do usuário.
  */
 export async function getSession(): Promise<UserSession> {
-  const session = await auth();
-  if (!session?.user) {
-    throw new Error("Não autenticado");
-  }
-  const user = session.user as any;
-  return {
-    id: user.id,
-    nome: user.name ?? "",
-    email: user.email ?? "",
-    papel: user.papel,
-    tenantId: user.tenantId,
-    tenantNome: user.tenantNome,
-    // Nota: getSession não resolve o override por cookie. Para leitura do
-    // tenant ativo real, use requireSession().
-    tenantSelecionado: true,
-  };
+  return (await requireSession()).session;
 }
 
 /**
