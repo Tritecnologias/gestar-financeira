@@ -37,10 +37,10 @@ const initialDefaults = (): Defaults => {
 };
 const newRow = (key: number, defaults: Defaults): Row => ({ key, data: { ...emptyForm(), ...defaults } });
 
-function Field({ id, label, value, onChange, type = "text", required, wide, inputMode, placeholder, inputRef }:
+function Field({ id, label, value, onChange, type = "text", required, inputMode, placeholder, inputRef }:
   { id: string; label: string; value: string; onChange: (value: string) => void; type?: string;
-    required?: boolean; wide?: boolean; inputMode?: "decimal"; placeholder?: string; inputRef?: Ref<HTMLInputElement> }) {
-  return <label className={`lanc-new-field ${wide ? "lanc-new-wide" : ""}`} htmlFor={id}>
+    required?: boolean; inputMode?: "decimal"; placeholder?: string; inputRef?: Ref<HTMLInputElement> }) {
+  return <label className="lanc-new-field" htmlFor={id}>
     <span>{label}{required ? " *" : ""}</span>
     <input ref={inputRef} id={id} type={type} value={value} onChange={event => onChange(event.target.value)}
       required={required} inputMode={inputMode} placeholder={placeholder} />
@@ -196,7 +196,7 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
               <button className="btn btn-outline" type="button" aria-expanded={showDefaults}
                 aria-controls="lanc-new-defaults-fields" onClick={() => setShowDefaults(current => !current)}>
                 {showDefaults ? "Ocultar padrões" : "Mostrar padrões"}</button></div>
-            <div className="lanc-new-grid" id="lanc-new-defaults-fields" hidden={!showDefaults}>
+            <div className="lanc-new-default-grid" id="lanc-new-defaults-fields" hidden={!showDefaults}>
               <label className="lanc-new-field"><span>Direção</span><select value={defaults.tipo}
                 onChange={event => updateDefault({ tipo: event.target.value as Defaults["tipo"] })}>
                 <option value="SAIDA">SAÍDA</option><option value="ENTRADA">ENTRADA</option></select></label>
@@ -240,14 +240,17 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                     <div><button className="btn btn-outline" type="button" onClick={() => duplicateRow(row)} disabled={saving || rows.length >= 100}>Duplicar</button>
                       <button className="btn btn-outline" type="button" onClick={() => removeRow(row.key)}
                         disabled={saving || rows.length === 1} aria-label={`Remover lançamento ${index + 1}`}>Remover</button></div></div>
-                  <div className="lanc-new-grid">
-                    <Field id={`lanc-${row.key}-desc`} label="Descrição" value={data.descricao}
-                      onChange={field("descricao")} required wide inputRef={index === 0 ? firstField : undefined}
+                  <div className="lanc-new-row-fields">
+                    <div className="lanc-new-group"><h4>Identificação</h4><div className="lanc-new-group-fields lanc-new-identity">
+                    <Field id={`lanc-${row.key}-desc`} label="Descrição Objetiva" value={data.descricao}
+                      onChange={field("descricao")} required inputRef={index === 0 ? firstField : undefined}
                       placeholder="Descreva este lançamento" />
-                    <Field id={`lanc-${row.key}-valor`} label="Valor Realizado" value={data.valor}
-                      onChange={field("valor")} inputMode="decimal" required placeholder="0,00" />
-                    <Field id={`lanc-${row.key}-previsto`} label="Valor Previsto" value={data.valorPrevisto}
-                      onChange={field("valorPrevisto")} inputMode="decimal" placeholder="0,00" />
+                    <div className="lanc-new-field"><span>Fantasia / Contraparte</span>
+                      <CounterpartyPicker options={counterparties}
+                        selected={counterparties.find(option => option.id === (data.clienteId || data.fornecedorId)) || null}
+                        onSelect={option => chooseCounterparty(row.key, option)} /></div>
+                    </div></div>
+                    <div className="lanc-new-group"><h4>Financeiro</h4><div className="lanc-new-group-fields lanc-new-financial">
                     <label className="lanc-new-field"><span>Direção *</span><select value={data.tipo}
                       onChange={event => set({ tipo: event.target.value as LancamentoForm["tipo"] })}>
                       <option value="SAIDA">SAÍDA</option><option value="ENTRADA">ENTRADA</option></select></label>
@@ -259,8 +262,26 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                       options={accountOptions(data.categoria).map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
                       createActions={[{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }]}
                       onChange={value => set({ contaId: value, categoria: categoryForAccount(value) || data.categoria })} /></div>
+                    <Field id={`lanc-${row.key}-previsto`} label="Valor Previsto" value={data.valorPrevisto}
+                      onChange={field("valorPrevisto")} inputMode="decimal" placeholder="0,00" />
+                    <Field id={`lanc-${row.key}-valor`} label="Valor Realizado" value={data.valor}
+                      onChange={field("valor")} inputMode="decimal" required placeholder="0,00" />
+                    </div></div>
+                    <div className="lanc-new-group"><h4>Datas</h4><div className="lanc-new-group-fields lanc-new-dates">
                     <Field id={`lanc-${row.key}-data`} label="Data Lanç." type="date" value={data.dataLanc}
                       onChange={field("dataLanc")} required />
+                    <Field id={`lanc-${row.key}-emissao`} label="Data Emissão" type="date"
+                      value={data.dataEmissao} onChange={field("dataEmissao")} />
+                    <Field id={`lanc-${row.key}-venc-original`} label="Venc. Original" type="date"
+                      value={data.dataVencOriginal} onChange={field("dataVencOriginal")} />
+                    <Field id={`lanc-${row.key}-venc-plano`} label="Venc. Plano" type="date"
+                      value={data.dataVencPlano} onChange={field("dataVencPlano")} />
+                    <Field id={`lanc-${row.key}-pagamento`} label="Data de Realização" type="date"
+                      value={data.dataPagamento} onChange={field("dataPagamento")} />
+                    <Field id={`lanc-${row.key}-evento`} label="Data Evento" type="date"
+                      value={data.dataEvento} onChange={field("dataEvento")} />
+                    </div></div>
+                    <div className="lanc-new-group"><h4>Situação</h4><div className="lanc-new-group-fields lanc-new-status">
                     <label className="lanc-new-field"><span>Status Base</span><select value={data.status}
                       onChange={event => set({ status: event.target.value })}>
                       <option value="realizado">Realizado</option><option value="previsto">Previsto</option>
@@ -270,34 +291,25 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                       <option value="">—</option>{statusTipos.map(item =>
                         <option key={item.id} value={item.codigo}>{item.nome}</option>)}
                     </select></label>
-                    <Field id={`lanc-${row.key}-venc-original`} label="Venc. Original" type="date"
-                      value={data.dataVencOriginal} onChange={field("dataVencOriginal")} />
-                    <Field id={`lanc-${row.key}-venc-plano`} label="Venc. Plano" type="date"
-                      value={data.dataVencPlano} onChange={field("dataVencPlano")} />
-                    <Field id={`lanc-${row.key}-pagamento`} label="Data de Realização" type="date"
-                      value={data.dataPagamento} onChange={field("dataPagamento")} />
-                    <Field id={`lanc-${row.key}-emissao`} label="Dt. Emissão" type="date"
-                      value={data.dataEmissao} onChange={field("dataEmissao")} />
-                    <Field id={`lanc-${row.key}-evento`} label="Dt. Evento" type="date"
-                      value={data.dataEvento} onChange={field("dataEvento")} />
-                    <div className="lanc-new-field lanc-new-wide"><span>Fantasia / contraparte</span>
-                      <CounterpartyPicker options={counterparties}
-                        selected={counterparties.find(option => option.id === (data.clienteId || data.fornecedorId)) || null}
-                        onSelect={option => chooseCounterparty(row.key, option)} /></div>
+                    </div></div>
+                    <div className="lanc-new-group"><h4>Dimensões complementares</h4><div className="lanc-new-group-fields lanc-new-dimensions">
                     <Field id={`lanc-${row.key}-empresa`} label="Empresa" value={data.fornecedor}
-                      onChange={field("fornecedor")} wide />
+                      onChange={field("fornecedor")} />
                     <Field id={`lanc-${row.key}-banco`} label="Local Financeiro" value={data.banco}
                       onChange={field("banco")} />
                     <Field id={`lanc-${row.key}-cc`} label="Centro de Custo" value={data.centroCusto}
                       onChange={field("centroCusto")} />
                     <Field id={`lanc-${row.key}-dre`} label="DRE" value={data.dre} onChange={field("dre")} />
+                    </div></div>
+                    <div className="lanc-new-group"><h4>Conferência e observações</h4><div className="lanc-new-group-fields lanc-new-complements">
                     <Field id={`lanc-${row.key}-extrato`} label="Extrato" value={data.statusExtrato}
                       onChange={field("statusExtrato")} />
-                    <Field id={`lanc-${row.key}-cont`} label="Cont." value={data.cont} onChange={field("cont")} />
                     <Field id={`lanc-${row.key}-ref`} label="Referência" value={data.referencia}
                       onChange={field("referencia")} />
+                    <Field id={`lanc-${row.key}-cont`} label="Cont." value={data.cont} onChange={field("cont")} />
                     <Field id={`lanc-${row.key}-anotacao`} label="Anotação" value={data.anotacao}
-                      onChange={field("anotacao")} wide />
+                      onChange={field("anotacao")} />
+                    </div></div>
                   </div>
                 </article>;
               })}
