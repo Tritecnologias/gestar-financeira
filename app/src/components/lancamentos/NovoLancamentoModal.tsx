@@ -286,7 +286,7 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                         onSelect={option => chooseCounterparty(row.key, option)} /></div>
                     <Field id={`lanc-${row.key}-empresa`} label="Empresa" value={data.fornecedor}
                       onChange={field("fornecedor")} wide />
-                    <Field id={`lanc-${row.key}-banco`} label="Banco legado" value={data.banco}
+                    <Field id={`lanc-${row.key}-banco`} label="Local Financeiro" value={data.banco}
                       onChange={field("banco")} />
                     <Field id={`lanc-${row.key}-cc`} label="Centro de Custo" value={data.centroCusto}
                       onChange={field("centroCusto")} />

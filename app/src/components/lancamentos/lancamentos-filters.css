@@ -92,9 +92,9 @@
 .lanc-page .data-table .lanc-financial-end { border-right: 1px solid var(--border); }
 .lanc-table-shell { position: relative; --lanc-controls-width: 56px; }
 .lanc-page .lanc-table-shell thead tr, .lanc-page .lanc-table-shell thead th { height: 52px; max-height: 52px; box-sizing: border-box; }
-.lanc-page .lanc-table-shell thead th { white-space: nowrap; overflow: hidden; vertical-align: middle; }
-.lanc-header-content { min-width: 0; width: 100%; white-space: nowrap; }
-.lanc-header-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lanc-page .lanc-table-shell thead th { overflow: hidden; vertical-align: middle; }
+.lanc-header-content { min-width: 0; width: 100%; }
+.lanc-header-label { display: block; overflow: hidden; line-height: 15px; max-height: 30px; white-space: normal; overflow-wrap: normal; word-break: normal; }
 .lanc-page .data-table .lanc-select-cell { padding: 3px 4px; text-align: center; background: var(--surface); border-right: 1px solid var(--border); }
 .lanc-page .data-table td.lanc-select-cell { overflow: visible !important; position: relative; z-index: 2; }
 .lanc-select-cell input { width: 16px; height: 16px; accent-color: var(--action); cursor: pointer; }
@@ -138,6 +138,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td[data-editable="true"] { cursor: pointer; }
+.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td[data-editable="true"]:hover { background: var(--bg-hover); }
+.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td[data-editable="true"]:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
 .lanc-page .lancamentos-scroll tr[data-row-id] td.lanc-select-cell { padding: 4px; text-align: left; }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td > * { max-width: 100%; }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td:is([data-col-key="fantasiaPadrao"], [data-col-key="descricao"], [data-col-key="anotacao"], [data-col-key="fornecedor"], [data-col-key="banco"], [data-col-key="statusExtrato"], [data-col-key="categoria"], [data-col-key="contaId"], [data-col-key="centroCusto"], [data-col-key="dre"]) > span {

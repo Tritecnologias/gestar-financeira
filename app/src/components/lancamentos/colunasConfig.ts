@@ -27,7 +27,7 @@ export const COLUNAS_DEF: ColDef[] = [
   { key: "dataEvento",       label: "Data Evento", width: 155, tipo: "date" },
   { key: "statusExtrato",    label: "Extrato",       width: 85,  tipo: "text" },
   { key: "fornecedor",       label: "Empresa",       width: 140, tipo: "text" },
-  { key: "banco",            label: "Banco",         width: 110, tipo: "text" },
+  { key: "banco",            label: "Local Financeiro", width: 140, tipo: "text" },
   { key: "valorPrevisto",    label: "Valor Previsto", width: 140, tipo: "number", align: "right" },
   { key: "dataPagamento",    label: "Data Pagamento", width: 160, tipo: "date" },
   { key: "valor",            label: "Valor Realizado", width: 145, tipo: "number", align: "right" },
@@ -52,16 +52,17 @@ export const COLUNAS_DEF: ColDef[] = [
 
 // Largura mínima que mantém os controles da edição inline utilizáveis.
 export function minColumnWidth(def: ColDef): number {
-  if (def.minWidth) return def.minWidth;
+  const longestWord = Math.max(...def.label.split(/\s+/).map(word => word.length));
+  const headingMinimum = longestWord * 8 + 54; // palavra inteira + drag + ordenação + respiro
   if (def.key === "seq") return 42;
-  if (def.tipo === "date") return 148;
-  if (def.tipo === "number") return 118;
-  if (def.key === "categoria" || def.key === "contaId") return 145;
-  if (def.key === "fantasiaPadrao") return 150;
-  if (def.key === "descricao") return 180;
-  if (def.tipo === "select-api") return 118;
-  if (def.tipo === "select") return 84;
-  return 55;
+  const controlMinimum = def.minWidth ?? (def.tipo === "date" ? 148
+    : def.tipo === "number" ? 118
+    : def.key === "categoria" || def.key === "contaId" ? 145
+    : def.key === "fantasiaPadrao" ? 150
+    : def.key === "descricao" ? 180
+    : def.tipo === "select-api" ? 118
+    : def.tipo === "select" ? 84 : 55);
+  return Math.max(controlMinimum, headingMinimum);
 }
 
 // Config padrão (todas visíveis)

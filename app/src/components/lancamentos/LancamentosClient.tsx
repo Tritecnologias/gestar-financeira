@@ -974,7 +974,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               createActions={[{ label: "+ Cadastrar novo fornecedor", href: "/estrutura/dimensoes-cadastrais#fornecedores-title" }]}
               onChange={value => atualizarFiltro("fornecedorId", value)} /></div>
             <label className={`filter-group ${filtros.centroCusto ? "lanc-criterion-active" : ""}`}><span className="filter-label">Centro de Custo legado</span><input className="filter-input" value={filtros.centroCusto} onChange={event => atualizarFiltro("centroCusto", event.target.value)} /></label>
-            <label className={`filter-group ${filtros.banco ? "lanc-criterion-active" : ""}`}><span className="filter-label">Banco legado</span><input className="filter-input" value={filtros.banco} onChange={event => atualizarFiltro("banco", event.target.value)} /></label>
+            <label className={`filter-group ${filtros.banco ? "lanc-criterion-active" : ""}`}><span className="filter-label">Local Financeiro</span><input className="filter-input" value={filtros.banco} onChange={event => atualizarFiltro("banco", event.target.value)} /></label>
             <label className={`filter-group ${filtros.fornecedor ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor legado</span><input className="filter-input" value={filtros.fornecedor} onChange={event => atualizarFiltro("fornecedor", event.target.value)} /></label>
           </div>}
           {atalhosOpen && <div className="lanc-settings-content"><button className="btn btn-outline" onClick={() => setStatusModalOpen(true)}>Status Manual</button>
@@ -1004,6 +1004,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
           {/* Header fixo */}
           <div ref={headerScrollRef} style={{ overflowX: "hidden", flexShrink: 0 }}>
             <table className="data-table" style={{ tableLayout: "fixed", minWidth: tableWidth, borderCollapse: "separate", borderSpacing: 0 }}>
+              <colgroup><col style={controlsWidth} />{visibleCols.map(def => <col key={def.key} style={{ width: effectiveWidth(def) }} />)}</colgroup>
               <thead>
                 <tr>
                   <th className="lanc-select-cell" style={{ ...controlsWidth, position: "sticky", left: 0, zIndex: 3 }}>
@@ -1049,7 +1050,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                     >
                       <span className="lanc-header-content" style={{
                         display: "flex", alignItems: "center", gap: def.key === "seq" ? 2 : 5,
-                        justifyContent: def.align === "right" ? "flex-end" : def.align === "center" ? "center" : "flex-start"
+                        justifyContent: def.align === "right" ? "flex-end" : "flex-start"
                       }}>
                         {/* Handle de drag (não dispara sort) — só para colunas não fixas */}
                         {!isSticky && (
@@ -1060,7 +1061,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                             ⠿
                           </span>
                         )}
-                        <span className="lanc-header-label" style={{ flex: "1 1 auto", minWidth: 0, textAlign: def.align ?? "left" }}>{def.label}</span>
+                        <span className="lanc-header-label" style={{ flex: "1 1 auto", minWidth: 0, textAlign: def.align === "right" ? "right" : "left" }}>{def.label}</span>
                         {/* Seta de ordenação — oculta só em Ações */}
                         {!isNoSort && (
                           <span style={{
@@ -1105,6 +1106,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
           {/* Body scrollável */}
           <div ref={bodyScrollRef} className="lancamentos-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
             <table className="data-table" style={{ tableLayout: "fixed", minWidth: tableWidth, borderCollapse: "separate", borderSpacing: 0 }}>
+            <colgroup><col style={controlsWidth} />{visibleCols.map(def => <col key={def.key} style={{ width: effectiveWidth(def) }} />)}</colgroup>
             <tbody>
               {loading ? (
                 <tr><td colSpan={visibleCols.length + 1} style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>Carregando...</td></tr>
@@ -1126,7 +1128,12 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                       </span> : <button type="button" className="action-btn lanc-edit-trigger" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => void startEdit(row)}>✏️</button>}
                     </td>
                     {visibleCols.map(def => (
-                      <td key={def.key} data-col-key={def.key} className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : ""].filter(Boolean).join(" ")} style={getTdStyle(def, isEditing)}>
+                      <td key={def.key} data-col-key={def.key} data-editable={def.editavel === false ? undefined : "true"}
+                        tabIndex={!isEditing && def.editavel !== false ? 0 : undefined}
+                        aria-label={!isEditing && def.editavel !== false ? `Editar ${def.label}, lançamento ${row.seq}` : undefined}
+                        onClick={() => { if (!isEditing && def.editavel !== false) void startEdit(row, def.key); }}
+                        onKeyDown={event => { if (!isEditing && def.editavel !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); void startEdit(row, def.key); } }}
+                        className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : ""].filter(Boolean).join(" ")} style={getTdStyle(def, isEditing)}>
                         {isEditing ? renderEditCell(def, row.id) : renderCell(def.key, row, statusTipos, accounts)}
                       </td>
                     ))}

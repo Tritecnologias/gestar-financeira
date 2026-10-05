@@ -8,7 +8,7 @@ type Status = { id: string; codigo: string; nome: string };
 type Field = "dataPagamento" | "dataVencOriginal" | "dataVencPlano" | "categoria" | "contaId" | "statusManual" | "centroCusto" | "banco";
 const LABELS: Record<Field, string> = {
   dataPagamento: "Data de Realização", dataVencOriginal: "Vencimento Original", dataVencPlano: "Vencimento Plano",
-  categoria: "Categoria N1", contaId: "Conta N2", statusManual: "Status Manual", centroCusto: "Centro de Custo", banco: "Banco legado",
+  categoria: "Categoria N1", contaId: "Conta N2", statusManual: "Status Manual", centroCusto: "Centro de Custo", banco: "Local Financeiro",
 };
 const FIELDS = Object.keys(LABELS) as Field[];
 type Preview = { count: number; before: Record<string, string | null>; after: Record<string, string | null>; implicitCategory?: string | null };
