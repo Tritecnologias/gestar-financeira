@@ -56,9 +56,13 @@ export async function POST(req: NextRequest) {
   if (typeof nome !== "string" || typeof email !== "string" || !nome.trim() || !normalizeEmail(email)) {
     return NextResponse.json({ error: "Nome e email são obrigatórios" }, { status: 400 });
   }
+  if (plano !== undefined && !["trial", "mensal", "anual"].includes(plano)) {
+    return NextResponse.json({ error: "Plano inválido" }, { status: 400 });
+  }
 
   // Gerar slug a partir do nome
   const slug = nome.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  if (!slug) return NextResponse.json({ error: "Nome precisa conter letras ou números para gerar o identificador." }, { status: 400 });
 
   // Verificar unicidade
   const existente = await prisma.tenant.findFirst({ where: { OR: [{ slug }, { email: emailEqualsNormalized(email) }] } });

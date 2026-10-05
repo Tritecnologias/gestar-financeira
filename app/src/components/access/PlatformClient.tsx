@@ -1,0 +1,143 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import "./access.css";
+
+type Tenant = { id: string; nome: string; slug: string; email: string; plano: string; ativo: boolean; _count: { memberships: number } };
+type Identity = { id: string; nome: string; email: string; status: string;
+  platformAdmin: { status: string } | null; memberships: { id: string; role: string; tenant: { nome: string } }[] };
+type Membership = { id: string; role: string; status: string; identity: { nome: string; email: string };
+  tenant: { id: string; nome: string }; profile: { nome: string } | null };
+type Tab = "tenants" | "identidades" | "vinculos";
+
+async function read<T>(url: string): Promise<T> {
+  const response = await fetch(url, { cache: "no-store" });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || "Falha ao carregar.");
+  return body;
+}
+
+export default function PlatformClient() {
+  const [tab, setTab] = useState<Tab>("tenants");
+  const [query, setQuery] = useState("");
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [identities, setIdentities] = useState<Identity[]>([]);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"" | "create" | "edit" | "owner">("");
+  const [selected, setSelected] = useState<Tenant | null>(null);
+  const [tenantForm, setTenantForm] = useState({ nome: "", email: "", plano: "trial" });
+  const [ownerForm, setOwnerForm] = useState({ nome: "", email: "", senha: "" });
+  useEffect(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
+  }, []);
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+  }
+
+  const load = useCallback(async () => {
+    try {
+      const [t, i, m] = await Promise.all([
+        read<Tenant[]>("/api/platform/tenants"), read<Identity[]>("/api/platform/identities"),
+        read<Membership[]>("/api/platform/memberships"),
+      ]);
+      setTenants(t); setIdentities(i); setMemberships(m); setError("");
+    } catch (cause) { setError((cause as Error).message); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const shown = useMemo(() => {
+    const q = query.toLocaleLowerCase("pt-BR");
+    if (tab === "tenants") return tenants.filter(t => `${t.nome} ${t.slug} ${t.email}`.toLocaleLowerCase("pt-BR").includes(q));
+    if (tab === "identidades") return identities.filter(i => `${i.nome} ${i.email}`.toLocaleLowerCase("pt-BR").includes(q));
+    return memberships.filter(m => `${m.identity.nome} ${m.identity.email} ${m.tenant.nome} ${m.profile?.nome ?? ""}`.toLocaleLowerCase("pt-BR").includes(q));
+  }, [tab, query, tenants, identities, memberships]);
+
+  async function submit() {
+    setBusy(true); setError("");
+    try {
+      const url = mode === "owner" ? `/api/platform/tenants/${selected!.id}/owners`
+        : mode === "edit" ? `/api/platform/tenants/${selected!.id}` : "/api/tenants";
+      const response = await fetch(url, { method: mode === "edit" ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mode === "owner" ? ownerForm : tenantForm) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Não foi possível concluir.");
+      setMode(""); setSelected(null); setOwnerForm({ nome: "", email: "", senha: "" }); await load();
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  function edit(t: Tenant) { setSelected(t); setTenantForm({ nome: t.nome, email: t.email, plano: t.plano }); setMode("edit"); }
+  async function toggle(t: Tenant) {
+    if (!window.confirm(`${t.ativo ? "Inativar" : "Ativar"} o tenant ${t.nome}?`)) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/platform/tenants/${t.id}`, { method: "PATCH",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo: !t.ativo }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Falha ao alterar tenant.");
+      await load();
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  return <main className="access-page access-platform">
+    <header className="access-header"><div><h1>Administração da Plataforma</h1>
+      <p>Tenants, identidades e vínculos da plataforma. Dados financeiros ficam no contexto de cada tenant.</p></div>
+      <div className="access-header-actions"><button type="button" className="access-button access-button-secondary" onClick={toggleTheme}>Alternar tema</button>
+        <Link href="/selecionar-tenant" className="access-button access-button-secondary">Selecionar tenant</Link></div>
+    </header>
+    <div className="access-toolbar">
+      <div className="access-tabs" role="tablist" aria-label="Administração da plataforma">
+        {(["tenants", "identidades", "vinculos"] as const).map(key =>
+          <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""}
+            onClick={() => { setTab(key); setQuery(""); }}>{key === "vinculos" ? "Memberships" : key === "tenants" ? "Tenants" : "Identidades"}</button>)}
+      </div>
+      <input aria-label="Buscar registros" placeholder="Buscar por nome ou email" value={query} onChange={e => setQuery(e.target.value)} />
+      {tab === "tenants" && <button type="button" className="access-button access-button-primary" onClick={() => {
+        setTenantForm({ nome: "", email: "", plano: "trial" }); setMode("create");
+      }}>+ Novo tenant</button>}
+    </div>
+    {error && <p className="access-error" role="alert">{error}</p>}
+    <div className="access-table-wrap"><table className="access-table"><thead><tr>
+      {tab === "tenants" ? <><th>Tenant</th><th>Email</th><th>Plano</th><th>Status</th><th>Vínculos</th><th>Ações</th></>
+        : tab === "identidades" ? <><th>Identidade</th><th>Email</th><th>Status</th><th>PlatformAdmin</th><th>Tenants</th></>
+        : <><th>Identidade</th><th>Tenant</th><th>Role</th><th>Perfil</th><th>Status</th></>}
+    </tr></thead><tbody>
+      {tab === "tenants" && (shown as Tenant[]).map(t => <tr key={t.id}><td><strong>{t.nome}</strong><small>{t.slug}</small></td>
+        <td>{t.email}</td><td>{t.plano}</td><td>{t.ativo ? "Ativo" : "Inativo"}
+          {!memberships.some(m => m.tenant.id === t.id && m.role === "OWNER" && m.status === "ACTIVE") && <small className="access-warning">Sem OWNER ativo</small>}</td><td>{t._count.memberships}</td>
+        <td className="access-actions"><button onClick={() => edit(t)}>Editar</button><button disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button>
+          <button onClick={() => { setSelected(t); setOwnerForm({ nome: "", email: "", senha: "" }); setMode("owner"); }}>Adicionar OWNER</button></td></tr>)}
+      {tab === "identidades" && (shown as Identity[]).map(i => <tr key={i.id}><td><strong>{i.nome}</strong></td><td>{i.email}</td>
+        <td>{i.status}</td><td>{i.platformAdmin?.status === "ACTIVE" ? "Sim" : "Não"}</td>
+        <td>{i.memberships.map(m => `${m.tenant.nome} (${m.role})`).join(", ") || "—"}</td></tr>)}
+      {tab === "vinculos" && (shown as Membership[]).map(m => <tr key={m.id}><td><strong>{m.identity.nome}</strong><small>{m.identity.email}</small></td>
+        <td>{m.tenant.nome}</td><td>{m.role}</td><td>{m.profile?.nome ?? "Sem perfil"}</td><td>{m.status}</td></tr>)}
+      {!shown.length && <tr><td colSpan={6} className="access-empty">Nenhum registro encontrado.</td></tr>}
+    </tbody></table></div>
+    {mode && <div className="access-modal-backdrop" role="presentation"><section className="access-modal" role="dialog" aria-modal="true" aria-labelledby="platform-modal-title">
+      <h2 id="platform-modal-title">{mode === "owner" ? `Adicionar OWNER · ${selected?.nome}` : mode === "edit" ? "Editar tenant" : "Novo tenant"}</h2>
+      {mode === "owner" ? <>
+        <p className="access-hint">Email já existente reutiliza a identidade; uma identidade nova exige nome e senha temporária. Nenhuma credencial é exibida depois.</p>
+        <label>Nome (nova identidade)<input value={ownerForm.nome} onChange={e => setOwnerForm({ ...ownerForm, nome: e.target.value })} /></label>
+        <label>Email<input type="email" required value={ownerForm.email} onChange={e => setOwnerForm({ ...ownerForm, email: e.target.value })} /></label>
+        <label>Senha (nova identidade)<input type="password" autoComplete="new-password" value={ownerForm.senha} onChange={e => setOwnerForm({ ...ownerForm, senha: e.target.value })} /></label>
+      </> : <>
+        <label>Nome<input required value={tenantForm.nome} onChange={e => setTenantForm({ ...tenantForm, nome: e.target.value })} /></label>
+        <label>Email administrativo<input type="email" required value={tenantForm.email} onChange={e => setTenantForm({ ...tenantForm, email: e.target.value })} /></label>
+        <label>Plano<select value={tenantForm.plano} onChange={e => setTenantForm({ ...tenantForm, plano: e.target.value })}>
+          <option value="trial">Trial</option><option value="mensal">Mensal</option><option value="anual">Anual</option></select></label>
+      </>}
+      {error && <p role="alert" className="access-error">{error}</p>}
+      <div className="access-modal-actions"><button className="access-button access-button-secondary" onClick={() => setMode("")}>Cancelar</button>
+        <button className="access-button access-button-primary" disabled={busy} onClick={submit}>{busy ? "Aguarde…" : "Confirmar"}</button></div>
+    </section></div>}
+  </main>;
+}
