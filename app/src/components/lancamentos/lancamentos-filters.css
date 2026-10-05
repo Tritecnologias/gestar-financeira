@@ -33,10 +33,12 @@
 .lanc-page .filter-group.lanc-direction-out .filter-input { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
 .lanc-clear-filters { display: inline-flex; align-items: center; min-height: 34px; }
 .lanc-clear-filters svg { flex: none; }
+.lanc-page .lanc-clear-filters.is-active { border-color: var(--warning); color: var(--warning); background: color-mix(in srgb, var(--warning) 8%, var(--surface)); }
+.lanc-page .lanc-clear-filters.is-active:hover { background: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
 .lanc-page .lanc-search.filter-active .filter-label { color: var(--action); }
 .lanc-page .lanc-search.filter-active .filter-input { border-color: var(--action); background: var(--selection); }
-.lanc-new-button { border-color: var(--warning); color: var(--warning); }
-.lanc-new-button:hover { background: color-mix(in srgb, var(--warning) 10%, var(--surface)); }
+.lanc-new-button { border-color: var(--action); color: var(--action); }
+.lanc-new-button:hover { border-color: var(--action-hover); color: var(--action-hover); background: var(--selection); }
 .lanc-advanced { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 10px;
   padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); }
 .lanc-advanced p { flex-basis: 100%; margin: 0 0 4px; color: var(--text-secondary); font-size: 12px; }

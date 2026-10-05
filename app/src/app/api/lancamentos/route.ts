@@ -143,6 +143,7 @@ export async function POST(req: NextRequest) {
   // ⚡ seq calculado por tenant dentro de uma transação para garantir unicidade.
   // MAX(seq) + 1 filtrado pelo tenantId — cada tenant tem sua própria sequência.
   const lancamento = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`lancamento-seq:${session.tenantId}`}, 0))`;
     const resultado = await tx.$queryRaw<{ nextseq: number }[]>`
       SELECT COALESCE(MAX(seq), 0) + 1 AS nextseq
       FROM lancamentos

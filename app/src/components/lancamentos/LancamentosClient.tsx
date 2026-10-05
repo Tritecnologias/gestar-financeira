@@ -215,6 +215,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const [statusTipos, setStatusTipos] = useState<StatusManualTipoDTO[]>([]);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [novoModalOpen, setNovoModalOpen] = useState(false);
+  const novoButtonRef = useRef<HTMLButtonElement>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
 
   // Accordion
@@ -252,6 +253,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   };
   const avancadosAtivos = (["statusManual", "categoria", "contaId", "clienteId", "fornecedorId",
     "centroCusto", "banco", "fornecedor"] as const).filter(key => filtros[key]).length;
+  const filtrosAtivos = Boolean(buscaInput.trim() || cardAtivo || Object.entries(filtros).some(([key, value]) =>
+    key === "busca" ? false : key === "dataBase" ? value !== "DATA_LANCAMENTO" : Boolean(value)));
   const periodoAtivo = Boolean(filtros.inicio || filtros.fim);
   const totalPaginas = porPagina === "all" ? 1 : Math.ceil(total / porPagina);
 
@@ -832,7 +835,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <input className="filter-input" value={buscaInput} placeholder="Cliente, fornecedor, fantasia, descrição, anotação"
                 onChange={event => atualizarFiltro("busca", event.target.value)} /></label>
             <div className="lanc-toolbar-actions">
-            <button className="btn btn-outline lanc-new-button" onClick={() => setNovoModalOpen(true)}>+ Novo Lançamento</button>
+            <button ref={novoButtonRef} className="btn btn-outline lanc-new-button" onClick={() => setNovoModalOpen(true)}>+ Novo Lançamento</button>
             <button className="btn btn-primary" onClick={() => setImportModalOpen(true)}>Importar Lançamentos</button>
             </div>
           </div>
@@ -887,7 +890,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <label className={`filter-group ${periodoAtivo ? "filter-active" : ""}`}><span className="filter-label">Até</span>
               <input className="filter-input" type="date" value={filtros.fim} onChange={event => atualizarFiltro("fim", event.target.value)} /></label>
             <div className="lanc-filter-actions">
-              <button className="btn btn-outline lanc-clear-filters" type="button" onClick={() => { setBuscaInput(""); setFiltros({ ...filtrosIniciais(hoje), inicio: "", fim: "" }); setCardAtivo(null); setPagina(1); }}>
+              <button className={`btn btn-outline lanc-clear-filters ${filtrosAtivos ? "is-active" : ""}`} type="button" onClick={() => { setBuscaInput(""); setFiltros({ ...filtrosIniciais(hoje), inicio: "", fim: "" }); setCardAtivo(null); setPagina(1); }}>
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M5.8 9A7 7 0 0 1 18 7l2 5M4 12l2 5a7 7 0 0 0 12.2-2" />
                 </svg>
@@ -1218,7 +1221,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         {/* Modal de novo lançamento */}
         <NovoLancamentoModal
           open={novoModalOpen}
-          onClose={() => setNovoModalOpen(false)}
+          onClose={() => { setNovoModalOpen(false); requestAnimationFrame(() => novoButtonRef.current?.focus()); }}
           onCreated={refreshData}
           counterparties={counterparties}
           statusTipos={statusTipos}
