@@ -8,6 +8,7 @@ import LayoutManager from "./LayoutManager";
 import StatusTiposModal from "./StatusTiposModal";
 import NovoLancamentoModal from "./NovoLancamentoModal";
 import OfficialImportModal from "./OfficialImportModal";
+import BulkEditModal from "./BulkEditModal";
 import CounterpartyPicker from "./CounterpartyPicker";
 import { activeCounterparties, counterpartyDisplay, counterpartyIds, defaultAccount } from "@/lib/counterparty";
 import { lerResumoFluxoCaixa } from "@/lib/cash-flow-response";
@@ -185,6 +186,10 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const bodyScrollRef = useRef<HTMLDivElement>(null);
+  const tableShellRef = useRef<HTMLDivElement>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [ghost, setGhost] = useState<{ id: string; top: number } | null>(null);
 
   // Filtros
   const [filtros, setFiltros] = useState<Filtros>(() => filtrosIniciais(hoje));
@@ -198,6 +203,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const summaryRequestId = useRef(0);
   const [pagina, setPagina] = useState(1);
   const [porPagina, setPorPagina] = useState<LinhasPorPagina>(500);
+  useEffect(() => { setSelectedIds(new Set()); setGhost(null); }, [filtros, cardAtivo, pagina, porPagina]);
 
   // Ordenação
   const [sortKey, setSortKey] = useState("seq");
@@ -361,6 +367,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         return sortDir === "asc" ? cmp : -cmp;
       });
       setLancamentos(rows);
+      setSelectedIds(current => new Set([...current].filter(id => rows.some(row => row.id === id))));
       setTotal(lista.total ?? 0);
       setTotais(lista.totais ?? { valorPrevisto: "0.00", valorRealizado: "0.00", cont: lista.total ?? 0 });
       setListErro("");
@@ -517,7 +524,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
       initialEditValuesRef.current = {};
     }
     const res = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
-    if (res.ok) { showToast("🗑️ Excluído"); refreshData(); }
+    if (res.ok) { showToast("🗑️ Excluído"); setSelectedIds(current => { const next = new Set(current); next.delete(id); return next; }); refreshData(); }
     setPendingDelete(null);
   };
 
@@ -529,6 +536,37 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
       const ob = colConfig.find(c => c.key === b.key)?.order ?? 999;
       return oa - ob;
     });
+  const actionsVisible = visibleCols.some(def => def.key === "acoes");
+  const selectedLoaded = lancamentos.filter(row => selectedIds.has(row.id));
+  const allLoadedSelected = lancamentos.length > 0 && selectedLoaded.length === lancamentos.length;
+  const tableWidth = 54 + visibleCols.reduce((sum, def) => sum + (colConfig.find(config => config.key === def.key)?.width ?? def.width), 0);
+
+  const toggleSelection = (id: string) => setSelectedIds(current => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const showGhost = (row: HTMLTableRowElement, id: string) => {
+    const shell = tableShellRef.current;
+    const scroller = bodyScrollRef.current;
+    if (!shell || !scroller) return;
+    const rect = row.getBoundingClientRect();
+    const body = scroller.getBoundingClientRect();
+    if (rect.bottom < body.top || rect.top > body.bottom) return;
+    setGhost({ id, top: rect.top - shell.getBoundingClientRect().top + rect.height / 2 });
+  };
+  const rowActions = (row: LancamentoDTO) => <div className="actions-cell">
+    {editingId === row.id ? <>
+      <button className="action-btn" onClick={event => { event.stopPropagation(); void saveEdit(row.id); }} title="Salvar alterações" disabled={saving}>✓</button>
+      <button className="action-btn" onClick={event => { event.stopPropagation(); cancelEdit(); }} title="Cancelar edição" disabled={saving}>✕</button>
+    </> : pendingDelete === row.id ? <>
+      <button className="action-btn" onClick={event => { event.stopPropagation(); void handleDelete(row.id); }} title="Confirmar exclusão">✓</button>
+      <button className="action-btn" onClick={event => { event.stopPropagation(); setPendingDelete(null); }} title="Cancelar exclusão">✕</button>
+    </> : <>
+      <button className="action-btn" onClick={event => { event.stopPropagation(); void startEdit(row, visibleCols.find(def => def.editavel !== false)?.key ?? "descricao"); }} title="Editar">✏️</button>
+      <button className="action-btn" onClick={event => { event.stopPropagation(); setPendingDelete(row.id); }} title="Excluir">🗑️</button>
+    </>}
+  </div>;
 
   const { leftOffsets, rightOffsets } = calcStickyOffsets(colConfig);
 
@@ -938,14 +976,23 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         </section>
         {listErro && <div className="lanc-list-error" role="alert">{listErro}</div>}
 
+        {selectedIds.size > 0 && <div className="lanc-selection-bar" role="status">
+          <strong>{selectedIds.size} selecionado(s)</strong>
+          <button className="btn btn-primary" onClick={() => setBulkOpen(true)}>Editar em massa</button>
+          <button className="btn btn-outline" onClick={() => setSelectedIds(new Set())}>Limpar seleção</button>
+        </div>}
+
         {/* Tabela — header fixo + body scrollável com scroll sincronizado */}
-        <div className="lanc-table-shell" aria-busy={loading || updating} style={{ margin: "14px 28px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)", overflow: "hidden" }}>
+        <div ref={tableShellRef} className="lanc-table-shell" aria-busy={loading || updating} onMouseLeave={() => setGhost(null)} style={{ margin: "14px 28px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)", overflow: "hidden" }}>
           {updating && <div className="lanc-list-updating" role="status">Atualizando lançamentos…</div>}
           {/* Header fixo */}
           <div ref={headerScrollRef} style={{ overflowX: "hidden", flexShrink: 0 }}>
-            <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
+            <table className="data-table" style={{ tableLayout: "fixed", minWidth: tableWidth, borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
                 <tr>
+                  <th className="lanc-select-cell" style={{ width: 54, minWidth: 54, maxWidth: 54, position: "sticky", left: 0, zIndex: 3 }}>
+                    <input type="checkbox" aria-label="Selecionar lançamentos carregados" checked={allLoadedSelected} ref={element => { if (element) element.indeterminate = selectedLoaded.length > 0 && !allLoadedSelected; }} onChange={event => setSelectedIds(event.target.checked ? new Set(lancamentos.map(row => row.id)) : new Set())} />
+                  </th>
                   {visibleCols.map(def => {
                     const isSticky   = STICKY_KEYS.has(def.key);
                     const isNoSort   = NO_SORT_KEYS.has(def.key);
@@ -956,7 +1003,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                   return (
                     <th
                       key={def.key}
-                      className={def.key === "contaId" ? "lanc-financial-end" : undefined}
+                      className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : ""].filter(Boolean).join(" ")}
                       style={{
                         ...getThStyle(def),
                         padding: def.key === "seq" ? "8px 4px" : "8px 8px",
@@ -979,7 +1026,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                       onClick={() => !isNoSort && handleSortClick(def.key)}
                       title={
                         isNoSort  ? def.label :
-                        isComputed? `${def.label} — ordenação na página atual` :
+                        isComputed? `${def.label} — Calculado automaticamente; ordenação na página atual` :
                         isSorted  ? (sortDir === "asc" ? `${def.label}: clique para Decrescente` : `${def.label}: clique para limpar`) :
                         `Ordenar por ${def.label}`
                       }
@@ -1040,24 +1087,36 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             </table>
           </div>
           {/* Body scrollável */}
-          <div ref={bodyScrollRef} className="lancamentos-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
-            <table className="data-table" style={{ tableLayout: "fixed", minWidth: visibleCols.reduce((s, d) => s + (colConfig.find(c => c.key === d.key)?.width ?? d.width), 0), borderCollapse: "separate", borderSpacing: 0 }}>
+          <div ref={bodyScrollRef} className="lancamentos-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "auto" }} onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft; setGhost(null); }}>
+            <table className="data-table" style={{ tableLayout: "fixed", minWidth: tableWidth, borderCollapse: "separate", borderSpacing: 0 }}>
             <tbody>
               {loading ? (
-                <tr><td colSpan={visibleCols.length} style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>Carregando...</td></tr>
+                <tr><td colSpan={visibleCols.length + 1} style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>Carregando...</td></tr>
               ) : lancamentos.length === 0 ? (
-                <tr><td colSpan={visibleCols.length} style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>Nenhum lançamento encontrado.</td></tr>
+                <tr><td colSpan={visibleCols.length + 1} style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>Nenhum lançamento encontrado.</td></tr>
               ) : lancamentos.map(row => {
                 const isEditing = editingId === row.id;
                 return (
-                  <tr key={row.id} data-row-id={row.id} className={isEditing ? "editing lanc-inline-editing" : ""} onClick={e => {
+                  <tr key={row.id} data-row-id={row.id} tabIndex={!actionsVisible ? 0 : undefined} className={[isEditing ? "editing lanc-inline-editing" : "", selectedIds.has(row.id) ? "lanc-row-selected" : ""].filter(Boolean).join(" ")}
+                    onMouseEnter={event => { if (!actionsVisible) showGhost(event.currentTarget, row.id); }}
+                    onFocus={event => { if (!actionsVisible) showGhost(event.currentTarget, row.id); }}
+                    onKeyDown={event => { if (!actionsVisible && event.target === event.currentTarget && (event.key === "Enter" || event.key === "F10")) {
+                      event.preventDefault(); showGhost(event.currentTarget, row.id);
+                      requestAnimationFrame(() => tableShellRef.current?.querySelector<HTMLButtonElement>(".lanc-row-ghost button")?.focus());
+                    } }}
+                    onClick={e => {
+                    if ((e.target as HTMLElement).closest("button, input, select, textarea")) return;
                     if (!isEditing) {
                       const cell = (e.target as HTMLElement).closest<HTMLTableCellElement>("td");
-                      void startEdit(row, cell?.dataset.colKey ?? "acoes");
+                      if (cell && !SORT_COMPUTED.has(cell.dataset.colKey ?? "")) void startEdit(row, cell.dataset.colKey ?? "acoes");
                     }
                   }} style={{ cursor: isEditing ? "default" : "pointer" }}>
+                    <td className="lanc-select-cell" style={{ width: 54, minWidth: 54, maxWidth: 54, position: "sticky", left: 0, zIndex: 2 }}>
+                      <input type="checkbox" aria-label={`Selecionar lançamento ${row.seq}`} checked={selectedIds.has(row.id)} onChange={() => toggleSelection(row.id)} onClick={event => event.stopPropagation()} />
+                      {!actionsVisible && <button type="button" className="lanc-touch-actions" aria-label={`Ações do lançamento ${row.seq}`} onClick={event => { event.stopPropagation(); showGhost(event.currentTarget.closest("tr")!, row.id); }}>⋯</button>}
+                    </td>
                     {visibleCols.map(def => (
-                      <td key={def.key} data-col-key={def.key} className={def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, isEditing)}>
+                      <td key={def.key} data-col-key={def.key} className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : ""].filter(Boolean).join(" ")} style={getTdStyle(def, isEditing)}>
                         {def.key === "acoes" ? (
                           <div className="actions-cell">
                             {isEditing ? (
@@ -1103,6 +1162,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               {/* Linha de inserção rápida (Alt+N) */}
               {inlineNewOpen && (
                 <tr className="editing" style={{ background: "rgba(5,150,105,0.06)" }}>
+                  <td className="lanc-select-cell" style={{ width: 54, minWidth: 54, maxWidth: 54 }} />
                   {visibleCols.map((def, idx) => (
                     <td key={def.key} className={def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, true)}>
                       {def.key === "seq" ? (
@@ -1190,6 +1250,9 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             </tbody>
             </table>
           </div>
+          {!actionsVisible && ghost && lancamentos.some(row => row.id === ghost.id) && <div className="lanc-row-ghost" style={{ top: ghost.top }}>
+            {rowActions(lancamentos.find(row => row.id === ghost.id)!)}
+          </div>}
         </div>
 
         {/* Footer */}
@@ -1234,6 +1297,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
           onImported={refreshData}
           filters={parametrosFiltros().toString()}
         />
+        {bulkOpen && <BulkEditModal ids={[...selectedIds]} categories={categories} accounts={accounts} statuses={statusTipos} onClose={() => setBulkOpen(false)} onApplied={() => { setBulkOpen(false); setSelectedIds(new Set()); showToast("✅ Edição em massa concluída"); refreshData(); }} />}
     </div>
   );
 }

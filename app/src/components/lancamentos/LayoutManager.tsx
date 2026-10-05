@@ -73,8 +73,6 @@ export default function LayoutManager({ colConfig, onLayoutChange }: Props) {
   };
 
   const toggleCol = (key: string) => {
-    // Não ocultar coluna de ações
-    if (key === "acoes") return;
     onLayoutChange(prev => prev.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
   };
 
@@ -150,7 +148,6 @@ export default function LayoutManager({ colConfig, onLayoutChange }: Props) {
           </div>
           {/* ordenadas pelo order atual */}
           {[...COLUNAS_DEF]
-            .filter(c => c.key !== "acoes")
             .sort((a, b) => {
               const oa = colConfig.find(c => c.key === a.key)?.order ?? 999;
               const ob = colConfig.find(c => c.key === b.key)?.order ?? 999;
@@ -172,8 +169,8 @@ export default function LayoutManager({ colConfig, onLayoutChange }: Props) {
                   style={{
                     display: "flex", alignItems: "center", gap: 8,
                     padding: "6px 16px",
-                    cursor: obrigatorio ? "not-allowed" : "grab",
-                    opacity: obrigatorio ? 0.5 : 1,
+                    cursor: obrigatorio ? "default" : "grab",
+                    opacity: 1,
                     background: isDragOver ? "rgba(37,99,235,0.07)" : "transparent",
                     borderTop: isDragOver ? "2px solid var(--accent-blue)" : "2px solid transparent",
                     transition: "background 0.1s, border-top 0.1s",
@@ -186,8 +183,7 @@ export default function LayoutManager({ colConfig, onLayoutChange }: Props) {
                     type="checkbox"
                     checked={cfg?.visible ?? true}
                     onChange={() => toggleCol(col.key)}
-                    disabled={obrigatorio}
-                    style={{ cursor: obrigatorio ? "not-allowed" : "pointer" }}
+                    style={{ cursor: "pointer" }}
                   />
                   <span style={{ fontSize: 13, color: "var(--text-primary)", flex: 1 }}>{col.label}</span>
                 </div>
