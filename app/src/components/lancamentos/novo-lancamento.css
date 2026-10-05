@@ -37,9 +37,13 @@
 .lanc-new-default-grid > :nth-child(5), .lanc-new-financial > :nth-child(2) { flex: 0 1 var(--lanc-width-category); min-width: 190px; }
 .lanc-new-default-grid > :nth-child(6), .lanc-new-financial > :nth-child(3) { flex: 0 1 var(--lanc-width-account); min-width: 210px; }
 .lanc-new-financial > :nth-child(4), .lanc-new-financial > :nth-child(5) { flex: 0 1 var(--lanc-width-value); min-width: 135px; }
+.lanc-new-financial > :nth-child(2) { flex-grow: 1; }
+.lanc-new-financial > :nth-child(3) { flex-grow: 1.25; }
+.lanc-new-dates { display: grid; grid-template-columns: repeat(6, minmax(148px, 1fr)); }
 .lanc-new-dimensions > :nth-child(1) { flex: 0 1 200px; min-width: 160px; }
 .lanc-new-dimensions > :nth-child(2), .lanc-new-dimensions > :nth-child(3) { flex: 0 1 190px; min-width: 160px; }
 .lanc-new-dimensions > :nth-child(4) { flex: 0 1 135px; min-width: 110px; }
+.lanc-new-dimensions > :nth-child(-n+3) { flex-grow: 1; }
 .lanc-new-complements > :nth-child(1) { flex: 0 1 190px; min-width: 160px; }
 .lanc-new-complements > :nth-child(2) { flex: 0 1 160px; min-width: 140px; }
 .lanc-new-complements > :nth-child(3) { flex: 0 1 100px; min-width: 80px; }
@@ -70,14 +74,19 @@
 @media (max-width: 1279px) {
   .lanc-new-modal { width: min(96vw, 1100px); }
 }
+@media (max-width: 1150px) {
+  .lanc-new-dates { grid-template-columns: repeat(3, minmax(148px, 1fr)); }
+}
 @media (max-width: 800px) {
   .lanc-new-modal { max-height: 94dvh; }
+  .lanc-new-dates { grid-template-columns: repeat(2, minmax(148px, 1fr)); }
 }
 @media (max-width: 520px) {
   .lanc-new-overlay { padding: 8px; }
   .lanc-new-modal { width: 100%; max-height: 96dvh; }
   .lanc-new-scroll { padding: 12px; }
   .lanc-new-modal .lanc-new-default-grid > *, .lanc-new-modal .lanc-new-group-fields > * { flex: 1 1 100%; min-width: 0; }
+  .lanc-new-dates { grid-template-columns: minmax(0, 1fr); }
   .lanc-new-row-header { align-items: flex-start; flex-wrap: wrap; }
   .lanc-new-defaults-heading { align-items: flex-start; flex-wrap: wrap; }
   .lanc-new-footer { padding: 10px 12px; align-items: stretch; flex-direction: column; }
