@@ -1,5 +1,5 @@
 import { legacyAuthEnabled } from "@/lib/auth";
-import { getIdentityAccess, requireSession } from "@/lib/tenant";
+import { getIdentityAccess, requireTenantAdmin } from "@/lib/tenant";
 
 /** A administração da plataforma não concede contexto operacional empresarial. */
 export async function requireUserAdminActor() {
@@ -9,9 +9,5 @@ export async function requireUserAdminActor() {
       return { id: "", identityId: identity.id, papel: "admin_global" as const, tenantId: "" };
     }
   }
-  const { session } = await requireSession();
-  if (session.papel !== "admin" && session.papel !== "admin_global") {
-    throw Object.assign(new Error("Acesso negado"), { status: 403 });
-  }
-  return session;
+  return (await requireTenantAdmin()).session;
 }

@@ -26,6 +26,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!canManageLegacyUser(session, usuario)) {
     return NextResponse.json({ error: "Sem permissão para este usuário" }, { status: 403 });
   }
+  if (session.papel !== "admin_global") {
+    const targetMap = await prisma.legacyUserAccessMap.findUnique({
+      where: { legacyUsuarioId: id },
+      select: { identity: { select: { platformAdmin: { select: { id: true } } } } },
+    });
+    if (targetMap?.identity.platformAdmin) {
+      return NextResponse.json({ error: "Administrador da plataforma exige autorização própria" }, { status: 403 });
+    }
+  }
 
   if (papel !== undefined && !canAssignLegacyRole(session.papel, papel)) {
     return NextResponse.json({ error: "Papel não permitido" }, { status: 403 });
@@ -127,6 +136,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   if (!canManageLegacyUser(session, usuario)) {
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+  }
+  if (session.papel !== "admin_global") {
+    const targetMap = await prisma.legacyUserAccessMap.findUnique({
+      where: { legacyUsuarioId: id },
+      select: { identity: { select: { platformAdmin: { select: { id: true } } } } },
+    });
+    if (targetMap?.identity.platformAdmin) {
+      return NextResponse.json({ error: "Administrador da plataforma exige autorização própria" }, { status: 403 });
+    }
   }
 
   if (!legacyAuthEnabled) {

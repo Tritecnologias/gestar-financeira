@@ -15,7 +15,9 @@ export async function GET() {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
   }
 
-  const where = session.papel === "admin_global" ? {} : { tenantId: session.tenantId };
+  const where = session.papel === "admin_global" ? {} : {
+    tenantId: session.tenantId, papel: { not: "admin_global" },
+  };
   const usuarios = await prisma.usuario.findMany({
     where,
     select: { id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true, tenantId: true,
