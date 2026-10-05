@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { getIdentityAccess, requirePlatformAdmin, requireSession } from "@/lib/tenant";
+import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
 
 // GET /api/tenants — lista todos os tenants (apenas admin_global)
 export async function GET() {
+  if (!legacyAuthEnabled) {
+    try {
+      const identity = await getIdentityAccess();
+      const tenants = identity.memberships.map(m => ({
+        id: m.tenantId, nome: m.tenant.nome, membershipId: m.id, role: m.role,
+        isActive: false,
+      }));
+      const { cookies } = await import("next/headers");
+      const selected = (await cookies()).get("tenant_context")?.value;
+      const cookiePrefix = `${identity.id}:${identity.loginNonce}:`;
+      const activeId = tenants.length === 1 ? tenants[0].id
+        : selected?.startsWith(cookiePrefix) ? selected.slice(cookiePrefix.length) : null;
+      return NextResponse.json(tenants.map(t => ({ ...t, isActive: t.id === activeId })));
+    } catch (error) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: (error as {status?: number}).status ?? 401 });
+    }
+  }
   let session: any;
   try { ({ session } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
 
@@ -31,12 +49,8 @@ export async function GET() {
 
 // POST /api/tenants — criar novo tenant (apenas admin_global)
 export async function POST(req: NextRequest) {
-  let session: any;
-  try { ({ session } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
-
-  if (session.papel !== "admin_global") {
-    return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
-  }
+  try { await requirePlatformAdmin(); }
+  catch (error) { return NextResponse.json({ error: "Acesso negado" }, { status: (error as {status?: number}).status ?? 403 }); }
 
   const { nome, email, plano } = await req.json();
   if (typeof nome !== "string" || typeof email !== "string" || !nome.trim() || !normalizeEmail(email)) {

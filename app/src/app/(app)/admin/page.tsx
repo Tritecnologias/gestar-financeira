@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 interface Usuario { id: string; nome: string; email: string; papel: string; ativo: boolean; criadoEm: string; tenant?: { nome: string }; tenantId?: string; }
 interface TenantItem { id: string; nome: string; slug: string; email: string; plano: string; }
 
-export default function AdminPage() {
+export default function AdminPage({ platformMode = false }: { platformMode?: boolean }) {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +15,7 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [busca, setBusca] = useState("");
+  const [legacyMode, setLegacyMode] = useState(false);
 
   // Form criar usuário
   const [form, setForm] = useState({ nome: "", email: "", senha: "", papel: "membro", tenantId: "" });
@@ -24,7 +25,7 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [uRes, tRes] = await Promise.all([fetch("/api/usuarios"), fetch("/api/tenants")]);
+      const [uRes, tRes] = await Promise.all([fetch("/api/usuarios"), fetch(platformMode ? "/api/platform/tenants" : "/api/tenants")]);
       if (uRes.status === 403) { setError("Acesso negado — apenas administradores."); return; }
       const uData = await uRes.json();
       const tData = await tRes.json();
@@ -32,8 +33,9 @@ export default function AdminPage() {
       if (Array.isArray(tData)) setTenants(tData);
     } catch { setError("Erro ao carregar"); }
     finally { setLoading(false); }
-  }, []);
+  }, [platformMode]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { fetch("/api/auth/session").then(r => r.json()).then(s => setLegacyMode(s?.user?.authMode === "legacy")).catch(() => {}); }, []);
 
   const criar = async () => {
     if (!form.nome.trim() || !form.email.trim() || !form.senha.trim()) { setError("Preencha todos os campos"); return; }
@@ -120,7 +122,7 @@ export default function AdminPage() {
                       <>
                         <td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} autoFocus onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape")setEditingId(null);}} /></td>
                         <td><input className="cell-input" value={editData.email||""} onChange={e=>setEditData((d:any)=>({...d,email:e.target.value}))} /></td>
-                        <td><select className="cell-input" value={editData.papel||""} onChange={e=>setEditData((d:any)=>({...d,papel:e.target.value}))}><option value="membro">Membro</option><option value="admin">Admin</option><option value="admin_global">Admin Global</option></select></td>
+                        <td><select className="cell-input" value={editData.papel||""} onChange={e=>setEditData((d:any)=>({...d,papel:e.target.value}))}><option value="membro">Membro</option><option value="admin">Admin</option>{legacyMode && <option value="admin_global">Admin Global</option>}</select></td>
                         <td style={{textAlign:"center"}}><input type="checkbox" checked={editData.ativo} onChange={e=>setEditData((d:any)=>({...d,ativo:e.target.checked}))} /></td>
                         <td style={{fontSize:10,color:"var(--text-muted)"}}>{u.tenant?.nome||"—"}</td>
                         <td style={{textAlign:"center"}}>
@@ -172,7 +174,7 @@ export default function AdminPage() {
                   <select value={form.papel} onChange={e => setForm(f=>({...f,papel:e.target.value}))}>
                     <option value="membro">Membro</option>
                     <option value="admin">Admin</option>
-                    <option value="admin_global">Admin Global</option>
+                    {legacyMode && <option value="admin_global">Admin Global</option>}
                   </select>
                 </div>
               </div>

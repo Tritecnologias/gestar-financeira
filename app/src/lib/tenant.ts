@@ -1,21 +1,104 @@
-import { auth } from "@/lib/auth";
+import { auth, legacyAuthEnabled } from "@/lib/auth";
 import { prisma, getTenantPrisma } from "@/lib/db";
 import { cookies } from "next/headers";
 import type { UserSession, Papel } from "@/types";
 import { isActiveLegacySession } from "@/lib/access-policy";
 import { emailEqualsNormalized } from "@/lib/email";
 
+function accessError(message: string, status: number) {
+  return Object.assign(new Error(message), { status });
+}
+
+/** Revalida identidade, memberships e tenants a cada solicitação relevante. */
+export async function getIdentityAccess(authenticatedUser?: { id?: string; authMode?: string; loginNonce?: string }) {
+  const user = authenticatedUser ?? (await auth())?.user as { id?: string; authMode?: string; loginNonce?: string } | undefined;
+  if (!user?.id || user.authMode !== "identity" || !user.loginNonce || legacyAuthEnabled) {
+    throw accessError("Não autenticado", 401);
+  }
+  const identity = await prisma.authIdentity.findUnique({
+    where: { id: user.id },
+    select: {
+      id: true, nome: true, email: true, status: true,
+      platformAdmin: { select: { status: true } },
+      memberships: {
+        where: { status: "ACTIVE", tenant: { ativo: true } },
+        select: { id: true, tenantId: true, role: true, tenant: { select: { nome: true } } },
+        orderBy: { tenant: { nome: "asc" } },
+      },
+    },
+  });
+  if (!identity || identity.status !== "ACTIVE") throw accessError("Não autenticado", 401);
+  return { ...identity, loginNonce: user.loginNonce };
+}
+
+export async function requirePlatformAdmin() {
+  if (legacyAuthEnabled) {
+    const context = await requireSession();
+    if (context.session.papel !== "admin_global") throw accessError("Acesso negado", 403);
+    return { identityId: null, legacySession: context.session };
+  }
+  const identity = await getIdentityAccess();
+  if (identity.platformAdmin?.status !== "ACTIVE") throw accessError("Acesso negado", 403);
+  return { identityId: identity.id, legacySession: null };
+}
+
 /**
- * Valida a sessão e retorna o Prisma Client já escopado ao tenant.
- * Para admin_global: verifica se há um "tenant override" via cookie,
- * permitindo visualizar dados de qualquer tenant.
+ * Valida a sessão e retorna o Prisma Client escopado ao tenant efetivo.
+ * O override de admin_global existe somente no modo legado explícito.
  */
 export async function requireSession() {
   const session = await auth();
   const user = session?.user as any;
   if (!user?.id) {
-    throw Object.assign(new Error("Não autenticado"), { status: 401 });
+    throw accessError("Não autenticado", 401);
   }
+
+  if (!legacyAuthEnabled) {
+    const identity = await getIdentityAccess(user);
+    const memberships = identity.memberships;
+    if (memberships.length === 0) throw accessError("Nenhum tenant ativo disponível para esta identidade", 403);
+    const cookieStore = await cookies();
+    const selected = cookieStore.get("tenant_context")?.value;
+    const cookiePrefix = `${identity.id}:${identity.loginNonce}:`;
+    const selectedTenantId = selected?.startsWith(cookiePrefix)
+      ? selected.slice(cookiePrefix.length) : null;
+    if (selectedTenantId && !memberships.some(m => m.tenantId === selectedTenantId)) {
+      throw accessError("Contexto revogado; selecione outro tenant", 409);
+    }
+    const membership = selectedTenantId
+      ? memberships.find(m => m.tenantId === selectedTenantId)
+      : memberships.length === 1 ? memberships[0] : undefined;
+    if (!membership) throw accessError("Selecione um tenant ativo", 409);
+
+    // Usuario continua sendo a chave histórica de autoria e layouts. Sem mapping
+    // explícito não há contexto empresarial operacional seguro.
+    const mapping = await prisma.legacyUserAccessMap.findFirst({
+      where: { identityId: identity.id, tenantId: membership.tenantId, membershipId: membership.id },
+      select: { legacyUsuarioId: true, legacyUsuario: { select: { ativo: true } } },
+    });
+    if (!mapping?.legacyUsuario.ativo) throw accessError("Vínculo legado pendente ou inativo", 409);
+    const papelAtual: Papel = membership.role === "MEMBER" ? "membro" : "admin";
+    return {
+      db: getTenantPrisma(membership.tenantId),
+      baseTenantId: membership.tenantId,
+      session: {
+        id: mapping.legacyUsuarioId,
+        identityId: identity.id,
+        membershipId: membership.id,
+        membershipRole: membership.role,
+        platformAdmin: identity.platformAdmin?.status === "ACTIVE",
+        authMode: "identity",
+        nome: identity.nome,
+        email: identity.email,
+        papel: papelAtual,
+        tenantId: membership.tenantId,
+        tenantNome: membership.tenant.nome,
+        tenantSelecionado: true,
+      } satisfies UserSession,
+    };
+  }
+
+  if (user.authMode !== "legacy") throw accessError("Não autenticado", 401);
 
   // Admin global pode operar em qualquer tenant via cookie
   // O JWT pode estar desatualizado; estado, papel e tenant de origem vêm do banco.
@@ -56,6 +139,7 @@ export async function requireSession() {
     baseTenantId: dbUser.tenantId,
     session: {
       id:         user.id        as string,
+      authMode:   "legacy",
       nome:       dbUser.nome,
       email:      dbUser.email,
       papel:      papelAtual,
@@ -67,10 +151,7 @@ export async function requireSession() {
 }
 
 /**
- * Igual ao requireSession, mas exige um tenant selecionado explicitamente.
- * Use em rotas de ESCRITA (create/import/update em massa) para impedir que
- * o admin_global grave dados sem ter escolhido um tenant — o que os enviaria
- * ao tenant pessoal dele por engano. Lança 409 quando não há tenant selecionado.
+ * Igual ao requireSession, mas exige contexto empresarial válido para escrita.
  */
 export async function requireEscrita() {
   const ctx = await requireSession();

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requireUserAdminActor } from "@/lib/access-admin";
+import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { canAssignLegacyRole, canUseActiveTenant } from "@/lib/access-policy";
@@ -8,7 +9,7 @@ import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
 // GET /api/usuarios — lista usuários (admin: do próprio tenant, admin_global: todos)
 export async function GET() {
   let session: any;
-  try { ({ session } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
+  try { session = await requireUserAdminActor(); } catch (error) { return NextResponse.json({ error: "Não autorizado" }, { status: (error as {status?: number}).status ?? 401 }); }
 
   if (session.papel !== "admin" && session.papel !== "admin_global") {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
@@ -17,17 +18,31 @@ export async function GET() {
   const where = session.papel === "admin_global" ? {} : { tenantId: session.tenantId };
   const usuarios = await prisma.usuario.findMany({
     where,
-    select: { id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true, tenantId: true, tenant: { select: { nome: true } } },
+    select: { id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true, tenantId: true,
+      tenant: { select: { nome: true } },
+      legacyAccessMap: { select: {
+        identity: { select: { status: true } },
+        membership: { select: { role: true, status: true } },
+        platformAdmin: { select: { status: true } },
+      } },
+    },
     orderBy: [{ criadoEm: "desc" }],
   });
-
-  return NextResponse.json(usuarios);
+  if (legacyAuthEnabled) return NextResponse.json(usuarios.map(({ legacyAccessMap, ...usuario }) => usuario));
+  return NextResponse.json(usuarios.map(({ legacyAccessMap, ...usuario }) => ({
+    ...usuario,
+    papel: legacyAccessMap?.membership
+      ? legacyAccessMap.membership.role === "MEMBER" ? "membro" : "admin"
+      : legacyAccessMap?.platformAdmin?.status === "ACTIVE" ? "admin_global" : usuario.papel,
+    ativo: usuario.ativo && legacyAccessMap?.identity.status === "ACTIVE" &&
+      (legacyAccessMap?.membership?.status === "ACTIVE" || legacyAccessMap?.platformAdmin?.status === "ACTIVE"),
+  })));
 }
 
 // POST /api/usuarios — criar novo usuário
 export async function POST(req: NextRequest) {
   let session: any;
-  try { ({ session } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
+  try { session = await requireUserAdminActor(); } catch (error) { return NextResponse.json({ error: "Não autorizado" }, { status: (error as {status?: number}).status ?? 401 }); }
 
   if (session.papel !== "admin" && session.papel !== "admin_global") {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
@@ -56,6 +71,9 @@ export async function POST(req: NextRequest) {
   }
 
   const papelFinal = papel || "membro";
+  if (!legacyAuthEnabled && papelFinal === "admin_global") {
+    return NextResponse.json({ error: "Administrador da plataforma requer concessão separada" }, { status: 403 });
+  }
   if (!canAssignLegacyRole(session.papel, papelFinal)) {
     return NextResponse.json({ error: "Papel não permitido" }, { status: 403 });
   }
@@ -67,6 +85,31 @@ export async function POST(req: NextRequest) {
   const senhaHash = await bcrypt.hash(senha, 12);
 
   try {
+    if (!legacyAuthEnabled) {
+      const normalizedEmail = normalizeEmail(email);
+      if (await prisma.authIdentity.findUnique({ where: { email: normalizedEmail }, select: { id: true } })) {
+        return NextResponse.json({ error: "Identidade já existe. Vinculação a outro tenant requer fluxo de convite próprio." }, { status: 409 });
+      }
+      const usuario = await prisma.$transaction(async tx => {
+        const identity = await tx.authIdentity.create({
+          data: { nome: nome.trim(), email: normalizedEmail, senhaHash },
+        });
+        const membership = await tx.tenantMembership.create({
+          data: { identityId: identity.id, tenantId: tenantIdFinal,
+            role: papelFinal === "admin" ? "ADMIN" : "MEMBER" },
+        });
+        const created = await tx.usuario.create({
+          data: { tenantId: tenantIdFinal, nome: nome.trim(), email: normalizedEmail, senhaHash, papel: papelFinal },
+          select: { id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true },
+        });
+        await tx.legacyUserAccessMap.create({
+          data: { identityId: identity.id, tenantId: tenantIdFinal,
+            membershipId: membership.id, legacyUsuarioId: created.id },
+        });
+        return created;
+      });
+      return NextResponse.json(usuario, { status: 201 });
+    }
     const usuario = await prisma.usuario.create({
       data: {
         tenantId: tenantIdFinal,
@@ -79,7 +122,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(usuario, { status: 201 });
   } catch (error: any) {
-    if (error.code === "P2002") return NextResponse.json({ error: "Email já cadastrado neste tenant" }, { status: 409 });
+    if (error.code === "P2002") return NextResponse.json({ error: "Email ou vínculo já cadastrado" }, { status: 409 });
     throw error;
   }
 }

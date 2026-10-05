@@ -1,5 +1,4 @@
-// Guards for the current Usuario model. Membership based authorization replaces
-// these when the identity migration is introduced.
+// Guards do modo legado e da compatibilidade administrativa de Usuario.
 export function canManageLegacyUser(
   actor: { papel: string; tenantId: string },
   target: { papel: string; tenantId: string },
@@ -34,4 +33,8 @@ export function tenantOverrideCookieOptions() {
     maxAge: 60 * 60 * 8,
     path: "/",
   };
+}
+
+export function tenantContextCookieOptions() {
+  return tenantOverrideCookieOptions();
 }

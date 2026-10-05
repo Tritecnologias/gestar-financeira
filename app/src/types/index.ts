@@ -144,16 +144,18 @@ export interface PlanoContasDTO {
 // ── Session do usuário logado ─────────────────────────────────
 export interface UserSession {
   id:         string;
+  authMode:   "identity" | "legacy";
+  identityId?: string;
+  membershipId?: string;
+  membershipRole?: "OWNER" | "ADMIN" | "MEMBER";
+  platformAdmin?: boolean;
   nome:       string;
   email:      string;
   papel:      Papel;
   tenantId:   string;
   tenantNome: string;
-  // Indica se o tenant ativo foi selecionado de forma explícita e legítima.
-  // Para admin/membro é sempre true (tenant fixo). Para admin_global só é true
-  // quando há um "tenant override" válido selecionado. Usado para bloquear
-  // operações de escrita do admin_global quando nenhum tenant está selecionado,
-  // evitando gravar dados no tenant pessoal dele por engano.
+  // Em identity: membership ativo validado no banco. Em legacy: contexto do
+  // Usuario e eventual override temporário de admin_global.
   tenantSelecionado: boolean;
 }
 
