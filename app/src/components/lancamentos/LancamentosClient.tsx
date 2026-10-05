@@ -32,6 +32,7 @@ const DATA_BASES: { valor: DataBaseFinanceira; nome: string }[] = [
 ];
 const STATUS_FINANCEIROS = ["REALIZADO", "PREVISTO", "A VENCER", "ATRASADO", "CANCELADO", "INCONSISTENTE"];
 const LINHAS_POR_PAGINA = [100, 200, 500] as const;
+type LinhasPorPagina = (typeof LINHAS_POR_PAGINA)[number] | "all";
 const filtrosIniciais = (hoje: string): Filtros => ({ busca: "", status: "", tipo: "",
   dataBase: "DATA_LANCAMENTO", inicio: `${hoje.slice(0, 7)}-01`, fim: hoje,
   statusManual: "", categoria: "", contaId: "", clienteId: "", fornecedorId: "",
@@ -173,7 +174,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const listRequestId = useRef(0);
   const summaryRequestId = useRef(0);
   const [pagina, setPagina] = useState(1);
-  const [porPagina, setPorPagina] = useState(500);
+  const [porPagina, setPorPagina] = useState<LinhasPorPagina>(500);
 
   // Ordenação
   const [sortKey, setSortKey] = useState("seq");
@@ -229,6 +230,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const avancadosAtivos = (["statusManual", "categoria", "contaId", "clienteId", "fornecedorId",
     "centroCusto", "banco", "fornecedor"] as const).filter(key => filtros[key]).length;
   const periodoAtivo = Boolean(filtros.inicio || filtros.fim);
+  const totalPaginas = porPagina === "all" ? 1 : Math.ceil(total / porPagina);
 
   useEffect(() => {
     const timer = setTimeout(() => setFiltros(current => current.busca === buscaInput ? current : { ...current, busca: buscaInput }), 250);
@@ -813,6 +815,20 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <button className="btn btn-primary" onClick={() => setImportModalOpen(true)}>Importar Lançamentos</button>
             </div>
           </div>
+          <section className="lanc-summary" aria-label="Resumo financeiro dos filtros" aria-busy={resumoAtualizando}>
+            {resumoErro ? <div className="lanc-summary-error">{resumoErro}</div> : !resumo ?
+              <div className="lanc-summary-loading">Carregando resumo financeiro…</div> : <>
+                <div className="lanc-summary-grid">{cards.map(card => {
+                  const valor = Number(cardValor(card.id));
+                  const sinal = card.cor === "saldo" ? valor > 0 ? "positive" : valor < 0 ? "negative" : "zero" : valor === 0 ? "zero" : "";
+                  return <button key={card.id} type="button" className={`lanc-summary-card ${card.cor} ${sinal} ${cardAtivo === card.id ? "is-active" : ""}`}
+                    aria-pressed={cardAtivo === card.id} aria-label={`${card.titulo}: ${formatCurrency(valor)}. Filtrar lançamentos componentes.`}
+                    onClick={() => { setCardAtivo(current => current === card.id ? null : card.id); setPagina(1); }}>
+                    <span>{card.titulo}</span><strong>{formatCurrency(valor)}</strong></button>;
+                })}</div>
+              </>}
+            {resumoAtualizando && resumo && <span className="lanc-summary-updating" role="status">Atualizando resumo…</span>}
+          </section>
           <div className="lanc-filter-main">
             <label className={`filter-group ${filtros.status ? "lanc-criterion-active" : ""}`}><span className="filter-label">Status financeiro</span>
               <select className="filter-input" value={filtros.status} onChange={event => atualizarFiltro("status", event.target.value)}>
@@ -837,8 +853,15 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <button className={`btn btn-outline lanc-year ${filtros.inicio === `${hoje.slice(0, 4)}-01-01` && filtros.fim === hoje ? "filter-active" : ""}`} type="button" onClick={() => {
               setFiltros(current => ({ ...current, busca: buscaInput, inicio: `${hoje.slice(0, 4)}-01-01`, fim: hoje })); setPagina(1);
             }}>Ano atual</button>
-            <button className={`btn btn-outline ${avancadosAtivos ? "lanc-criterion-active" : ""}`} type="button" aria-expanded={avancadosOpen} onClick={() => setAvancadosOpen(open => !open)}>
-              + Filtros{avancadosAtivos ? ` (${avancadosAtivos})` : ""}</button>
+            <button className={`btn btn-outline lanc-advanced-toggle ${avancadosAtivos ? "lanc-criterion-active" : ""}`} type="button"
+              aria-label={avancadosAtivos ? `Filtros avançados, ${avancadosAtivos} ${avancadosAtivos === 1 ? "ativo" : "ativos"}` : "Filtros avançados"}
+              title="Filtros avançados" aria-expanded={avancadosOpen}
+              onClick={() => setAvancadosOpen(open => !open)}>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" />
+              </svg>
+              {avancadosAtivos > 0 && <span className="lanc-advanced-count" aria-hidden="true">{avancadosAtivos}</span>}
+            </button>
             <button className="btn btn-outline" type="button" onClick={() => { setBuscaInput(""); setFiltros({ ...filtrosIniciais(hoje), inicio: "", fim: "" }); setCardAtivo(null); setPagina(1); }}>
               Limpar filtros</button>
           </div>
@@ -871,20 +894,6 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <Link className="btn btn-outline" href="/estrutura/dimensoes-cadastrais">Dimensões Cadastrais</Link>
               <Link className="btn btn-outline" href="/estrutura/dimensao-produtos">Dimensão de Portfólio</Link></div>}
           </div>
-        </section>
-        <section className="lanc-summary" aria-label="Resumo financeiro dos filtros" aria-busy={resumoAtualizando}>
-          {resumoErro ? <div className="lanc-summary-error">{resumoErro}</div> : !resumo ?
-            <div className="lanc-summary-loading">Carregando resumo financeiro…</div> : <>
-              <div className="lanc-summary-grid">{cards.map(card => {
-                const valor = Number(cardValor(card.id));
-                const sinal = card.cor === "saldo" ? valor > 0 ? "positive" : valor < 0 ? "negative" : "zero" : valor === 0 ? "zero" : "";
-                return <button key={card.id} type="button" className={`lanc-summary-card ${card.cor} ${sinal} ${cardAtivo === card.id ? "is-active" : ""}`}
-                  aria-pressed={cardAtivo === card.id} aria-label={`${card.titulo}: ${formatCurrency(valor)}. Filtrar lançamentos componentes.`}
-                  onClick={() => { setCardAtivo(current => current === card.id ? null : card.id); setPagina(1); }}>
-                  <span>{card.titulo}</span><strong>{formatCurrency(valor)}</strong></button>;
-              })}</div>
-            </>}
-          {resumoAtualizando && resumo && <span className="lanc-summary-updating" role="status">Atualizando resumo…</span>}
         </section>
         {listErro && <div className="lanc-list-error" role="alert">{listErro}</div>}
 
@@ -1146,15 +1155,16 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         <div className="table-footer" style={{ margin: "0 28px 14px" }}>
           <span>{total} lançamentos</span>
           <label className="lanc-page-size">Linhas por página
-            <select value={porPagina} onChange={event => { setPorPagina(Number(event.target.value)); setPagina(1); }}>
+            <select value={porPagina} onChange={event => { setPorPagina(event.target.value === "all" ? "all" : Number(event.target.value) as LinhasPorPagina); setPagina(1); }}>
               {LINHAS_POR_PAGINA.map(size => <option key={size} value={size}>{size}</option>)}
+              <option value="all">Tudo</option>
             </select>
           </label>
-          {total > porPagina && (
+          {totalPaginas > 1 && (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina === 1} onClick={() => setPagina(p => p - 1)}>← Ant.</button>
-              <span style={{ fontSize: 12 }}>Pág. {pagina} de {Math.ceil(total / porPagina)}</span>
-              <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina >= Math.ceil(total / porPagina)} onClick={() => setPagina(p => p + 1)}>Próx. →</button>
+              <span style={{ fontSize: 12 }}>Pág. {pagina} de {totalPaginas}</span>
+              <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina >= totalPaginas} onClick={() => setPagina(p => p + 1)}>Próx. →</button>
             </div>
           )}
         </div>

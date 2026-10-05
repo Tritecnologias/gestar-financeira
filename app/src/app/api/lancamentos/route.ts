@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
   try { filtros = lerFiltrosLancamentos(searchParams); }
   catch (error: any) { return NextResponse.json({ error: error.message }, { status: 400 }); }
   const pagina      = parseInt(searchParams.get("pagina") || "1");
-  const porPagina   = Math.min(500, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
+  const tudo        = searchParams.get("porPagina") === "all";
+  const porPagina   = tudo ? 500 : Math.min(500, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
   const sortKey     = searchParams.get("sortKey") || "";
   const sortDir     = (searchParams.get("sortDir") || "desc") as "asc" | "desc";
   const card = searchParams.get("card");
@@ -73,22 +74,23 @@ export async function GET(req: NextRequest) {
     const candidatos = await db.lancamento.findMany({ where, orderBy, include: counterpartInclude });
     const selecionados = candidatos.filter((row: any) => statusCorresponde(row, filtros.status, hojeSaoPaulo()));
     total = selecionados.length;
-    lancamentos = selecionados.slice((pagina - 1) * porPagina, pagina * porPagina);
+    lancamentos = tudo ? selecionados : selecionados.slice((pagina - 1) * porPagina, pagina * porPagina);
   } else {
     [total, lancamentos] = await Promise.all([
       db.lancamento.count({ where }),
-      db.lancamento.findMany({ where, orderBy, skip: (pagina - 1) * porPagina,
-        take: porPagina, include: counterpartInclude }),
+      db.lancamento.findMany({ where, orderBy,
+        ...(!tudo ? { skip: (pagina - 1) * porPagina, take: porPagina } : {}),
+        include: counterpartInclude }),
     ]);
   }
 
   const data = lancamentos.map((l: any, i: number) =>
-    toLancamentoDTO(l, (pagina - 1) * porPagina + i + 1)
+    toLancamentoDTO(l, (tudo ? 0 : (pagina - 1) * porPagina) + i + 1)
   );
 
   return NextResponse.json({
-    data, total, pagina, porPagina,
-    totalPaginas: Math.ceil(total / porPagina),
+    data, total, pagina: tudo ? 1 : pagina, porPagina: tudo ? total : porPagina,
+    totalPaginas: tudo ? 1 : Math.ceil(total / porPagina),
   } satisfies PaginatedResponse<LancamentoDTO>);
 }
 

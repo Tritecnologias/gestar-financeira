@@ -14,6 +14,10 @@
 .lanc-page select.filter-input option,
 .lanc-page select.filter-input optgroup { background: var(--surface); color: var(--text-primary); }
 .lanc-filter-main .lanc-year { white-space: nowrap; }
+.lanc-advanced-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 36px; min-height: 34px; padding: 5px 8px; }
+.lanc-advanced-toggle svg { flex: none; }
+.lanc-advanced-count { min-width: 16px; padding: 0 3px; border-radius: 999px; background: var(--selection); color: var(--action); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
+.lanc-advanced-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .lanc-page .filter-group.lanc-criterion-active .filter-label { color: var(--action); font-weight: 700; }
 .lanc-page .filter-group.lanc-criterion-active .filter-input,
 .lanc-page .btn.lanc-criterion-active { border-color: var(--action); background: var(--selection); color: var(--text-primary); }
@@ -37,9 +41,9 @@
 .lanc-settings .accordion-trigger { width: auto; min-height: 28px; padding: 2px 4px; font-size: 12px; }
 .lanc-settings-content { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0 4px; }
 .lanc-settings-content .btn { font-size: 12px; }
-.lanc-summary { position: relative; display: flex; flex-direction: column; padding: 8px 28px 0; min-width: 0; }
+.lanc-summary { position: relative; display: flex; flex-direction: column; padding: 0 0 10px; min-width: 0; }
 .lanc-summary-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; width: 100%; }
-.lanc-summary-updating { position: absolute; right: 28px; bottom: 1px; color: var(--text-muted);
+.lanc-summary-updating { position: absolute; right: 0; bottom: 1px; color: var(--text-muted);
   background: var(--surface); font-size: 11px; white-space: nowrap; }
 .lanc-table-shell { position: relative; }
 .lanc-list-updating { position: absolute; z-index: 8; right: 12px; top: 42px; padding: 5px 9px;
@@ -126,9 +130,7 @@
   color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); border-radius: 4px; }
 @media (max-width: 1279px) {
   .lanc-filters { padding-inline: 14px; }
-  .lanc-summary { padding-inline: 14px; }
   .lanc-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .lanc-summary-updating { right: 14px; }
   .lanc-page .table-footer { flex-wrap: wrap; gap: 6px; }
 }
 @media (max-width: 700px) {
@@ -139,6 +141,7 @@
   .lanc-toolbar-actions .btn { min-height: 40px; }
   .lanc-page .lanc-table-shell { min-height: 420px !important; height: 55vh; flex: none !important; margin: 10px 14px !important; }
   .lanc-filter-main .filter-group { flex: 1 1 130px; }
+  .lanc-advanced-toggle { min-width: 40px; min-height: 40px; }
   .lanc-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lanc-page .table-footer { margin-inline: 14px !important; }
   .lanc-page-size { margin-left: 0; }
