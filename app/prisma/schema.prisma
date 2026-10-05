@@ -32,6 +32,7 @@ model Tenant {
   usuarios          Usuario[]
   memberships       TenantMembership[]
   accessProfiles    AccessProfile[]
+  ownerEvents       AccessOwnerEvent[]
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
@@ -143,6 +144,24 @@ model AccessProfile {
   @@unique([tenantId, nome])
   @@index([tenantId, ativo])
   @@map("access_profiles")
+}
+
+// Registro pontual da designação explícita de OWNER pela plataforma.
+model AccessOwnerEvent {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  actorIdentityId    String?  @map("actor_identity_id")
+  actorLegacyUserId  String?  @map("actor_legacy_user_id")
+  targetIdentityId   String   @map("target_identity_id")
+  targetMembershipId String   @map("target_membership_id")
+  previousRole       String?  @map("previous_role")
+  previousStatus     String?  @map("previous_status")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@map("access_owner_events")
 }
 
 // Plataforma não é papel empresarial e não dá acesso financeiro implícito.

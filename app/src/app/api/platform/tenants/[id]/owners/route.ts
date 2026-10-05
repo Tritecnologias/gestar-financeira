@@ -11,18 +11,40 @@ type Params = { params: Promise<{ id: string }> };
 /** Bootstrap an OWNER without giving PlatformAdmin operational tenant access. */
 export async function POST(req: NextRequest, { params }: Params) {
   try {
-    await requirePlatformAdmin();
+    const actor = await requirePlatformAdmin();
     const { id: tenantId } = await params;
     const body = await req.json();
     const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
     if (!email.includes("@")) throw Object.assign(new Error("Email inválido."), { status: 400 });
+    if (body.confirm !== true) throw Object.assign(new Error("Confirme explicitamente a designação de OWNER."), { status: 400 });
     const result = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-owner:${tenantId}`}, 0))`;
       const tenant = await tx.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true } });
       if (!tenant) throw Object.assign(new Error("Tenant ativo não encontrado."), { status: 404 });
       let identity = await tx.authIdentity.findUnique({ where: { email } });
       if (identity?.status === "INACTIVE") throw Object.assign(new Error("Identidade inativa."), { status: 409 });
-      if (identity && await tx.tenantMembership.findUnique({ where: { identityId_tenantId: { identityId: identity.id, tenantId } } })) {
-        throw Object.assign(new Error("Identidade já vinculada ao tenant."), { status: 409 });
+      const existing = identity && await tx.tenantMembership.findUnique({
+        where: { identityId_tenantId: { identityId: identity.id, tenantId } },
+        include: { legacyMaps: { select: { legacyUsuarioId: true } } },
+      });
+      if (existing) {
+        if (existing.role === "OWNER" && existing.status === "ACTIVE") {
+          throw Object.assign(new Error("Este vínculo já é OWNER ativo."), { status: 409 });
+        }
+        if (existing.legacyMaps.length !== 1) {
+          throw Object.assign(new Error("Mapping legado incompleto; saneamento necessário."), { status: 409 });
+        }
+        const legacyUser = await tx.usuario.findFirst({ where: { id: existing.legacyMaps[0].legacyUsuarioId, tenantId } });
+        if (!legacyUser) throw Object.assign(new Error("Usuário legado não encontrado neste tenant."), { status: 409 });
+        const membership = await tx.tenantMembership.update({ where: { id: existing.id },
+          data: { role: "OWNER", status: "ACTIVE" } });
+        await tx.usuario.update({ where: { id: legacyUser.id }, data: { papel: "admin", ativo: true } });
+        await tx.accessOwnerEvent.create({ data: {
+          tenantId, actorIdentityId: actor.identityId, actorLegacyUserId: actor.legacySession?.id ?? null,
+          targetIdentityId: identity!.id, targetMembershipId: membership.id,
+          previousRole: existing.role, previousStatus: existing.status,
+        } });
+        return { id: membership.id, email, tenantId, role: membership.role, profileId: membership.profileId };
       }
       if (await tx.usuario.findFirst({ where: { tenantId, email } })) {
         throw Object.assign(new Error("Usuário legado exige saneamento antes do vínculo."), { status: 409 });
@@ -46,6 +68,11 @@ export async function POST(req: NextRequest, { params }: Params) {
         senhaHash: identity.senhaHash, papel: "admin" } });
       await tx.legacyUserAccessMap.create({ data: { tenantId, identityId: identity.id,
         membershipId: membership.id, legacyUsuarioId: legacy.id } });
+      await tx.accessOwnerEvent.create({ data: {
+        tenantId, actorIdentityId: actor.identityId, actorLegacyUserId: actor.legacySession?.id ?? null,
+        targetIdentityId: identity.id, targetMembershipId: membership.id,
+        previousRole: null, previousStatus: null,
+      } });
       return { id: membership.id, email, tenantId, role: membership.role, profileId: profile.id };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
     return NextResponse.json(result, { status: 201 });

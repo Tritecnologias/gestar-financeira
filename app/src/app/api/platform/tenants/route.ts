@@ -8,8 +8,12 @@ export async function GET() {
   catch (error) { return NextResponse.json({ error: "Acesso negado" }, { status: (error as {status?: number}).status ?? 403 }); }
   const tenants = await prisma.tenant.findMany({
     select: { id: true, nome: true, slug: true, email: true, plano: true, ativo: true,
-      _count: { select: { memberships: true } } },
+      _count: { select: { memberships: true } },
+      memberships: { where: { role: "OWNER", status: "ACTIVE" }, select: { id: true } },
+      ownerEvents: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } } },
     orderBy: { nome: "asc" },
   });
-  return NextResponse.json(tenants);
+  return NextResponse.json(tenants.map(({ memberships, ownerEvents, ...tenant }) => ({
+    ...tenant, activeOwnerCount: memberships.length, lastOwnerDesignationAt: ownerEvents[0]?.createdAt ?? null,
+  })));
 }

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import "./access.css";
 
-type Tenant = { id: string; nome: string; slug: string; email: string; plano: string; ativo: boolean; _count: { memberships: number } };
+type Tenant = { id: string; nome: string; slug: string; email: string; plano: string; ativo: boolean;
+  _count: { memberships: number }; activeOwnerCount: number; lastOwnerDesignationAt: string | null };
 type Identity = { id: string; nome: string; email: string; status: string;
   platformAdmin: { status: string } | null; memberships: { id: string; role: string; tenant: { nome: string } }[] };
 type Membership = { id: string; role: string; status: string; identity: { nome: string; email: string };
@@ -59,13 +60,14 @@ export default function PlatformClient() {
   }, [tab, query, tenants, identities, memberships]);
 
   async function submit() {
+    if (mode === "owner" && !window.confirm(`Designar ${ownerForm.email} como OWNER de ${selected?.nome}? Esta ação concede administração essencial do tenant e será registrada.`)) return;
     setBusy(true); setError("");
     try {
       const url = mode === "owner" ? `/api/platform/tenants/${selected!.id}/owners`
         : mode === "edit" ? `/api/platform/tenants/${selected!.id}` : "/api/tenants";
       const response = await fetch(url, { method: mode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "owner" ? ownerForm : tenantForm) });
+        body: JSON.stringify(mode === "owner" ? { ...ownerForm, confirm: true } : tenantForm) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Não foi possível concluir.");
       setMode(""); setSelected(null); setOwnerForm({ nome: "", email: "", senha: "" }); await load();
@@ -112,9 +114,12 @@ export default function PlatformClient() {
     </tr></thead><tbody>
       {tab === "tenants" && (shown as Tenant[]).map(t => <tr key={t.id}><td><strong>{t.nome}</strong><small>{t.slug}</small></td>
         <td>{t.email}</td><td>{t.plano}</td><td>{t.ativo ? "Ativo" : "Inativo"}
-          {!memberships.some(m => m.tenant.id === t.id && m.role === "OWNER" && m.status === "ACTIVE") && <small className="access-warning">Sem OWNER ativo</small>}</td><td>{t._count.memberships}</td>
+          {t.activeOwnerCount === 0 && <small className="access-warning">Sem OWNER ativo · designação necessária</small>}
+          {t.lastOwnerDesignationAt && <small>Última designação: {new Date(t.lastOwnerDesignationAt).toLocaleDateString("pt-BR")}</small>}</td><td>{t._count.memberships}</td>
         <td className="access-actions"><button onClick={() => edit(t)}>Editar</button><button disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button>
-          <button onClick={() => { setSelected(t); setOwnerForm({ nome: "", email: "", senha: "" }); setMode("owner"); }}>Adicionar OWNER</button></td></tr>)}
+          <button onClick={() => { setSelected(t); setOwnerForm({ nome: "", email: "", senha: "" }); setMode("owner"); }}>
+            {t.activeOwnerCount ? "Adicionar OWNER" : "Designar OWNER"}
+          </button></td></tr>)}
       {tab === "identidades" && (shown as Identity[]).map(i => <tr key={i.id}><td><strong>{i.nome}</strong></td><td>{i.email}</td>
         <td>{i.status}</td><td>{i.platformAdmin?.status === "ACTIVE" ? "Sim" : "Não"}</td>
         <td>{i.memberships.map(m => `${m.tenant.nome} (${m.role})`).join(", ") || "—"}</td></tr>)}
@@ -125,7 +130,15 @@ export default function PlatformClient() {
     {mode && <div className="access-modal-backdrop" role="presentation"><section className="access-modal" role="dialog" aria-modal="true" aria-labelledby="platform-modal-title">
       <h2 id="platform-modal-title">{mode === "owner" ? `Adicionar OWNER · ${selected?.nome}` : mode === "edit" ? "Editar tenant" : "Novo tenant"}</h2>
       {mode === "owner" ? <>
-        <p className="access-hint">Email já existente reutiliza a identidade; uma identidade nova exige nome e senha temporária. Nenhuma credencial é exibida depois.</p>
+        <p className="access-hint">Selecione explicitamente o responsável legítimo. Um vínculo existente será promovido; uma identidade nova exige nome e senha. A designação fica registrada.</p>
+        <label>Vínculo existente neste tenant
+          <select value={memberships.some(m => m.tenant.id === selected?.id && m.identity.email === ownerForm.email) ? ownerForm.email : ""}
+            onChange={e => setOwnerForm({ nome: "", email: e.target.value, senha: "" })}>
+            <option value="">Selecionar ou informar email abaixo</option>
+            {memberships.filter(m => m.tenant.id === selected?.id && !(m.role === "OWNER" && m.status === "ACTIVE")).map(m =>
+              <option key={m.id} value={m.identity.email}>{m.identity.nome} · {m.identity.email} · {m.role} / {m.status}</option>)}
+          </select>
+        </label>
         <label>Nome (nova identidade)<input value={ownerForm.nome} onChange={e => setOwnerForm({ ...ownerForm, nome: e.target.value })} /></label>
         <label>Email<input type="email" required value={ownerForm.email} onChange={e => setOwnerForm({ ...ownerForm, email: e.target.value })} /></label>
         <label>Senha (nova identidade)<input type="password" autoComplete="new-password" value={ownerForm.senha} onChange={e => setOwnerForm({ ...ownerForm, senha: e.target.value })} /></label>

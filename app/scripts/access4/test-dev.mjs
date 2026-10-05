@@ -99,6 +99,32 @@ try {
   assert("perfil de leitura nega POST", result.status === 403);
   result = await request("/api/config/logo", jar);
   assert("configuração sem permissão não vaza logo", result.status === 403);
+  result = await request("/api/pessoas", jar);
+  assert("CONSULTA não lê Pessoas", result.status === 403);
+  result = await request("/api/pessoas", jar, { method: "POST", body: "{}" });
+  assert("CONSULTA não cria Pessoas", result.status === 403);
+  result = await request("/api/pessoas/exportar", jar);
+  assert("CONSULTA não exporta Pessoas", result.status === 403);
+  result = await request("/api/pessoas/importar", jar, { method: "POST", body: "{}" });
+  assert("CONSULTA não importa Pessoas", result.status === 403);
+  result = await request("/estrutura/dimensao-pessoas", jar);
+  assert("rota Pessoas sem permissão bloqueada", result.status !== 200);
+  result = await request("/api/estrutura-financeira/exportar", jar);
+  assert("CONSULTA não exporta estrutura financeira", result.status === 403);
+  for (const path of ["/acao/tarefas", "/estrutura/dimensao-empresa", "/estrutura/dimensoes-financeiras",
+    "/estrutura/dimensoes-cadastrais", "/estrutura/dimensao-produtos", "/fluxo-caixa/relatorios",
+    "/fluxo-caixa/graficos"]) {
+    result = await request(path, jar);
+    assert(`rota ${path} bloqueada sem permissão`, result.status !== 200);
+  }
+  result = await request("/api/categorias", jar);
+  assert("consulta compartilhada de Categorias autorizada para Lançamentos", result.status === 200);
+  result = await request("/api/categorias", jar, { method: "POST", body: "{}" });
+  assert("consulta de Categoria não concede criação", result.status === 403);
+  result = await request("/api/produtos", jar, { method: "POST", body: "{}" });
+  assert("CONSULTA não cria Item", result.status === 403);
+  result = await request("/api/tarefas", jar, { method: "POST", body: "{}" });
+  assert("CONSULTA não cria Tarefa", result.status === 403);
   result = await request("/api/lancamentos/importacao-oficial", jar, { method: "POST", body: "{}" });
   assert("perfil de leitura nega importação", result.status === 403);
   result = await request("/api/lancamentos/exportar", jar);
@@ -106,6 +132,18 @@ try {
   await prisma.tenantMembership.update({ where: { id: memberA.id }, data: { profileId: noLaunch.id } });
   result = await request("/lancamentos", jar);
   assert("rota Lançamentos sem permissão bloqueada", result.status !== 200);
+  result = await request("/api/pessoas", jar);
+  assert("RH lê Pessoas", result.status === 200);
+  result = await request("/api/centros-custo", jar);
+  assert("RH lê catálogo de Centros para Pessoas", result.status === 200);
+  result = await request("/api/categorias", jar);
+  assert("RH não lê categorias financeiras", result.status === 403);
+  result = await request("/api/fornecedores", jar);
+  assert("RH não lê Fornecedores", result.status === 403);
+  result = await request("/estrutura/dimensao-pessoas", jar);
+  assert("RH abre rota Pessoas", result.status === 200);
+  result = await request("/estrutura/dimensoes-financeiras", jar);
+  assert("RH não abre Finanças", result.status !== 200);
   await prisma.tenantMembership.update({ where: { id: memberA.id }, data: { profileId: reader.id } });
   await switchTo(jar, b.id);
   result = await request("/api/access/context", jar);
@@ -163,11 +201,19 @@ try {
   result = await request(`/api/platform/tenants/${platformTenant.id}`, platformJar, { method: "PATCH", body: JSON.stringify({ plano: "mensal" }) });
   assert("PlatformAdmin altera plano", result.status === 200 && result.body.plano === "mensal");
   result = await request(`/api/platform/tenants/${platformTenant.id}/owners`, platformJar, { method: "POST", body: JSON.stringify({ email: ownerEmail }) });
+  assert("OWNER exige confirmação explícita", result.status === 400);
+  result = await request(`/api/platform/tenants/${platformTenant.id}/owners`, platformJar, { method: "POST", body: JSON.stringify({ email: ownerEmail, confirm: true }) });
   assert("PlatformAdmin provisiona OWNER existente sem duplicar identidade", result.status === 201);
   const provisioned = result.body;
   created.members.push(provisioned.id); created.profiles.push(provisioned.profileId);
   const provisionedMap = await prisma.legacyUserAccessMap.findFirst({ where: { membershipId: provisioned.id } });
   created.maps.push(provisionedMap.id); created.users.push(provisionedMap.legacyUsuarioId);
+  result = await request(`/api/platform/tenants/${b.id}/owners`, platformJar, { method: "POST", body: JSON.stringify({ email: addedEmail, confirm: true }) });
+  assert("PlatformAdmin promove vínculo existente sem duplicar identidade", result.status === 201 && result.body.id === addedId && result.body.role === "OWNER");
+  const promotion = await prisma.accessOwnerEvent.findFirst({ where: { targetMembershipId: addedId } });
+  assert("designação OWNER registrada com estado anterior", promotion?.previousRole === "MEMBER" && promotion.actorIdentityId === platformIdentity.id);
+  result = await request("/api/platform/tenants", platformJar);
+  assert("readiness OWNER calculada no servidor", result.body.some(t => t.id === b.id && t.activeOwnerCount === 2 && t.lastOwnerDesignationAt));
   result = await request("/api/platform/identities", platformJar);
   assert("inventário de identidades não expõe credenciais", result.status === 200 && !JSON.stringify(result.body).includes("senhaHash"));
   result = await request("/api/platform/memberships", platformJar);
@@ -181,6 +227,7 @@ try {
   } catch (cause) { assert("FK composta rejeita perfil cross-tenant", cause.code === "P2003"); }
   console.log(`ACCESS-4 DEV: ${checks.length} verificações passaram. Fixtures serão removidas.`);
 } finally {
+  await prisma.accessOwnerEvent.deleteMany({ where: { tenantId: { in: created.tenants } } });
   for (const id of created.maps.reverse()) await prisma.legacyUserAccessMap.delete({ where: { id } });
   for (const id of created.members.reverse()) await prisma.tenantMembership.delete({ where: { id } });
   for (const id of created.users.reverse()) await prisma.usuario.delete({ where: { id } });
