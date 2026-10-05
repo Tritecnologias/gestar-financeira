@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { nextProductCode, productApiError, productText, productTransaction, validateProductClassification } from "@/lib/product-catalog";
@@ -5,6 +6,7 @@ import { nextProductCode, productApiError, productText, productTransaction, vali
 const relations = { grupoRef: { select: { id: true, codigo: true, nome: true, ativo: true } }, tipoRef: { select: { id: true, codigo: true, nome: true, grupoId: true, ativo: true } }, linhaRef: { select: { id: true, codigo: true, nome: true, tipoId: true, ativo: true } } };
 
 export async function GET() {
+  const access = await guardApi("estrutura.portfolio.view"); if (access) return access;
   try {
     const { db } = await requireSession();
     return NextResponse.json(await db.produto.findMany({ orderBy: { codigo: "asc" }, include: relations }));
@@ -15,6 +17,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.portfolio.create"); if (access) return access;
   try {
     const { db, session } = await requireEscrita();
     const input = await req.json();

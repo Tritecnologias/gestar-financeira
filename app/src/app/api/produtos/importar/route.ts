@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
 import { nextProductCode, productTransaction, reserveProductCode, validateProductClassification } from "@/lib/product-catalog";
@@ -8,6 +9,7 @@ class InvalidProductImport extends Error {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.portfolio.import"); if (access) return access;
   let context: Awaited<ReturnType<typeof requireEscrita>>;
   try { context = await requireEscrita(); }
   catch (error: any) { return NextResponse.json({ error: error?.message || "Não autorizado" }, { status: error?.status || 401 }); }

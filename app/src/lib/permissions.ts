@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { legacyAuthEnabled } from "@/lib/auth";
 import { requireSession, requireTenantAdmin } from "@/lib/tenant";
 import { ALL_PERMISSIONS, PERMISSION_SET } from "@/lib/access-catalog";
+import { NextResponse } from "next/server";
 
 type Context = Pick<Awaited<ReturnType<typeof requireSession>>, "db" | "session">;
 
@@ -40,6 +41,26 @@ export async function requirePermission(key: string): Promise<Context> {
     throw Object.assign(new Error("Acesso negado para esta ação."), { status: 403 });
   }
   return context;
+}
+
+/** Explicit alternatives are for catalog lookups shared by authorized screens. */
+export async function requireAnyPermission(keys: readonly string[]): Promise<Context> {
+  const context = await requireSession();
+  const granted = await permissionsFor(context);
+  if (!keys.some(key => PERMISSION_SET.has(key) && granted.has(key))) {
+    throw Object.assign(new Error("Acesso negado para esta ação."), { status: 403 });
+  }
+  return context;
+}
+
+export async function guardApi(keys: string | readonly string[]): Promise<NextResponse | null> {
+  try {
+    await requireAnyPermission(typeof keys === "string" ? [keys] : keys);
+    return null;
+  } catch (error) {
+    const { status, message } = permissionError(error);
+    return NextResponse.json({ error: message }, { status });
+  }
 }
 
 export async function requireTenantPermission(key: string): Promise<Context> {

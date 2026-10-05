@@ -1,8 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { createProductStructureWorkbook, PRODUCT_STRUCTURE_FILENAME } from "@/lib/product-import-template";
 
 export async function GET() {
+  const access = await guardApi("estrutura.portfolio.export"); if (access) return access;
   try {
     const { db, session } = await requireSession();
     const [groups, allTypes, lines, items] = await Promise.all([

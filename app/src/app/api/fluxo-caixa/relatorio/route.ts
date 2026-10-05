@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { dataCivil, type DataBaseFinanceira, type FiltrosFinanceiros } from "@/lib/cash-flow";
@@ -9,6 +10,7 @@ const BASES_PREVISTO: DataBaseFinanceira[] = [
 ];
 
 export async function GET(req: NextRequest) {
+  const access = await guardApi("fluxo.relatorios.view"); if (access) return access;
   let context: Awaited<ReturnType<typeof requireSession>>;
   try { context = await requireSession(); }
   catch { return NextResponse.json({ error: "Não autenticado" }, { status: 401 }); }

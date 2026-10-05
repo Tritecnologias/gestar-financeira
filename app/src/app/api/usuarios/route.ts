@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUserAdminActor } from "@/lib/access-admin";
 import { legacyAuthEnabled } from "@/lib/auth";
@@ -8,6 +9,7 @@ import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
 
 // GET /api/usuarios — lista usuários (admin: do próprio tenant, admin_global: todos)
 export async function GET() {
+  const access = await guardApi("acessos.usuarios.view"); if (access) return access;
   let session: any;
   try { session = await requireUserAdminActor(); } catch (error) { return NextResponse.json({ error: "Não autorizado" }, { status: (error as {status?: number}).status ?? 401 }); }
 

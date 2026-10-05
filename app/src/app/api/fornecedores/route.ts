@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { defaultAccountRelation, profileData, validateDefaultAccount } from "@/lib/registration-profile";
@@ -5,6 +6,7 @@ import { registrationCodeAllocator, registrationTransaction } from "@/lib/regist
 
 // GET /api/fornecedores — lista todos do tenant
 export async function GET(req: NextRequest) {
+  const access = await guardApi(["estrutura.cadastrais.view","fluxo.lancamentos.view"]); if (access) return access;
   let db: any;
   try {
     ({ db } = await requireSession());
@@ -27,6 +29,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/fornecedores — criar novo
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.cadastrais.create"); if (access) return access;
   let db: any, tenantId: string;
   try {
     const context = await requireEscrita();

@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
 import { productApiError, productError, productText, productTransaction } from "@/lib/product-catalog";
@@ -5,6 +6,7 @@ import { productApiError, productError, productText, productTransaction } from "
 type Context = { params: Promise<{ id: string }> };
 
 export async function PUT(req: NextRequest, { params }: Context) {
+  const access = await guardApi("estrutura.portfolio.edit"); if (access) return access;
   try {
     const { db, session } = await requireEscrita();
     const { id } = await params;
@@ -25,6 +27,7 @@ export async function PUT(req: NextRequest, { params }: Context) {
 }
 
 export async function PATCH(_req: NextRequest, { params }: Context) {
+  const access = await guardApi("estrutura.portfolio.edit"); if (access) return access;
   try {
     const { db, session } = await requireEscrita();
     const { id } = await params;
@@ -41,6 +44,7 @@ export async function PATCH(_req: NextRequest, { params }: Context) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Context) {
+  const access = await guardApi("estrutura.portfolio.delete"); if (access) return access;
   try {
     const { db, session } = await requireEscrita();
     const { id } = await params;

@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { toNumber } from "@/lib/formatters";
@@ -7,6 +8,7 @@ import type { KpiData } from "@/types";
 // ── GET /api/dashboard ────────────────────────────────────────
 // Retorna KPIs do mês atual para o tenant logado
 export async function GET(req: NextRequest) {
+  const access = await guardApi("fluxo.visao.saldos"); if (access) return access;
   let db: any, session: any;
   try {
     ({ db, session } = await requireSession());

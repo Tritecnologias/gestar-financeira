@@ -1,9 +1,11 @@
+import { guardApi } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { createFinancialStructureWorkbook, FINANCIAL_STRUCTURE_FILENAME } from "@/lib/financial-import-template";
 import { FINANCIAL_ACCOUNT_TYPES } from "@/lib/financial-account-types";
 
 export async function GET() {
+  const access = await guardApi("estrutura.financeiras.export"); if (access) return access;
   let db: Awaited<ReturnType<typeof requireSession>>["db"];
   try { ({ db } = await requireSession()); }
   catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }

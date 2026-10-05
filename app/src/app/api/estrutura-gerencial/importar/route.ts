@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
 import { parseManagementWorkbook, validateManagementWorkbook, type ImportPreview } from "@/lib/management-import";
@@ -7,6 +8,7 @@ class InvalidImport extends Error {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.empresa.import"); if (access) return access;
   let db: any;
   try { ({ db } = await requireEscrita()); }
   catch (error: any) { return NextResponse.json({ error: error?.message || "Não autorizado" }, { status: error?.status || 401 }); }

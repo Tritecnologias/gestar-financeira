@@ -1,8 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 
 // GET /api/status-tipos — lista status manuais do tenant
 export async function GET(req: NextRequest) {
+  const access = await guardApi(["fluxo.lancamentos.view","fluxo.relatorios.view"]); if (access) return access;
   let db: any;
   try {
     ({ db } = await requireSession());
@@ -21,6 +23,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/status-tipos — criar novo
 export async function POST(req: NextRequest) {
+  const access = await guardApi("fluxo.lancamentos.edit"); if (access) return access;
   let db: any;
   try {
     ({ db } = await requireEscrita());

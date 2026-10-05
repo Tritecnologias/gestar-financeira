@@ -22,7 +22,8 @@ try {
   for (const item of seeds) {
     const profile = await prisma.accessProfile.upsert({ where: { tenantId_nome: { tenantId: tenant.id, nome: item.nome } },
       create: { tenantId: tenant.id, ...item }, update: {} });
-    const previousCatalog = ALL_PERMISSIONS.filter(key => !key.startsWith("sistema.configuracoes."));
+    const previousCatalog = ALL_PERMISSIONS.filter(key =>
+      !((key.startsWith("acao.tarefas.") || key.startsWith("estrutura.")) && !key.endsWith(".view")));
     if (item.nome === "ADMINISTRAÇÃO" && profile.descricao === item.descricao &&
         profile.permissoes.length === previousCatalog.length && previousCatalog.every(key => profile.permissoes.includes(key)) &&
         await prisma.tenantMembership.count({ where: { profileId: profile.id } }) === 0) {

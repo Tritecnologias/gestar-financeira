@@ -2,15 +2,15 @@
 export const ACCESS_CATALOG = [
   { id: "acao", label: "Ação", screens: [
     { id: "tarefas", label: "Tarefas", href: "/acao/tarefas", actions: [
-      ["view", "Visualizar"],
+      ["view", "Visualizar"], ["create", "Criar"], ["edit", "Editar"], ["delete", "Excluir"],
     ] },
   ] },
   { id: "estrutura", label: "Estrutura Empresa", screens: [
-    { id: "empresa", label: "Dimensão da Empresa", href: "/estrutura/dimensao-empresa", actions: [["view", "Visualizar"]] },
-    { id: "pessoas", label: "Dimensão de Pessoas", href: "/estrutura/dimensao-pessoas", actions: [["view", "Visualizar"]] },
-    { id: "financeiras", label: "Dimensões Financeiras", href: "/estrutura/dimensoes-financeiras", actions: [["view", "Visualizar"]] },
-    { id: "cadastrais", label: "Dimensões Cadastrais", href: "/estrutura/dimensoes-cadastrais", actions: [["view", "Visualizar"]] },
-    { id: "portfolio", label: "Dimensão de Portfólio", href: "/estrutura/dimensao-produtos", actions: [["view", "Visualizar"]] },
+    { id: "empresa", label: "Dimensão da Empresa", href: "/estrutura/dimensao-empresa", actions: [["view", "Visualizar"], ["create", "Criar"], ["edit", "Editar"], ["delete", "Desativar"], ["import", "Importar"], ["export", "Exportar"]] },
+    { id: "pessoas", label: "Dimensão de Pessoas", href: "/estrutura/dimensao-pessoas", actions: [["view", "Visualizar"], ["create", "Criar"], ["edit", "Editar"], ["delete", "Desativar"], ["import", "Importar"], ["export", "Exportar"]] },
+    { id: "financeiras", label: "Dimensões Financeiras", href: "/estrutura/dimensoes-financeiras", actions: [["view", "Visualizar"], ["create", "Criar"], ["edit", "Editar"], ["delete", "Desativar"], ["import", "Importar"], ["export", "Exportar"]] },
+    { id: "cadastrais", label: "Dimensões Cadastrais", href: "/estrutura/dimensoes-cadastrais", actions: [["view", "Visualizar"], ["create", "Criar"], ["edit", "Editar"], ["delete", "Desativar"], ["import", "Importar"], ["export", "Exportar"]] },
+    { id: "portfolio", label: "Dimensão de Portfólio", href: "/estrutura/dimensao-produtos", actions: [["view", "Visualizar"], ["create", "Criar"], ["edit", "Editar"], ["delete", "Excluir"], ["import", "Importar"], ["export", "Exportar"]] },
     { id: "comerciais", label: "Dimensões Comerciais", href: "/estrutura/dimensoes-comerciais", actions: [["view", "Visualizar"]] },
   ] },
   { id: "fluxo", label: "Fluxo de Caixa", screens: [

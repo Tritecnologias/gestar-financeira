@@ -1,8 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { FINANCIAL_ACCOUNT_TYPES } from "@/lib/financial-account-types";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const access = await guardApi("estrutura.financeiras.edit"); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
   const { id } = await params;
@@ -28,6 +30,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const access = await guardApi("estrutura.financeiras.delete"); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
   const { id } = await params;

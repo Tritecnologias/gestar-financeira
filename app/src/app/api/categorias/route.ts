@@ -1,7 +1,9 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 
 export async function GET() {
+  const access = await guardApi(["estrutura.financeiras.view","estrutura.cadastrais.view","fluxo.lancamentos.view"]); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
   const items = await db.categoria.findMany({ where: { ativo: true }, orderBy: [{ codigo: "asc" }] });
@@ -9,6 +11,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.financeiras.create"); if (access) return access;
   let db: any;
   try { ({ db } = await requireEscrita()); } catch (e: any) { return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 }); }
   const { codigo, nome, tipo } = await req.json();

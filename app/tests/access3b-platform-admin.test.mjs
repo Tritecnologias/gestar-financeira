@@ -43,6 +43,7 @@ test("ACCESS-3B DEV: backfill, rerun, plataforma isolada e identidade combinada"
   const base = process.env.ACCESS3B_TEST_BASE_URL;
   const marker = randomUUID().slice(0, 8);
   const tenantIds = [], identityIds = [], legacyIds = [];
+  let accessProfileId;
   const password = `Fixture-${randomUUID()}`;
   const hash = await bcrypt.hash(password, 10);
   try {
@@ -79,8 +80,11 @@ test("ACCESS-3B DEV: backfill, rerun, plataforma isolada e identidade combinada"
       email: adminEmail, nome: "Tenant admin fixture", senhaHash: hash,
     } });
     identityIds.push(adminIdentity.id);
+    const accessProfile = await prisma.accessProfile.create({ data: { tenantId: tenantA,
+      nome: "ACESSOS TESTE ACCESS3B", permissoes: ["acessos.usuarios.view"] } });
+    accessProfileId = accessProfile.id;
     const adminMember = await prisma.tenantMembership.create({ data: {
-      identityId: adminIdentity.id, tenantId: tenantA, role: "ADMIN",
+      identityId: adminIdentity.id, tenantId: tenantA, role: "ADMIN", profileId: accessProfile.id,
     } });
     const adminLegacy = await prisma.usuario.create({ data: {
       tenantId: tenantA, nome: adminIdentity.nome, email: adminEmail,
@@ -132,7 +136,7 @@ test("ACCESS-3B DEV: backfill, rerun, plataforma isolada e identidade combinada"
     assert.equal((await request(base, solo.jar, "/api/platform/tenants")).status, 200);
     assert.deepEqual(await (await request(base, solo.jar, "/api/tenants")).json(), []);
     assert.equal((await request(base, solo.jar, "/api/access/context")).status, 403);
-    assert.equal((await request(base, solo.jar, "/api/categorias")).status, 401);
+    assert.equal((await request(base, solo.jar, "/api/categorias")).status, 403);
     const soloSwitch = await request(base, solo.jar, "/api/tenants/switch", { method: "POST",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId: tenantB }) });
     assert.equal(soloSwitch.status, 403);
@@ -178,6 +182,7 @@ test("ACCESS-3B DEV: backfill, rerun, plataforma isolada e identidade combinada"
     if (legacyIds.length) await prisma.legacyUserAccessMap.deleteMany({ where: { legacyUsuarioId: { in: legacyIds } } });
     if (cleanupIdentityIds.length) await prisma.platformAdmin.deleteMany({ where: { identityId: { in: cleanupIdentityIds } } });
     if (cleanupIdentityIds.length) await prisma.tenantMembership.deleteMany({ where: { identityId: { in: cleanupIdentityIds } } });
+    if (accessProfileId) await prisma.accessProfile.delete({ where: { id: accessProfileId } });
     if (legacyIds.length) await prisma.usuario.deleteMany({ where: { id: { in: legacyIds } } });
     if (cleanupIdentityIds.length) await prisma.authIdentity.deleteMany({ where: { id: { in: cleanupIdentityIds } } });
     if (tenantIds.length) await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });

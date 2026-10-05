@@ -1,8 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { FINANCIAL_ACCOUNT_TYPES } from "@/lib/financial-account-types";
 
 export async function GET() {
+  const access = await guardApi(["estrutura.financeiras.view","estrutura.cadastrais.view","fluxo.lancamentos.view"]); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
   const items = await db.planoContas.findMany({ where: { ativo: true }, orderBy: [{ codigo: "asc" }] });
@@ -10,6 +12,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.financeiras.create"); if (access) return access;
   let db: any;
   try { ({ db } = await requireEscrita()); } catch (e: any) { return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 }); }
   const { codigo, descricao, tipo, paiId, categoriaId } = await req.json();

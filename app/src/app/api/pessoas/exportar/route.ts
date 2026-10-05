@@ -1,8 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { createPeopleWorkbook, PEOPLE_FILENAME } from "@/lib/people-import-template";
 
 export async function GET() {
+  const access = await guardApi("estrutura.pessoas.export"); if (access) return access;
   let db: Awaited<ReturnType<typeof requireSession>>["db"];
   try { ({ db } = await requireSession()); }
   catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }

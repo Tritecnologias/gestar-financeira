@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { requireSession } from "@/lib/tenant";
@@ -10,6 +11,7 @@ const visoes: VisaoAnalise[] = ["DUAS_SEMANAS", "MENSAL"];
 const medidas: MedidaAnalise[] = ["REALIZADO", "PREVISTO", "COMPARAR"];
 
 export async function GET(req: NextRequest) {
+  const access = await guardApi("fluxo.analises.view"); if (access) return access;
   let context: Awaited<ReturnType<typeof requireSession>>;
   try { context = await requireSession(); }
   catch { return NextResponse.json({ error: "Não autenticado" }, { status: 401 }); }

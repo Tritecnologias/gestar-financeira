@@ -1,9 +1,11 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { defaultAccountRelation, profileData, validateDefaultAccount } from "@/lib/registration-profile";
 import { registrationCodeAllocator, registrationTransaction } from "@/lib/registration-codes";
 
 export async function GET() {
+  const access = await guardApi(["estrutura.cadastrais.view","fluxo.lancamentos.view"]); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
   const items = await db.cliente.findMany({ where: { ativo: true }, orderBy: [{ codigo: "asc" }], include: defaultAccountRelation });
@@ -11,6 +13,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.cadastrais.create"); if (access) return access;
   let db: any, tenantId: string;
   try { const context = await requireEscrita(); db = context.db; tenantId = context.session.tenantId; } catch (e: any) { return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 }); }
   try {

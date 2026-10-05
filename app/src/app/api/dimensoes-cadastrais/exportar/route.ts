@@ -1,8 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { createRegistrationWorkbook, REGISTRATION_FILENAME, type ExportRegistration } from "@/lib/registration-import-template";
 
 export async function GET() {
+  const access = await guardApi("estrutura.cadastrais.export"); if (access) return access;
   let db: Awaited<ReturnType<typeof requireSession>>["db"];
   let tenantId: string;
   try { const context = await requireSession(); db = context.db; tenantId = context.session.tenantId; }

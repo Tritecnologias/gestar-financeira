@@ -64,6 +64,7 @@ test("ACCESS-3 sessão real: Renan 0/1/N, isolamento, revogação e plataforma",
   const tenantIds = [];
   const identityIds = [];
   const membershipIds = [];
+  const profileIds = [];
   const legacyIds = [];
   let highId, homeId, renanId, highMembershipId, homeMembershipId, homeLegacyId;
   try {
@@ -75,12 +76,17 @@ test("ACCESS-3 sessão real: Renan 0/1/N, isolamento, revogação e plataforma",
       tenantIds.push(tenant.id);
     }
     [highId, homeId] = tenantIds;
+    for (const tenantId of [highId, homeId]) {
+      const profile = await prisma.accessProfile.create({ data: { tenantId, nome: "FINANCEIRO TESTE ACCESS3",
+        permissoes: ["estrutura.financeiras.view"] } });
+      profileIds.push(profile.id);
+    }
     const hash = await bcrypt.hash(password, 10);
     const renan = await prisma.authIdentity.create({ data: { nome: "RENAN fixture", email, senhaHash: hash } });
     renanId = renan.id;
     identityIds.push(renanId);
-    const highMembership = await prisma.tenantMembership.create({ data: { identityId: renanId, tenantId: highId, role: "MEMBER" } });
-    const homeMembership = await prisma.tenantMembership.create({ data: { identityId: renanId, tenantId: homeId, role: "ADMIN" } });
+    const highMembership = await prisma.tenantMembership.create({ data: { identityId: renanId, tenantId: highId, role: "MEMBER", profileId: profileIds[0] } });
+    const homeMembership = await prisma.tenantMembership.create({ data: { identityId: renanId, tenantId: homeId, role: "ADMIN", profileId: profileIds[1] } });
     highMembershipId = highMembership.id;
     homeMembershipId = homeMembership.id;
     membershipIds.push(highMembershipId, homeMembershipId);
@@ -119,7 +125,7 @@ test("ACCESS-3 sessão real: Renan 0/1/N, isolamento, revogação e plataforma",
     assert.equal(list.status, 200);
     assert.deepEqual(new Set((await list.json()).map(t => t.id)), new Set([highId, homeId]));
     assert.equal((await request(base, jar, "/api/access/context")).status, 409, "N memberships require selection");
-    assert.equal((await request(base, jar, "/api/categorias")).status, 401);
+    assert.equal((await request(base, jar, "/api/categorias")).status, 409);
     const blockedPage = await request(base, jar, "/lancamentos");
     assert.equal(blockedPage.status, 307);
     assert.ok(blockedPage.headers.get("location")?.endsWith("/selecionar-tenant"));
@@ -167,7 +173,7 @@ test("ACCESS-3 sessão real: Renan 0/1/N, isolamento, revogação e plataforma",
     assert.equal((await request(base, zeroLogin.jar, "/api/access/context")).status, 403);
     const platformLogin = await login(base, platform.email, password);
     assert.equal((await request(base, platformLogin.jar, "/api/platform/tenants")).status, 200);
-    assert.equal((await request(base, platformLogin.jar, "/api/categorias")).status, 401);
+    assert.equal((await request(base, platformLogin.jar, "/api/categorias")).status, 403);
     assert.equal((await switchTenant(base, platformLogin.jar, highId)).status, 403);
 
     // ACCESS-4 moved creation and role management to tenant-scoped memberships.
@@ -184,6 +190,7 @@ test("ACCESS-3 sessão real: Renan 0/1/N, isolamento, revogação e plataforma",
     if (legacyIds.length) await prisma.usuario.deleteMany({ where: { id: { in: legacyIds } } });
     if (identityIds.length) await prisma.platformAdmin.deleteMany({ where: { identityId: { in: identityIds } } });
     if (membershipIds.length) await prisma.tenantMembership.deleteMany({ where: { id: { in: membershipIds } } });
+    if (profileIds.length) await prisma.accessProfile.deleteMany({ where: { id: { in: profileIds } } });
     if (identityIds.length) await prisma.authIdentity.deleteMany({ where: { id: { in: identityIds } } });
     if (tenantIds.length) await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
     await prisma.$disconnect();

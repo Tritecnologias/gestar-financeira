@@ -1,8 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 
 // DELETE /api/layouts/[id] — excluir layout
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const access = await guardApi("fluxo.lancamentos.view"); if (access) return access;
   let db: any, session: any;
   try {
     ({ db, session } = await requireSession());

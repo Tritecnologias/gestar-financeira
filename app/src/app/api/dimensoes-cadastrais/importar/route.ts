@@ -1,3 +1,4 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
 import { parseRegistrationWorkbook, validateRegistrationWorkbook, type RegistrationPreview, type RegistrationRow } from "@/lib/registration-import";
@@ -8,6 +9,7 @@ class InvalidRegistrationImport extends Error {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.cadastrais.import"); if (access) return access;
   let db: Awaited<ReturnType<typeof requireEscrita>>["db"];
   let tenantId: string;
   try { const context = await requireEscrita(); db = context.db; tenantId = context.session.tenantId; }

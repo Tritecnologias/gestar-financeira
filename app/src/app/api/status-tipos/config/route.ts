@@ -1,9 +1,11 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 
 // GET /api/status-tipos/config — retorna título da tabela de apoio
 export async function GET() {
+  const access = await guardApi("fluxo.lancamentos.view"); if (access) return access;
   let session: any;
   try {
     ({ session } = await requireSession());
@@ -21,6 +23,7 @@ export async function GET() {
 
 // PUT /api/status-tipos/config — atualiza título da tabela de apoio
 export async function PUT(req: NextRequest) {
+  const access = await guardApi("fluxo.lancamentos.edit"); if (access) return access;
   let session: any;
   try {
     ({ session } = await requireEscrita());

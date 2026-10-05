@@ -1,7 +1,9 @@
+import { guardApi } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 
 export async function GET() {
+  const access = await guardApi("estrutura.pessoas.view"); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); }
   catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }

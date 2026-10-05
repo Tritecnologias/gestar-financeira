@@ -1,8 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { validateActiveArea } from "@/lib/management-structure";
 
 export async function GET() {
+  const access = await guardApi(["estrutura.empresa.view","estrutura.pessoas.view"]); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
   const items = await db.centroCusto.findMany({ where: { ativo: true }, orderBy: [{ codigo: "asc" }], include: { area: { select: { codigo: true, nome: true } } } });
@@ -10,6 +12,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.empresa.create"); if (access) return access;
   let db: any;
   try { ({ db } = await requireEscrita()); } catch (e: any) { return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 }); }
   const { codigo, nome, areaId } = await req.json();
