@@ -3,16 +3,28 @@ import { requireSession } from "@/lib/tenant";
 import { counterpartInclude } from "@/lib/lancamento-counterparty";
 import { createOfficialWorkbook } from "@/lib/lancamento-official-import";
 import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamentos } from "@/lib/lancamento-filters";
+import { CARDS_LANCAMENTO, type CardLancamento } from "@/lib/lancamento-card-filter";
+import { consultarIdsDoCard } from "@/lib/lancamento-card-query";
 
 export async function GET(req: NextRequest) {
   let db: any, session: any;
   try { ({ db, session } = await requireSession()); }
   catch { return NextResponse.json({ error: "Não autenticado" }, { status: 401 }); }
+  const params = new URL(req.url).searchParams;
   let filters: ReturnType<typeof lerFiltrosLancamentos>;
-  try { filters = lerFiltrosLancamentos(new URL(req.url).searchParams); }
+  try { filters = lerFiltrosLancamentos(params); }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Filtros inválidos" }, { status: 400 }); }
+  const card = params.get("card");
+  if (card && !CARDS_LANCAMENTO.includes(card as CardLancamento)) {
+    return NextResponse.json({ error: "Indicador inválido." }, { status: 400 });
+  }
+  const where = whereLancamentos(filters, session.tenantId, !card);
+  if (card) {
+    const ids = await consultarIdsDoCard(db, filters, session.tenantId, card as CardLancamento, hojeSaoPaulo());
+    where.id = { in: ids };
+  }
   const candidates = await db.lancamento.findMany({
-    where: whereLancamentos(filters, session.tenantId, true),
+    where,
     orderBy: [{ dataLanc: "desc" }, { seq: "desc" }],
     include: counterpartInclude,
   });

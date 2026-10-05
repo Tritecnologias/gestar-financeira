@@ -12,6 +12,7 @@ import CounterpartyPicker from "./CounterpartyPicker";
 import { activeCounterparties, counterpartyDisplay, counterpartyIds, defaultAccount } from "@/lib/counterparty";
 import { lerResumoFluxoCaixa } from "@/lib/cash-flow-response";
 import type { calcularFluxoCaixa, DataBaseFinanceira } from "@/lib/cash-flow";
+import { type CardLancamento } from "@/lib/lancamento-card-filter";
 import "./lancamentos-filters.css";
 
 type CategoryOption = { id: string; codigo: string; nome: string };
@@ -118,8 +119,8 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
     case "status":      return <ChipStatus status={val} tipo={row.tipo} />;
     case "statusAuto":  return <><ChipStatusAuto s={val} tipo={row.tipo} />{row.problemasFinanceiros?.length ?
       <span className="lanc-review" title={row.problemasFinanceiros.map(problema => PROBLEMAS[problema] || problema).join("; ")}>Revisar</span> : null}</>;
-    case "valorPrevisto": return <span className="lanc-value-forecast">{formatCurrency(val)}</span>;
-    case "valor": return <span className={row.status === "previsto" ? row.tipo === "ENTRADA" ? "lanc-value-receivable" : "lanc-value-payable" : row.statusAuto === "PAGO" ? (row.tipo === "ENTRADA" ? "val-entrada" : "val-saida") : "lanc-value-neutral"}>{formatCurrency(val)}</span>;
+    case "valorPrevisto": return <span className={Number(val) === 0 ? "lanc-value-neutral" : row.tipo === "ENTRADA" ? "val-entrada" : "val-saida"}>{formatCurrency(val)}</span>;
+    case "valor": return <span className={Number(val) === 0 ? "lanc-value-neutral" : row.tipo === "ENTRADA" ? "val-entrada" : "val-saida"}>{formatCurrency(val)}</span>;
     case "statusManual": {
       const tipo = statusTipos?.find(st => st.codigo === val);
       const label = tipo ? tipo.nome : val;
@@ -161,6 +162,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
 
   // Filtros
   const [filtros, setFiltros] = useState<Filtros>(() => filtrosIniciais(hoje));
+  const [cardAtivo, setCardAtivo] = useState<CardLancamento | null>(null);
   const [buscaInput, setBuscaInput] = useState("");
   const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
   const [resumoAtualizando, setResumoAtualizando] = useState(false);
@@ -215,12 +217,15 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     }));
     setPagina(1);
   };
-  const parametrosFiltros = () => new URLSearchParams(
-    Object.entries({ ...filtros, busca: buscaInput }).filter(([, value]) => value) as [string, string][]);
+  const parametrosFiltros = () => {
+    const params = new URLSearchParams(Object.entries({ ...filtros, busca: buscaInput })
+      .filter(([, value]) => value) as [string, string][]);
+    if (cardAtivo) params.set("card", cardAtivo);
+    return params;
+  };
   const avancadosAtivos = (["statusManual", "categoria", "contaId", "clienteId", "fornecedorId",
     "centroCusto", "banco", "fornecedor"] as const).filter(key => filtros[key]).length;
-  const periodoPadrao = filtrosIniciais(hoje);
-  const periodoAtivo = filtros.inicio !== periodoPadrao.inicio || filtros.fim !== periodoPadrao.fim;
+  const periodoAtivo = Boolean(filtros.inicio || filtros.fim);
 
   useEffect(() => {
     const timer = setTimeout(() => setFiltros(current => current.busca === buscaInput ? current : { ...current, busca: buscaInput }), 250);
@@ -307,6 +312,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     if (loadedList.current) setUpdating(true);
     else setLoading(true);
     const params = new URLSearchParams(Object.entries(filtros).filter(([, value]) => value) as [string, string][]);
+    if (cardAtivo) params.set("card", cardAtivo);
     params.set("pagina", String(pagina));
     params.set("porPagina", "50");
     if (sortKey && !SORT_COMPUTED.has(sortKey)) { params.set("sortKey", sortKey); params.set("sortDir", sortDir); }
@@ -336,15 +342,16 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         setUpdating(false);
       }
     }
-  }, [filtros, pagina, sortKey, sortDir]);
+  }, [filtros, cardAtivo, pagina, sortKey, sortDir]);
 
   const loadSummary = useCallback(async (signal?: AbortSignal) => {
     const currentRequest = ++summaryRequestId.current;
     setResumoAtualizando(true);
     const params = new URLSearchParams(Object.entries(filtros).filter(([, value]) => value) as [string, string][]);
     params.set("dataReferencia", hoje);
+    params.set("inicio", filtros.inicio || "1900-01-01");
+    params.set("fim", filtros.fim || hoje);
     try {
-      if (!filtros.inicio || !filtros.fim) throw new Error("Informe De e Até para calcular o resumo.");
       const data = await fetch(`/api/fluxo-caixa/resumo?${params}`, { signal }).then(lerResumoFluxoCaixa);
       if (currentRequest !== summaryRequestId.current || signal?.aborted) return;
       setResumo(data);
@@ -362,8 +369,23 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   useEffect(() => { const controller = new AbortController(); void loadList(controller.signal); return () => controller.abort(); }, [loadList]);
   useEffect(() => { const controller = new AbortController(); void loadSummary(controller.signal); return () => controller.abort(); }, [loadSummary]);
 
-  // O motor compartilha os componentes financeiros com a Visão Geral; a tabela permanece paginada.
-  const resumoPeriodo = filtros.dataBase === "REALIZACAO" ? resumo?.realizado : resumo?.consulta.realizado;
+  // Cards seguem a posição financeira do motor, independentemente da data-base da grade.
+  const cardValor = (card: CardLancamento) => {
+    if (!resumo) return "0.00";
+    if (card === "aReceber" || card === "aPagar") {
+      return resumo.previsaoAberta[card === "aReceber" ? "entradas" : "saidas"];
+    }
+    return resumo[card].total;
+  };
+  const cards: { id: CardLancamento; titulo: string; cor: string }[] = [
+    { id: "saldoAnterior", titulo: "Saldo anterior", cor: "base" },
+    { id: "entradas", titulo: "Entradas", cor: "entrada" },
+    { id: "saidas", titulo: "Saídas", cor: "saida" },
+    { id: "aReceber", titulo: "A receber", cor: "receber" },
+    { id: "aPagar", titulo: "A pagar", cor: "pagar" },
+    { id: "saldoPeriodo", titulo: "Saldo do período", cor: "saldo" },
+    { id: "saldoFinal", titulo: !filtros.fim || filtros.fim === hoje ? "Saldo atual" : "Saldo final", cor: "saldo" },
+  ];
 
   // ── Edição inline ─────────────────────────────────────────
   useEffect(() => {
@@ -784,36 +806,19 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                 onChange={event => atualizarFiltro("busca", event.target.value)} /></label>
             <span className="lanc-toolbar-count">{total} lançamentos</span>
             <div className="lanc-toolbar-actions">
-            <button className="btn btn-outline" onClick={() => setImportModalOpen(true)}>📥 Importar</button>
-            <button className="btn btn-outline" onClick={async () => {
-              showToast("⏳ Gerando CSV completo...");
-              try {
-                const params = parametrosFiltros();
-                if (sortKey) { params.set("sortKey", sortKey); params.set("sortDir", sortDir); }
-                const res = await fetch(`/api/lancamentos/exportar?${params}`);
-                if (!res.ok) { showToast("❌ Erro ao exportar"); return; }
-                const totalReg = res.headers.get("X-Total-Registros") || "?";
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a"); a.href = url; a.download = `lancamentos_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-                URL.revokeObjectURL(url);
-                showToast(`✅ CSV exportado (${totalReg} registros)`);
-              } catch {
-                showToast("❌ Erro ao exportar CSV");
-              }
-            }}>📊 Exportar CSV</button>
-            <button className="btn btn-primary" onClick={() => setNovoModalOpen(true)}>+ Novo</button>
+            <button className="btn btn-outline lanc-new-button" onClick={() => setNovoModalOpen(true)}>+ Novo Lançamento</button>
+            <button className="btn btn-primary" onClick={() => setImportModalOpen(true)}>Importar Lançamentos</button>
             </div>
           </div>
           <div className="lanc-filter-main">
-            <label className={`filter-group ${filtros.status ? "filter-active" : ""}`}><span className="filter-label">Status financeiro</span>
+            <label className={`filter-group ${filtros.status ? "lanc-criterion-active" : ""}`}><span className="filter-label">Status financeiro</span>
               <select className="filter-input" value={filtros.status} onChange={event => atualizarFiltro("status", event.target.value)}>
                 <option value="">Todos</option>{STATUS_FINANCEIROS.map(status =>
                   <option key={status} value={status}>{status === "REALIZADO" ? "REALIZADO / PAGO" : status}</option>)}</select></label>
-            <label className={`filter-group ${filtros.tipo ? "filter-active" : ""}`}><span className="filter-label">Direção</span>
+            <label className={`filter-group ${filtros.tipo === "ENTRADA" ? "lanc-direction-in" : filtros.tipo === "SAIDA" ? "lanc-direction-out" : ""}`}><span className="filter-label">Direção</span>
               <select className="filter-input" value={filtros.tipo} onChange={event => atualizarFiltro("tipo", event.target.value)}>
                 <option value="">Todas</option><option value="ENTRADA">Entrada</option><option value="SAIDA">Saída</option></select></label>
-            <label className={`filter-group ${filtros.dataBase !== "DATA_LANCAMENTO" ? "filter-active" : ""}`}><span className="filter-label">Data-base</span>
+            <label className="filter-group lanc-criterion-active"><span className="filter-label">Data-base</span>
               <select className="filter-input" value={filtros.dataBase} onChange={event => atualizarFiltro("dataBase", event.target.value)}>
                 {DATA_BASES.map(item => <option key={item.valor} value={item.valor}>{item.nome}</option>)}</select></label>
             <label className={`filter-group ${periodoAtivo ? "filter-active" : ""}`}><span className="filter-label">Mês / Ano</span>
@@ -826,33 +831,33 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <input className="filter-input" type="date" value={filtros.inicio} onChange={event => atualizarFiltro("inicio", event.target.value)} /></label>
             <label className={`filter-group ${periodoAtivo ? "filter-active" : ""}`}><span className="filter-label">Até</span>
               <input className="filter-input" type="date" value={filtros.fim} onChange={event => atualizarFiltro("fim", event.target.value)} /></label>
-            <button className="btn btn-outline lanc-year" type="button" onClick={() => {
+            <button className={`btn btn-outline lanc-year ${filtros.inicio === `${hoje.slice(0, 4)}-01-01` && filtros.fim === hoje ? "filter-active" : ""}`} type="button" onClick={() => {
               setFiltros(current => ({ ...current, busca: buscaInput, inicio: `${hoje.slice(0, 4)}-01-01`, fim: hoje })); setPagina(1);
             }}>Ano atual</button>
-            <button className={`btn btn-outline ${avancadosAtivos ? "filter-active" : ""}`} type="button" aria-expanded={avancadosOpen} onClick={() => setAvancadosOpen(open => !open)}>
+            <button className={`btn btn-outline ${avancadosAtivos ? "lanc-criterion-active" : ""}`} type="button" aria-expanded={avancadosOpen} onClick={() => setAvancadosOpen(open => !open)}>
               + Filtros{avancadosAtivos ? ` (${avancadosAtivos})` : ""}</button>
-            <button className="btn btn-outline" type="button" onClick={() => { setBuscaInput(""); setFiltros(filtrosIniciais(hoje)); setPagina(1); }}>
+            <button className="btn btn-outline" type="button" onClick={() => { setBuscaInput(""); setFiltros({ ...filtrosIniciais(hoje), inicio: "", fim: "" }); setCardAtivo(null); setPagina(1); }}>
               Limpar filtros</button>
           </div>
           {avancadosOpen && <div className="lanc-advanced" aria-label="Filtros avançados">
             <p>Status Manual é uma classificação operacional; não comprova pagamento ou recebimento.</p>
-            <label className={`filter-group ${filtros.statusManual ? "filter-active" : ""}`}><span className="filter-label">Status Manual</span><select className="filter-input" value={filtros.statusManual} onChange={event => atualizarFiltro("statusManual", event.target.value)}>
+            <label className={`filter-group ${filtros.statusManual ? "lanc-criterion-active" : ""}`}><span className="filter-label">Status Manual</span><select className="filter-input" value={filtros.statusManual} onChange={event => atualizarFiltro("statusManual", event.target.value)}>
               <option value="">Todos</option>{statusTipos.map(st => <option key={st.id} value={st.codigo}>{st.nome}</option>)}</select></label>
-            <label className={`filter-group ${filtros.categoria ? "filter-active" : ""}`}><span className="filter-label">Categoria N1</span><select className="filter-input" value={filtros.categoria} onChange={event => atualizarFiltro("categoria", event.target.value)}>
+            <label className={`filter-group ${filtros.categoria ? "lanc-criterion-active" : ""}`}><span className="filter-label">Categoria N1</span><select className="filter-input" value={filtros.categoria} onChange={event => atualizarFiltro("categoria", event.target.value)}>
               <option value="">Todas</option>{categories.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)}</select></label>
-            <label className={`filter-group ${filtros.contaId ? "filter-active" : ""}`}><span className="filter-label">Conta N2</span><select className="filter-input" value={filtros.contaId} onChange={event => {
+            <label className={`filter-group ${filtros.contaId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Conta N2</span><select className="filter-input" value={filtros.contaId} onChange={event => {
               const account = accounts.find(item => item.id === event.target.value);
               const category = categories.find(item => item.id === account?.categoriaId);
               setFiltros(current => ({ ...current, busca: buscaInput, contaId: account?.id || "", categoria: category?.codigo || current.categoria })); setPagina(1);
             }}><option value="">Todas</option>{accounts.filter(item => !filtros.categoria || item.categoriaId === categories.find(cat => cat.codigo === filtros.categoria)?.id)
               .map(item => <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}</select></label>
-            <label className={`filter-group ${filtros.clienteId ? "filter-active" : ""}`}><span className="filter-label">Cliente</span><select className="filter-input" value={filtros.clienteId} onChange={event => atualizarFiltro("clienteId", event.target.value)}>
+            <label className={`filter-group ${filtros.clienteId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Cliente</span><select className="filter-input" value={filtros.clienteId} onChange={event => atualizarFiltro("clienteId", event.target.value)}>
               <option value="">Todos</option>{clientes.map((item: any) => <option key={item.id} value={item.id}>{item.nomeFantasia || item.nome}</option>)}</select></label>
-            <label className={`filter-group ${filtros.fornecedorId ? "filter-active" : ""}`}><span className="filter-label">Fornecedor</span><select className="filter-input" value={filtros.fornecedorId} onChange={event => atualizarFiltro("fornecedorId", event.target.value)}>
+            <label className={`filter-group ${filtros.fornecedorId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor</span><select className="filter-input" value={filtros.fornecedorId} onChange={event => atualizarFiltro("fornecedorId", event.target.value)}>
               <option value="">Todos</option>{fornecedores.map(item => <option key={item.id} value={item.id}>{item.display || item.nome}</option>)}</select></label>
-            <label className={`filter-group ${filtros.centroCusto ? "filter-active" : ""}`}><span className="filter-label">Centro de Custo legado</span><input className="filter-input" value={filtros.centroCusto} onChange={event => atualizarFiltro("centroCusto", event.target.value)} /></label>
-            <label className={`filter-group ${filtros.banco ? "filter-active" : ""}`}><span className="filter-label">Banco legado</span><input className="filter-input" value={filtros.banco} onChange={event => atualizarFiltro("banco", event.target.value)} /></label>
-            <label className={`filter-group ${filtros.fornecedor ? "filter-active" : ""}`}><span className="filter-label">Fornecedor legado</span><input className="filter-input" value={filtros.fornecedor} onChange={event => atualizarFiltro("fornecedor", event.target.value)} /></label>
+            <label className={`filter-group ${filtros.centroCusto ? "lanc-criterion-active" : ""}`}><span className="filter-label">Centro de Custo legado</span><input className="filter-input" value={filtros.centroCusto} onChange={event => atualizarFiltro("centroCusto", event.target.value)} /></label>
+            <label className={`filter-group ${filtros.banco ? "lanc-criterion-active" : ""}`}><span className="filter-label">Banco legado</span><input className="filter-input" value={filtros.banco} onChange={event => atualizarFiltro("banco", event.target.value)} /></label>
+            <label className={`filter-group ${filtros.fornecedor ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor legado</span><input className="filter-input" value={filtros.fornecedor} onChange={event => atualizarFiltro("fornecedor", event.target.value)} /></label>
           </div>}
           <div className="lanc-settings"><button className="accordion-trigger" type="button" aria-expanded={atalhosOpen} onClick={() => setAtalhosOpen(open => !open)}>
             <span className={`accordion-chevron ${atalhosOpen ? "open" : ""}`}>›</span><span className="accordion-title">Configurações e Atalhos</span></button>
@@ -865,13 +870,17 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
           </div>
         </section>
         <section className="lanc-summary" aria-label="Resumo financeiro dos filtros" aria-busy={resumoAtualizando}>
-          {resumoErro ? <div className="lanc-summary-error">{resumoErro}</div> : !resumo || !resumoPeriodo ?
+          {resumoErro ? <div className="lanc-summary-error">{resumoErro}</div> : !resumo ?
             <div className="lanc-summary-loading">Carregando resumo financeiro…</div> : <>
-              <div className={`lanc-summary-card entrada ${Number(resumoPeriodo.entradas) === 0 ? "zero" : ""}`}><span>Entradas</span><strong>{formatCurrency(Number(resumoPeriodo.entradas))}</strong></div>
-              <div className={`lanc-summary-card saida ${Number(resumoPeriodo.saidas) === 0 ? "zero" : ""}`}><span>Saídas</span><strong>{formatCurrency(Number(resumoPeriodo.saidas))}</strong></div>
-              <div className={`lanc-summary-card saldo ${Number(resumoPeriodo.saldo) > 0 ? "positive" : Number(resumoPeriodo.saldo) < 0 ? "negative" : "zero"}`}><span>Saldo do período</span><strong>{formatCurrency(Number(resumoPeriodo.saldo))}</strong></div>
-              <small>{filtros.dataBase === "REALIZACAO" ? "Caixa realizado por data financeira" :
-                `Movimentos realizados por ${DATA_BASES.find(item => item.valor === filtros.dataBase)?.nome}; não representa posição de caixa`}</small>
+              <div className="lanc-summary-grid">{cards.map(card => {
+                const valor = Number(cardValor(card.id));
+                const sinal = card.cor === "saldo" ? valor > 0 ? "positive" : valor < 0 ? "negative" : "zero" : valor === 0 ? "zero" : "";
+                return <button key={card.id} type="button" className={`lanc-summary-card ${card.cor} ${sinal} ${cardAtivo === card.id ? "is-active" : ""}`}
+                  aria-pressed={cardAtivo === card.id} aria-label={`${card.titulo}: ${formatCurrency(valor)}. Filtrar lançamentos componentes.`}
+                  onClick={() => { setCardAtivo(current => current === card.id ? null : card.id); setPagina(1); }}>
+                  <span>{card.titulo}</span><strong>{formatCurrency(valor)}</strong></button>;
+              })}</div>
+              <small>Posição realizada pela data financeira; compromissos em aberto ficam fora do saldo.</small>
             </>}
           {resumoAtualizando && resumo && <span className="lanc-summary-updating" role="status">Atualizando resumo…</span>}
         </section>

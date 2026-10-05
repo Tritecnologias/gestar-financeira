@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
 import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamentos } from "@/lib/lancamento-filters";
+import { CARDS_LANCAMENTO, type CardLancamento } from "@/lib/lancamento-card-filter";
+import { consultarIdsDoCard } from "@/lib/lancamento-card-query";
 import type { PaginatedResponse, LancamentoDTO } from "@/types";
 
 // ── GET /api/lancamentos ──────────────────────────────────────
@@ -23,8 +25,16 @@ export async function GET(req: NextRequest) {
   const porPagina   = Math.min(200, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
   const sortKey     = searchParams.get("sortKey") || "";
   const sortDir     = (searchParams.get("sortDir") || "desc") as "asc" | "desc";
+  const card = searchParams.get("card");
+  if (card && !CARDS_LANCAMENTO.includes(card as CardLancamento)) {
+    return NextResponse.json({ error: "Indicador inválido." }, { status: 400 });
+  }
 
-  const where = whereLancamentos(filtros, session.tenantId, true);
+  const where = whereLancamentos(filtros, session.tenantId, !card);
+  if (card) {
+    const ids = await consultarIdsDoCard(db, filtros, session.tenantId, card as CardLancamento, hojeSaoPaulo());
+    where.id = { in: ids };
+  }
 
   // ── Mapeamento sortKey (DTO) → campo Prisma ─────────────────
   const SORT_MAP: Record<string, any> = {
