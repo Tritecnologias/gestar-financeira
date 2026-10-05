@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { counterpartInclude } from "@/lib/lancamento-counterparty";
 import { createOfficialWorkbook } from "@/lib/lancamento-official-import";
 import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamentos } from "@/lib/lancamento-filters";
@@ -8,8 +8,8 @@ import { consultarIdsDoCard } from "@/lib/lancamento-card-query";
 
 export async function GET(req: NextRequest) {
   let db: any, session: any;
-  try { ({ db, session } = await requireSession()); }
-  catch { return NextResponse.json({ error: "Não autenticado" }, { status: 401 }); }
+  try { ({ db, session } = await requirePermission("fluxo.lancamentos.import")); }
+  catch (error: any) { return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 }); }
   const params = new URL(req.url).searchParams;
   let filters: ReturnType<typeof lerFiltrosLancamentos>;
   try { filters = lerFiltrosLancamentos(params); }

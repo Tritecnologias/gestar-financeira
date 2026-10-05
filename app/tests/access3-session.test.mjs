@@ -170,41 +170,14 @@ test("ACCESS-3 sessão real: Renan 0/1/N, isolamento, revogação e plataforma",
     assert.equal((await request(base, platformLogin.jar, "/api/categorias")).status, 401);
     assert.equal((await switchTenant(base, platformLogin.jar, highId)).status, 403);
 
-    const managedEmail = `managed-${marker}@example.invalid`;
-    const createdResponse = await request(base, platformLogin.jar, "/api/usuarios", {
+    // ACCESS-4 moved creation and role management to tenant-scoped memberships.
+    // The legacy mutation endpoint must not recreate a profile-less membership.
+    const legacyCreate = await request(base, platformLogin.jar, "/api/usuarios", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenantId: highId, nome: "Managed fixture", email: managedEmail,
-        senha: password, papel: "membro" }),
+      body: JSON.stringify({ tenantId: highId, nome: "Managed fixture",
+        email: `managed-${marker}@example.invalid`, senha: password, papel: "membro" }),
     });
-    assert.equal(createdResponse.status, 201, "admin creation must create the new access model");
-    const managed = await createdResponse.json();
-    legacyIds.push(managed.id);
-    const managedMap = await prisma.legacyUserAccessMap.findUnique({ where: { legacyUsuarioId: managed.id } });
-    assert.ok(managedMap?.membershipId);
-    identityIds.push(managedMap.identityId);
-    membershipIds.push(managedMap.membershipId);
-    const managedLogin = await login(base, managedEmail, password);
-    assert.equal(managedLogin.session.user.id, managedMap.identityId);
-    assert.equal((await (await request(base, managedLogin.jar, "/api/access/context")).json()).role, "MEMBER");
-    if (process.env.ACCESS3_LEGACY_BASE_URL) {
-      const legacyBase = process.env.ACCESS3_LEGACY_BASE_URL;
-      const legacyLogin = await login(legacyBase, managedEmail, password);
-      assert.equal(legacyLogin.session.user.authMode, "legacy");
-      assert.equal((await request(base, legacyLogin.jar, "/api/access/context")).status, 401,
-        "legacy token cannot enter identity mode");
-      assert.equal((await request(legacyBase, managedLogin.jar, "/api/access/context")).status, 401,
-        "identity token cannot enter rollback mode");
-    }
-    const promoted = await request(base, platformLogin.jar, `/api/usuarios/${managed.id}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ papel: "admin" }),
-    });
-    assert.equal(promoted.status, 200);
-    assert.equal((await (await request(base, managedLogin.jar, "/api/access/context")).json()).role, "ADMIN",
-      "role must be recalculated without a fresh login");
-    const deactivated = await request(base, platformLogin.jar, `/api/usuarios/${managed.id}`, { method: "DELETE" });
-    assert.equal(deactivated.status, 200);
-    assert.equal((await request(base, managedLogin.jar, "/api/access/context")).status, 403);
+    assert.equal(legacyCreate.status, 410);
   } finally {
     if (tenantIds.length) await prisma.categoria.deleteMany({ where: { tenantId: { in: tenantIds } } });
     if (legacyIds.length) await prisma.legacyUserAccessMap.deleteMany({ where: { legacyUsuarioId: { in: legacyIds } } });

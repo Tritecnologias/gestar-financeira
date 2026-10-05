@@ -1,4 +1,4 @@
-import { requireSession, requireEscrita } from "@/lib/tenant";
+import { requirePermission, requireTenantPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 
@@ -6,9 +6,9 @@ import { NextResponse } from "next/server";
 export async function GET() {
   let session: any;
   try {
-    ({ session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    ({ session } = await requirePermission("sistema.configuracoes.view"));
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message ?? "Acesso negado." }, { status: error?.status ?? 401 });
   }
 
   // ⚠️ Tenant é lido pelo ID primário — usamos o prisma base (sem Extension de tenant,
@@ -25,14 +25,9 @@ export async function GET() {
 export async function POST(request: Request) {
   let session: any;
   try {
-    ({ session } = await requireEscrita());
+    ({ session } = await requireTenantPermission("sistema.configuracoes.manage"));
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Unauthorized" }, { status: e?.status ?? 401 });
-  }
-
-  // Apenas admin pode alterar o logo
-  if (session.papel !== "admin" && session.papel !== "admin_global") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await request.json();

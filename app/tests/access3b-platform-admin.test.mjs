@@ -155,13 +155,13 @@ test("ACCESS-3B DEV: backfill, rerun, plataforma isolada e identidade combinada"
     assert.ok(!listed.some(item => item.id === soloLegacy.id || item.id === comboGlobal.id));
     const edit = await request(base, admin.jar, `/api/usuarios/${comboBusiness.id}`, { method: "PUT",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nome: "Blocked" }) });
-    assert.equal(edit.status, 403);
-    assert.equal((await request(base, admin.jar, `/api/usuarios/${comboBusiness.id}`, { method: "DELETE" })).status, 403);
+    assert.equal(edit.status, 410);
+    assert.equal((await request(base, admin.jar, `/api/usuarios/${comboBusiness.id}`, { method: "DELETE" })).status, 410);
     const promote = await request(base, admin.jar, "/api/usuarios", { method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tenantId: tenantA, nome: "Blocked", email: `blocked-${marker}@example.invalid`,
         senha: password, papel: "admin_global" }) });
-    assert.equal(promote.status, 403);
+    assert.equal(promote.status, 410);
 
     await prisma.platformAdmin.update({ where: { identityId: comboMap.identityId }, data: { status: "INACTIVE" } });
     assert.equal((await request(base, combo.jar, "/api/platform/tenants")).status, 403);

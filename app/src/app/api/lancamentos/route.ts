@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession, requireEscrita } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
 import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
@@ -13,9 +13,9 @@ import { Prisma } from "@prisma/client";
 export async function GET(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    ({ db, session } = await requirePermission("fluxo.lancamentos.view"));
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireEscrita());
+    ({ db, session } = await requirePermission("fluxo.lancamentos.create"));
   } catch (e: any) {
     const status = e?.status ?? 401;
     return NextResponse.json({ error: e?.message ?? "Não autenticado" }, { status });

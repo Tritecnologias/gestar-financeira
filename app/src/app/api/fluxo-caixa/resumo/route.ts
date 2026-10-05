@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requirePermission, hasPermission } from "@/lib/permissions";
 import { obterResumoFluxoCaixa } from "@/lib/cash-flow-service";
 import { dataCivil, type DataBaseFinanceira, type FiltrosFinanceiros } from "@/lib/cash-flow";
 import { lerFiltrosLancamentos, whereLancamentos } from "@/lib/lancamento-filters";
@@ -11,11 +11,16 @@ const FILTER_KEYS = ["status", "statusManual", "tipo", "contaId", "categoria", "
   "fornecedorId", "centroCusto", "banco", "dre"] as const;
 
 export async function GET(req: NextRequest) {
-  let context: Awaited<ReturnType<typeof requireSession>>;
+  let context: Awaited<ReturnType<typeof requirePermission>>;
   try {
-    context = await requireSession();
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    context = await requirePermission("fluxo.visao.view");
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
+  }
+  // O resumo inteiro contém saldos/valores. Negar antes da consulta evita
+  // colocá-los no payload, mesmo quando a tela Visão Geral é visível.
+  if (!await hasPermission("fluxo.visao.saldos", context)) {
+    return NextResponse.json({ error: "Sem permissão para visualizar saldos." }, { status: 403 });
   }
   const params = req.nextUrl.searchParams;
   const inicio = params.get("inicio") ?? "";

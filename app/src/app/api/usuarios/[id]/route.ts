@@ -8,6 +8,7 @@ import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
 
 // PUT /api/usuarios/[id] — editar usuário (nome, email, papel, ativo, senha)
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!legacyAuthEnabled) return NextResponse.json({ error: "Use Acessos / Usuários para administrar memberships." }, { status: 410 });
   let session: any;
   try { session = await requireUserAdminActor(); } catch (error) { return NextResponse.json({ error: "Não autorizado" }, { status: (error as {status?: number}).status ?? 401 }); }
 
@@ -119,6 +120,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // DELETE /api/usuarios/[id] — compatibilidade: desativa, não remove histórico/layouts.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!legacyAuthEnabled) return NextResponse.json({ error: "Use Acessos / Usuários para administrar memberships." }, { status: 410 });
   let session: any;
   try { session = await requireUserAdminActor(); } catch (error) { return NextResponse.json({ error: "Não autorizado" }, { status: (error as {status?: number}).status ?? 401 }); }
 

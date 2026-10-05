@@ -2,7 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireEscrita } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { parseOfficialWorkbook, planOfficialImport, type OfficialPlan } from "@/lib/lancamento-official-import";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -22,7 +22,7 @@ function checkToken(token: string, digest: string, tenantId: string, userId: str
 
 export async function POST(req: NextRequest) {
   let db: any, session: any;
-  try { ({ db, session } = await requireEscrita()); }
+  try { ({ db, session } = await requirePermission("fluxo.lancamentos.import")); }
   catch (error: any) { return NextResponse.json({ error: error?.message || "Não autorizado" }, { status: error?.status || 401 }); }
   let form: FormData;
   try { form = await req.formData(); }

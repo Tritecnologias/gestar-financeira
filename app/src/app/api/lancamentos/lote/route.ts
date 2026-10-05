@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireEscrita } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
 import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 
@@ -41,8 +41,8 @@ function date(value: unknown, index: number, label: string, required = false): D
 }
 
 export async function POST(req: NextRequest) {
-  let session: Awaited<ReturnType<typeof requireEscrita>>["session"];
-  try { ({ session } = await requireEscrita()); }
+  let session: Awaited<ReturnType<typeof requirePermission>>["session"];
+  try { ({ session } = await requirePermission("fluxo.lancamentos.create")); }
   catch (error: any) { return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 }); }
 
   let rows: unknown;

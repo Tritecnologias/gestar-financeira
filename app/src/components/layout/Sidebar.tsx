@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import type { Papel } from "@/types";
+import { viewPermissionForPath } from "@/lib/access-catalog";
 
 interface SidebarProps {
   userNome: string;
@@ -14,6 +15,7 @@ interface SidebarProps {
   tenantLogoUrl?: string | null;
   authMode?: "identity" | "legacy";
   platformAdmin?: boolean;
+  permissions?: string[];
 }
 
 interface SubItem {
@@ -200,8 +202,15 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
   );
 }
 
-export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl, authMode, platformAdmin }: SidebarProps) {
+export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl, authMode, platformAdmin, permissions = [] }: SidebarProps) {
   const pathname = usePathname();
+  const allowed = new Set(permissions);
+  const menu = MENU.map(group => ({ ...group,
+    sub: group.sub?.filter(item => {
+      const key = viewPermissionForPath(item.href);
+      return !key || allowed.has(key);
+    }),
+  })).filter(group => !group.sub || group.sub.length > 0);
 
   // ── Collapsed state ───────────────────────────────────────────
   // Sempre começa como false (expandido) para evitar hydration mismatch.
@@ -215,7 +224,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
   const sidebarToggleRef = useRef<HTMLButtonElement>(null);
 
   // ── Um único grupo aberto por vez ─────────────────────────────
-  const activeGroup = MENU.find((g) => g.sub?.some((s) => pathname.startsWith(s.href)))?.num ?? null;
+  const activeGroup = menu.find((g) => g.sub?.some((s) => pathname.startsWith(s.href)))?.num ?? null;
   const [openGroup, setOpenGroup] = useState<number | null>(activeGroup);
 
   // ── Tooltip para modo compacto ────────────────────────────────
@@ -312,7 +321,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
 
   const iniciais = userNome.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
-  const group = tooltip !== null ? MENU.find((g) => g.num === tooltip.num) : null;
+  const group = tooltip !== null ? menu.find((g) => g.num === tooltip.num) : null;
 
   // Classe calculada: antes do mount usa sempre 'expanded' (igual ao SSR)
   const compact = mounted && collapsed && !isMobile;
@@ -372,7 +381,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
 
         {/* ── Nav ───────────────────────────────────────────── */}
         <nav className="sidebar-nav" aria-label="Menu principal">
-          {MENU.map((g) => {
+          {menu.map((g) => {
             const hasSub   = g.sub && g.sub.length > 0;
             const isOpen   = openGroup === g.num;
             const hasActive = g.sub?.some((s) => pathname.startsWith(s.href)) ?? false;
@@ -463,29 +472,39 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
           })}
 
           {/* Administração de acesso, separada do contexto empresarial */}
-          {(platformAdmin || userPapel === "admin_global" || userPapel === "admin") && (
+          {(platformAdmin || userPapel === "admin_global" || allowed.has("acessos.usuarios.view") || allowed.has("acessos.perfis.view")) && (
             <>
               <div className="sb-divider" />
-              <div
+              {platformAdmin && <div
                 className="sb-row-wrap"
                 onMouseEnter={(e) => handleMouseEnterGroup(-1, e)}
                 onMouseLeave={handleMouseLeaveGroup}
               >
                 <Link
-                  href={platformAdmin ? "/plataforma" : "/admin"}
-                  className={`sb-row ${pathname.startsWith("/admin") || pathname.startsWith("/plataforma") ? "sb-row--active" : ""}`}
+                  href="/plataforma"
+                  className={`sb-row ${pathname.startsWith("/plataforma") ? "sb-row--active" : ""}`}
                   onClick={() => setMobileOpen(false)}
                 >
                   <span className="sb-icon">🛡️</span>
-                  <span className="sb-label">{platformAdmin || userPapel === "admin_global" ? "Admin Global" : "Usuários"}</span>
+                  <span className="sb-label">Administração da Plataforma</span>
                 </Link>
-              </div>
+              </div>}
+              {allowed.has("acessos.usuarios.view") && <div className="sb-row-wrap">
+                <Link href="/acessos" className={`sb-row ${pathname === "/acessos" ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
+                  <span className="sb-icon">🛡️</span><span className="sb-label">Acessos / Usuários</span>
+                </Link>
+              </div>}
+              {allowed.has("acessos.perfis.view") && <div className="sb-row-wrap">
+                <Link href="/acessos/perfis" className={`sb-row ${pathname.startsWith("/acessos/perfis") ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
+                  <span className="sb-icon">🔑</span><span className="sb-label">Perfis de Acesso</span>
+                </Link>
+              </div>}
             </>
           )}
 
           {/* Configurações */}
-          <div className="sb-divider" />
-          <div
+          {allowed.has("sistema.configuracoes.view") && <div className="sb-divider" />}
+          {allowed.has("sistema.configuracoes.view") && <div
             className="sb-row-wrap"
             onMouseEnter={(e) => handleMouseEnterGroup(-2, e)}
             onMouseLeave={handleMouseLeaveGroup}
@@ -498,7 +517,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
               <span className="sb-icon">⚙️</span>
               <span className="sb-label">Configurações</span>
             </Link>
-          </div>
+          </div>}
         </nav>
 
         {/* ── Tenant Selector ─────────────────────────────────── */}

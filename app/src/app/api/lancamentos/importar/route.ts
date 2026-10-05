@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireEscrita } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { prisma, getTenantPrisma } from "@/lib/db";
 import { parseDateOnly } from "@/lib/lancamento";
 import { resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
@@ -11,7 +11,7 @@ import { resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 export async function POST(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireEscrita());
+    ({ db, session } = await requirePermission("fluxo.lancamentos.import"));
   } catch (e: any) {
     const status = e?.status ?? 401;
     return NextResponse.json({ error: e?.message ?? "Não autenticado" }, { status });

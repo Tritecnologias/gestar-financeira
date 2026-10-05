@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireEscrita } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { resolveAccountSelection } from "@/lib/lancamento-counterparty";
 
 const FIELDS = new Set(["dataPagamento", "dataVencOriginal", "dataVencPlano", "categoria", "contaId", "statusManual", "centroCusto", "banco"]);
@@ -40,8 +40,8 @@ function printable(value: unknown): string | null {
 }
 
 export async function POST(req: NextRequest) {
-  let session: Awaited<ReturnType<typeof requireEscrita>>["session"];
-  try { ({ session } = await requireEscrita()); }
+  let session: Awaited<ReturnType<typeof requirePermission>>["session"];
+  try { ({ session } = await requirePermission("fluxo.lancamentos.bulk_edit")); }
   catch (error: any) { return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 }); }
 
   try {

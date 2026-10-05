@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { toNumber } from "@/lib/formatters";
 import { counterpartyDisplay } from "@/lib/counterparty";
 import { counterpartInclude } from "@/lib/lancamento-counterparty";
@@ -11,9 +11,9 @@ import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamento
 export async function GET(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    ({ db, session } = await requirePermission("fluxo.lancamentos.export"));
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
   }
 
   const { searchParams } = new URL(req.url);

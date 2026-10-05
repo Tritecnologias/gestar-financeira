@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
 import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 
@@ -9,9 +9,9 @@ type Params = { params: Promise<{ id: string }> };
 export async function PUT(req: NextRequest, { params }: Params) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    ({ db, session } = await requirePermission("fluxo.lancamentos.edit"));
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
   }
   const { id } = await params;
 
@@ -86,14 +86,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 export async function DELETE(req: NextRequest, { params }: Params) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  }
-
-  // Apenas admin pode excluir lançamentos
-  if (session.papel === "membro") {
-    return NextResponse.json({ error: "Sem permissão para excluir" }, { status: 403 });
+    ({ db, session } = await requirePermission("fluxo.lancamentos.delete"));
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
   }
 
   const { id } = await params;

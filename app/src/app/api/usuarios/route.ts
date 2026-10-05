@@ -43,6 +43,7 @@ export async function GET() {
 
 // POST /api/usuarios — criar novo usuário
 export async function POST(req: NextRequest) {
+  if (!legacyAuthEnabled) return NextResponse.json({ error: "Use Acessos / Usuários para administrar memberships." }, { status: 410 });
   let session: any;
   try { session = await requireUserAdminActor(); } catch (error) { return NextResponse.json({ error: "Não autorizado" }, { status: (error as {status?: number}).status ?? 401 }); }
 
