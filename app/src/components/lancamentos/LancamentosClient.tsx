@@ -31,6 +31,7 @@ const DATA_BASES: { valor: DataBaseFinanceira; nome: string }[] = [
   { valor: "REALIZACAO", nome: "Realização" },
 ];
 const STATUS_FINANCEIROS = ["REALIZADO", "PREVISTO", "A VENCER", "ATRASADO", "CANCELADO", "INCONSISTENTE"];
+const LINHAS_POR_PAGINA = [100, 200, 500] as const;
 const filtrosIniciais = (hoje: string): Filtros => ({ busca: "", status: "", tipo: "",
   dataBase: "DATA_LANCAMENTO", inicio: `${hoje.slice(0, 7)}-01`, fim: hoje,
   statusManual: "", categoria: "", contaId: "", clienteId: "", fornecedorId: "",
@@ -112,8 +113,9 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
   switch (key) {
     case "contaId": {
       const account = accounts?.find(item => item.id === val);
-      return <span>{account ? `${account.codigo ?? ""} – ${account.descricao}`
-        : row.contaN2Descricao ? `${row.contaN2Codigo ?? ""} – ${row.contaN2Descricao}` : "Conta N2 vinculada"}</span>;
+      const label = account ? `${account.codigo ?? ""} – ${account.descricao}`
+        : row.contaN2Descricao ? `${row.contaN2Codigo ?? ""} – ${row.contaN2Descricao}` : "Conta N2 vinculada";
+      return <span title={label}>{label}</span>;
     }
     case "tipo":        return <ChipTipo tipo={val} />;
     case "status":      return <ChipStatus status={val} tipo={row.tipo} />;
@@ -133,7 +135,7 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
     case "diasAtrasoOriginal":
     case "diasAtrasoPlano":
       return <span style={{ color: Number(val) > 0 ? "var(--accent-red)" : "var(--text-muted)" }}>{val}</span>;
-    default: return <span>{String(val)}</span>;
+    default: return <span title={String(val)}>{String(val)}</span>;
   }
 }
 
@@ -171,6 +173,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const listRequestId = useRef(0);
   const summaryRequestId = useRef(0);
   const [pagina, setPagina] = useState(1);
+  const [porPagina, setPorPagina] = useState(500);
 
   // Ordenação
   const [sortKey, setSortKey] = useState("seq");
@@ -314,7 +317,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     const params = new URLSearchParams(Object.entries(filtros).filter(([, value]) => value) as [string, string][]);
     if (cardAtivo) params.set("card", cardAtivo);
     params.set("pagina", String(pagina));
-    params.set("porPagina", "50");
+    params.set("porPagina", String(porPagina));
     if (sortKey && !SORT_COMPUTED.has(sortKey)) { params.set("sortKey", sortKey); params.set("sortDir", sortDir); }
     try {
       const lista = await fetch(`/api/lancamentos?${params}`, { signal }).then(async response => {
@@ -342,7 +345,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         setUpdating(false);
       }
     }
-  }, [filtros, cardAtivo, pagina, sortKey, sortDir]);
+  }, [filtros, cardAtivo, pagina, porPagina, sortKey, sortDir]);
 
   const loadSummary = useCallback(async (signal?: AbortSignal) => {
     const currentRequest = ++summaryRequestId.current;
@@ -880,7 +883,6 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                   onClick={() => { setCardAtivo(current => current === card.id ? null : card.id); setPagina(1); }}>
                   <span>{card.titulo}</span><strong>{formatCurrency(valor)}</strong></button>;
               })}</div>
-              <small>Posição realizada pela data financeira; compromissos em aberto ficam fora do saldo.</small>
             </>}
           {resumoAtualizando && resumo && <span className="lanc-summary-updating" role="status">Atualizando resumo…</span>}
         </section>
@@ -1143,13 +1145,16 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         {/* Footer */}
         <div className="table-footer" style={{ margin: "0 28px 14px" }}>
           <span>{total} lançamentos</span>
-          <span className="lanc-footer-help">💡 Clique para editar · Enter salva · Esc cancela · Linha + inclui</span>
-          <span style={{ marginLeft: "auto", marginRight: total > 50 ? 12 : 0, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)", fontSize: 11 }}>↔ Barra horizontal acima · Ações no extremo direito →</span>
-          {total > 50 && (
+          <label className="lanc-page-size">Linhas por página
+            <select value={porPagina} onChange={event => { setPorPagina(Number(event.target.value)); setPagina(1); }}>
+              {LINHAS_POR_PAGINA.map(size => <option key={size} value={size}>{size}</option>)}
+            </select>
+          </label>
+          {total > porPagina && (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina === 1} onClick={() => setPagina(p => p - 1)}>← Ant.</button>
-              <span style={{ fontSize: 12 }}>Pág. {pagina} de {Math.ceil(total / 50)}</span>
-              <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina >= Math.ceil(total / 50)} onClick={() => setPagina(p => p + 1)}>Próx. →</button>
+              <span style={{ fontSize: 12 }}>Pág. {pagina} de {Math.ceil(total / porPagina)}</span>
+              <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina >= Math.ceil(total / porPagina)} onClick={() => setPagina(p => p + 1)}>Próx. →</button>
             </div>
           )}
         </div>

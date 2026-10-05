@@ -9,6 +9,10 @@
 .lanc-filter-main { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
 .lanc-filter-main .filter-group { min-width: 112px; }
 .lanc-filter-main .filter-input { width: 100%; min-width: 0; min-height: 34px; }
+.lanc-page select.filter-input { color-scheme: light; }
+[data-theme="dark"] .lanc-page select.filter-input { color-scheme: dark; }
+.lanc-page select.filter-input option,
+.lanc-page select.filter-input optgroup { background: var(--surface); color: var(--text-primary); }
 .lanc-filter-main .lanc-year { white-space: nowrap; }
 .lanc-page .filter-group.lanc-criterion-active .filter-label { color: var(--action); font-weight: 700; }
 .lanc-page .filter-group.lanc-criterion-active .filter-input,
@@ -33,7 +37,7 @@
 .lanc-settings .accordion-trigger { width: auto; min-height: 28px; padding: 2px 4px; font-size: 12px; }
 .lanc-settings-content { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0 4px; }
 .lanc-settings-content .btn { font-size: 12px; }
-.lanc-summary { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 8px 28px 0; min-width: 0; }
+.lanc-summary { position: relative; display: flex; flex-direction: column; padding: 8px 28px 0; min-width: 0; }
 .lanc-summary-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; width: 100%; }
 .lanc-summary-updating { position: absolute; right: 28px; bottom: 1px; color: var(--text-muted);
   background: var(--surface); font-size: 11px; white-space: nowrap; }
@@ -75,7 +79,14 @@
 .lanc-value-neutral { color: var(--text-secondary); font-weight: 600; }
 .lanc-page .data-table .lanc-financial-start { border-left: 1px solid var(--border-light); }
 .lanc-page .data-table .lanc-financial-end { border-right: 1px solid var(--border); }
-.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td:is([data-col-key="descricao"], [data-col-key="anotacao"]) > span {
+.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td {
+  height: 34px;
+  padding: 6px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td:is([data-col-key="fantasiaPadrao"], [data-col-key="descricao"], [data-col-key="anotacao"], [data-col-key="fornecedor"], [data-col-key="banco"], [data-col-key="statusExtrato"], [data-col-key="categoria"], [data-col-key="contaId"], [data-col-key="centroCusto"], [data-col-key="dre"]) > span {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -101,14 +112,16 @@
   resize: none;
   field-sizing: content;
 }
-.lanc-summary small { font-size: 10px; color: var(--text-muted); }
 .lanc-page .chip-saida, .lanc-page .val-saida { color: var(--danger); }
 .lanc-page .chip-saida { background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .lanc-summary-error, .lanc-summary-loading, .lanc-list-error { padding: 8px 12px; color: var(--text-secondary);
   background: var(--surface-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; }
 .lanc-summary-error, .lanc-list-error { color: var(--danger); }
 .lanc-list-error { margin: 8px 28px 0; }
-.lanc-footer-help { margin-left: 12px; white-space: nowrap; color: var(--text-muted); font-size: 11px; }
+.lanc-page-size { display: flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
+.lanc-page-size select { background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px 6px; font: inherit; }
+.lanc-page-size select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.lanc-page-size select option { background: var(--surface); color: var(--text-primary); }
 .lanc-review { display: inline-block; margin-left: 4px; padding: 1px 5px; font-size: 10px; font-weight: 700;
   color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); border-radius: 4px; }
 @media (max-width: 1279px) {
@@ -128,7 +141,7 @@
   .lanc-filter-main .filter-group { flex: 1 1 130px; }
   .lanc-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lanc-page .table-footer { margin-inline: 14px !important; }
-  .lanc-footer-help { margin-left: 0; white-space: normal; }
+  .lanc-page-size { margin-left: 0; }
 }
 @media (max-width: 380px) {
   .lanc-summary-grid { grid-template-columns: 1fr; }

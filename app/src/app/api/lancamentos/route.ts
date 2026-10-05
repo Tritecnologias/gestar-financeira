@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   try { filtros = lerFiltrosLancamentos(searchParams); }
   catch (error: any) { return NextResponse.json({ error: error.message }, { status: 400 }); }
   const pagina      = parseInt(searchParams.get("pagina") || "1");
-  const porPagina   = Math.min(200, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
+  const porPagina   = Math.min(500, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
   const sortKey     = searchParams.get("sortKey") || "";
   const sortDir     = (searchParams.get("sortDir") || "desc") as "asc" | "desc";
   const card = searchParams.get("card");
