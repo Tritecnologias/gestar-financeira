@@ -1,5 +1,4 @@
-// Legacy login is email-only. This normalization is shared by authentication
-// and account administration until AuthIdentity/Membership replaces the model.
+// Normalização compartilhada pelo login da identidade e pelo rollback legado.
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
