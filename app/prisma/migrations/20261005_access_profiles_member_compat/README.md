@@ -1,0 +1,1 @@
+Rollback: assign affected MEMBER memberships back to their tenant's `ACESSO LEGADO` profile, then remove only unused `ACESSO LEGADO MEMBRO` profiles. This restores the original compatibility state. Run only after checking whether profiles have since been customized; do not roll back blindly.

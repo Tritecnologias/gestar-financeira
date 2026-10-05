@@ -31,6 +31,7 @@ model Tenant {
 
   usuarios          Usuario[]
   memberships       TenantMembership[]
+  accessProfiles    AccessProfile[]
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
@@ -110,17 +111,38 @@ model TenantMembership {
   tenantId    String   @map("tenant_id")
   status      AccessStatus @default(ACTIVE)
   role        MembershipRole @default(MEMBER)
+  profileId   String?  @map("profile_id")
   criadoEm    DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
 
   identity    AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
   tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  profile     AccessProfile? @relation(fields: [profileId, tenantId], references: [id, tenantId], onDelete: Restrict)
   legacyMaps  LegacyUserAccessMap[]
 
   @@unique([identityId, tenantId])
   @@unique([id, identityId, tenantId])
   @@index([tenantId, status])
   @@map("tenant_memberships")
+}
+
+model AccessProfile {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  nome         String
+  descricao    String?
+  ativo        Boolean  @default(true)
+  permissoes   String[] @default([])
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  memberships  TenantMembership[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, nome])
+  @@index([tenantId, ativo])
+  @@map("access_profiles")
 }
 
 // Plataforma não é papel empresarial e não dá acesso financeiro implícito.

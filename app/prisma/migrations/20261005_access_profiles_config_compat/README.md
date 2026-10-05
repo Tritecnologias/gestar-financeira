@@ -1,0 +1,1 @@
+Rollback: remove `sistema.configuracoes.view` and `sistema.configuracoes.manage` only from untouched compatibility profiles after confirming that no subsequent customization relies on them. Code rollback can leave these additive permission keys in the database safely.
