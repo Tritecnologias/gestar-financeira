@@ -1,12 +1,31 @@
 import * as XLSX from "xlsx";
+import { LANCAMENTO_FIELD_ORDER } from "./lancamento-field-order.mjs";
 
+const headersByField = {
+  descricao: ["DESCRICAO"], fantasiaPadrao: ["CLIENTE_CODIGO", "FORNECEDOR_CODIGO"],
+  tipo: ["DIRECAO"], categoria: ["CATEGORIA_N1"], contaId: ["CONTA_N2"],
+  valorPrevisto: ["VALOR_PREVISTO"], valor: ["VALOR_REALIZADO"],
+  dataLanc: ["DATA_LANCAMENTO"], dataEmissao: ["DATA_EMISSAO"],
+  dataVencOriginal: ["VENCIMENTO_ORIGINAL"], dataVencPlano: ["VENCIMENTO_PLANO"],
+  dataPagamento: ["DATA_REALIZACAO"], dataEvento: ["DATA_EVENTO"],
+  status: ["STATUS"], statusAuto: [], statusManual: ["STATUS_MANUAL"],
+  fornecedor: ["EMPRESA"], banco: ["BANCO"], centroCusto: ["CENTRO_CUSTO"],
+  dre: ["DRE"], statusExtrato: ["EXTRATO"], referencia: [], cont: [],
+  anotacao: ["ANOTACAO"],
+} as const;
 export const OFFICIAL_HEADERS = [
+  ...LANCAMENTO_FIELD_ORDER.flatMap(key => headersByField[key as keyof typeof headersByField]),
+  "REGISTRO_ID", "REGISTRO_VERSAO",
+];
+// Planilhas oficiais já baixadas continuam aceitas para reimportação.
+const PREVIOUS_OFFICIAL_HEADERS = [
   "REGISTRO_ID", "REGISTRO_VERSAO", "DATA_LANCAMENTO", "DESCRICAO", "DIRECAO", "STATUS",
   "VALOR_REALIZADO", "VALOR_PREVISTO", "DATA_REALIZACAO", "DATA_EMISSAO",
   "VENCIMENTO_ORIGINAL", "VENCIMENTO_PLANO", "DATA_EVENTO", "STATUS_MANUAL", "EXTRATO",
   "EMPRESA", "BANCO", "CATEGORIA_N1", "CONTA_N2", "CLIENTE_CODIGO", "FORNECEDOR_CODIGO",
   "CENTRO_CUSTO", "DRE", "ANOTACAO",
 ] as const;
+const technicalHeaders = new Set(["REGISTRO_ID", "REGISTRO_VERSAO"]);
 type Header = typeof OFFICIAL_HEADERS[number];
 export type OfficialFileRow = { linha: number; cells: Record<Header, string> };
 export type OfficialIssue = { linha: number; campo: string; motivo: string };
@@ -85,7 +104,8 @@ export function createOfficialWorkbook(records: any[]): ArrayBuffer {
   XLSX.utils.book_append_sheet(workbook, instructions, "INSTRUCOES");
   const rows = records.map(record => recordCells(record));
   const sheet = XLSX.utils.aoa_to_sheet([[...OFFICIAL_HEADERS], ...rows.map(row => OFFICIAL_HEADERS.map(header => row[header]))]);
-  const textColumns = [0, 1, 17, 18, 19, 20];
+  const textColumns = ["REGISTRO_ID", "REGISTRO_VERSAO", "CATEGORIA_N1", "CONTA_N2",
+    "CLIENTE_CODIGO", "FORNECEDOR_CODIGO"].map(header => OFFICIAL_HEADERS.indexOf(header));
   for (let r = 1; r <= Math.max(rows.length, 200); r++) {
     for (const c of textColumns) {
       const address = XLSX.utils.encode_cell({ r, c });
@@ -93,7 +113,8 @@ export function createOfficialWorkbook(records: any[]): ArrayBuffer {
     }
   }
   sheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(rows.length, 200), c: OFFICIAL_HEADERS.length - 1 } });
-  sheet["!cols"] = OFFICIAL_HEADERS.map((header, index) => ({ wch: index === 3 || index === 23 ? 48 : header.includes("DATA") || header.includes("VENCIMENTO") ? 20 : 23 }));
+  sheet["!cols"] = OFFICIAL_HEADERS.map(header => ({ wch: header === "DESCRICAO" || header === "ANOTACAO" ? 48
+    : technicalHeaders.has(header) ? 38 : header.includes("DATA") || header.includes("VENCIMENTO") ? 20 : 23 }));
   XLSX.utils.book_append_sheet(workbook, sheet, "LANCAMENTOS");
   return XLSX.write(workbook, { bookType: "xlsx", type: "array", compression: true }) as ArrayBuffer;
 }
@@ -104,13 +125,15 @@ export function parseOfficialWorkbook(bytes: Uint8Array): OfficialFileRow[] {
   if (!sheet) throw new Error("A aba LANCAMENTOS é obrigatória. Baixe o XLSX oficial.");
   const matrix = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, { header: 1, raw: true, defval: "", blankrows: true });
   const headers = matrix[0] || [];
-  if (headers.length !== OFFICIAL_HEADERS.length || OFFICIAL_HEADERS.some((header, index) => headers[index] !== header)) {
+  const accepted = [OFFICIAL_HEADERS, PREVIOUS_OFFICIAL_HEADERS].find(candidate =>
+    headers.length === candidate.length && candidate.every((header, index) => headers[index] === header));
+  if (!accepted) {
     throw new Error("Cabeçalhos incompatíveis. Não renomeie nem reordene as colunas do XLSX oficial.");
   }
   if (matrix.length > 10002) throw new Error("O arquivo excede 10.000 linhas de dados.");
   return matrix.slice(1).flatMap((values, index) => {
     if (!values?.some(value => text(value))) return [];
-    const cells = Object.fromEntries(OFFICIAL_HEADERS.map((header, column) => [header, text(values[column])])) as Record<Header, string>;
+    const cells = Object.fromEntries(accepted.map((header, column) => [header, text(values[column])])) as Record<Header, string>;
     return [{ linha: index + 2, cells }];
   });
 }
@@ -223,7 +246,7 @@ export async function planOfficialImport(db: any, tenantId: string, fileRows: Of
     if (cells.CLIENTE_CODIGO && !client) errors.push("CLIENTE_CODIGO: inexistente ou inativo neste tenant");
     if (cells.FORNECEDOR_CODIGO && !supplier) errors.push("FORNECEDOR_CODIGO: inexistente ou inativo neste tenant");
     if (cells.STATUS_MANUAL && !activeStatus.has(cells.STATUS_MANUAL) && before?.STATUS_MANUAL !== cells.STATUS_MANUAL) errors.push("STATUS_MANUAL: código inexistente ou inativo");
-    const differences = before ? OFFICIAL_HEADERS.slice(2).filter(header => {
+    const differences = before ? OFFICIAL_HEADERS.filter(header => !technicalHeaders.has(header)).filter(header => {
       const prior = canonicalCells(before).cells[header];
       return prior !== cells[header];
     }).map(header => ({ campo: header, antes: before[header], depois: cells[header] })) : [];

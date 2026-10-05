@@ -6,6 +6,16 @@ import {
   recordCells, planOfficialImport,
 } from "../src/lib/lancamento-official-import.ts";
 
+test("XLSX segue a sequência de negócio e agrupa ID e versão no final", () => {
+  assert.deepEqual(OFFICIAL_HEADERS, [
+    "DESCRICAO", "CLIENTE_CODIGO", "FORNECEDOR_CODIGO", "DIRECAO", "CATEGORIA_N1", "CONTA_N2",
+    "VALOR_PREVISTO", "VALOR_REALIZADO", "DATA_LANCAMENTO", "DATA_EMISSAO",
+    "VENCIMENTO_ORIGINAL", "VENCIMENTO_PLANO", "DATA_REALIZACAO", "DATA_EVENTO",
+    "STATUS", "STATUS_MANUAL", "EMPRESA", "BANCO", "CENTRO_CUSTO", "DRE",
+    "EXTRATO", "ANOTACAO", "REGISTRO_ID", "REGISTRO_VERSAO",
+  ]);
+});
+
 const tenant = "tenant-a";
 const otherTenant = "tenant-b";
 const id = "11111111-1111-4111-8111-111111111111";
@@ -43,6 +53,31 @@ test("XLSX oficial mantém ID, versão, códigos com zeros e dia civil", () => {
   assert.equal(parsed[0].cells.VALOR_PREVISTO, "10000.00");
   assert.equal(Object.keys(parsed[0].cells).length, OFFICIAL_HEADERS.length);
   assert.deepEqual(parseOfficialWorkbook(new Uint8Array(createOfficialWorkbook([]))), []);
+  const book = XLSX.read(new Uint8Array(createOfficialWorkbook([existing])), { type: "array", cellNF: true });
+  const sheet = book.Sheets.LANCAMENTOS;
+  for (const header of ["CLIENTE_CODIGO", "FORNECEDOR_CODIGO", "CATEGORIA_N1", "CONTA_N2"]) {
+    const cell = sheet[XLSX.utils.encode_cell({ r: 1, c: OFFICIAL_HEADERS.indexOf(header) })];
+    assert.equal(cell.t, "s");
+    assert.equal(cell.z, "@");
+  }
+});
+
+test("XLSX oficial anterior continua importável sem deslocar células", async () => {
+  const oldHeaders = [
+    "REGISTRO_ID", "REGISTRO_VERSAO", "DATA_LANCAMENTO", "DESCRICAO", "DIRECAO", "STATUS",
+    "VALOR_REALIZADO", "VALOR_PREVISTO", "DATA_REALIZACAO", "DATA_EMISSAO",
+    "VENCIMENTO_ORIGINAL", "VENCIMENTO_PLANO", "DATA_EVENTO", "STATUS_MANUAL", "EXTRATO",
+    "EMPRESA", "BANCO", "CATEGORIA_N1", "CONTA_N2", "CLIENTE_CODIGO", "FORNECEDOR_CODIGO",
+    "CENTRO_CUSTO", "DRE", "ANOTACAO",
+  ];
+  const book = XLSX.utils.book_new();
+  const cells = recordCells(existing);
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([oldHeaders, oldHeaders.map(header => cells[header])]), "LANCAMENTOS");
+  const parsed = parseOfficialWorkbook(new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" })));
+  assert.equal(parsed[0].cells.CONTA_N2, "001");
+  assert.equal(parsed[0].cells.DESCRICAO, "Teste");
+  const plan = await planOfficialImport(mockDb(), tenant, parsed);
+  assert.equal(plan.rows[0].acao, "INALTERADO");
 });
 
 test("reimportação idêntica é inalterada; descrição e valor viram update por ID", async () => {
