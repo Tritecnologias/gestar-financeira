@@ -3,6 +3,7 @@ import { prisma, getTenantPrisma } from "@/lib/db";
 import { cookies } from "next/headers";
 import type { UserSession, Papel } from "@/types";
 import { isActiveLegacySession } from "@/lib/access-policy";
+import { emailEqualsNormalized } from "@/lib/email";
 
 /**
  * Valida a sessão e retorna o Prisma Client já escopado ao tenant.
@@ -133,6 +134,6 @@ export async function hashSenha(senha: string): Promise<string> {
  * Verifica se um email já existe em qualquer tenant
  */
 export async function emailExiste(email: string): Promise<boolean> {
-  const count = await prisma.usuario.count({ where: { email } });
+  const count = await prisma.usuario.count({ where: { email: emailEqualsNormalized(email) } });
   return count > 0;
 }

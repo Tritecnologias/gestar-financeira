@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { emailEqualsNormalized, unambiguousLegacyAccount } from "@/lib/email";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -12,21 +13,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (typeof credentials?.email !== "string" || typeof credentials?.password !== "string" ||
+            !credentials.email.trim() || !credentials.password) return null;
 
-        const usuario = await prisma.usuario.findFirst({
+        const usuarios = await prisma.usuario.findMany({
           where: {
-            email: credentials.email as string,
+            email: emailEqualsNormalized(credentials.email as string),
             ativo: true,
+            tenant: { ativo: true },
           },
           include: {
             tenant: {
               select: { id: true, nome: true, ativo: true },
             },
           },
+          take: 2,
         });
 
-        if (!usuario || !usuario.tenant.ativo) return null;
+        const usuario = unambiguousLegacyAccount(usuarios);
+        if (!usuario) return null;
 
         const senhaValida = await bcrypt.compare(
           credentials.password as string,

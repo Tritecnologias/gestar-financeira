@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { canAssignLegacyRole, canUseActiveTenant } from "@/lib/access-policy";
+import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
 
 // GET /api/usuarios — lista usuários (admin: do próprio tenant, admin_global: todos)
 export async function GET() {
@@ -34,7 +35,8 @@ export async function POST(req: NextRequest) {
 
   const { nome, email, senha, papel, tenantId: targetTenantId } = await req.json();
 
-  if (!nome?.trim() || !email?.trim() || !senha?.trim()) {
+  if (typeof nome !== "string" || typeof email !== "string" || typeof senha !== "string" ||
+      !nome.trim() || !normalizeEmail(email) || !senha.trim()) {
     return NextResponse.json({ error: "Nome, email e senha são obrigatórios" }, { status: 400 });
   }
 
@@ -59,21 +61,25 @@ export async function POST(req: NextRequest) {
   }
 
   // Verificar se email já existe no tenant
-  const existente = await prisma.usuario.findFirst({ where: { email: email.trim(), tenantId: tenantIdFinal } });
+  const existente = await prisma.usuario.findFirst({ where: { email: emailEqualsNormalized(email), tenantId: tenantIdFinal } });
   if (existente) return NextResponse.json({ error: "Email já cadastrado neste tenant" }, { status: 409 });
 
   const senhaHash = await bcrypt.hash(senha, 12);
 
-  const usuario = await prisma.usuario.create({
-    data: {
-      tenantId: tenantIdFinal,
-      nome: nome.trim(),
-      email: email.trim().toLowerCase(),
-      senhaHash,
-      papel: papelFinal,
-    },
-    select: { id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true },
-  });
-
-  return NextResponse.json(usuario, { status: 201 });
+  try {
+    const usuario = await prisma.usuario.create({
+      data: {
+        tenantId: tenantIdFinal,
+        nome: nome.trim(),
+        email: normalizeEmail(email),
+        senhaHash,
+        papel: papelFinal,
+      },
+      select: { id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true },
+    });
+    return NextResponse.json(usuario, { status: 201 });
+  } catch (error: any) {
+    if (error.code === "P2002") return NextResponse.json({ error: "Email já cadastrado neste tenant" }, { status: 409 });
+    throw error;
+  }
 }

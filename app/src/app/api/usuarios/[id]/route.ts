@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { canAssignLegacyRole, canManageLegacyUser } from "@/lib/access-policy";
+import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
 
 // PUT /api/usuarios/[id] — editar usuário (nome, email, papel, ativo, senha)
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -29,10 +30,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Papel não permitido" }, { status: 403 });
   }
 
+  if (email !== undefined) {
+    if (typeof email !== "string" || !normalizeEmail(email)) {
+      return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+    }
+    const duplicado = await prisma.usuario.findFirst({
+      where: { tenantId: usuario.tenantId, email: emailEqualsNormalized(email), id: { not: id } },
+      select: { id: true },
+    });
+    if (duplicado) return NextResponse.json({ error: "Email já cadastrado neste tenant" }, { status: 409 });
+  }
+
   // Montar dados de atualização
   const data: any = {};
   if (nome !== undefined) data.nome = nome.trim();
-  if (email !== undefined) data.email = email.trim().toLowerCase();
+  if (email !== undefined) data.email = normalizeEmail(email);
   if (papel !== undefined) data.papel = papel;
   if (ativo !== undefined) data.ativo = ativo;
   if (senha && senha.trim().length >= 6) data.senhaHash = await bcrypt.hash(senha, 12);

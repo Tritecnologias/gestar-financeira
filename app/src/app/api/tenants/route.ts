@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
+import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
 
 // GET /api/tenants — lista todos os tenants (apenas admin_global)
 export async function GET() {
@@ -38,17 +39,19 @@ export async function POST(req: NextRequest) {
   }
 
   const { nome, email, plano } = await req.json();
-  if (!nome?.trim() || !email?.trim()) return NextResponse.json({ error: "Nome e email são obrigatórios" }, { status: 400 });
+  if (typeof nome !== "string" || typeof email !== "string" || !nome.trim() || !normalizeEmail(email)) {
+    return NextResponse.json({ error: "Nome e email são obrigatórios" }, { status: 400 });
+  }
 
   // Gerar slug a partir do nome
   const slug = nome.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
   // Verificar unicidade
-  const existente = await prisma.tenant.findFirst({ where: { OR: [{ slug }, { email: email.trim() }] } });
+  const existente = await prisma.tenant.findFirst({ where: { OR: [{ slug }, { email: emailEqualsNormalized(email) }] } });
   if (existente) return NextResponse.json({ error: "Nome ou email já cadastrado" }, { status: 409 });
 
   const tenant = await prisma.tenant.create({
-    data: { nome: nome.trim(), slug, email: email.trim().toLowerCase(), plano: plano || "trial" },
+    data: { nome: nome.trim(), slug, email: normalizeEmail(email), plano: plano || "trial" },
     select: { id: true, nome: true, slug: true, email: true, plano: true },
   });
 
