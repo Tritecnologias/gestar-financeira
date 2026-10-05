@@ -30,6 +30,7 @@ model Tenant {
   atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
 
   usuarios          Usuario[]
+  memberships       TenantMembership[]
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
@@ -68,9 +69,94 @@ model Usuario {
   tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   lancamentos   Lancamento[]
   layoutsColunas LayoutColunas[]
+  legacyAccessMap LegacyUserAccessMap?
 
   @@unique([tenantId, email])
+  @@unique([id, tenantId])
   @@map("usuarios")
+}
+
+// ACCESS-2: identidade de autenticação global, separada de Pessoa empresarial.
+enum AccessStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model AuthIdentity {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  nome        String
+  senhaHash   String   @map("senha_hash")
+  status      AccessStatus @default(ACTIVE)
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  memberships TenantMembership[]
+  platformAdmin PlatformAdmin?
+  legacyMaps LegacyUserAccessMap[]
+
+  @@map("auth_identities")
+}
+
+model TenantMembership {
+  id          String   @id @default(uuid())
+  identityId  String   @map("identity_id")
+  tenantId    String   @map("tenant_id")
+  status      AccessStatus @default(ACTIVE)
+  role        MembershipRole @default(MEMBER)
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  identity    AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  legacyMaps  LegacyUserAccessMap[]
+
+  @@unique([identityId, tenantId])
+  @@unique([id, identityId, tenantId])
+  @@index([tenantId, status])
+  @@map("tenant_memberships")
+}
+
+// Plataforma não é papel empresarial e não dá acesso financeiro implícito.
+model PlatformAdmin {
+  id          String   @id @default(uuid())
+  identityId  String   @unique @map("identity_id")
+  status      AccessStatus @default(ACTIVE)
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  identity    AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  legacyMaps  LegacyUserAccessMap[]
+
+  @@unique([id, identityId])
+  @@map("platform_admins")
+}
+
+// ID explícito do Usuario preserva autoria/histórico; nunca inferir mapping por email.
+model LegacyUserAccessMap {
+  id                String   @id @default(uuid())
+  legacyUsuarioId   String   @unique @map("legacy_usuario_id")
+  identityId        String   @map("identity_id")
+  tenantId          String   @map("tenant_id")
+  membershipId      String?  @map("membership_id")
+  platformAdminId   String?  @map("platform_admin_id")
+  criadoEm          DateTime @default(now()) @map("criado_em")
+
+  legacyUsuario Usuario @relation(fields: [legacyUsuarioId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  identity AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  membership TenantMembership? @relation(fields: [membershipId, identityId, tenantId], references: [id, identityId, tenantId], onDelete: Restrict)
+  platformAdmin PlatformAdmin? @relation(fields: [platformAdminId, identityId], references: [id, identityId], onDelete: Restrict)
+
+  @@index([identityId])
+  @@index([tenantId])
+  @@unique([legacyUsuarioId, tenantId])
+  @@map("legacy_user_access_maps")
 }
 
 // ── Plano de Contas ───────────────────────────────────────────
