@@ -1,12 +1,15 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import PeopleImportModal from "@/components/estrutura/PeopleImportModal";
+import { useCan } from "@/components/access/PermissionContext";
+import ExportOnlyButton from "@/components/access/ExportOnlyButton";
 import "./dimensao-pessoas.css";
 
 interface Pessoa { id: string; codigo: string; nome: string; cargo?: string; departamento?: string; email?: string; telefone?: string; }
 interface CentroCusto { id: string; codigo: string; nome: string; }
 
 export default function DimensaoPessoasPage() {
+  const can = useCan();
   const [items, setItems] = useState<Pessoa[]>([]);
   const [centros, setCentros] = useState<CentroCusto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,15 +89,16 @@ export default function DimensaoPessoasPage() {
         <div className="people-toolbar">
           <div className="form-group people-search"><label htmlFor="people-search">Busca</label><input id="people-search" type="search" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome, cargo, código..." /></div>
           <span className="people-count" aria-live="polite">{filtered.length} pessoas</span>
-          <span className="people-add-hint">Inclua uma pessoa na primeira linha da tabela</span>
+          {can("estrutura.pessoas.create") && <span className="people-add-hint">Inclua uma pessoa na primeira linha da tabela</span>}
           <div className="people-future-actions" aria-label="Acessos futuros">
             <span>Em breve</span>
             <button type="button" className="btn btn-secondary" disabled title="Organograma ainda não disponível">Organograma</button>
             <button type="button" className="btn btn-secondary" disabled title="Módulo Recursos Humanos ainda não disponível">Recursos Humanos</button>
           </div>
-          <div className="people-import-actions" aria-label="Importação de Pessoas">
+          {can("estrutura.pessoas.import") && <div className="people-import-actions" aria-label="Importação de Pessoas">
             <button type="button" className="btn btn-primary" onClick={() => setShowImport(true)}>Importar Pessoas</button>
-          </div>
+          </div>}
+          <ExportOnlyButton permission="estrutura.pessoas.export" importPermission="estrutura.pessoas.import" url="/api/pessoas/exportar" filename="pessoas_10s.xlsx" label="Baixar Pessoas" />
         </div>
 
         {/* Tabela com sticky header */}
@@ -106,7 +110,7 @@ export default function DimensaoPessoasPage() {
               </tr>
             </thead>
             <tbody>
-              <tr className="people-add-row">
+              {can("estrutura.pessoas.create") && <tr className="people-add-row">
                 <td className="people-add-mark">+</td>
                 <td className="people-muted">{nextCode()}</td>
                 <td><input className="cell-input" aria-label="Nome da nova pessoa" value={form.nome} onChange={e=>setForm(f=>({...f,nome:e.target.value}))} placeholder="Nome completo" onKeyDown={e=>{if(e.key==="Enter")void criar();}} /></td>
@@ -115,12 +119,12 @@ export default function DimensaoPessoasPage() {
                 <td><input className="cell-input" aria-label="Email da nova pessoa" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="email@..." /></td>
                 <td><input className="cell-input" aria-label="Telefone da nova pessoa" value={form.telefone} onChange={e=>setForm(f=>({...f,telefone:e.target.value}))} placeholder="(00)..." /></td>
                 <td><button type="button" className="btn btn-primary btn-sm people-add-button" onClick={() => void criar()} disabled={saving || loading} aria-label="Adicionar pessoa">+</button></td>
-              </tr>
+              </tr>}
               {loading && <tr><td colSpan={8} className="people-state" role="status">Carregando pessoas...</td></tr>}
               {!loading && filtered.length === 0 && <tr><td colSpan={8} className="people-state">{busca ? "Nenhuma pessoa encontrada." : "Nenhuma pessoa cadastrada."}</td></tr>}
               {filtered.map((p, i) => (
                 <tr key={p.id} className={editingId === p.id ? "editing" : ""} onKeyDown={e => { if (editingId === p.id && e.key === "Escape") setEditingId(null); }}>
-                  {editingId === p.id ? (
+                  {can("estrutura.pessoas.edit") && editingId === p.id ? (
                     <>
                       <td>{i+1}</td>
                       <td><span style={{fontWeight:600}}>{p.codigo}</span></td>
@@ -143,7 +147,7 @@ export default function DimensaoPessoasPage() {
                       <td style={{fontSize:11,color:"var(--text-secondary)"}}>{p.departamento||"—"}</td>
                       <td style={{fontSize:11,color:"var(--text-secondary)"}}>{p.email||"—"}</td>
                       <td style={{fontSize:11}}>{p.telefone||"—"}</td>
-                      <td><div className="people-row-actions"><button type="button" className="action-btn" aria-label={`Editar ${p.nome}`} onClick={()=>{setEditingId(p.id);setEditData({...p});setError("");}}>✏️</button><button type="button" className="action-btn" aria-label={`Desativar ${p.nome}`} onClick={()=>void excluir(p.id)} disabled={saving}>🗑️</button></div></td>
+                      <td><div className="people-row-actions">{can("estrutura.pessoas.edit") && <button type="button" className="action-btn" aria-label={`Editar ${p.nome}`} onClick={()=>{setEditingId(p.id);setEditData({...p});setError("");}}>✏️</button>}{can("estrutura.pessoas.delete") && <button type="button" className="action-btn" aria-label={`Desativar ${p.nome}`} onClick={()=>void excluir(p.id)} disabled={saving}>🗑️</button>}</div></td>
                     </>
                   )}
                 </tr>
@@ -152,7 +156,7 @@ export default function DimensaoPessoasPage() {
           </table>
         </div>
       </div>
-      {showImport && <PeopleImportModal onClose={() => setShowImport(false)} onImported={() => void load()} />}
+      {can("estrutura.pessoas.import") && showImport && <PeopleImportModal onClose={() => setShowImport(false)} onImported={() => void load()} />}
     </div>
   );
 }

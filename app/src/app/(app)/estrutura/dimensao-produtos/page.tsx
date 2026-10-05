@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import ProductImportModal from "@/components/estrutura/ProductImportModal";
+import { useCan } from "@/components/access/PermissionContext";
+import ExportOnlyButton from "@/components/access/ExportOnlyButton";
 import "./dimensao-produtos.css";
 
 type ProductGroup = { id: string; codigo: string; nome: string; ativo: boolean };
@@ -33,6 +35,7 @@ async function request(url: string, method: "POST" | "PUT" | "PATCH" | "DELETE",
 }
 
 export default function DimensaoProdutosPage() {
+  const can = useCan();
   const [items, setItems] = useState<Product[]>([]);
   const [groups, setGroups] = useState<ProductGroup[]>([]);
   const [types, setTypes] = useState<ProductType[]>([]);
@@ -177,7 +180,7 @@ export default function DimensaoProdutosPage() {
     finally { setSaving(false); }
   };
 
-  return <div className="product-page">
+  return <div className={`product-page ${can("estrutura.portfolio.create") ? "can-create" : ""} ${can("estrutura.portfolio.edit") ? "can-edit" : ""} ${can("estrutura.portfolio.delete") ? "can-delete" : ""}`}>
     <header className="topbar"><div><h1 className="page-title">Dimensão de Portfólio</h1><p className="page-sub">Catálogo hierárquico — Grupo → Tipo → Linha → Item</p></div></header>
     <div className="product-content">
       {error && <div className="alert alert-error" role="alert">{error}</div>}
@@ -188,7 +191,7 @@ export default function DimensaoProdutosPage() {
         <label>Linha<select className="filter-input" value={lineFilter} disabled={!typeFilter} onChange={event => setLineFilter(event.target.value)}><option value="">Todas</option>{filterLines.map(line => <option key={line.id} value={line.id}>{line.codigo} — {line.nome}</option>)}</select></label>
         <label>Status<select className="filter-input" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="ativo">Ativos</option><option value="inativo">Inativos</option><option value="">Todos</option></select></label>
         <span className="product-count" role="status">{loading ? "Carregando…" : `${filtered.length} de ${items.length} itens exibidos`}</span>
-        <div className="product-toolbar-actions"><button className="btn btn-primary" onClick={() => setImportOpen(true)}>Importar Portfólio</button></div>
+        <div className="product-toolbar-actions">{can("estrutura.portfolio.import") && <button className="btn btn-primary" onClick={() => setImportOpen(true)}>Importar Portfólio</button>}<ExportOnlyButton permission="estrutura.portfolio.export" importPermission="estrutura.portfolio.import" url="/api/produtos/exportar" filename="portfolio_10s.xlsx" label="Baixar Portfólio" /></div>
       </div>
       <div className="product-tree" aria-label="Hierarquia do Portfólio">
         <div className="product-tree-header"><strong>Grupo → Tipo → Linha opcional → Item</strong><div className="product-view-switch" role="group" aria-label="Expansão da árvore"><button className="btn btn-secondary" onClick={() => { setExpandedGroups(new Set(groups.map(group => group.id))); setExpandedTypes(new Set(types.map(type => type.id))); setExpandedLines(new Set(lines.map(line => line.id))); }}>Expandir tudo</button><button className="btn btn-secondary" disabled={forceOpen} title={forceOpen ? "Resultados de busca e filtros permanecem visíveis" : undefined} onClick={() => { setExpandedGroups(new Set()); setExpandedTypes(new Set()); setExpandedLines(new Set()); }}>Recolher tudo</button></div></div>
@@ -240,6 +243,6 @@ export default function DimensaoProdutosPage() {
       </div><div className="product-modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setConfigOpen(false)}>Cancelar</button><button className="btn btn-primary" disabled={saving}>{saving ? "Salvando…" : "Salvar"}</button></div>
     </form></div></div>}
     {deleteTarget && <div className="modal-overlay product-overlay open" role="presentation"><div className="modal product-modal product-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="product-delete-title"><div className="modal-header"><h2 id="product-delete-title">Excluir definitivamente {deleteTarget.kind}</h2><button className="modal-close" aria-label="Fechar" onClick={() => setDeleteTarget(null)}>×</button></div><form onSubmit={event => void deletePermanently(event)}><div className="product-modal-body"><p>Esta ação remove o cadastro definitivamente: <strong>{deleteTarget.codigo} — {deleteTarget.nome}</strong>. Registros com dependências, mesmo inativas, não serão excluídos.</p><label>Digite o código {deleteTarget.codigo} para confirmar<input autoFocus value={deleteCode} onChange={event => setDeleteCode(event.target.value)} /></label>{modalError && <div className="alert alert-error" role="alert">{modalError}</div>}</div><div className="product-modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setDeleteTarget(null)}>Cancelar</button><button className="btn btn-danger" disabled={saving || deleteCode !== deleteTarget.codigo}>{saving ? "Excluindo…" : "Excluir definitivamente"}</button></div></form></div></div>}
-    {importOpen && <ProductImportModal onClose={() => setImportOpen(false)} onImported={() => { void load(); }} />}
+    {can("estrutura.portfolio.import") && importOpen && <ProductImportModal onClose={() => setImportOpen(false)} onImported={() => { void load(); }} />}
   </div>;
 }

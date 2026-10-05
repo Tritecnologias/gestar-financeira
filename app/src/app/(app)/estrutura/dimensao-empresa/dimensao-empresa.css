@@ -276,3 +276,6 @@
   }
   .company-dimension-table .action-btn { min-width: 44px; }
 }
+.company-dimension-page:not(.can-create) .company-dimension-card tfoot { display: none; }
+.company-dimension-page:not(.can-edit) .company-dimension-card tbody td:last-child > .action-btn:first-child { display: none; }
+.company-dimension-page:not(.can-delete) .company-dimension-card tbody td:last-child > .action-btn:nth-child(2) { display: none; }

@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import ManagementImportModal from "@/components/estrutura/ManagementImportModal";
+import { useCan } from "@/components/access/PermissionContext";
+import ExportOnlyButton from "@/components/access/ExportOnlyButton";
 import "./dimensao-empresa.css";
 
 interface Empresa { id: string; razaoSocial: string; nomeFantasia?: string; cnpj?: string; telefone?: string; email?: string; }
@@ -9,6 +11,8 @@ interface AreaNegocio { id: string; codigo: string; nome: string; }
 interface CentroCusto { id: string; codigo: string; nome: string; areaId?: string; area?: { codigo: string; nome: string }; }
 
 export default function DimensaoEmpresaPage() {
+  const can = useCan();
+  const accessClass = `${can("estrutura.empresa.create") ? "can-create" : ""} ${can("estrutura.empresa.edit") ? "can-edit" : ""} ${can("estrutura.empresa.delete") ? "can-delete" : ""}`;
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [bancos, setBancos] = useState<DadoBancario[]>([]);
   const [areas, setAreas] = useState<AreaNegocio[]>([]);
@@ -92,7 +96,7 @@ export default function DimensaoEmpresaPage() {
   };
 
   const pageHeader = <header className="topbar"><div><h1 className="page-title">Dimensão da Empresa</h1><p className="page-sub">Estrutura Empresa — Dados cadastrais, bancários, áreas e centros de custo</p></div></header>;
-  if (loading) return <div className="company-dimension-page">{pageHeader}<div className="company-dimension-content"><div className="company-dimension-loading" role="status">Carregando...</div></div></div>;
+  if (loading) return <div className={`company-dimension-page ${accessClass}`}>{pageHeader}<div className="company-dimension-content"><div className="company-dimension-loading" role="status">Carregando...</div></div></div>;
 
   const empresasVisiveis = empresas.filter(e => !busca || e.razaoSocial.toLowerCase().includes(busca.toLowerCase()));
   const bancosVisiveis = bancos.filter(b => !busca || b.banco.toLowerCase().includes(busca.toLowerCase()) || (b.agencia || "").includes(busca) || (b.conta || "").includes(busca));
@@ -100,14 +104,15 @@ export default function DimensaoEmpresaPage() {
   const centrosVisiveis = centros.filter(c => !busca || c.nome.toLowerCase().includes(busca.toLowerCase()) || c.codigo.includes(busca));
 
   return (
-    <div className="company-dimension-page">
+    <div className={`company-dimension-page ${accessClass}`}>
       {pageHeader}
       <div className="company-dimension-content">
         {error && <div className="alert alert-error company-dimension-alert">{error}</div>}
         <div className="company-dimension-toolbar">
           <div className="form-group company-dimension-search"><label htmlFor="company-dimension-search">Busca</label><input id="company-dimension-search" type="text" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="🔍 Buscar..." /></div>
           <span className="company-dimension-count">{empresasVisiveis.length + bancosVisiveis.length + areasVisiveis.length + centrosVisiveis.length} cadastros</span>
-          <button className="btn btn-primary" onClick={() => setShowImport(true)}>Importar Estrutura Gerencial</button>
+          {can("estrutura.empresa.import") && <button className="btn btn-primary" onClick={() => setShowImport(true)}>Importar Estrutura Gerencial</button>}
+          <ExportOnlyButton permission="estrutura.empresa.export" importPermission="estrutura.empresa.import" url="/api/estrutura-gerencial/exportar" filename="estrutura_gerencial_10s.xlsx" label="Baixar Estrutura" />
         </div>
 
         <div className="company-dimension-grid">
@@ -192,7 +197,7 @@ export default function DimensaoEmpresaPage() {
           </section>
         </div>
       </div>
-      {showImport && <ManagementImportModal onClose={() => setShowImport(false)} onImported={() => loadData(true)} />}
+      {can("estrutura.empresa.import") && showImport && <ManagementImportModal onClose={() => setShowImport(false)} onImported={() => loadData(true)} />}
     </div>
   );
 }

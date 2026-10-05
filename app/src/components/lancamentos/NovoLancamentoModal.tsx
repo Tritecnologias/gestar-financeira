@@ -4,6 +4,7 @@ import type { StatusManualTipoDTO } from "@/types";
 import { counterpartyDisplay, counterpartyIds, defaultAccount, type CounterpartyOption } from "@/lib/counterparty";
 import CounterpartyPicker from "./CounterpartyPicker";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { useCan } from "@/components/access/PermissionContext";
 import "./novo-lancamento.css";
 
 interface Props {
@@ -48,6 +49,7 @@ function Field({ id, label, value, onChange, type = "text", required, inputMode,
 }
 
 export default function NovoLancamentoModal({ open, onClose, onCreated, counterparties, statusTipos }: Props) {
+  const can = useCan();
   const [defaults, setDefaults] = useState(initialDefaults);
   const [rows, setRows] = useState<Row[]>(() => [newRow(1, initialDefaults())]);
   const [saving, setSaving] = useState(false);
@@ -212,11 +214,11 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
               </select></label>
               <div className="lanc-new-field"><span>Categoria N1</span><SearchableSelect label="Categoria N1 padrão" value={defaults.categoria}
                 options={categories.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))}
-                createActions={[{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }]}
+                createActions={can("estrutura.financeiras.create") ? [{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }] : []}
                 onChange={value => updateDefault({ categoria: value, contaId: "" })} /></div>
               <div className="lanc-new-field"><span>Conta N2</span><SearchableSelect label="Conta N2 padrão" value={defaults.contaId}
                 options={accountOptions(defaults.categoria).map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
-                createActions={[{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }]}
+                createActions={can("estrutura.financeiras.create") ? [{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }] : []}
                 onChange={value => updateDefault({ contaId: value, categoria: categoryForAccount(value) || defaults.categoria })} /></div>
               <Field id="lanc-default-realization" label="Data de Realização" type="date" value={defaults.dataPagamento}
                 onChange={value => updateDefault({ dataPagamento: value })} />
@@ -256,11 +258,11 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                       <option value="SAIDA">SAÍDA</option><option value="ENTRADA">ENTRADA</option></select></label>
                     <div className="lanc-new-field"><span>Categoria N1</span><SearchableSelect label={`Categoria N1 do lançamento ${index + 1}`} value={data.categoria}
                       options={categories.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))}
-                      createActions={[{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }]}
+                      createActions={can("estrutura.financeiras.create") ? [{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }] : []}
                       onChange={value => set({ categoria: value, contaId: "" })} /></div>
                     <div className="lanc-new-field"><span>Conta N2</span><SearchableSelect label={`Conta N2 do lançamento ${index + 1}`} value={data.contaId}
                       options={accountOptions(data.categoria).map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
-                      createActions={[{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }]}
+                      createActions={can("estrutura.financeiras.create") ? [{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }] : []}
                       onChange={value => set({ contaId: value, categoria: categoryForAccount(value) || data.categoria })} /></div>
                     <Field id={`lanc-${row.key}-previsto`} label="Valor Previsto" value={data.valorPrevisto}
                       onChange={field("valorPrevisto")} inputMode="decimal" placeholder="0,00" />

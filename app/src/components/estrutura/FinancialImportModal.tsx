@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useCan } from "@/components/access/PermissionContext";
 import type { FinancialIssue, FinancialPreview, FinancialRow } from "@/lib/financial-import";
 
 type Props = { onClose: () => void; onImported: () => void };
 
 export default function FinancialImportModal({ onClose, onImported }: Props) {
+  const can = useCan();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<FinancialPreview | null>(null);
   const [localErrors, setLocalErrors] = useState<FinancialIssue[]>([]);
@@ -75,7 +77,7 @@ export default function FinancialImportModal({ onClose, onImported }: Props) {
       <div className="modal-header"><h2 id="financial-import-title">Importar Estrutura Financeira</h2><button className="modal-close" aria-label="Fechar" onClick={onClose}>✕</button></div>
       <div className="management-import-body">
         <ol className="management-import-steps">
-          <li><button className="btn btn-secondary" onClick={downloadStructure} disabled={downloading}>Baixar Estrutura Financeira</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Sem dados, o arquivo virá vazio para preenchimento.</p></li>
+          {can("estrutura.financeiras.export") && <li><button className="btn btn-secondary" onClick={downloadStructure} disabled={downloading}>Baixar Estrutura Financeira</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Sem dados, o arquivo virá vazio para preenchimento.</p></li>}
           <li>Preencha as abas da planilha. Mantenha os códigos como texto e informe o tipo da Conta.</li>
           <li><label className="management-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onChange={event => selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira a prévia e os erros abaixo.</li>

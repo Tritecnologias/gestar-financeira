@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useCan } from "@/components/access/PermissionContext";
 import type { OfficialPreviewRow } from "@/lib/lancamento-official-import";
 import "./official-import.css";
 
@@ -12,6 +13,7 @@ type Preview = {
 type Props = { open: boolean; onClose: () => void; onImported: () => void; filters: string };
 
 export default function OfficialImportModal({ open, onClose, onImported, filters }: Props) {
+  const can = useCan();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewToken, setPreviewToken] = useState("");
@@ -73,7 +75,7 @@ export default function OfficialImportModal({ open, onClose, onImported, filters
       <div className="modal-header"><h2 id="official-import-title">Importar Lançamentos</h2><button className="modal-close" aria-label="Fechar" onClick={close} disabled={busy}>✕</button></div>
       <div className="lanc-official-body">
         <ol className="lanc-official-steps">
-          <li><button className="btn btn-secondary" onClick={() => void download()} disabled={busy}>Baixar Base XLSX</button><p>A base inclui todos os registros do filtro atual, além do modelo para novos lançamentos.</p></li>
+          {can("fluxo.lancamentos.export") && <li><button className="btn btn-secondary" onClick={() => void download()} disabled={busy}>Baixar Base XLSX</button><p>A base inclui todos os registros do filtro atual, além do modelo para novos lançamentos.</p></li>}
           <li>Mantenha REGISTRO_ID e REGISTRO_VERSAO dos existentes. Para novos, deixe ambos vazios. Remover uma linha não exclui o registro.</li>
           <li><label>Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onClick={event => { event.currentTarget.value = ""; }} onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira novos, alterações, inalterados, erros e avisos na prévia.</li>

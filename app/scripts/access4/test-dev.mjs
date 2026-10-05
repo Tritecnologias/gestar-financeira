@@ -24,6 +24,10 @@ async function request(path, jar, options = {}) {
   let body = null; try { body = await response.json(); } catch { /* route may return HTML */ }
   return { status: response.status, body, headers: response.headers };
 }
+async function pageHtml(path, jar) {
+  const response = await fetch(`${base}${path}`, { redirect: "manual", headers: { Cookie: jar.header() } });
+  return { status: response.status, html: await response.text() };
+}
 async function login(userEmail) {
   const jar = cookieJar();
   const csrfResponse = await fetch(`${base}/api/auth/csrf`); jar.add(csrfResponse);
@@ -88,6 +92,9 @@ try {
   assert("sem saldo sensível no perfil operacional", !result.body.permissions.includes("fluxo.visao.saldos"));
   result = await request("/api/lancamentos?page=1&pageSize=1", jar);
   assert("lançamentos GET autorizado", result.status === 200);
+  assert("operacional sem totais financeiros no payload", result.body.totais?.valorPrevisto === undefined && result.body.totais?.valorRealizado === undefined);
+  let page = await pageHtml("/lancamentos", jar);
+  assert("operacional vê criação sem importação", page.status === 200 && page.html.includes("+ Novo Lançamento") && !page.html.includes("Importar Lançamentos"));
   result = await request("/api/fluxo-caixa/resumo?inicio=2026-01-01&fim=2026-01-31", jar);
   assert("saldo negado sem payload financeiro", result.status === 403 && !JSON.stringify(result.body).includes("valor"));
   result = await request("/api/platform/tenants", jar);
@@ -95,6 +102,8 @@ try {
   await prisma.tenantMembership.update({ where: { id: memberA.id }, data: { profileId: reader.id } });
   result = await request("/api/lancamentos?page=1&pageSize=1", jar);
   assert("perfil de leitura permite GET", result.status === 200);
+  page = await pageHtml("/lancamentos", jar);
+  assert("CONSULTA oculta ações e mostra saldos indisponíveis", page.status === 200 && !page.html.includes("+ Novo Lançamento") && !page.html.includes("Importar Lançamentos") && page.html.includes("Saldos indisponíveis para este perfil."));
   result = await request("/api/lancamentos", jar, { method: "POST", body: "{}" });
   assert("perfil de leitura nega POST", result.status === 403);
   result = await request("/api/config/logo", jar);
@@ -142,6 +151,8 @@ try {
   assert("RH não lê Fornecedores", result.status === 403);
   result = await request("/estrutura/dimensao-pessoas", jar);
   assert("RH abre rota Pessoas", result.status === 200);
+  page = await pageHtml("/estrutura/dimensao-pessoas", jar);
+  assert("RH em consulta não vê inclusão ou importação", page.status === 200 && !page.html.includes("people-add-row") && !page.html.includes("Importar Pessoas"));
   result = await request("/estrutura/dimensoes-financeiras", jar);
   assert("RH não abre Finanças", result.status !== 200);
   await prisma.tenantMembership.update({ where: { id: memberA.id }, data: { profileId: reader.id } });
@@ -149,6 +160,10 @@ try {
   result = await request("/api/access/context", jar);
   assert("RENAN/THE HOME role ADMIN e perfil gerente", result.status === 200 && result.body.role === "ADMIN" && result.body.profile?.nome === "FINANCEIRO GERENTE");
   assert("permissões recalculadas na troca", result.body.permissions.includes("fluxo.visao.saldos"));
+  page = await pageHtml("/lancamentos", jar);
+  assert("gerente vê criação e exportação sem importação", page.status === 200 && page.html.includes("+ Novo Lançamento") && page.html.includes("Exportar Lançamentos") && !page.html.includes("Importar Lançamentos"));
+  result = await request("/api/lancamentos/exportar", jar);
+  assert("gerente exporta pela rota permitida", result.status === 200);
   result = await request("/api/access/profiles", jar);
   assert("ADMIN consulta perfis do próprio tenant", result.status === 200 && result.body.every(p => p.tenantId === b.id));
   result = await request("/api/access/profiles", jar, { method: "POST", body: JSON.stringify({ nome: "NOVO TESTE", permissoes: ["fluxo.lancamentos.view"] }) });

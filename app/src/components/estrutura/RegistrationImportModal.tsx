@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useCan } from "@/components/access/PermissionContext";
 import type { RegistrationIssue, RegistrationPreview, RegistrationRow } from "@/lib/registration-import";
 import { REGISTRATION_FILENAME } from "@/lib/registration-import-template";
 
@@ -9,6 +10,7 @@ type CreatedCodes = { clientes: { linha: number; codigo: string; nome: string }[
 const actionName = { novo: "Novo", atualizar: "Atualização", igual: "Sem alteração", erro: "Erro" } as const;
 
 export default function RegistrationImportModal({ onClose, onImported }: Props) {
+  const can = useCan();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<RegistrationPreview | null>(null);
   const [error, setError] = useState("");
@@ -89,7 +91,7 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
       <div className="modal-header"><h2 id="registration-import-title">Importar Cadastros</h2><button type="button" className="modal-close" aria-label="Fechar" disabled={busy} onClick={onClose}>✕</button></div>
       <div className="registration-import-body">
         <ol className="registration-import-steps">
-          <li><button type="button" className="btn btn-secondary" onClick={() => void download()} disabled={busy || downloading}>{downloading ? "Baixando..." : "Baixar Cadastros"}</button><p>Baixe Clientes e Fornecedores ativos para editar ou incluir registros. Sem dados, o mesmo arquivo virá vazio.</p></li>
+          {can("estrutura.cadastrais.export") && <li><button type="button" className="btn btn-secondary" onClick={() => void download()} disabled={busy || downloading}>{downloading ? "Baixando..." : "Baixar Cadastros"}</button><p>Baixe Clientes e Fornecedores ativos para editar ou incluir registros. Sem dados, o mesmo arquivo virá vazio.</p></li>}
           <li>Edite ou preencha as abas CLIENTES e FORNECEDORES. Mantenha os códigos como texto.</li>
           <li><label className="registration-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onClick={event => { event.currentTarget.value = ""; setFile(null); setPreview(null); setResult(null); setCreated(null); setError(""); }} onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira a prévia, os avisos e os erros.</li>

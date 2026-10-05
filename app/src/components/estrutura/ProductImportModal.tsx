@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useCan } from "@/components/access/PermissionContext";
 import type { ProductImportIssue, ProductPreview, GroupRow, TypeRow, LineRow, ItemRow } from "@/lib/product-import";
 
 type Props = { onClose: () => void; onImported: () => void };
@@ -8,6 +9,7 @@ type PreviewRow = GroupRow | TypeRow | LineRow | ItemRow;
 const labels = { novo: "Novo", atualizar: "Atualização", igual: "Sem alteração", erro: "Erro" } as const;
 
 export default function ProductImportModal({ onClose, onImported }: Props) {
+  const can = useCan();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ProductPreview | null>(null);
   const [result, setResult] = useState<ProductPreview["resumo"] | null>(null);
@@ -64,7 +66,7 @@ export default function ProductImportModal({ onClose, onImported }: Props) {
   return <div className="modal-overlay open product-import-overlay" onClick={onClose}><div className="modal-content product-import-modal" role="dialog" aria-modal="true" aria-labelledby="product-import-title" onClick={event => event.stopPropagation()}>
     <div className="modal-header"><h2 id="product-import-title">Importar Portfólio</h2><button className="modal-close" aria-label="Fechar" onClick={onClose}>×</button></div>
     <div className="product-import-body">
-      <ol className="product-import-steps"><li><button className="btn btn-secondary" onClick={() => void download()} disabled={downloading}>Baixar Estrutura</button><p>Baixe os cadastros ativos para editar ou acrescentar. Sem dados, o arquivo vem vazio com cabeçalhos.</p></li><li>Edite ou preencha as abas GRUPOS, TIPOS, LINHAS e ITENS no Excel. Preserve os códigos como texto.</li><li><label className="product-import-file">Selecione o arquivo .xlsx<input type="file" accept=".xlsx" onClick={event => { event.currentTarget.value = ""; setFile(null); setPreview(null); setResult(null); }} onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li><li>Confira a prévia, avisos e erros.</li><li>Confirme a importação após revisar.</li></ol>
+      <ol className="product-import-steps">{can("estrutura.portfolio.export") && <li><button className="btn btn-secondary" onClick={() => void download()} disabled={downloading}>Baixar Estrutura</button><p>Baixe os cadastros ativos para editar ou acrescentar. Sem dados, o arquivo vem vazio com cabeçalhos.</p></li>}<li>Edite ou preencha as abas GRUPOS, TIPOS, LINHAS e ITENS no Excel. Preserve os códigos como texto.</li><li><label className="product-import-file">Selecione o arquivo .xlsx<input type="file" accept=".xlsx" onClick={event => { event.currentTarget.value = ""; setFile(null); setPreview(null); setResult(null); }} onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li><li>Confira a prévia, avisos e erros.</li><li>Confirme a importação após revisar.</li></ol>
       {busy && <p role="status">{preview ? "Revalidando e confirmando…" : "Lendo e validando…"}</p>}
       {error && <div className="alert alert-error" role="alert">{error}</div>}
       {result && <div className="product-import-success" role="status">Importação concluída: {result.totalNovo} novos, {result.totalAtualizado} atualizados e {result.totalSemAlteracao} sem alteração. Nenhum registro foi excluído.</div>}

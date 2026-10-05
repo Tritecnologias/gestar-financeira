@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import { useCan } from "@/components/access/PermissionContext";
+import ExportOnlyButton from "@/components/access/ExportOnlyButton";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { LancamentoDTO, ColConfig, FornecedorDTO, StatusManualTipoDTO } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
@@ -144,6 +146,12 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
 
 // ── Componente principal ──────────────────────────────────────
 export default function LancamentosClient({ hoje }: { hoje: string }) {
+  const can = useCan();
+  const canCreate = can("fluxo.lancamentos.create");
+  const canEdit = can("fluxo.lancamentos.edit");
+  const canDelete = can("fluxo.lancamentos.delete");
+  const canBulkEdit = can("fluxo.lancamentos.bulk_edit");
+  const canSeeBalances = can("fluxo.visao.saldos");
   // Estado principal
   const [lancamentos, setLancamentos] = useState<LancamentoDTO[]>([]);
   const [total, setTotal] = useState(0);
@@ -304,7 +312,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   // ── Inserção rápida: atalho Alt+N ─────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.altKey && e.key.toLowerCase() === "n") {
+      if (canCreate && e.altKey && e.key.toLowerCase() === "n") {
         e.preventDefault();
         setInlineNewOpen(true);
         setInlineNewValues({ dataLanc: new Date().toISOString().split("T")[0], tipo: "SAIDA" });
@@ -313,7 +321,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
+  }, [canCreate]);
 
   const saveInlineNew = async () => {
     const { dataLanc, descricao, valor, valorPrevisto, tipo } = inlineNewValues;
@@ -423,9 +431,9 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     }
   }, [filtros, hoje]);
 
-  const refreshData = () => { void loadList(); void loadSummary(); };
+  const refreshData = () => { void loadList(); if (canSeeBalances) void loadSummary(); };
   useEffect(() => { const controller = new AbortController(); void loadList(controller.signal); return () => controller.abort(); }, [loadList]);
-  useEffect(() => { const controller = new AbortController(); void loadSummary(controller.signal); return () => controller.abort(); }, [loadSummary]);
+  useEffect(() => { if (!canSeeBalances) return; const controller = new AbortController(); void loadSummary(controller.signal); return () => controller.abort(); }, [loadSummary, canSeeBalances]);
 
   // Cards seguem a posição financeira do motor, independentemente da data-base da grade.
   const cardValor = (card: CardLancamento) => {
@@ -817,8 +825,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         const accountOptions = accounts.filter(item => item.categoriaId === categoryOptions.find(cat => cat.codigo === selectedCategory)?.id);
         return (
           <SearchableSelect className="cell-input" label={def.source === "categorias" ? "Categoria N1" : "Conta N2"}
-            value={String(val ?? "")} createActions={[{ label: def.source === "categorias" ? "+ Cadastrar nova categoria" : "+ Cadastrar nova conta",
-              href: "/estrutura/dimensoes-financeiras" }]}
+            value={String(val ?? "")} createActions={can("estrutura.financeiras.create") ? [{ label: def.source === "categorias" ? "+ Cadastrar nova categoria" : "+ Cadastrar nova conta",
+              href: "/estrutura/dimensoes-financeiras" }] : []}
             options={def.source === "categorias" ? categoryOptions.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))
               : accountOptions.map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
             displayValue={def.source === "plano-contas" && editValues.contaId && !accountOptions.some(item => item.id === editValues.contaId)
@@ -899,12 +907,13 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <input className="filter-input" value={buscaInput} placeholder="Cliente, fornecedor, fantasia, descrição, anotação"
                 onChange={event => atualizarFiltro("busca", event.target.value)} /></label>
             <div className="lanc-toolbar-actions">
-            <button ref={novoButtonRef} className="btn btn-outline lanc-new-button" onClick={() => setNovoModalOpen(true)}>+ Novo Lançamento</button>
-            <button className="btn btn-primary" onClick={() => setImportModalOpen(true)}>Importar Lançamentos</button>
+            {canCreate && <button ref={novoButtonRef} className="btn btn-outline lanc-new-button" onClick={() => setNovoModalOpen(true)}>+ Novo Lançamento</button>}
+            {can("fluxo.lancamentos.import") && <button className="btn btn-primary" onClick={() => setImportModalOpen(true)}>Importar Lançamentos</button>}
+            <ExportOnlyButton permission="fluxo.lancamentos.export" importPermission="fluxo.lancamentos.import" url={`/api/lancamentos/exportar?${parametrosFiltros()}`} filename="lancamentos.csv" label="Exportar Lançamentos" />
             </div>
           </div>
           <section className="lanc-summary" aria-label="Resumo financeiro dos filtros" aria-busy={resumoAtualizando}>
-            {resumoErro ? <div className="lanc-summary-error">{resumoErro}</div> : !resumo ?
+            {!canSeeBalances ? <div className="lanc-summary-loading">Saldos indisponíveis para este perfil.</div> : resumoErro ? <div className="lanc-summary-error">{resumoErro}</div> : !resumo ?
               <div className="lanc-summary-loading">Carregando resumo financeiro…</div> : <>
                 <div className="lanc-summary-grid">{cards.map(card => {
                   const valor = Number(cardValor(card.id));
@@ -973,13 +982,13 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <div className={`filter-group ${filtros.categoria ? "lanc-criterion-active" : ""}`}><span className="filter-label">Categoria N1</span><SearchableSelect
               label="Filtrar Categoria N1" className="filter-input" emptyLabel="Todas" value={filtros.categoria}
               options={categories.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))}
-              createActions={[{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }]}
+              createActions={can("estrutura.financeiras.create") ? [{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }] : []}
               onChange={value => atualizarFiltro("categoria", value)} /></div>
             <div className={`filter-group ${filtros.contaId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Conta N2</span><SearchableSelect
               label="Filtrar Conta N2" className="filter-input" emptyLabel="Todas" value={filtros.contaId}
               options={accounts.filter(item => !filtros.categoria || item.categoriaId === categories.find(cat => cat.codigo === filtros.categoria)?.id)
                 .map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
-              createActions={[{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }]}
+              createActions={can("estrutura.financeiras.create") ? [{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }] : []}
               onChange={value => {
               const account = accounts.find(item => item.id === value);
               const category = categories.find(item => item.id === account?.categoriaId);
@@ -988,18 +997,18 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <div className={`filter-group ${filtros.clienteId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Cliente</span><SearchableSelect
               label="Filtrar Cliente" className="filter-input" emptyLabel="Todos" value={filtros.clienteId}
               options={clientes.map((item: any) => ({ value: item.id, label: `${item.codigo} – ${item.nomeFantasia || item.nome}` }))}
-              createActions={[{ label: "+ Cadastrar novo cliente", href: "/estrutura/dimensoes-cadastrais#clientes-title" }]}
+              createActions={can("estrutura.cadastrais.create") ? [{ label: "+ Cadastrar novo cliente", href: "/estrutura/dimensoes-cadastrais#clientes-title" }] : []}
               onChange={value => atualizarFiltro("clienteId", value)} /></div>
             <div className={`filter-group ${filtros.fornecedorId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor</span><SearchableSelect
               label="Filtrar Fornecedor" className="filter-input" emptyLabel="Todos" value={filtros.fornecedorId}
               options={fornecedores.map(item => ({ value: item.id, label: item.display || `${item.codigo} – ${item.nome}` }))}
-              createActions={[{ label: "+ Cadastrar novo fornecedor", href: "/estrutura/dimensoes-cadastrais#fornecedores-title" }]}
+              createActions={can("estrutura.cadastrais.create") ? [{ label: "+ Cadastrar novo fornecedor", href: "/estrutura/dimensoes-cadastrais#fornecedores-title" }] : []}
               onChange={value => atualizarFiltro("fornecedorId", value)} /></div>
             <label className={`filter-group ${filtros.centroCusto ? "lanc-criterion-active" : ""}`}><span className="filter-label">Centro de Custo legado</span><input className="filter-input" value={filtros.centroCusto} onChange={event => atualizarFiltro("centroCusto", event.target.value)} /></label>
             <label className={`filter-group ${filtros.banco ? "lanc-criterion-active" : ""}`}><span className="filter-label">Local Financeiro</span><input className="filter-input" value={filtros.banco} onChange={event => atualizarFiltro("banco", event.target.value)} /></label>
             <label className={`filter-group ${filtros.fornecedor ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor legado</span><input className="filter-input" value={filtros.fornecedor} onChange={event => atualizarFiltro("fornecedor", event.target.value)} /></label>
           </div>}
-          {atalhosOpen && <div className="lanc-settings-content"><button className="btn btn-outline" onClick={() => setStatusModalOpen(true)}>Status Manual</button>
+          {atalhosOpen && <div className="lanc-settings-content">{canEdit && <button className="btn btn-outline" onClick={() => setStatusModalOpen(true)}>Status Manual</button>}
               <LayoutManager colConfig={colConfig} onLayoutChange={setColConfig} />
               <label className="lanc-page-size">Linhas por página
                 <select value={porPagina} onChange={event => { setPorPagina(event.target.value === "all" ? "all" : Number(event.target.value) as LinhasPorPagina); setPagina(1); }}>
@@ -1007,16 +1016,16 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                   <option value="all">Tudo</option>
                 </select>
               </label>
-              <Link className="btn btn-outline" href="/estrutura/dimensao-empresa">Dimensão da Empresa</Link>
-              <Link className="btn btn-outline" href="/estrutura/dimensoes-financeiras">Dimensões Financeiras</Link>
-              <Link className="btn btn-outline" href="/estrutura/dimensoes-cadastrais">Dimensões Cadastrais</Link>
-              <Link className="btn btn-outline" href="/estrutura/dimensao-produtos">Dimensão de Portfólio</Link></div>}
+              {can("estrutura.empresa.view") && <Link className="btn btn-outline" href="/estrutura/dimensao-empresa">Dimensão da Empresa</Link>}
+              {can("estrutura.financeiras.view") && <Link className="btn btn-outline" href="/estrutura/dimensoes-financeiras">Dimensões Financeiras</Link>}
+              {can("estrutura.cadastrais.view") && <Link className="btn btn-outline" href="/estrutura/dimensoes-cadastrais">Dimensões Cadastrais</Link>}
+              {can("estrutura.portfolio.view") && <Link className="btn btn-outline" href="/estrutura/dimensao-produtos">Dimensão de Portfólio</Link>}</div>}
         </section>
         {listErro && <div className="lanc-list-error" role="alert">{listErro}</div>}
 
-        {selectedIds.size > 0 && <div className="lanc-selection-bar" role="status">
+        {canBulkEdit && selectedIds.size > 0 && <div className="lanc-selection-bar" role="status">
           <strong>{selectedIds.size} selecionado(s)</strong>
-          <button className="btn btn-primary" onClick={() => setBulkOpen(true)}>Editar em massa</button>
+          {canBulkEdit && <button className="btn btn-primary" onClick={() => setBulkOpen(true)}>Editar em massa</button>}
           <button className="btn btn-outline" onClick={() => setSelectedIds(new Set())}>Limpar seleção</button>
         </div>}
 
@@ -1030,7 +1039,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <thead>
                 <tr>
                   <th className="lanc-select-cell" style={{ ...controlsWidth, position: "sticky", left: 0, zIndex: 3 }}>
-                    <input type="checkbox" aria-label="Selecionar lançamentos carregados" checked={allLoadedSelected} ref={element => { if (element) element.indeterminate = selectedLoaded.length > 0 && !allLoadedSelected; }} onChange={event => setSelectedIds(event.target.checked ? new Set(lancamentos.map(row => row.id)) : new Set())} />
+                    {canBulkEdit && <input type="checkbox" aria-label="Selecionar lançamentos carregados" checked={allLoadedSelected} ref={element => { if (element) element.indeterminate = selectedLoaded.length > 0 && !allLoadedSelected; }} onChange={event => setSelectedIds(event.target.checked ? new Set(lancamentos.map(row => row.id)) : new Set())} />}
                   </th>
                   {visibleCols.map(def => {
                     const isSticky   = STICKY_KEYS.has(def.key);
@@ -1139,27 +1148,27 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                 return (
                   <tr key={row.id} data-row-id={row.id} className={[isEditing ? "editing lanc-inline-editing" : "", isEditing && saveState.kind === "error" ? "lanc-inline-error" : "", selectedIds.has(row.id) ? "lanc-row-selected" : ""].filter(Boolean).join(" ")}>
                     <td className="lanc-select-cell" style={{ ...controlsWidth, position: "sticky", left: 0, zIndex: 2 }}>
-                      <input type="checkbox" aria-label={`Selecionar lançamento ${row.seq}`} checked={selectedIds.has(row.id)} onChange={() => toggleSelection(row.id)} onClick={event => event.stopPropagation()} />
-                      {pendingDelete === row.id ? <span className="lanc-row-controls lanc-row-controls--confirm">
+                      {canBulkEdit && <input type="checkbox" aria-label={`Selecionar lançamento ${row.seq}`} checked={selectedIds.has(row.id)} onChange={() => toggleSelection(row.id)} onClick={event => event.stopPropagation()} />}
+                      {canDelete && pendingDelete === row.id ? <span className="lanc-row-controls lanc-row-controls--confirm">
                         <button type="button" className="action-btn" aria-label="Confirmar exclusão" title="Confirmar exclusão" onClick={() => void handleDelete(row.id)}>✓</button>
                         <button type="button" className="action-btn" aria-label="Cancelar exclusão" title="Cancelar exclusão" onClick={() => setPendingDelete(null)}>✕</button>
-                      </span> : isEditing ? <span className="lanc-row-controls">
+                      </span> : canEdit && isEditing ? <span className="lanc-row-controls">
                         <button type="button" className="action-btn lanc-inline-complete" aria-label="Concluir edição" title="Concluir edição" aria-busy={completingEditId === row.id} disabled={completingEditId === row.id || saveState.kind === "error"}
                           onPointerDown={event => { if (event.button === 0) { event.preventDefault(); void completeEdit(row.id); } }}
                           onClick={event => { if (event.detail === 0) void completeEdit(row.id); }}
                         >{completingEditId === row.id ? "…" : "✓"}</button>
-                        <button type="button" className="action-btn lanc-inline-delete" aria-label="Excluir lançamento" title="Excluir lançamento" disabled={completingEditId === row.id} onClick={() => setPendingDelete(row.id)}>🗑️</button>
+                        {canDelete && <button type="button" className="action-btn lanc-inline-delete" aria-label="Excluir lançamento" title="Excluir lançamento" disabled={completingEditId === row.id} onClick={() => setPendingDelete(row.id)}>🗑️</button>}
                         {saveState.kind !== "idle" && <span className={`lanc-save-indicator lanc-save-${saveState.kind}`} role="status" title={saveState.message}>{saveState.kind === "saving" ? "…" : saveState.kind === "saved" ? "✓" : "!"}</span>}
                         {saveState.kind === "error" && <button type="button" className="lanc-save-retry" title={saveState.message} onClick={() => void flushEdits(row.id)}>Tentar novamente</button>}
-                      </span> : <button type="button" className="action-btn lanc-edit-trigger" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => void startEdit(row)}>✏️</button>}
+                      </span> : canEdit ? <button type="button" className="action-btn lanc-edit-trigger" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => void startEdit(row)}>✏️</button> : null}
                       {isEditing && <span className="lanc-row-state-label lanc-row-state-label--editing" aria-hidden="true">{saveState.kind === "error" ? "Erro" : "Editando"}</span>}
                     </td>
                     {visibleCols.map(def => (
-                      <td key={def.key} data-col-key={def.key} data-editable={def.editavel === false ? undefined : "true"}
-                        tabIndex={!isEditing && def.editavel !== false ? 0 : undefined}
-                        aria-label={!isEditing && def.editavel !== false ? `Editar ${def.label}, lançamento ${row.seq}` : undefined}
-                        onClick={() => { if (!isEditing && def.editavel !== false) void startEdit(row, def.key); }}
-                        onKeyDown={event => { if (!isEditing && def.editavel !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); void startEdit(row, def.key); } }}
+                      <td key={def.key} data-col-key={def.key} data-editable={!canEdit || def.editavel === false ? undefined : "true"}
+                        tabIndex={canEdit && !isEditing && def.editavel !== false ? 0 : undefined}
+                        aria-label={canEdit && !isEditing && def.editavel !== false ? `Editar ${def.label}, lançamento ${row.seq}` : undefined}
+                        onClick={() => { if (canEdit && !isEditing && def.editavel !== false) void startEdit(row, def.key); }}
+                        onKeyDown={event => { if (canEdit && !isEditing && def.editavel !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); void startEdit(row, def.key); } }}
                         className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : ""].filter(Boolean).join(" ")} style={getTdStyle(def, isEditing)}>
                         {isEditing ? renderEditCell(def, row.id) : renderCell(def.key, row, statusTipos, accounts)}
                       </td>
@@ -1168,7 +1177,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                 );
               })}
               {/* Linha de inserção rápida (Alt+N) */}
-              {inlineNewOpen && (
+              {canCreate && inlineNewOpen && (
                 <tr className="editing lanc-inline-new" aria-label="Novo lançamento rápido">
                   <td className="lanc-select-cell" style={controlsWidth}><span className="lanc-row-controls lanc-row-controls--confirm">
                     <button className="action-btn" onClick={saveInlineNew} title="Salvar novo lançamento" disabled={inlineNewSaving}>✓</button>
@@ -1225,14 +1234,14 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                           if (def.source === "categorias") return (
                             <SearchableSelect label="Categoria N1" className="cell-input" value={inlineNewValues.categoria || ""}
                               options={categories.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))}
-                              createActions={[{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }]}
+                              createActions={can("estrutura.financeiras.create") ? [{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }] : []}
                               onChange={value => setInlineNewValues(current => ({ ...current, categoria: value, contaId: "" }))} />
                           );
                           if (def.source === "plano-contas") return (
                             <SearchableSelect label="Conta N2" className="cell-input" value={inlineNewValues.contaId || ""}
                               options={accounts.filter(item => item.categoriaId === categories.find(cat => cat.codigo === inlineNewValues.categoria)?.id)
                                 .map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
-                              createActions={[{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }]}
+                              createActions={can("estrutura.financeiras.create") ? [{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }] : []}
                               onChange={value => {
                               const account = accounts.find(item => item.id === value);
                               const category = categories.find(item => item.id === account?.categoriaId);
@@ -1260,8 +1269,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         {/* Footer */}
         <div className="table-footer lanc-totals-footer" style={{ margin: "0 28px 14px" }} aria-busy={loading || updating}>
           <div className="lanc-footer-totals">
-            <span><small>Valor previsto</small><strong>{formatCurrency(Number(totais.valorPrevisto))}</strong></span>
-            <span><small>Valor realizado</small><strong>{formatCurrency(Number(totais.valorRealizado))}</strong></span>
+            <span><small>Valor previsto</small><strong>{canSeeBalances ? formatCurrency(Number(totais.valorPrevisto)) : "—"}</strong></span>
+            <span><small>Valor realizado</small><strong>{canSeeBalances ? formatCurrency(Number(totais.valorRealizado)) : "—"}</strong></span>
             <span><small>Cont.</small><strong>{totais.cont}</strong></span>
           </div>
           {totalPaginas > 1 && (
@@ -1278,14 +1287,14 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
 
         {/* Modal de configuração de Status */}
         <StatusTiposModal
-          open={statusModalOpen}
+          open={canEdit && statusModalOpen}
           onClose={() => setStatusModalOpen(false)}
           onUpdate={reloadStatusTipos}
         />
 
         {/* Modal de novo lançamento */}
         <NovoLancamentoModal
-          open={novoModalOpen}
+          open={canCreate && novoModalOpen}
           onClose={() => { setNovoModalOpen(false); requestAnimationFrame(() => novoButtonRef.current?.focus()); }}
           onCreated={refreshData}
           counterparties={counterparties}
@@ -1294,12 +1303,12 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
 
         {/* O ImportModal CSV anterior permanece no código como LEGACY, sem acesso pela UI. */}
         <OfficialImportModal
-          open={importModalOpen}
+          open={can("fluxo.lancamentos.import") && importModalOpen}
           onClose={() => setImportModalOpen(false)}
           onImported={refreshData}
           filters={parametrosFiltros().toString()}
         />
-        {bulkOpen && <BulkEditModal ids={[...selectedIds]} categories={categories} accounts={accounts} statuses={statusTipos} onClose={() => setBulkOpen(false)} onApplied={() => { setBulkOpen(false); setSelectedIds(new Set()); showToast("✅ Edição em massa concluída"); refreshData(); }} />}
+        {canBulkEdit && bulkOpen && <BulkEditModal ids={[...selectedIds]} categories={categories} accounts={accounts} statuses={statusTipos} onClose={() => setBulkOpen(false)} onApplied={() => { setBulkOpen(false); setSelectedIds(new Set()); showToast("✅ Edição em massa concluída"); refreshData(); }} />}
     </div>
   );
 }

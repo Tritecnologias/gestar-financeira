@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import RegistrationImportModal from "@/components/estrutura/RegistrationImportModal";
+import { useCan } from "@/components/access/PermissionContext";
+import ExportOnlyButton from "@/components/access/ExportOnlyButton";
 import "./dimensoes-cadastrais.css";
 
 type Section = "fornecedores" | "clientes";
@@ -14,6 +16,7 @@ type Account = { id: string; codigo: string | null; descricao: string; categoria
 const emptyDraft: Draft = { codigo: "", nome: "", tipoPessoa: "", nomeFantasia: "", documento: "", email: "", telefone: "", endereco: "", categoriaId: "", contaPadraoId: "" };
 
 export default function DimensoesCadastraisPage() {
+  const can = useCan();
   const [fornecedores, setFornecedores] = useState<Item[]>([]);
   const [clientes, setClientes] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,11 +151,11 @@ export default function DimensoesCadastraisPage() {
 
   const renderRows = (section: Section, items: Item[]) => items.map(item => <tr key={item.id}>
     <td className="registration-code">{item.codigo}</td><td>{item.nome}</td>
-    <td className="registration-actions"><button type="button" className="action-btn" aria-label={`Editar ${item.nome}`} title="Editar" disabled={saving} onClick={() => openModal(section, item)}>✎</button><button type="button" className="action-btn registration-danger" aria-label={`Desativar ${item.nome}`} title="Desativar" disabled={saving} onClick={() => void deactivate(section, item)}>✕</button></td>
+    <td className="registration-actions">{can("estrutura.cadastrais.edit") && <button type="button" className="action-btn" aria-label={`Editar ${item.nome}`} title="Editar" disabled={saving} onClick={() => openModal(section, item)}>✎</button>}{can("estrutura.cadastrais.delete") && <button type="button" className="action-btn registration-danger" aria-label={`Desativar ${item.nome}`} title="Desativar" disabled={saving} onClick={() => void deactivate(section, item)}>✕</button>}</td>
   </tr>);
 
   const renderSection = (section: Section, title: string, items: Item[], total: number) => <section className="registration-card" aria-labelledby={`${section}-title`}>
-    <div className="registration-card-heading"><div><h2 id={`${section}-title`}>{title}</h2><span>{count(items.length, total)}</span></div><button type="button" className="btn btn-primary btn-sm registration-new" onClick={() => openModal(section)}>+ Novo {section === "fornecedores" ? "Fornecedor" : "Cliente"}</button></div>
+    <div className="registration-card-heading"><div><h2 id={`${section}-title`}>{title}</h2><span>{count(items.length, total)}</span></div>{can("estrutura.cadastrais.create") && <button type="button" className="btn btn-primary btn-sm registration-new" onClick={() => openModal(section)}>+ Novo {section === "fornecedores" ? "Fornecedor" : "Cliente"}</button>}</div>
     <div className="registration-table-scroll"><table className="data-table registration-table"><thead><tr><th>Código</th><th>Nome</th><th>Ações</th></tr></thead><tbody>
       {loading ? <tr><td colSpan={3} className="registration-empty" role="status">Carregando {title.toLowerCase()}...</td></tr> : <>{renderRows(section, items)}{items.length === 0 && <tr><td colSpan={3} className="registration-empty">{query ? `Nenhum ${section === "fornecedores" ? "fornecedor" : "cliente"} encontrado para a busca.` : `Nenhum ${section === "fornecedores" ? "fornecedor" : "cliente"} ativo cadastrado.`}</td></tr>}</>}
     </tbody></table></div>
@@ -183,7 +186,8 @@ export default function DimensoesCadastraisPage() {
       <div className="registration-toolbar">
         <label className="registration-search"><span className="registration-visually-hidden">Buscar por código ou nome</span><input className="filter-input" value={busca} onChange={event => setBusca(event.target.value)} placeholder="Buscar por código ou nome" /></label>
         <div className="registration-totals"><span>Fornecedores: {count(filteredSuppliers.length, fornecedores.length)}</span><span>Clientes: {count(filteredCustomers.length, clientes.length)}</span></div>
-        <button type="button" className="btn btn-primary registration-import-action" onClick={() => setShowImport(true)}>Importar Cadastros</button>
+        {can("estrutura.cadastrais.import") && <button type="button" className="btn btn-primary registration-import-action" onClick={() => setShowImport(true)}>Importar Cadastros</button>}
+        <ExportOnlyButton permission="estrutura.cadastrais.export" importPermission="estrutura.cadastrais.import" url="/api/dimensoes-cadastrais/exportar" filename="cadastros_10s.xlsx" label="Baixar Cadastros" />
       </div>
       {error && <div className="alert alert-error registration-message" role="alert">{error}</div>}
       {notice && <div className="registration-message registration-success" role="status">{notice}</div>}
@@ -192,7 +196,7 @@ export default function DimensoesCadastraisPage() {
         {renderSection("clientes", "Clientes", filteredCustomers, clientes.length)}
       </div>
     </main>
-    {modal && <div className="modal-overlay open registration-modal-overlay" onClick={closeModal}>
+    {modal && can(modal.id ? "estrutura.cadastrais.edit" : "estrutura.cadastrais.create") && <div className="modal-overlay open registration-modal-overlay" onClick={closeModal}>
       <div className="modal-content registration-modal" role="dialog" aria-modal="true" aria-labelledby="registration-modal-title" onClick={event => event.stopPropagation()} onKeyDown={onModalKeyDown}>
         <div className="modal-header"><h2 id="registration-modal-title">{modalTitle}</h2><button type="button" className="modal-close" aria-label="Fechar cadastro" disabled={saving} onClick={closeModal}>✕</button></div>
         <form className="registration-modal-form" onSubmit={event => void save(event)} noValidate>
@@ -240,6 +244,6 @@ export default function DimensoesCadastraisPage() {
         </form>
       </div>
     </div>}
-    {showImport && <RegistrationImportModal onClose={() => setShowImport(false)} onImported={() => { void loadData(); }} />}
+    {can("estrutura.cadastrais.import") && showImport && <RegistrationImportModal onClose={() => setShowImport(false)} onImported={() => { void loadData(); }} />}
   </div>;
 }

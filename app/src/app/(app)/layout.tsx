@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import Sidebar from "@/components/layout/Sidebar";
 import { permissionsFor } from "@/lib/permissions";
+import { PermissionProvider } from "@/components/access/PermissionContext";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   let ctx: any;
@@ -23,6 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   });
 
   return (
+    <PermissionProvider permissions={permissions}>
     <div className="layout">
       <Sidebar
         userNome={session.nome || "Usuário"}
@@ -35,5 +37,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       />
       <main className="main" style={{ overflow: "hidden" }}>{children}</main>
     </div>
+    </PermissionProvider>
   );
 }

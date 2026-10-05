@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
 import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
@@ -11,13 +11,15 @@ import { Prisma } from "@prisma/client";
 
 // ── GET /api/lancamentos ──────────────────────────────────────
 export async function GET(req: NextRequest) {
-  let db: any, session: any;
+  let db: any, session: any, context: Awaited<ReturnType<typeof requirePermission>>;
   try {
-    ({ db, session } = await requirePermission("fluxo.lancamentos.view"));
+    context = await requirePermission("fluxo.lancamentos.view");
+    ({ db, session } = context);
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
   }
 
+  const canSeeBalances = await hasPermission("fluxo.visao.saldos", context);
   const { searchParams } = new URL(req.url);
   let filtros: ReturnType<typeof lerFiltrosLancamentos>;
   try { filtros = lerFiltrosLancamentos(searchParams); }
@@ -103,8 +105,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     data, total, pagina: tudo ? 1 : pagina, porPagina: tudo ? total : porPagina,
     totalPaginas: tudo ? 1 : Math.ceil(total / porPagina),
-    totais: { valorPrevisto: valorPrevisto.toFixed(2), valorRealizado: valorRealizado.toFixed(2), cont: total },
-  } satisfies PaginatedResponse<LancamentoDTO> & { totais: { valorPrevisto: string; valorRealizado: string; cont: number } });
+    totais: canSeeBalances ? { valorPrevisto: valorPrevisto.toFixed(2), valorRealizado: valorRealizado.toFixed(2), cont: total } : { cont: total },
+  } satisfies PaginatedResponse<LancamentoDTO> & { totais: { valorPrevisto?: string; valorRealizado?: string; cont: number } });
 }
 
 // ── POST /api/lancamentos ─────────────────────────────────────

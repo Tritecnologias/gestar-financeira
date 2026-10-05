@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useCan } from "@/components/access/PermissionContext";
 
 interface TarefaStatus { id: string; nome: string; cor: string; ordem: number; }
 interface Coluna { nome: string; tipo: string; ordem: number; }
@@ -7,6 +8,7 @@ interface Linha { id: string; valores: Record<string, any>; ok: boolean; }
 interface Tarefa { id: string; seq: number; nome: string; status: string; statusCor?: string; colunas: Coluna[]; linhas: Linha[]; }
 
 export default function TarefasPage() {
+  const can = useCan();
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [statusList, setStatusList] = useState<TarefaStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,8 +138,8 @@ export default function TarefasPage() {
 
           {/* Ações */}
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            <button className="btn btn-primary btn-sm" onClick={() => setShowColModal(true)}>Criar Coluna</button>
-            <button className="btn btn-primary btn-sm" onClick={addLinha}>Adicionar Linha</button>
+            {can("acao.tarefas.edit") && <button className="btn btn-primary btn-sm" onClick={() => setShowColModal(true)}>Criar Coluna</button>}
+            {can("acao.tarefas.edit") && <button className="btn btn-primary btn-sm" onClick={addLinha}>Adicionar Linha</button>}
             <button className="btn btn-outline btn-sm" onClick={exportarCSV}>Exportar</button>
           </div>
 
@@ -158,7 +160,7 @@ export default function TarefasPage() {
                     <th key={i} style={{ position: "sticky", top: 0, background: "#1e3a5f", color: "#fff", zIndex: 2, minWidth: 120 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <div><div style={{ fontSize: 9, opacity: 0.7 }}>{c.tipo}</div>{c.nome}</div>
-                        <button onClick={() => excluirColuna(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 12 }}>✕</button>
+                        {can("acao.tarefas.edit") && <button onClick={() => excluirColuna(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 12 }}>✕</button>}
                       </div>
                     </th>
                   ))}
@@ -173,16 +175,16 @@ export default function TarefasPage() {
                     {openTarefa.colunas.map(c => (
                       <td key={c.nome}>
                         {c.tipo === "Lista" ? (
-                          <select className="cell-input" value={linha.valores[c.nome] || ""} onChange={e => updateCelula(linha.id, c.nome, e.target.value)} style={{ fontSize: 11, background: linha.valores[c.nome] ? getStatusColor(linha.valores[c.nome]) : undefined, color: linha.valores[c.nome] ? "#fff" : undefined }}>
+                          <select className="cell-input" disabled={!can("acao.tarefas.edit")} value={linha.valores[c.nome] || ""} onChange={e => updateCelula(linha.id, c.nome, e.target.value)} style={{ fontSize: 11, background: linha.valores[c.nome] ? getStatusColor(linha.valores[c.nome]) : undefined, color: linha.valores[c.nome] ? "#fff" : undefined }}>
                             <option value="">—</option>
                             {statusList.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
                           </select>
                         ) : (
-                          <input className="cell-input" type={["Número Inteiro", "Número Decimal", "Moeda", "Percentual"].includes(c.tipo) ? "number" : c.tipo === "Data" ? "date" : "text"} step={["Número Decimal", "Moeda", "Percentual"].includes(c.tipo) ? "0.01" : undefined} value={linha.valores[c.nome] ?? ""} onChange={e => updateCelula(linha.id, c.nome, e.target.value)} style={{ fontSize: 11 }} />
+                          <input className="cell-input" readOnly={!can("acao.tarefas.edit")} type={["Número Inteiro", "Número Decimal", "Moeda", "Percentual"].includes(c.tipo) ? "number" : c.tipo === "Data" ? "date" : "text"} step={["Número Decimal", "Moeda", "Percentual"].includes(c.tipo) ? "0.01" : undefined} value={linha.valores[c.nome] ?? ""} onChange={e => updateCelula(linha.id, c.nome, e.target.value)} style={{ fontSize: 11 }} />
                         )}
                       </td>
                     ))}
-                    <td style={{ textAlign: "center" }}><button onClick={() => toggleOk(linha.id)} style={{ background: linha.ok ? "var(--accent-green)" : "var(--bg-hover)", color: linha.ok ? "#fff" : "var(--text-muted)", border: "none", borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>{linha.ok ? "OK" : "—"}</button></td>
+                    <td style={{ textAlign: "center" }}>{can("acao.tarefas.edit") ? <button onClick={() => toggleOk(linha.id)} style={{ background: linha.ok ? "var(--accent-green)" : "var(--bg-hover)", color: linha.ok ? "#fff" : "var(--text-muted)", border: "none", borderRadius: 4, padding: "2px 6px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>{linha.ok ? "OK" : "—"}</button> : linha.ok ? "OK" : "—"}</td>
                     <td style={{ textAlign: "center", color: "var(--text-muted)", fontSize: 11 }}>1</td>
                   </tr>
                 ))}
@@ -191,7 +193,7 @@ export default function TarefasPage() {
           </div>
 
           {/* Modal criar coluna */}
-          {showColModal && (
+          {can("acao.tarefas.edit") && showColModal && (
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }} onClick={() => setShowColModal(false)}>
               <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, padding: 24, minWidth: 320 }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}><h3 style={{ fontSize: 15, fontWeight: 700 }}>Criar Coluna</h3><button onClick={() => setShowColModal(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16 }}>✕</button></div>
@@ -221,8 +223,8 @@ export default function TarefasPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div><h3 style={{ fontSize: 15, fontWeight: 700 }}>Listas de Tarefas</h3><p style={{ fontSize: 12, color: "var(--text-muted)" }}>Crie listas de acompanhamento e abra cada tarefa para montar a tabela do jeito que precisar.</p></div>
             <div style={{ display: "flex", gap: 6 }}>
-              <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>Criar Tarefa</button>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowStatusModal(true)}>Status</button>
+              {can("acao.tarefas.create") && <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>Criar Tarefa</button>}
+              {can("acao.tarefas.edit") && <button className="btn btn-outline btn-sm" onClick={() => setShowStatusModal(true)}>Status</button>}
             </div>
           </div>
 
@@ -242,14 +244,14 @@ export default function TarefasPage() {
                   <td style={{ color: "var(--text-muted)", fontSize: 11 }}>{t.seq}</td>
                   <td style={{ fontWeight: 600 }}>{t.nome}</td>
                   <td>
-                    <select className="cell-input" value={t.status} onChange={e => updateTarefa(t.id, { status: e.target.value })} style={{ background: getStatusColor(t.status), color: "#fff", fontWeight: 600, fontSize: 11, borderRadius: 4 }}>
+                    <select className="cell-input" disabled={!can("acao.tarefas.edit")} value={t.status} onChange={e => updateTarefa(t.id, { status: e.target.value })} style={{ background: getStatusColor(t.status), color: "#fff", fontWeight: 600, fontSize: 11, borderRadius: 4 }}>
                       {statusList.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
                       {!statusList.find(s => s.nome === t.status) && <option value={t.status}>{t.status}</option>}
                     </select>
                   </td>
                   <td style={{ textAlign: "center" }}>
                     <button className="btn btn-primary btn-sm" onClick={() => setOpenTarefa(t)} style={{ marginRight: 4 }}>Abrir</button>
-                    <button className="btn btn-outline btn-sm" onClick={() => excluirTarefa(t.id)} style={{ color: "var(--accent-red)" }}>Excluir</button>
+                    {can("acao.tarefas.delete") && <button className="btn btn-outline btn-sm" onClick={() => excluirTarefa(t.id)} style={{ color: "var(--accent-red)" }}>Excluir</button>}
                   </td>
                 </tr>
               ))}
@@ -259,7 +261,7 @@ export default function TarefasPage() {
         </div>
 
         {/* Modal Status */}
-        {showStatusModal && (
+        {can("acao.tarefas.edit") && showStatusModal && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }} onClick={() => setShowStatusModal(false)}>
             <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, padding: 24, minWidth: 360 }} onClick={e => e.stopPropagation()}>
               <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Gerenciar Status</h3>
@@ -278,7 +280,7 @@ export default function TarefasPage() {
         )}
 
         {/* Modal Criar Tarefa */}
-        {showCreateModal && (
+        {can("acao.tarefas.create") && showCreateModal && (
           <div className="modal-overlay" style={{ opacity: 1, pointerEvents: "all" }} onClick={() => setShowCreateModal(false)}>
             <div className="modal-content" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
               <div className="modal-header">
