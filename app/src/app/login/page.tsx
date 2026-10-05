@@ -28,7 +28,14 @@ function LoginForm() {
       if (result?.error) {
         setErro("E-mail ou senha inválidos. Tente novamente.");
       } else {
-        router.push(callbackUrl);
+        const res = await fetch("/api/tenants", { cache: "no-store" });
+        const choices = res.ok ? await res.json() : null;
+        if (Array.isArray(choices) && choices.length === 0) {
+          const platform = await fetch("/api/platform/tenants", { cache: "no-store" });
+          router.push(platform.ok ? "/plataforma" : "/selecionar-tenant");
+        } else {
+          router.push(Array.isArray(choices) && choices.length !== 1 ? "/selecionar-tenant" : callbackUrl);
+        }
       }
     });
   }

@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { getIdentityAccess, requireSession } from "@/lib/tenant";
+import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { canUseActiveTenant, tenantOverrideCookieOptions } from "@/lib/access-policy";
+import { canUseActiveTenant, tenantContextCookieOptions, tenantOverrideCookieOptions } from "@/lib/access-policy";
 
 // POST /api/tenants/switch — trocar tenant ativo (admin_global apenas)
 export async function POST(req: NextRequest) {
+  if (!legacyAuthEnabled) {
+    let tenantId: unknown;
+    try { ({ tenantId } = await req.json()); }
+    catch { return NextResponse.json({ error: "Requisição inválida" }, { status: 400 }); }
+    if (typeof tenantId !== "string" || !tenantId) {
+      return NextResponse.json({ error: "Tenant inválido" }, { status: 400 });
+    }
+    try {
+      const identity = await getIdentityAccess();
+      const membership = identity.memberships.find(m => m.tenantId === tenantId);
+      if (!membership) return NextResponse.json({ error: "Acesso ao tenant não permitido" }, { status: 403 });
+      const res = NextResponse.json({ active: tenantId, role: membership.role });
+      res.cookies.set("tenant_context", `${identity.id}:${identity.loginNonce}:${tenantId}`, tenantContextCookieOptions());
+      return res;
+    } catch (error) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: (error as {status?: number}).status ?? 401 });
+    }
+  }
   let context: Awaited<ReturnType<typeof requireSession>>;
   try { context = await requireSession(); } catch { return NextResponse.json({ error: "Não autenticado" }, { status: 401 }); }
   if (context.session.papel !== "admin_global") {

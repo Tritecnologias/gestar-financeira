@@ -12,6 +12,8 @@ interface SidebarProps {
   userPapel: Papel;
   tenantNome: string;
   tenantLogoUrl?: string | null;
+  authMode?: "identity" | "legacy";
+  platformAdmin?: boolean;
 }
 
 interface SubItem {
@@ -90,8 +92,8 @@ const DISABLED_HREFS = new Set([
   "/plano-negocios/analise-situacional", "/plano-negocios/analise-swot",
 ]);
 
-// ── Tenant Selector (admin_global) ────────────────────────────
-function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
+// ── Tenant Selector: memberships (ou compatibilidade admin_global legado) ──
+function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome: string; legacyGlobal: boolean }) {
   const [tenants, setTenants] = useState<{ id: string; nome: string; isActive?: boolean }[]>([]);
   const [active, setActive] = useState("");
   const [open, setOpen] = useState(false);
@@ -110,7 +112,8 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
   }, []);
 
   const switchTenant = async (tenantId: string) => {
-    await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) });
+    const res = await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) });
+    if (!res.ok) { window.location.assign("/selecionar-tenant"); return; }
     setActive(tenantId);
     setOpen(false);
     window.location.reload(); // Recarregar para aplicar o novo tenant
@@ -126,7 +129,7 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
   if (tenants.length <= 1) return null;
 
   const activeTenant = tenants.find(t => t.id === active);
-  const isCustomTenant = active && active !== "00000000-0000-0000-0000-000000000001";
+  const isCustomTenant = legacyGlobal && active && active !== "00000000-0000-0000-0000-000000000001";
 
   return (
     <div className="sidebar-tenant-selector" style={{ padding: "8px 10px", borderTop: "1px solid var(--border)", position: "relative" }}>
@@ -158,7 +161,7 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 6, padding: "2px 4px" }}>
             Alternar Empresa / Tenant
           </div>
-          {isCustomTenant && (
+          {legacyGlobal && isCustomTenant && (
             <button
               onClick={resetTenant}
               style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "var(--selection)", border: "1px solid var(--border)", borderRadius: 5, cursor: "pointer", color: "var(--action)", marginBottom: 6, textAlign: "left", fontWeight: 700 }}
@@ -197,7 +200,7 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
   );
 }
 
-export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl }: SidebarProps) {
+export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl, authMode, platformAdmin }: SidebarProps) {
   const pathname = usePathname();
 
   // ── Collapsed state ───────────────────────────────────────────
@@ -459,8 +462,8 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
             );
           })}
 
-          {/* Admin global */}
-          {userPapel === "admin_global" && (
+          {/* Administração de acesso, separada do contexto empresarial */}
+          {(platformAdmin || userPapel === "admin_global" || userPapel === "admin") && (
             <>
               <div className="sb-divider" />
               <div
@@ -469,12 +472,12 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                 onMouseLeave={handleMouseLeaveGroup}
               >
                 <Link
-                  href="/admin"
-                  className={`sb-row ${pathname.startsWith("/admin") ? "sb-row--active" : ""}`}
+                  href={platformAdmin ? "/plataforma" : "/admin"}
+                  className={`sb-row ${pathname.startsWith("/admin") || pathname.startsWith("/plataforma") ? "sb-row--active" : ""}`}
                   onClick={() => setMobileOpen(false)}
                 >
                   <span className="sb-icon">🛡️</span>
-                  <span className="sb-label">Admin Global</span>
+                  <span className="sb-label">{platformAdmin || userPapel === "admin_global" ? "Admin Global" : "Usuários"}</span>
                 </Link>
               </div>
             </>
@@ -498,9 +501,9 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
           </div>
         </nav>
 
-        {/* ── Tenant Selector (admin_global only) ────────────── */}
-        {userPapel === "admin_global" && (
-          <TenantSelector defaultTenantNome={tenantNome} />
+        {/* ── Tenant Selector ─────────────────────────────────── */}
+        {(authMode === "identity" || userPapel === "admin_global") && (
+          <TenantSelector defaultTenantNome={tenantNome} legacyGlobal={authMode === "legacy" && userPapel === "admin_global"} />
         )}
 
         {/* ── Footer ────────────────────────────────────────── */}

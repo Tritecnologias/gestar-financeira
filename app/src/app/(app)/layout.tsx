@@ -7,8 +7,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let ctx: any;
   try {
     ctx = await requireSession();
-  } catch {
-    redirect("/login");
+  } catch (error) {
+    const status = (error as {status?: number}).status;
+    redirect(status === 409 || status === 403 ? "/selecionar-tenant" : "/login");
   }
 
   const { session } = ctx;
@@ -26,6 +27,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         userPapel={session.papel || "membro"}
         tenantNome={session.tenantNome || "Dez Soluções"}
         tenantLogoUrl={tenant?.logoUrl ?? null}
+        authMode={session.authMode}
+        platformAdmin={session.platformAdmin}
       />
       <main className="main" style={{ overflow: "hidden" }}>{children}</main>
     </div>
