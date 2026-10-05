@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type Ref } from "react";
 import type { StatusManualTipoDTO } from "@/types";
 import { counterpartyDisplay, counterpartyIds, defaultAccount, type CounterpartyOption } from "@/lib/counterparty";
 import CounterpartyPicker from "./CounterpartyPicker";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import "./novo-lancamento.css";
 
 interface Props {
@@ -70,13 +71,16 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const focusFrame = requestAnimationFrame(() => firstField.current?.focus());
-    void Promise.all([fetch("/api/categorias"), fetch("/api/plano-contas")])
+    const reload = () => { void Promise.all([fetch("/api/categorias", { cache: "no-store" }), fetch("/api/plano-contas", { cache: "no-store" })])
       .then(async ([categoriesResponse, accountsResponse]) => {
         if (!categoriesResponse.ok || !accountsResponse.ok) throw new Error("Classificação financeira indisponível.");
         setCategories(await categoriesResponse.json());
         setAccounts(await accountsResponse.json());
-      }).catch(() => { setCategories([]); setAccounts([]); });
-    return () => { cancelAnimationFrame(focusFrame); document.body.style.overflow = previousOverflow; };
+      }).catch(() => {}); };
+    reload();
+    window.addEventListener("focus", reload);
+    return () => { cancelAnimationFrame(focusFrame); document.body.style.overflow = previousOverflow;
+      window.removeEventListener("focus", reload); };
   }, [open]);
 
   const updateRow = (key: number, changes: Partial<LancamentoForm>) => {
@@ -206,15 +210,14 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                 onChange={event => updateDefault({ statusManual: event.target.value })}>
                 <option value="">—</option>{statusTipos.map(item => <option key={item.id} value={item.codigo}>{item.nome}</option>)}
               </select></label>
-              <label className="lanc-new-field"><span>Categoria N1</span><select value={defaults.categoria}
-                onChange={event => updateDefault({ categoria: event.target.value, contaId: "" })}>
-                <option value="">—</option>{categories.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)}
-              </select></label>
-              <label className="lanc-new-field"><span>Conta N2</span><select value={defaults.contaId}
-                onChange={event => updateDefault({ contaId: event.target.value, categoria: categoryForAccount(event.target.value) || defaults.categoria })}>
-                <option value="">—</option>{accountOptions(defaults.categoria).map(item =>
-                  <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}
-              </select></label>
+              <div className="lanc-new-field"><span>Categoria N1</span><SearchableSelect label="Categoria N1 padrão" value={defaults.categoria}
+                options={categories.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))}
+                createActions={[{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }]}
+                onChange={value => updateDefault({ categoria: value, contaId: "" })} /></div>
+              <div className="lanc-new-field"><span>Conta N2</span><SearchableSelect label="Conta N2 padrão" value={defaults.contaId}
+                options={accountOptions(defaults.categoria).map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
+                createActions={[{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }]}
+                onChange={value => updateDefault({ contaId: value, categoria: categoryForAccount(value) || defaults.categoria })} /></div>
               <Field id="lanc-default-realization" label="Data de Realização" type="date" value={defaults.dataPagamento}
                 onChange={value => updateDefault({ dataPagamento: value })} />
             </div>
@@ -248,17 +251,14 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                     <label className="lanc-new-field"><span>Direção *</span><select value={data.tipo}
                       onChange={event => set({ tipo: event.target.value as LancamentoForm["tipo"] })}>
                       <option value="SAIDA">SAÍDA</option><option value="ENTRADA">ENTRADA</option></select></label>
-                    <label className="lanc-new-field"><span>Categoria N1</span><select value={data.categoria}
-                      onChange={event => set({ categoria: event.target.value, contaId: "" })}>
-                      <option value="">—</option>{categories.map(item =>
-                        <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)}
-                    </select></label>
-                    <label className="lanc-new-field"><span>Conta N2</span><select value={data.contaId}
-                      onChange={event => set({ contaId: event.target.value,
-                        categoria: categoryForAccount(event.target.value) || data.categoria })}>
-                      <option value="">—</option>{accountOptions(data.categoria).map(item =>
-                        <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}
-                    </select></label>
+                    <div className="lanc-new-field"><span>Categoria N1</span><SearchableSelect label={`Categoria N1 do lançamento ${index + 1}`} value={data.categoria}
+                      options={categories.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))}
+                      createActions={[{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }]}
+                      onChange={value => set({ categoria: value, contaId: "" })} /></div>
+                    <div className="lanc-new-field"><span>Conta N2</span><SearchableSelect label={`Conta N2 do lançamento ${index + 1}`} value={data.contaId}
+                      options={accountOptions(data.categoria).map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
+                      createActions={[{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }]}
+                      onChange={value => set({ contaId: value, categoria: categoryForAccount(value) || data.categoria })} /></div>
                     <Field id={`lanc-${row.key}-data`} label="Data Lanç." type="date" value={data.dataLanc}
                       onChange={field("dataLanc")} required />
                     <label className="lanc-new-field"><span>Status Base</span><select value={data.status}
@@ -280,10 +280,10 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                       value={data.dataEmissao} onChange={field("dataEmissao")} />
                     <Field id={`lanc-${row.key}-evento`} label="Dt. Evento" type="date"
                       value={data.dataEvento} onChange={field("dataEvento")} />
-                    <label className="lanc-new-field lanc-new-wide"><span>Fantasia / contraparte</span>
+                    <div className="lanc-new-field lanc-new-wide"><span>Fantasia / contraparte</span>
                       <CounterpartyPicker options={counterparties}
                         selected={counterparties.find(option => option.id === (data.clienteId || data.fornecedorId)) || null}
-                        onSelect={option => chooseCounterparty(row.key, option)} /></label>
+                        onSelect={option => chooseCounterparty(row.key, option)} /></div>
                     <Field id={`lanc-${row.key}-empresa`} label="Empresa" value={data.fornecedor}
                       onChange={field("fornecedor")} wide />
                     <Field id={`lanc-${row.key}-banco`} label="Banco legado" value={data.banco}

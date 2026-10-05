@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
 import { counterpartyOptionLabel, type CounterpartyOption } from "@/lib/counterparty";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 
 type Props = {
   options: CounterpartyOption[];
@@ -16,34 +16,17 @@ type Props = {
   ariaLabel?: string;
 };
 
-/** Searchable datalist whose value only commits after an exact registered option is selected. */
-export default function CounterpartyPicker({ options, selected, legacyLabel, onSelect, onBlur, onEnter, onEscape, className, disabled, ariaLabel = "Fantasia (N4)" }: Props) {
-  const listId = useId();
-  const shown = selected ? counterpartyOptionLabel(selected) : (legacyLabel || "");
-  const [input, setInput] = useState(shown);
-  const [invalid, setInvalid] = useState(false);
-  useEffect(() => { setInput(shown); setInvalid(false); }, [shown]);
-
-  const choose = (value: string) => {
-    const match = options.find(option => counterpartyOptionLabel(option) === value);
-    if (match) { onSelect(match); setInvalid(false); return; }
-    if (!value.trim()) { onSelect(null); setInvalid(false); return; }
-    setInvalid(true);
-  };
-
-  return <>
-    <input className={className} aria-label={ariaLabel} aria-invalid={invalid} aria-describedby={invalid ? `${listId}-error` : undefined}
-      list={listId} value={input} disabled={disabled} placeholder="Busque código ou nome..."
-      onChange={event => { const value = event.target.value; setInput(value); choose(value); }}
-      onBlur={() => { if (invalid) setInput(shown); setInvalid(false); onBlur?.(); }}
-      onKeyDown={event => {
-        if (event.key === "Escape") { setInput(shown); setInvalid(false); onEscape?.(); }
-        if (event.key === "Enter") {
-          if (invalid || onEnter) { event.preventDefault(); event.stopPropagation(); }
-          if (!invalid) onEnter?.();
-        }
-      }} />
-    <datalist id={listId}>{options.map(option => <option key={`${option.tipo}-${option.id}`} value={counterpartyOptionLabel(option)} />)}</datalist>
-    {invalid && <span id={`${listId}-error`} style={{ display: "block", color: "var(--danger)", fontSize: 11 }}>Selecione um Cliente ou Fornecedor da lista.</span>}
-  </>;
+/** Clientes e fornecedores continuam entidades distintas; nenhuma busca cria cadastro implicitamente. */
+export default function CounterpartyPicker({ options, selected, legacyLabel, onSelect, onBlur, onEscape,
+  className, disabled, ariaLabel = "Fantasia (N4)" }: Props) {
+  const selectedValue = selected ? `${selected.tipo}:${selected.id}` : "";
+  return <SearchableSelect label={ariaLabel} value={selectedValue} className={className} disabled={disabled}
+    displayValue={selected ? counterpartyOptionLabel(selected) : legacyLabel || undefined}
+    options={options.map(option => ({ value: `${option.tipo}:${option.id}`, label: counterpartyOptionLabel(option) }))}
+    onChange={value => { onSelect(options.find(option => `${option.tipo}:${option.id}` === value) || null); onBlur?.(); }}
+    onEscape={onEscape}
+    createActions={[
+      { label: "+ Cadastrar novo cliente", href: "/estrutura/dimensoes-cadastrais#clientes-title" },
+      { label: "+ Cadastrar novo fornecedor", href: "/estrutura/dimensoes-cadastrais#fornecedores-title" },
+    ]} />;
 }

@@ -10,6 +10,7 @@ import NovoLancamentoModal from "./NovoLancamentoModal";
 import OfficialImportModal from "./OfficialImportModal";
 import BulkEditModal from "./BulkEditModal";
 import CounterpartyPicker from "./CounterpartyPicker";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import { activeCounterparties, counterpartyDisplay, counterpartyIds, defaultAccount } from "@/lib/counterparty";
 import { lerResumoFluxoCaixa } from "@/lib/cash-flow-response";
 import type { calcularFluxoCaixa, DataBaseFinanceira } from "@/lib/cash-flow";
@@ -274,14 +275,25 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     return () => clearTimeout(timer);
   }, [buscaInput]);
 
-  // Carregar dados de apoio
-  useEffect(() => {
-    fetch("/api/fornecedores").then(r => r.json()).then(d => Array.isArray(d) && setFornecedores(d)).catch(() => {});
-    fetch("/api/clientes").then(r => r.json()).then(d => Array.isArray(d) && setClientes(d)).catch(() => {});
-    fetch("/api/categorias").then(r => r.json()).then(d => Array.isArray(d) && setCategories(d)).catch(() => {});
-    fetch("/api/plano-contas").then(r => r.json()).then(d => Array.isArray(d) && setAccounts(d)).catch(() => {});
-    fetch("/api/status-tipos").then(r => r.json()).then(d => Array.isArray(d) && setStatusTipos(d)).catch(() => {});
+  // Atualiza catálogos ao voltar da aba de cadastro, sem selecionar nada implicitamente.
+  const loadCatalogs = useCallback(() => {
+    const read = async (path: string) => { const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Catálogo indisponível: ${path}`); return response.json(); };
+    void Promise.all([read("/api/fornecedores"), read("/api/clientes"), read("/api/categorias"),
+      read("/api/plano-contas"), read("/api/status-tipos")]).then(([suppliers, customers, cats, plans, statuses]) => {
+      if (Array.isArray(suppliers)) setFornecedores(suppliers);
+      if (Array.isArray(customers)) setClientes(customers);
+      if (Array.isArray(cats)) setCategories(cats);
+      if (Array.isArray(plans)) setAccounts(plans);
+      if (Array.isArray(statuses)) setStatusTipos(statuses);
+    }).catch(() => {});
   }, []);
+  useEffect(() => {
+    loadCatalogs();
+    const onFocus = () => loadCatalogs();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loadCatalogs]);
 
   const reloadStatusTipos = () => {
     fetch("/api/status-tipos").then(r => r.json()).then(d => Array.isArray(d) && setStatusTipos(d)).catch(() => {});
@@ -781,26 +793,27 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
           editValues.contaId && selectedCategory ? [...categories, { id: linked?.categoriaId || "linked", codigo: selectedCategory, nome: "Vínculo atual" }] : categories;
         const accountOptions = accounts.filter(item => item.categoriaId === categoryOptions.find(cat => cat.codigo === selectedCategory)?.id);
         return (
-          <select {...common} value={val ?? ""} onBlur={() => commitCell(rowId, def.key as keyof LancamentoDTO)}
-            onChange={e => {
+          <SearchableSelect className="cell-input" label={def.source === "categorias" ? "Categoria N1" : "Conta N2"}
+            value={String(val ?? "")} createActions={[{ label: def.source === "categorias" ? "+ Cadastrar nova categoria" : "+ Cadastrar nova conta",
+              href: "/estrutura/dimensoes-financeiras" }]}
+            options={def.source === "categorias" ? categoryOptions.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))
+              : accountOptions.map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
+            displayValue={def.source === "plano-contas" && editValues.contaId && !accountOptions.some(item => item.id === editValues.contaId)
+              ? `${editValues.contaN2Codigo} – ${editValues.contaN2Descricao || "Vínculo atual"}` : undefined}
+            onEscape={() => resetCell(def.key as keyof LancamentoDTO)}
+            onChange={next => {
               if (def.source === "categorias") {
                 const account = accounts.find(item => item.id === editValuesRef.current.contaId);
-                const target = categories.find(item => item.codigo === e.target.value);
-                changeEdit(rowId, { categoria: e.target.value || null,
-                  ...(account && account.categoriaId === target?.id ? {} : { contaId: null }) });
+                const target = categories.find(item => item.codigo === next);
+                changeEdit(rowId, { categoria: next || null,
+                  ...(account && account.categoriaId === target?.id ? {} : { contaId: null }) }, true);
               } else {
-                const account = accounts.find(item => item.id === e.target.value);
+                const account = accounts.find(item => item.id === next);
                 const category = categories.find(item => item.id === account?.categoriaId);
                 if (account && !category) { setSaveState({ kind: "error", message: "A Categoria desta Conta não está disponível." }); return; }
-                changeEdit(rowId, { contaId: account?.id || null, categoria: category?.codigo || editValuesRef.current.categoria || null });
+                changeEdit(rowId, { contaId: account?.id || null, categoria: category?.codigo || editValuesRef.current.categoria || null }, true);
               }
-            }}>
-            <option value="">—</option>
-            {def.source === "categorias"
-              ? categoryOptions.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)
-              : <>{accountOptions.map(item => <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}
-                  {editValues.contaId && !accountOptions.some(item => item.id === editValues.contaId) && <option value={editValues.contaId}>{editValues.contaN2Codigo} – {editValues.contaN2Descricao || "Vínculo atual"}</option>}</>}
-          </select>
+            }} />
         );
       }
       if (def.source === "fornecedores") {
@@ -935,18 +948,31 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <p>Status Manual é uma classificação operacional; não comprova pagamento ou recebimento.</p>
             <label className={`filter-group ${filtros.statusManual ? "lanc-criterion-active" : ""}`}><span className="filter-label">Status Manual</span><select className="filter-input" value={filtros.statusManual} onChange={event => atualizarFiltro("statusManual", event.target.value)}>
               <option value="">Todos</option>{statusTipos.map(st => <option key={st.id} value={st.codigo}>{st.nome}</option>)}</select></label>
-            <label className={`filter-group ${filtros.categoria ? "lanc-criterion-active" : ""}`}><span className="filter-label">Categoria N1</span><select className="filter-input" value={filtros.categoria} onChange={event => atualizarFiltro("categoria", event.target.value)}>
-              <option value="">Todas</option>{categories.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)}</select></label>
-            <label className={`filter-group ${filtros.contaId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Conta N2</span><select className="filter-input" value={filtros.contaId} onChange={event => {
-              const account = accounts.find(item => item.id === event.target.value);
+            <div className={`filter-group ${filtros.categoria ? "lanc-criterion-active" : ""}`}><span className="filter-label">Categoria N1</span><SearchableSelect
+              label="Filtrar Categoria N1" className="filter-input" emptyLabel="Todas" value={filtros.categoria}
+              options={categories.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))}
+              createActions={[{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }]}
+              onChange={value => atualizarFiltro("categoria", value)} /></div>
+            <div className={`filter-group ${filtros.contaId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Conta N2</span><SearchableSelect
+              label="Filtrar Conta N2" className="filter-input" emptyLabel="Todas" value={filtros.contaId}
+              options={accounts.filter(item => !filtros.categoria || item.categoriaId === categories.find(cat => cat.codigo === filtros.categoria)?.id)
+                .map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
+              createActions={[{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }]}
+              onChange={value => {
+              const account = accounts.find(item => item.id === value);
               const category = categories.find(item => item.id === account?.categoriaId);
               setFiltros(current => ({ ...current, busca: buscaInput, contaId: account?.id || "", categoria: category?.codigo || current.categoria })); setPagina(1);
-            }}><option value="">Todas</option>{accounts.filter(item => !filtros.categoria || item.categoriaId === categories.find(cat => cat.codigo === filtros.categoria)?.id)
-              .map(item => <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}</select></label>
-            <label className={`filter-group ${filtros.clienteId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Cliente</span><select className="filter-input" value={filtros.clienteId} onChange={event => atualizarFiltro("clienteId", event.target.value)}>
-              <option value="">Todos</option>{clientes.map((item: any) => <option key={item.id} value={item.id}>{item.nomeFantasia || item.nome}</option>)}</select></label>
-            <label className={`filter-group ${filtros.fornecedorId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor</span><select className="filter-input" value={filtros.fornecedorId} onChange={event => atualizarFiltro("fornecedorId", event.target.value)}>
-              <option value="">Todos</option>{fornecedores.map(item => <option key={item.id} value={item.id}>{item.display || item.nome}</option>)}</select></label>
+            }} /></div>
+            <div className={`filter-group ${filtros.clienteId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Cliente</span><SearchableSelect
+              label="Filtrar Cliente" className="filter-input" emptyLabel="Todos" value={filtros.clienteId}
+              options={clientes.map((item: any) => ({ value: item.id, label: `${item.codigo} – ${item.nomeFantasia || item.nome}` }))}
+              createActions={[{ label: "+ Cadastrar novo cliente", href: "/estrutura/dimensoes-cadastrais#clientes-title" }]}
+              onChange={value => atualizarFiltro("clienteId", value)} /></div>
+            <div className={`filter-group ${filtros.fornecedorId ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor</span><SearchableSelect
+              label="Filtrar Fornecedor" className="filter-input" emptyLabel="Todos" value={filtros.fornecedorId}
+              options={fornecedores.map(item => ({ value: item.id, label: item.display || `${item.codigo} – ${item.nome}` }))}
+              createActions={[{ label: "+ Cadastrar novo fornecedor", href: "/estrutura/dimensoes-cadastrais#fornecedores-title" }]}
+              onChange={value => atualizarFiltro("fornecedorId", value)} /></div>
             <label className={`filter-group ${filtros.centroCusto ? "lanc-criterion-active" : ""}`}><span className="filter-label">Centro de Custo legado</span><input className="filter-input" value={filtros.centroCusto} onChange={event => atualizarFiltro("centroCusto", event.target.value)} /></label>
             <label className={`filter-group ${filtros.banco ? "lanc-criterion-active" : ""}`}><span className="filter-label">Banco legado</span><input className="filter-input" value={filtros.banco} onChange={event => atualizarFiltro("banco", event.target.value)} /></label>
             <label className={`filter-group ${filtros.fornecedor ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor legado</span><input className="filter-input" value={filtros.fornecedor} onChange={event => atualizarFiltro("fornecedor", event.target.value)} /></label>
@@ -1163,22 +1189,21 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                             );
                           }
                           if (def.source === "categorias") return (
-                            <select {...commonProps} value={inlineNewValues.categoria || ""} onChange={event =>
-                              setInlineNewValues(current => ({ ...current, categoria: event.target.value, contaId: "" }))}>
-                              <option value="">—</option>
-                              {categories.map(item => <option key={item.id} value={item.codigo}>{item.codigo} – {item.nome}</option>)}
-                            </select>
+                            <SearchableSelect label="Categoria N1" className="cell-input" value={inlineNewValues.categoria || ""}
+                              options={categories.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))}
+                              createActions={[{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }]}
+                              onChange={value => setInlineNewValues(current => ({ ...current, categoria: value, contaId: "" }))} />
                           );
                           if (def.source === "plano-contas") return (
-                            <select {...commonProps} value={inlineNewValues.contaId || ""} onChange={event => {
-                              const account = accounts.find(item => item.id === event.target.value);
+                            <SearchableSelect label="Conta N2" className="cell-input" value={inlineNewValues.contaId || ""}
+                              options={accounts.filter(item => item.categoriaId === categories.find(cat => cat.codigo === inlineNewValues.categoria)?.id)
+                                .map(item => ({ value: item.id, label: `${item.codigo} – ${item.descricao}` }))}
+                              createActions={[{ label: "+ Cadastrar nova conta", href: "/estrutura/dimensoes-financeiras" }]}
+                              onChange={value => {
+                              const account = accounts.find(item => item.id === value);
                               const category = categories.find(item => item.id === account?.categoriaId);
                               setInlineNewValues(current => ({ ...current, contaId: account?.id || "", categoria: category?.codigo || current.categoria || "" }));
-                            }}>
-                              <option value="">—</option>
-                              {accounts.filter(item => item.categoriaId === categories.find(cat => cat.codigo === inlineNewValues.categoria)?.id)
-                                .map(item => <option key={item.id} value={item.id}>{item.codigo} – {item.descricao}</option>)}
-                            </select>
+                            }} />
                           );
                           return (
                             <select {...commonProps}>
