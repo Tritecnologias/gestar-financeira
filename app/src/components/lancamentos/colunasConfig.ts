@@ -5,6 +5,7 @@ export interface ColDef {
   key:       string;
   label:     string;
   width:     number;
+  minWidth?:  number;
   stickyLeft?:  boolean;
   stickyRight?: boolean;
   editavel?: boolean;
@@ -16,25 +17,25 @@ export interface ColDef {
 
 export const COLUNAS_DEF: ColDef[] = [
   { key: "seq",              label: "#",             width: 45,  editavel: false, align: "center" },
-  { key: "dataLanc",         label: "Data Lanç.",    width: 105, tipo: "date" },
-  { key: "dataEmissao",      label: "Dt. Emissão",   width: 105, tipo: "date" },
+  { key: "dataLanc",         label: "Data Lançamento", width: 160, tipo: "date" },
+  { key: "dataEmissao",      label: "Data Emissão", width: 155, tipo: "date" },
   { key: "statusManual",     label: "Status Manual", width: 120, tipo: "select-api", source: "status-tipos" },
-  { key: "dataVencOriginal", label: "Venc. Original",width: 110, tipo: "date" },
-  { key: "dataVencPlano",    label: "Venc. Plano",   width: 110, tipo: "date" },
-  { key: "fantasiaPadrao",   label: "Fantasia (n4)", width: 140, tipo: "select-api", source: "fornecedores" },
-  { key: "descricao",        label: "Descrição",     width: 230, tipo: "text" },
-  { key: "dataEvento",       label: "Dt. Evento",    width: 105, tipo: "date" },
+  { key: "dataVencOriginal", label: "Vencimento Original", width: 170, tipo: "date" },
+  { key: "dataVencPlano",    label: "Vencimento Planejado", width: 180, tipo: "date" },
+  { key: "fantasiaPadrao",   label: "Fantasia", width: 180, tipo: "select-api", source: "fornecedores" },
+  { key: "descricao",        label: "Descrição Objetiva", width: 250, tipo: "text" },
+  { key: "dataEvento",       label: "Data Evento", width: 155, tipo: "date" },
   { key: "statusExtrato",    label: "Extrato",       width: 85,  tipo: "text" },
   { key: "fornecedor",       label: "Empresa",       width: 140, tipo: "text" },
   { key: "banco",            label: "Banco",         width: 110, tipo: "text" },
-  { key: "valorPrevisto",    label: "Vl. Previsto",  width: 115, tipo: "number", align: "right" },
-  { key: "dataPagamento",    label: "Dt. Pagamento", width: 110, tipo: "date" },
-  { key: "valor",            label: "Vl. Realizado", width: 115, tipo: "number", align: "right" },
+  { key: "valorPrevisto",    label: "Valor Previsto", width: 140, tipo: "number", align: "right" },
+  { key: "dataPagamento",    label: "Data Pagamento", width: 160, tipo: "date" },
+  { key: "valor",            label: "Valor Realizado", width: 145, tipo: "number", align: "right" },
   { key: "tipo",             label: "Direção",       width: 85,  tipo: "select",
     options: [{ value: "ENTRADA", label: "ENTRADA" }, { value: "SAIDA", label: "SAÍDA" }] },
-  { key: "categoria",        label: "Categoria N1",  width: 110, tipo: "select-api", source: "categorias" },
-  { key: "contaId",          label: "Conta N2",      width: 110, tipo: "select-api", source: "plano-contas" },
-  { key: "statusAuto",       label: "Status Auto",   width: 145, editavel: false },
+  { key: "categoria",        label: "Categoria N1",  width: 160, tipo: "select-api", source: "categorias" },
+  { key: "contaId",          label: "Conta N2",      width: 165, tipo: "select-api", source: "plano-contas" },
+  { key: "statusAuto",       label: "Status Automático", width: 155, editavel: false },
   { key: "centroCusto",      label: "C. Custo",      width: 110, tipo: "text" },
   { key: "dre",              label: "DRE",           width: 100, tipo: "text" },
   { key: "cont",             label: "Cont.",         width: 80,  tipo: "text" },
@@ -48,6 +49,20 @@ export const COLUNAS_DEF: ColDef[] = [
   { key: "emissaoAM",        label: "Emissão A_M",   width: 80,  editavel: false, align: "center" },
   { key: "anotacao",         label: "Anotação",      width: 180, tipo: "text" },
 ];
+
+// Largura mínima que mantém os controles da edição inline utilizáveis.
+export function minColumnWidth(def: ColDef): number {
+  if (def.minWidth) return def.minWidth;
+  if (def.key === "seq") return 42;
+  if (def.tipo === "date") return 148;
+  if (def.tipo === "number") return 118;
+  if (def.key === "categoria" || def.key === "contaId") return 145;
+  if (def.key === "fantasiaPadrao") return 150;
+  if (def.key === "descricao") return 180;
+  if (def.tipo === "select-api") return 118;
+  if (def.tipo === "select") return 84;
+  return 55;
+}
 
 // Config padrão (todas visíveis)
 export const DEFAULT_COLUNAS_CONFIG: ColConfig[] = COLUNAS_DEF.map((c, i) => ({
@@ -95,7 +110,10 @@ function reconcileColumnKeys(config: ColConfig[]): ColConfig[] {
     seen.add(def.key);
   }
 
-  return result.map((col, order) => ({ ...col, order }));
+  return result.map((col, order) => {
+    const def = COLUNAS_DEF.find(item => item.key === col.key)!;
+    return { ...col, order, width: Math.max(minColumnWidth(def), col.width ?? def.width) };
+  });
 }
 
 export function alignLegacyDefaultColumns(config: ColConfig[]): ColConfig[] {

@@ -90,21 +90,27 @@
 .lanc-chip-real-out { color: var(--financial-negative); background: color-mix(in srgb, var(--financial-negative) 10%, transparent); }
 .lanc-value-neutral { color: var(--text-secondary); font-weight: 600; }
 .lanc-page .data-table .lanc-financial-end { border-right: 1px solid var(--border); }
-.lanc-table-shell { position: relative; }
-.lanc-page .data-table .lanc-select-cell { padding: 3px 5px; text-align: center; background: var(--surface); border-right: 1px solid var(--border); }
+.lanc-table-shell { position: relative; --lanc-controls-width: 56px; }
+.lanc-page .lanc-table-shell thead tr, .lanc-page .lanc-table-shell thead th { height: 52px; max-height: 52px; box-sizing: border-box; }
+.lanc-page .lanc-table-shell thead th { white-space: nowrap; overflow: hidden; vertical-align: middle; }
+.lanc-header-content { min-width: 0; width: 100%; white-space: nowrap; }
+.lanc-header-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lanc-page .data-table .lanc-select-cell { padding: 3px 4px; text-align: center; background: var(--surface); border-right: 1px solid var(--border); }
+.lanc-page .data-table td.lanc-select-cell { overflow: visible !important; position: relative; z-index: 2; }
 .lanc-select-cell input { width: 16px; height: 16px; accent-color: var(--action); cursor: pointer; }
 .lanc-page .data-table tr.lanc-row-selected td { background-color: color-mix(in srgb, var(--selection) 55%, var(--surface)); }
 .lanc-page .data-table :is(th, td).lanc-calculated { background-color: color-mix(in srgb, var(--text-muted) 6%, var(--surface)); color: var(--text-secondary); cursor: default; }
 .lanc-page .data-table tr.lanc-inline-editing td.lanc-calculated { background-color: color-mix(in srgb, var(--text-muted) 8%, var(--selection)); }
 .lanc-selection-bar { margin: 8px 28px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); color: var(--text-primary); font-size: 12px; }
 .lanc-selection-bar .btn { min-height: 30px; padding: 4px 9px; font-size: 12px; }
-.lanc-row-controls { display: inline-flex; align-items: center; gap: 3px; margin-left: 5px; }
-.lanc-page .lanc-select-cell .action-btn { min-width: 26px; min-height: 26px; opacity: 1; color: var(--text-secondary); }
+.lanc-row-controls { display: inline-flex; align-items: center; gap: 3px; margin-left: 3px; }
+.lanc-page .lanc-select-cell .action-btn { min-width: 26px; min-height: 26px; padding: 0; opacity: 1; color: var(--text-secondary); }
+.lanc-row-controls--confirm { position: relative; z-index: 4; padding: 2px 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); }
 .lanc-page .lanc-select-cell .action-btn:hover { color: var(--action); }
 .lanc-save-indicator { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
 .lanc-save-saved { color: var(--success); }
 .lanc-save-error { color: var(--danger); }
-.lanc-save-retry { position: absolute; z-index: 6; left: 92px; top: 50%; transform: translateY(-50%); min-width: 150px; padding: 6px 8px; border: 1px solid var(--danger); border-radius: var(--radius-sm); background: var(--surface-elevated); color: var(--danger); cursor: pointer; font-size: 11px; }
+.lanc-save-retry { position: absolute; z-index: 6; left: var(--lanc-controls-width); top: 50%; transform: translateY(-50%); min-width: 150px; padding: 6px 8px; border: 1px solid var(--danger); border-radius: var(--radius-sm); background: var(--surface-elevated); color: var(--danger); cursor: pointer; font-size: 11px; }
 .lanc-bulk-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgb(0 0 0 / 55%); }
 .lanc-bulk-modal { width: min(720px, 100%); max-height: min(88vh, 900px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-elevated); color: var(--text-primary); box-shadow: 0 18px 50px rgb(0 0 0 / 24%); }
 .lanc-bulk-modal > header, .lanc-bulk-modal > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; flex-shrink: 0; }
@@ -123,7 +129,7 @@
 .lanc-bulk-preview p { margin: 7px 0 0; }
 .lanc-bulk-preview .lanc-bulk-warning { color: var(--warning); }
 .lanc-bulk-error { color: var(--danger); font-size: 12px; }
-@media (hover: none), (pointer: coarse) { .lanc-select-cell input { width: 20px; height: 20px; } .lanc-page .lanc-select-cell .action-btn { min-width: 38px; min-height: 38px; } }
+@media (hover: none), (pointer: coarse) { .lanc-table-shell { --lanc-controls-width: 108px; } .lanc-select-cell input { width: 20px; height: 20px; } .lanc-page .lanc-select-cell .action-btn { min-width: 38px; min-height: 38px; } }
 @media (max-width: 640px) { .lanc-selection-bar { margin-inline: 12px; } .lanc-bulk-fields { grid-template-columns: 1fr; } .lanc-bulk-backdrop { padding: 8px; } .lanc-bulk-modal { max-height: 94vh; } }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td {
   height: 34px;
@@ -132,7 +138,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.lanc-page .lancamentos-scroll tr[data-row-id] td.lanc-select-cell { padding: 4px 5px; text-align: left; }
+.lanc-page .lancamentos-scroll tr[data-row-id] td.lanc-select-cell { padding: 4px; text-align: left; }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td > * { max-width: 100%; }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td:is([data-col-key="fantasiaPadrao"], [data-col-key="descricao"], [data-col-key="anotacao"], [data-col-key="fornecedor"], [data-col-key="banco"], [data-col-key="statusExtrato"], [data-col-key="categoria"], [data-col-key="contaId"], [data-col-key="centroCusto"], [data-col-key="dre"]) > span {
   display: block;

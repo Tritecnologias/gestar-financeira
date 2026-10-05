@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { COLUNAS_DEF, DEFAULT_COLUNAS_CONFIG, alignLegacyDefaultColumns } from "../src/components/lancamentos/colunasConfig.ts";
+import { COLUNAS_DEF, DEFAULT_COLUNAS_CONFIG, alignLegacyDefaultColumns, minColumnWidth } from "../src/components/lancamentos/colunasConfig.ts";
 
 const keys = config => [...config].sort((a, b) => a.order - b.order).map(col => col.key);
 
@@ -54,4 +54,21 @@ test("layouts antigos removem a coluna Ações e preservam as colunas de dados",
   const result = alignLegacyDefaultColumns(antigo);
   assert.equal(result.some(col => col.key === "acoes"), false);
   assert.deepEqual(keys(result), keys(DEFAULT_COLUNAS_CONFIG));
+});
+
+test("layout salvo estreito preserva a ordem, mas respeita o mínimo da edição inline", () => {
+  const saved = DEFAULT_COLUNAS_CONFIG.map(col => ({ ...col }));
+  const date = saved.find(col => col.key === "dataPagamento");
+  const account = saved.find(col => col.key === "contaId");
+  const description = saved.find(col => col.key === "descricao");
+  date.width = 90;
+  account.width = 70;
+  description.width = 210;
+  [date.order, account.order] = [account.order, date.order];
+
+  const result = alignLegacyDefaultColumns(saved);
+  assert.deepEqual(keys(result), keys(saved));
+  assert.equal(result.find(col => col.key === "dataPagamento")?.width, minColumnWidth(COLUNAS_DEF.find(col => col.key === "dataPagamento")));
+  assert.equal(result.find(col => col.key === "contaId")?.width, minColumnWidth(COLUNAS_DEF.find(col => col.key === "contaId")));
+  assert.equal(result.find(col => col.key === "descricao")?.width, 210);
 });

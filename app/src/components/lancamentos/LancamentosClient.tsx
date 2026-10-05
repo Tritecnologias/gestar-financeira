@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { LancamentoDTO, ColConfig, FornecedorDTO, StatusManualTipoDTO } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
-import { COLUNAS_DEF, DEFAULT_COLUNAS_CONFIG, alignLegacyDefaultColumns } from "./colunasConfig";
+import { COLUNAS_DEF, DEFAULT_COLUNAS_CONFIG, alignLegacyDefaultColumns, minColumnWidth } from "./colunasConfig";
 import LayoutManager from "./LayoutManager";
 import StatusTiposModal from "./StatusTiposModal";
 import NovoLancamentoModal from "./NovoLancamentoModal";
@@ -599,7 +599,9 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     });
   const selectedLoaded = lancamentos.filter(row => selectedIds.has(row.id));
   const allLoadedSelected = lancamentos.length > 0 && selectedLoaded.length === lancamentos.length;
-  const tableWidth = 104 + visibleCols.reduce((sum, def) => sum + (colConfig.find(config => config.key === def.key)?.width ?? def.width), 0);
+  const effectiveWidth = (def: (typeof COLUNAS_DEF)[0]) => Math.max(minColumnWidth(def), colConfig.find(config => config.key === def.key)?.width ?? def.width);
+  const tableWidth = `calc(var(--lanc-controls-width) + ${visibleCols.reduce((sum, def) => sum + effectiveWidth(def), 0)}px)`;
+  const controlsWidth: React.CSSProperties = { width: "var(--lanc-controls-width)", minWidth: "var(--lanc-controls-width)", maxWidth: "var(--lanc-controls-width)" };
 
   const toggleSelection = (id: string) => setSelectedIds(current => {
     const next = new Set(current);
@@ -666,12 +668,12 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     resizeStartX.current = e.clientX;
     const cfg = colConfig.find(c => c.key === key);
     const def = COLUNAS_DEF.find(d => d.key === key);
-    resizeStartW.current = cfg?.width ?? def?.width ?? 100;
+    resizeStartW.current = def ? Math.max(minColumnWidth(def), cfg?.width ?? def.width) : 100;
 
     const handleMouseMove = (ev: MouseEvent) => {
       if (!resizingKey.current) return;
       const diff = ev.clientX - resizeStartX.current;
-      const newWidth = Math.max(40, resizeStartW.current + diff);
+      const newWidth = Math.max(def ? minColumnWidth(def) : 40, resizeStartW.current + diff);
       setColConfig(prev => prev.map(c => c.key === resizingKey.current ? { ...c, width: newWidth } : c));
     };
 
@@ -705,8 +707,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   };
 
   const getThStyle = (def: (typeof COLUNAS_DEF)[0]): React.CSSProperties => {
-    const cfg = colConfig.find(c => c.key === def.key);
-    const w = cfg?.width ?? def.width;
+    const w = effectiveWidth(def);
     const style: React.CSSProperties = { width: w, minWidth: w, maxWidth: w };
     if (def.stickyLeft)  { style.position = "sticky"; style.left  = leftOffsets[def.key] ?? 0; style.zIndex = 2; style.background = "#F8FAFC"; }
     if (def.stickyRight) { style.position = "sticky"; style.right = rightOffsets[def.key] ?? 0; style.zIndex = 2; style.background = "#F8FAFC"; }
@@ -715,8 +716,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   };
 
   const getTdStyle = (def: (typeof COLUNAS_DEF)[0], isEditing: boolean): React.CSSProperties => {
-    const cfg = colConfig.find(c => c.key === def.key);
-    const w = cfg?.width ?? def.width;
+    const w = effectiveWidth(def);
     const style: React.CSSProperties = { width: w, minWidth: w, maxWidth: w };
     if (def.stickyLeft)  { style.position = "sticky"; style.left  = leftOffsets[def.key] ?? 0; style.zIndex = 1; style.background = isEditing ? "var(--selection)" : "var(--bg-card)"; }
     if (def.stickyRight) { style.position = "sticky"; style.right = rightOffsets[def.key] ?? 0; style.zIndex = 1; style.background = isEditing ? "var(--selection)" : "var(--bg-card)"; }
@@ -1006,7 +1006,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <table className="data-table" style={{ tableLayout: "fixed", minWidth: tableWidth, borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
                 <tr>
-                  <th className="lanc-select-cell" style={{ width: 104, minWidth: 104, maxWidth: 104, position: "sticky", left: 0, zIndex: 3 }}>
+                  <th className="lanc-select-cell" style={{ ...controlsWidth, position: "sticky", left: 0, zIndex: 3 }}>
                     <input type="checkbox" aria-label="Selecionar lançamentos carregados" checked={allLoadedSelected} ref={element => { if (element) element.indeterminate = selectedLoaded.length > 0 && !allLoadedSelected; }} onChange={event => setSelectedIds(event.target.checked ? new Set(lancamentos.map(row => row.id)) : new Set())} />
                   </th>
                   {visibleCols.map(def => {
@@ -1047,7 +1047,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                         `Ordenar por ${def.label}`
                       }
                     >
-                      <span style={{
+                      <span className="lanc-header-content" style={{
                         display: "flex", alignItems: "center", gap: def.key === "seq" ? 2 : 5,
                         justifyContent: def.align === "right" ? "flex-end" : def.align === "center" ? "center" : "flex-start"
                       }}>
@@ -1060,7 +1060,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                             ⠿
                           </span>
                         )}
-                        <span style={{ flex: "1 1 auto", minWidth: 0, textAlign: def.align ?? "left" }}>{def.label}</span>
+                        <span className="lanc-header-label" style={{ flex: "1 1 auto", minWidth: 0, textAlign: def.align ?? "left" }}>{def.label}</span>
                         {/* Seta de ordenação — oculta só em Ações */}
                         {!isNoSort && (
                           <span style={{
@@ -1114,9 +1114,9 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                 const isEditing = editingId === row.id;
                 return (
                   <tr key={row.id} data-row-id={row.id} className={[isEditing ? "editing lanc-inline-editing" : "", selectedIds.has(row.id) ? "lanc-row-selected" : ""].filter(Boolean).join(" ")}>
-                    <td className="lanc-select-cell" style={{ width: 104, minWidth: 104, maxWidth: 104, position: "sticky", left: 0, zIndex: 2 }}>
+                    <td className="lanc-select-cell" style={{ ...controlsWidth, position: "sticky", left: 0, zIndex: 2 }}>
                       <input type="checkbox" aria-label={`Selecionar lançamento ${row.seq}`} checked={selectedIds.has(row.id)} onChange={() => toggleSelection(row.id)} onClick={event => event.stopPropagation()} />
-                      {pendingDelete === row.id ? <span className="lanc-row-controls">
+                      {pendingDelete === row.id ? <span className="lanc-row-controls lanc-row-controls--confirm">
                         <button type="button" className="action-btn" aria-label="Confirmar exclusão" title="Confirmar exclusão" onClick={() => void handleDelete(row.id)}>✓</button>
                         <button type="button" className="action-btn" aria-label="Cancelar exclusão" title="Cancelar exclusão" onClick={() => setPendingDelete(null)}>✕</button>
                       </span> : isEditing ? <span className="lanc-row-controls">
@@ -1136,7 +1136,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               {/* Linha de inserção rápida (Alt+N) */}
               {inlineNewOpen && (
                 <tr className="editing" style={{ background: "rgba(5,150,105,0.06)" }}>
-                  <td className="lanc-select-cell" style={{ width: 104, minWidth: 104, maxWidth: 104 }}><span className="lanc-row-controls">
+                  <td className="lanc-select-cell" style={controlsWidth}><span className="lanc-row-controls lanc-row-controls--confirm">
                     <button className="action-btn" onClick={saveInlineNew} title="Salvar novo lançamento" disabled={inlineNewSaving}>✓</button>
                     <button className="action-btn" onClick={cancelInlineNew} title="Cancelar novo lançamento">✕</button>
                   </span></td>
