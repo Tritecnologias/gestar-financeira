@@ -1,5 +1,6 @@
 // Configuração das colunas de dados da tabela de lançamentos
 import type { ColConfig } from "@/types";
+import { LANCAMENTO_FIELD_ORDER } from "../../lib/lancamento-field-order.mjs";
 
 export interface ColDef {
   key:       string;
@@ -15,40 +16,47 @@ export interface ColDef {
   align?:    "left" | "right" | "center";
 }
 
-export const COLUNAS_DEF: ColDef[] = [
+const COLUNAS_BASE: ColDef[] = [
   { key: "seq",              label: "#",             width: 45,  editavel: false, align: "center" },
-  { key: "dataLanc",         label: "Data Lançamento", width: 160, tipo: "date" },
-  { key: "dataEmissao",      label: "Data Emissão", width: 155, tipo: "date" },
-  { key: "statusManual",     label: "Status Manual", width: 120, tipo: "select-api", source: "status-tipos" },
-  { key: "dataVencOriginal", label: "Vencimento Original", width: 170, tipo: "date" },
-  { key: "dataVencPlano",    label: "Vencimento Planejado", width: 180, tipo: "date" },
-  { key: "fantasiaPadrao",   label: "Fantasia", width: 180, tipo: "select-api", source: "fornecedores" },
-  { key: "descricao",        label: "Descrição Objetiva", width: 250, tipo: "text" },
-  { key: "dataEvento",       label: "Data Evento", width: 155, tipo: "date" },
-  { key: "statusExtrato",    label: "Extrato",       width: 85,  tipo: "text" },
-  { key: "fornecedor",       label: "Empresa",       width: 140, tipo: "text" },
-  { key: "banco",            label: "Local Financeiro", width: 140, tipo: "text" },
-  { key: "valorPrevisto",    label: "Valor Previsto", width: 140, tipo: "number", align: "right" },
-  { key: "dataPagamento",    label: "Data Pagamento", width: 160, tipo: "date" },
-  { key: "valor",            label: "Valor Realizado", width: 145, tipo: "number", align: "right" },
-  { key: "tipo",             label: "Direção",       width: 85,  tipo: "select",
+  { key: "descricao",        label: "Descrição Objetiva", width: 320, tipo: "text" },
+  { key: "fantasiaPadrao",   label: "Fantasia", width: 210, tipo: "select-api", source: "fornecedores" },
+  { key: "tipo",             label: "Direção",       width: 110, tipo: "select",
     options: [{ value: "ENTRADA", label: "ENTRADA" }, { value: "SAIDA", label: "SAÍDA" }] },
-  { key: "categoria",        label: "Categoria N1",  width: 160, tipo: "select-api", source: "categorias" },
-  { key: "contaId",          label: "Conta N2",      width: 165, tipo: "select-api", source: "plano-contas" },
-  { key: "statusAuto",       label: "Status Automático", width: 155, editavel: false },
-  { key: "centroCusto",      label: "C. Custo",      width: 110, tipo: "text" },
+  { key: "categoria",        label: "Categoria N1",  width: 190, tipo: "select-api", source: "categorias" },
+  { key: "contaId",          label: "Conta N2",      width: 220, tipo: "select-api", source: "plano-contas" },
+  { key: "valorPrevisto",    label: "Valor Previsto", width: 130, tipo: "number", align: "right" },
+  { key: "valor",            label: "Valor Realizado", width: 130, tipo: "number", align: "right" },
+  { key: "dataLanc",         label: "Data Lançamento", width: 150, tipo: "date" },
+  { key: "dataEmissao",      label: "Data Emissão", width: 150, tipo: "date" },
+  { key: "dataVencOriginal", label: "Vencimento Original", width: 150, tipo: "date" },
+  { key: "dataVencPlano",    label: "Vencimento Planejado", width: 150, tipo: "date" },
+  { key: "dataPagamento",    label: "Data Pagamento", width: 150, tipo: "date" },
+  { key: "dataEvento",       label: "Data Evento", width: 150, tipo: "date" },
+  { key: "statusAuto",       label: "Status Automático", width: 145, editavel: false },
+  { key: "statusManual",     label: "Status Manual", width: 120, tipo: "select-api", source: "status-tipos" },
+  { key: "fornecedor",       label: "Empresa",       width: 140, tipo: "text" },
+  { key: "banco",            label: "Local Financeiro", width: 160, tipo: "text" },
+  { key: "centroCusto",      label: "C. Custo",      width: 120, tipo: "text" },
   { key: "dre",              label: "DRE",           width: 100, tipo: "text" },
-  { key: "cont",             label: "Cont.",         width: 80,  tipo: "text" },
-  { key: "vencA",            label: "Venc A",        width: 65,  editavel: false, align: "center" },
-  { key: "vencM",            label: "Venc M",        width: 55,  editavel: false, align: "center" },
-  { key: "vencD",            label: "Venc D",        width: 55,  editavel: false, align: "center" },
-  { key: "vencAM",           label: "Venc A_M",      width: 70,  editavel: false, align: "center" },
-  { key: "diasAtrasoOriginal",label: "Atr. Orig.",   width: 80,  editavel: false, align: "right" },
-  { key: "diasAtrasoPlano",  label: "Atr. Plano",    width: 80,  editavel: false, align: "right" },
-  { key: "rangeAtraso",      label: "Range",         width: 85,  editavel: false },
-  { key: "emissaoAM",        label: "Emissão A_M",   width: 80,  editavel: false, align: "center" },
-  { key: "anotacao",         label: "Anotação",      width: 180, tipo: "text" },
+  { key: "statusExtrato",    label: "Extrato",       width: 120, tipo: "text" },
+  { key: "cont",             label: "Cont.",         width: 94,  tipo: "text" },
+  { key: "anotacao",         label: "Anotação",      width: 240, tipo: "text" },
+  { key: "vencA",            label: "Venc A",        width: 86,  editavel: false, align: "center" },
+  { key: "vencM",            label: "Venc M",        width: 86,  editavel: false, align: "center" },
+  { key: "vencD",            label: "Venc D",        width: 86,  editavel: false, align: "center" },
+  { key: "vencAM",           label: "Venc A_M",      width: 86,  editavel: false, align: "center" },
+  { key: "diasAtrasoOriginal",label: "Atr. Orig.",   width: 94,  editavel: false, align: "right" },
+  { key: "diasAtrasoPlano",  label: "Atr. Plano",    width: 94,  editavel: false, align: "right" },
+  { key: "rangeAtraso",      label: "Range",         width: 94,  editavel: false },
+  { key: "emissaoAM",        label: "Emissão A_M",   width: 110, editavel: false, align: "center" },
 ];
+
+const canonicalRank = new Map<string, number>(LANCAMENTO_FIELD_ORDER.map((key, index) => [key, index]));
+export const COLUNAS_DEF: ColDef[] = [...COLUNAS_BASE].sort((a, b) => {
+  const position = (key: string) => key === "seq" ? -1
+    : canonicalRank.get(key) ?? LANCAMENTO_FIELD_ORDER.length + COLUNAS_BASE.findIndex(col => col.key === key);
+  return position(a.key) - position(b.key);
+});
 
 // Largura mínima que mantém os controles da edição inline utilizáveis.
 export function minColumnWidth(def: ColDef): number {
@@ -73,10 +81,22 @@ export const DEFAULT_COLUNAS_CONFIG: ColConfig[] = COLUNAS_DEF.map((c, i) => ({
   width:   c.width,
 }));
 
-// Atualiza somente a antiga ordem padrão; layouts personalizados mantêm sua ordem e larguras.
-const legacyDefaultKeys = COLUNAS_DEF.map(col => col.key);
-legacyDefaultKeys.splice(legacyDefaultKeys.indexOf("tipo"), 1);
-legacyDefaultKeys.splice(legacyDefaultKeys.indexOf("statusAuto") + 1, 0, "tipo");
+// Assinatura do padrão anterior. Só essa sequência (e a variante histórica) é migrada.
+// Visibilidade e larguras ajustadas pelo usuário permanecem independentes da ordem.
+const previousDefaultWidths: Record<string, number> = {
+  seq: 45, dataLanc: 160, dataEmissao: 155, statusManual: 120,
+  dataVencOriginal: 170, dataVencPlano: 180, fantasiaPadrao: 180,
+  descricao: 250, dataEvento: 155, statusExtrato: 85, fornecedor: 140,
+  banco: 140, valorPrevisto: 140, dataPagamento: 160, valor: 145,
+  tipo: 85, categoria: 160, contaId: 165, statusAuto: 155,
+  centroCusto: 110, dre: 100, cont: 80, vencA: 65, vencM: 55,
+  vencD: 55, vencAM: 70, diasAtrasoOriginal: 80, diasAtrasoPlano: 80,
+  rangeAtraso: 85, emissaoAM: 80, anotacao: 180,
+};
+const previousDefaultKeys = Object.keys(previousDefaultWidths);
+const olderDefaultKeys = [...previousDefaultKeys];
+olderDefaultKeys.splice(olderDefaultKeys.indexOf("tipo"), 1);
+olderDefaultKeys.splice(olderDefaultKeys.indexOf("statusAuto") + 1, 0, "tipo");
 
 const legacyKeys: Record<string, string> = {
   conta: "contaId",
@@ -120,14 +140,22 @@ function reconcileColumnKeys(config: ColConfig[]): ColConfig[] {
 export function alignLegacyDefaultColumns(config: ColConfig[]): ColConfig[] {
   const complete = reconcileColumnKeys(Array.isArray(config) ? config : []);
   const ordered = [...complete].sort((a, b) => a.order - b.order);
-  const originalDefault = ordered.length === legacyDefaultKeys.length &&
-    ordered.every((col, index) => col.key === legacyDefaultKeys[index]);
+  const previousDefault = ordered.length === previousDefaultKeys.length &&
+    ordered.every((col, index) => col.key === previousDefaultKeys[index]);
+  const olderDefault = ordered.length === olderDefaultKeys.length &&
+    ordered.every((col, index) => col.key === olderDefaultKeys[index]);
   const currentDefault = ordered.length === COLUNAS_DEF.length &&
     ordered.every((col, index) => col.key === COLUNAS_DEF[index].key);
-  if (!originalDefault && !currentDefault) return complete;
+  if (!previousDefault && !olderDefault && !currentDefault) return complete;
   const nextOrder = new Map(COLUNAS_DEF.map((col, index) => [col.key, index]));
   return complete.map(col => ({ ...col,
     order: nextOrder.get(col.key) ?? col.order,
-    width: col.key === "statusAuto" && col.width === 100 ? 145 : col.width,
-  }));
+    width: currentDefault ? col.width : (() => {
+      const def = COLUNAS_DEF.find(item => item.key === col.key)!;
+      const previousWidth = previousDefaultWidths[col.key];
+      const priorEffectiveWidth = Math.max(minColumnWidth(def), previousWidth);
+      return col.width === priorEffectiveWidth || col.width === previousWidth
+        ? Math.max(minColumnWidth(def), def.width) : col.width;
+    })(),
+  })).sort((a, b) => a.order - b.order);
 }
