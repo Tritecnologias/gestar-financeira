@@ -147,6 +147,19 @@
 .lanc-page .lancamentos-scroll tr.lanc-row-selected:not(.lanc-inline-editing) td[data-editable="true"]:hover { background: color-mix(in srgb, var(--text-secondary) 9%, var(--surface-hover)); }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td[data-editable="true"]:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
 .lanc-page .lancamentos-scroll tr[data-row-id] td.lanc-select-cell { padding: 4px; text-align: left; }
+.lanc-page .lancamentos-scroll tr.lanc-inline-editing td.lanc-select-cell { padding: 2px; }
+.lanc-page .lancamentos-scroll tr.lanc-inline-editing td.lanc-select-cell > input { margin: 0; vertical-align: middle; }
+.lanc-page .lancamentos-scroll tr.lanc-inline-editing .lanc-row-controls { gap: 1px; margin-left: 1px; vertical-align: middle; }
+.lanc-page .lancamentos-scroll tr.lanc-inline-editing .lanc-row-controls .action-btn { width: 16px; min-width: 16px; min-height: 22px; font-size: 12px; }
+.lanc-page .lancamentos-scroll .lanc-inline-complete { color: var(--success); background: color-mix(in srgb, var(--success) 12%, var(--surface-elevated)); border: 1px solid color-mix(in srgb, var(--success) 40%, var(--border)); border-radius: var(--radius-sm); font-size: 15px !important; font-weight: 800; cursor: pointer; }
+.lanc-page .lancamentos-scroll .lanc-inline-complete:hover:not(:disabled) { color: var(--success); background: color-mix(in srgb, var(--success) 22%, var(--surface-elevated)); }
+.lanc-page .lancamentos-scroll .lanc-inline-complete:disabled { opacity: .65; cursor: wait; }
+.lanc-page .lancamentos-scroll .lanc-inline-error .lanc-inline-complete:disabled { opacity: .45; cursor: not-allowed; }
+@media (hover: none), (pointer: coarse) {
+  .lanc-page .lancamentos-scroll tr.lanc-inline-editing td.lanc-select-cell { padding: 4px; }
+  .lanc-page .lancamentos-scroll tr.lanc-inline-editing .lanc-row-controls { gap: 2px; margin-left: 2px; }
+  .lanc-page .lancamentos-scroll tr.lanc-inline-editing .lanc-row-controls .action-btn { width: 34px; min-width: 34px; min-height: 38px; }
+}
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td > * { max-width: 100%; }
 .lanc-page .lancamentos-scroll tr[data-row-id]:not(.lanc-inline-editing) td:is([data-col-key="fantasiaPadrao"], [data-col-key="descricao"], [data-col-key="anotacao"], [data-col-key="fornecedor"], [data-col-key="banco"], [data-col-key="statusExtrato"], [data-col-key="categoria"], [data-col-key="contaId"], [data-col-key="centroCusto"], [data-col-key="dre"]) > span {
   display: block;

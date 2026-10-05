@@ -185,6 +185,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const flushRef = useRef<Promise<boolean> | null>(null);
   const editSessionRef = useRef(0);
   const [saveState, setSaveState] = useState<{ kind: "idle" | "saving" | "saved" | "error"; message: string }>({ kind: "idle", message: "" });
+  const completingEditRef = useRef(false);
+  const [completingEditId, setCompletingEditId] = useState<string | null>(null);
   useEffect(() => {
     if (saveState.kind !== "saved") return;
     const timer = setTimeout(() => setSaveState(current => current.kind === "saved" ? { kind: "idle", message: "" } : current), 1800);
@@ -554,6 +556,27 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     editValuesRef.current = {};
     savedEditValuesRef.current = {};
     setSaveState({ kind: "idle", message: "" });
+  };
+
+  const completeEdit = async (id: string) => {
+    if (completingEditRef.current || editingId !== id || saveState.kind === "error") return;
+    completingEditRef.current = true;
+    setCompletingEditId(id);
+    try {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.closest("tr[data-row-id]")?.getAttribute("data-row-id") === id) active.blur();
+      // O blur e os selects já enfileiram somente as células alteradas.
+      // Aguarde também uma gravação que já estava em andamento.
+      do {
+        if (!await flushEdits(id)) return;
+      } while (flushRef.current || pendingEditKeysRef.current.size);
+      finishEdit();
+    } catch (error) {
+      setSaveState({ kind: "error", message: error instanceof Error ? error.message : "Erro ao concluir a edição." });
+    } finally {
+      completingEditRef.current = false;
+      setCompletingEditId(null);
+    }
   };
 
   const startEdit = async (row: LancamentoDTO, focusKey = "descricao") => {
@@ -1121,7 +1144,11 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                         <button type="button" className="action-btn" aria-label="Confirmar exclusão" title="Confirmar exclusão" onClick={() => void handleDelete(row.id)}>✓</button>
                         <button type="button" className="action-btn" aria-label="Cancelar exclusão" title="Cancelar exclusão" onClick={() => setPendingDelete(null)}>✕</button>
                       </span> : isEditing ? <span className="lanc-row-controls">
-                        <button type="button" className="action-btn" aria-label="Excluir lançamento" title="Excluir lançamento" onClick={() => setPendingDelete(row.id)}>🗑️</button>
+                        <button type="button" className="action-btn lanc-inline-complete" aria-label="Concluir edição" title="Concluir edição" aria-busy={completingEditId === row.id} disabled={completingEditId === row.id || saveState.kind === "error"}
+                          onPointerDown={event => { if (event.button === 0) { event.preventDefault(); void completeEdit(row.id); } }}
+                          onClick={event => { if (event.detail === 0) void completeEdit(row.id); }}
+                        >{completingEditId === row.id ? "…" : "✓"}</button>
+                        <button type="button" className="action-btn lanc-inline-delete" aria-label="Excluir lançamento" title="Excluir lançamento" disabled={completingEditId === row.id} onClick={() => setPendingDelete(row.id)}>🗑️</button>
                         {saveState.kind !== "idle" && <span className={`lanc-save-indicator lanc-save-${saveState.kind}`} role="status" title={saveState.message}>{saveState.kind === "saving" ? "…" : saveState.kind === "saved" ? "✓" : "!"}</span>}
                         {saveState.kind === "error" && <button type="button" className="lanc-save-retry" title={saveState.message} onClick={() => void flushEdits(row.id)}>Tentar novamente</button>}
                       </span> : <button type="button" className="action-btn lanc-edit-trigger" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => void startEdit(row)}>✏️</button>}
