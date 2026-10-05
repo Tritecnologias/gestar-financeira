@@ -145,6 +145,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   // Estado principal
   const [lancamentos, setLancamentos] = useState<LancamentoDTO[]>([]);
   const [total, setTotal] = useState(0);
+  const [totais, setTotais] = useState({ valorPrevisto: "0.00", valorRealizado: "0.00", cont: 0 });
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const loadedList = useRef(false);
@@ -336,6 +337,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
       });
       setLancamentos(rows);
       setTotal(lista.total ?? 0);
+      setTotais(lista.totais ?? { valorPrevisto: "0.00", valorRealizado: "0.00", cont: lista.total ?? 0 });
       setListErro("");
     } catch (error) {
       if (currentRequest !== listRequestId.current || signal?.aborted) return;
@@ -385,10 +387,10 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const cards: { id: CardLancamento; titulo: string; cor: string }[] = [
     { id: "saldoAnterior", titulo: "Saldo anterior", cor: "base" },
     { id: "entradas", titulo: "Entradas", cor: "entrada" },
-    { id: "saidas", titulo: "Saídas", cor: "saida" },
     { id: "aReceber", titulo: "A receber", cor: "receber" },
+    { id: "saidas", titulo: "Saídas", cor: "saida" },
     { id: "aPagar", titulo: "A pagar", cor: "pagar" },
-    { id: "saldoPeriodo", titulo: "Saldo do período", cor: "saldo" },
+    { id: "saldoPeriodo", titulo: "Resultado do período", cor: "saldo" },
     { id: "saldoFinal", titulo: !filtros.fim || filtros.fim === hoje ? "Saldo atual" : "Saldo final", cor: "saldo" },
   ];
 
@@ -809,7 +811,6 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <label className={`filter-group lanc-search ${buscaInput.trim() ? "filter-active" : ""}`}><span className="filter-label">Busca</span>
               <input className="filter-input" value={buscaInput} placeholder="Cliente, fornecedor, fantasia, descrição, anotação"
                 onChange={event => atualizarFiltro("busca", event.target.value)} /></label>
-            <span className="lanc-toolbar-count">{total} lançamentos</span>
             <div className="lanc-toolbar-actions">
             <button className="btn btn-outline lanc-new-button" onClick={() => setNovoModalOpen(true)}>+ Novo Lançamento</button>
             <button className="btn btn-primary" onClick={() => setImportModalOpen(true)}>Importar Lançamentos</button>
@@ -820,7 +821,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <div className="lanc-summary-loading">Carregando resumo financeiro…</div> : <>
                 <div className="lanc-summary-grid">{cards.map(card => {
                   const valor = Number(cardValor(card.id));
-                  const sinal = card.cor === "saldo" ? valor > 0 ? "positive" : valor < 0 ? "negative" : "zero" : valor === 0 ? "zero" : "";
+                  const sinal = card.cor === "saldo" ? valor > 0 ? "positive" : valor < 0 ? "negative" : "zero" : "";
                   return <button key={card.id} type="button" className={`lanc-summary-card ${card.cor} ${sinal} ${cardAtivo === card.id ? "is-active" : ""}`}
                     aria-pressed={cardAtivo === card.id} aria-label={`${card.titulo}: ${formatCurrency(valor)}. Filtrar lançamentos componentes.`}
                     onClick={() => { setCardAtivo(current => current === card.id ? null : card.id); setPagina(1); }}>
@@ -829,7 +830,18 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               </>}
             {resumoAtualizando && resumo && <span className="lanc-summary-updating" role="status">Atualizando resumo…</span>}
           </section>
+          <h2 className="lanc-filters-title">Filtros</h2>
           <div className="lanc-filter-main">
+            <button className={`btn btn-outline lanc-advanced-toggle ${avancadosAtivos ? "lanc-criterion-active" : ""}`} type="button"
+              aria-label={avancadosAtivos ? `Filtros avançados, ${avancadosAtivos} ${avancadosAtivos === 1 ? "ativo" : "ativos"}` : "Filtros avançados"}
+              title="Filtros avançados" aria-expanded={avancadosOpen}
+              onClick={() => setAvancadosOpen(open => !open)}>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" />
+              </svg>
+              <span>+ Filtros</span>
+              {avancadosAtivos > 0 && <span className="lanc-advanced-count" aria-hidden="true">{avancadosAtivos}</span>}
+            </button>
             <label className={`filter-group ${filtros.status ? "lanc-criterion-active" : ""}`}><span className="filter-label">Status financeiro</span>
               <select className="filter-input" value={filtros.status} onChange={event => atualizarFiltro("status", event.target.value)}>
                 <option value="">Todos</option>{STATUS_FINANCEIROS.map(status =>
@@ -840,7 +852,10 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <label className="filter-group lanc-criterion-active"><span className="filter-label">Data-base</span>
               <select className="filter-input" value={filtros.dataBase} onChange={event => atualizarFiltro("dataBase", event.target.value)}>
                 {DATA_BASES.map(item => <option key={item.valor} value={item.valor}>{item.nome}</option>)}</select></label>
-            <label className={`filter-group ${periodoAtivo ? "filter-active" : ""}`}><span className="filter-label">Mês / Ano</span>
+            <button className={`btn btn-outline lanc-year ${filtros.inicio === `${hoje.slice(0, 4)}-01-01` && filtros.fim === hoje ? "filter-active" : ""}`} type="button" onClick={() => {
+              setFiltros(current => ({ ...current, busca: buscaInput, inicio: `${hoje.slice(0, 4)}-01-01`, fim: hoje })); setPagina(1);
+            }}>Ano atual</button>
+            <label className={`filter-group ${periodoAtivo ? "filter-active" : ""}`}><span className="filter-label">Ano / Mês</span>
               <input className="filter-input" type="month" value={filtros.inicio && filtros.fim && filtros.inicio.slice(0, 7) === filtros.fim.slice(0, 7) ? filtros.inicio.slice(0, 7) : ""}
                 onChange={event => { const month = event.target.value; if (!month) return;
                   const [year, number] = month.split("-").map(Number);
@@ -850,19 +865,10 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <input className="filter-input" type="date" value={filtros.inicio} onChange={event => atualizarFiltro("inicio", event.target.value)} /></label>
             <label className={`filter-group ${periodoAtivo ? "filter-active" : ""}`}><span className="filter-label">Até</span>
               <input className="filter-input" type="date" value={filtros.fim} onChange={event => atualizarFiltro("fim", event.target.value)} /></label>
-            <button className={`btn btn-outline lanc-year ${filtros.inicio === `${hoje.slice(0, 4)}-01-01` && filtros.fim === hoje ? "filter-active" : ""}`} type="button" onClick={() => {
-              setFiltros(current => ({ ...current, busca: buscaInput, inicio: `${hoje.slice(0, 4)}-01-01`, fim: hoje })); setPagina(1);
-            }}>Ano atual</button>
-            <button className={`btn btn-outline lanc-advanced-toggle ${avancadosAtivos ? "lanc-criterion-active" : ""}`} type="button"
-              aria-label={avancadosAtivos ? `Filtros avançados, ${avancadosAtivos} ${avancadosAtivos === 1 ? "ativo" : "ativos"}` : "Filtros avançados"}
-              title="Filtros avançados" aria-expanded={avancadosOpen}
-              onClick={() => setAvancadosOpen(open => !open)}>
+            <button className="btn btn-outline lanc-clear-filters" type="button" onClick={() => { setBuscaInput(""); setFiltros({ ...filtrosIniciais(hoje), inicio: "", fim: "" }); setCardAtivo(null); setPagina(1); }}>
               <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 4h18l-7 8v6l-4 2v-8L3 4Z" />
+                <path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M5.8 9A7 7 0 0 1 18 7l2 5M4 12l2 5a7 7 0 0 0 12.2-2" />
               </svg>
-              {avancadosAtivos > 0 && <span className="lanc-advanced-count" aria-hidden="true">{avancadosAtivos}</span>}
-            </button>
-            <button className="btn btn-outline" type="button" onClick={() => { setBuscaInput(""); setFiltros({ ...filtrosIniciais(hoje), inicio: "", fim: "" }); setCardAtivo(null); setPagina(1); }}>
               Limpar filtros</button>
           </div>
           {avancadosOpen && <div className="lanc-advanced" aria-label="Filtros avançados">
@@ -885,10 +891,20 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <label className={`filter-group ${filtros.banco ? "lanc-criterion-active" : ""}`}><span className="filter-label">Banco legado</span><input className="filter-input" value={filtros.banco} onChange={event => atualizarFiltro("banco", event.target.value)} /></label>
             <label className={`filter-group ${filtros.fornecedor ? "lanc-criterion-active" : ""}`}><span className="filter-label">Fornecedor legado</span><input className="filter-input" value={filtros.fornecedor} onChange={event => atualizarFiltro("fornecedor", event.target.value)} /></label>
           </div>}
-          <div className="lanc-settings"><button className="accordion-trigger" type="button" aria-expanded={atalhosOpen} onClick={() => setAtalhosOpen(open => !open)}>
-            <span className={`accordion-chevron ${atalhosOpen ? "open" : ""}`}>›</span><span className="accordion-title">Configurações e Atalhos</span></button>
+          <div className="lanc-settings"><button className="accordion-trigger lanc-settings-trigger" type="button" aria-expanded={atalhosOpen} onClick={() => setAtalhosOpen(open => !open)}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 2h4l.5 2.3a8 8 0 0 1 1.7.7l2-1.3 2.8 2.8-1.3 2a8 8 0 0 1 .7 1.7L22 10v4l-2.3.5a8 8 0 0 1-.7 1.7l1.3 2-2.8 2.8-2-1.3a8 8 0 0 1-1.7.7L14 22h-4l-.5-2.3a8 8 0 0 1-1.7-.7l-2 1.3L3 17.5l1.3-2a8 8 0 0 1-.7-1.7L2 14v-4l2.3-.5a8 8 0 0 1 .7-1.7l-1.3-2L6.5 3l2 1.3a8 8 0 0 1 1.7-.7L10 2Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span className="accordion-title">Configurações e Atalhos</span><span className={`accordion-chevron ${atalhosOpen ? "open" : ""}`}>›</span></button>
             {atalhosOpen && <div className="lanc-settings-content"><button className="btn btn-outline" onClick={() => setStatusModalOpen(true)}>Status Manual</button>
               <LayoutManager onLayoutChange={setColConfig} />
+              <label className="lanc-page-size">Linhas por página
+                <select value={porPagina} onChange={event => { setPorPagina(event.target.value === "all" ? "all" : Number(event.target.value) as LinhasPorPagina); setPagina(1); }}>
+                  {LINHAS_POR_PAGINA.map(size => <option key={size} value={size}>{size}</option>)}
+                  <option value="all">Tudo</option>
+                </select>
+              </label>
               <Link className="btn btn-outline" href="/estrutura/dimensao-empresa">Dimensão da Empresa</Link>
               <Link className="btn btn-outline" href="/estrutura/dimensoes-financeiras">Dimensões Financeiras</Link>
               <Link className="btn btn-outline" href="/estrutura/dimensoes-cadastrais">Dimensões Cadastrais</Link>
@@ -915,7 +931,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                   return (
                     <th
                       key={def.key}
-                      className={def.key === "tipo" ? "lanc-financial-start" : def.key === "contaId" ? "lanc-financial-end" : undefined}
+                      className={def.key === "contaId" ? "lanc-financial-end" : undefined}
                       style={{
                         ...getThStyle(def),
                         padding: def.key === "seq" ? "8px 4px" : "8px 8px",
@@ -1016,7 +1032,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                     }
                   }} style={{ cursor: isEditing ? "default" : "pointer" }}>
                     {visibleCols.map(def => (
-                      <td key={def.key} data-col-key={def.key} className={def.key === "tipo" ? "lanc-financial-start" : def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, isEditing)}>
+                      <td key={def.key} data-col-key={def.key} className={def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, isEditing)}>
                         {def.key === "acoes" ? (
                           <div className="actions-cell">
                             {isEditing ? (
@@ -1063,7 +1079,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               {inlineNewOpen && (
                 <tr className="editing" style={{ background: "rgba(5,150,105,0.06)" }}>
                   {visibleCols.map((def, idx) => (
-                    <td key={def.key} className={def.key === "tipo" ? "lanc-financial-start" : def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, true)}>
+                    <td key={def.key} className={def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, true)}>
                       {def.key === "seq" ? (
                         <span style={{ color: "var(--accent-green)", fontWeight: 700, fontSize: 11 }}>+</span>
                       ) : def.key === "acoes" ? (
@@ -1152,16 +1168,14 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         </div>
 
         {/* Footer */}
-        <div className="table-footer" style={{ margin: "0 28px 14px" }}>
-          <span>{total} lançamentos</span>
-          <label className="lanc-page-size">Linhas por página
-            <select value={porPagina} onChange={event => { setPorPagina(event.target.value === "all" ? "all" : Number(event.target.value) as LinhasPorPagina); setPagina(1); }}>
-              {LINHAS_POR_PAGINA.map(size => <option key={size} value={size}>{size}</option>)}
-              <option value="all">Tudo</option>
-            </select>
-          </label>
+        <div className="table-footer lanc-totals-footer" style={{ margin: "0 28px 14px" }} aria-busy={loading || updating}>
+          <div className="lanc-footer-totals">
+            <span><small>Valor previsto</small><strong>{formatCurrency(Number(totais.valorPrevisto))}</strong></span>
+            <span><small>Valor realizado</small><strong>{formatCurrency(Number(totais.valorRealizado))}</strong></span>
+            <span><small>Cont.</small><strong>{totais.cont}</strong></span>
+          </div>
           {totalPaginas > 1 && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="lanc-footer-pagination">
               <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina === 1} onClick={() => setPagina(p => p - 1)}>← Ant.</button>
               <span style={{ fontSize: 12 }}>Pág. {pagina} de {totalPaginas}</span>
               <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina >= totalPaginas} onClick={() => setPagina(p => p + 1)}>Próx. →</button>

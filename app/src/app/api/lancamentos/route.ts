@@ -7,6 +7,7 @@ import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamento
 import { CARDS_LANCAMENTO, type CardLancamento } from "@/lib/lancamento-card-filter";
 import { consultarIdsDoCard } from "@/lib/lancamento-card-query";
 import type { PaginatedResponse, LancamentoDTO } from "@/types";
+import { Prisma } from "@prisma/client";
 
 // ── GET /api/lancamentos ──────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -70,18 +71,29 @@ export async function GET(req: NextRequest) {
 
   let total: number;
   let lancamentos: any[];
+  let valorPrevisto = new Prisma.Decimal(0);
+  let valorRealizado = new Prisma.Decimal(0);
   if (filtros.status) {
     const candidatos = await db.lancamento.findMany({ where, orderBy, include: counterpartInclude });
     const selecionados = candidatos.filter((row: any) => statusCorresponde(row, filtros.status, hojeSaoPaulo()));
     total = selecionados.length;
+    for (const row of selecionados) {
+      valorPrevisto = valorPrevisto.plus(row.valorPrevisto ?? 0);
+      valorRealizado = valorRealizado.plus(row.valor ?? 0);
+    }
     lancamentos = tudo ? selecionados : selecionados.slice((pagina - 1) * porPagina, pagina * porPagina);
   } else {
-    [total, lancamentos] = await Promise.all([
+    const [count, rows, sums] = await Promise.all([
       db.lancamento.count({ where }),
       db.lancamento.findMany({ where, orderBy,
         ...(!tudo ? { skip: (pagina - 1) * porPagina, take: porPagina } : {}),
         include: counterpartInclude }),
+      db.lancamento.aggregate({ where, _sum: { valorPrevisto: true, valor: true } }),
     ]);
+    total = count;
+    lancamentos = rows;
+    valorPrevisto = sums._sum.valorPrevisto ?? valorPrevisto;
+    valorRealizado = sums._sum.valor ?? valorRealizado;
   }
 
   const data = lancamentos.map((l: any, i: number) =>
@@ -91,7 +103,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     data, total, pagina: tudo ? 1 : pagina, porPagina: tudo ? total : porPagina,
     totalPaginas: tudo ? 1 : Math.ceil(total / porPagina),
-  } satisfies PaginatedResponse<LancamentoDTO>);
+    totais: { valorPrevisto: valorPrevisto.toFixed(2), valorRealizado: valorRealizado.toFixed(2), cont: total },
+  } satisfies PaginatedResponse<LancamentoDTO> & { totais: { valorPrevisto: string; valorRealizado: string; cont: number } });
 }
 
 // ── POST /api/lancamentos ─────────────────────────────────────
