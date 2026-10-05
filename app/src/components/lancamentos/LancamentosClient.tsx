@@ -7,7 +7,7 @@ import { COLUNAS_DEF, DEFAULT_COLUNAS_CONFIG } from "./colunasConfig";
 import LayoutManager from "./LayoutManager";
 import StatusTiposModal from "./StatusTiposModal";
 import NovoLancamentoModal from "./NovoLancamentoModal";
-import ImportModal from "./ImportModal";
+import OfficialImportModal from "./OfficialImportModal";
 import CounterpartyPicker from "./CounterpartyPicker";
 import { activeCounterparties, counterpartyDisplay, counterpartyIds, defaultAccount } from "@/lib/counterparty";
 import { lerResumoFluxoCaixa } from "@/lib/cash-flow-response";
@@ -1164,11 +1164,12 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
           statusTipos={statusTipos}
         />
 
-        {/* Modal de importação */}
-        <ImportModal
+        {/* O ImportModal CSV anterior permanece no código como LEGACY, sem acesso pela UI. */}
+        <OfficialImportModal
           open={importModalOpen}
           onClose={() => setImportModalOpen(false)}
           onImported={refreshData}
+          filters={parametrosFiltros().toString()}
         />
     </div>
   );

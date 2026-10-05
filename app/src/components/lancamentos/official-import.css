@@ -1,0 +1,25 @@
+.lanc-official-overlay { padding: 16px; }
+.lanc-official-modal { width: min(1100px, 96vw); max-width: 1100px; max-height: 92vh; display: flex; flex-direction: column; }
+.lanc-official-body { min-height: 0; overflow: auto; padding: 18px 24px; }
+.lanc-official-steps { display: grid; gap: 10px; padding-left: 24px; color: var(--text-secondary); font-size: 13px; }
+.lanc-official-steps li { padding-left: 5px; }
+.lanc-official-steps p { margin: 5px 0 0; }
+.lanc-official-steps input { display: block; margin-top: 6px; max-width: 100%; }
+.lanc-official-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 16px 0; }
+.lanc-official-summary div { padding: 10px; background: var(--surface-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.lanc-official-summary strong { display: block; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; }
+.lanc-official-summary span { color: var(--text-primary); font-size: 17px; font-weight: 700; }
+.lanc-official-table-wrap { max-height: 40vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.lanc-official-table { min-width: 720px; }
+.lanc-official-table td { vertical-align: top; overflow-wrap: anywhere; }
+.lanc-official-table td p { margin: 0 0 5px; }
+.lanc-official-state { font-weight: 700; font-size: 11px; }
+.lanc-official-state--novo, .lanc-official-state--inalterado { color: var(--success); }
+.lanc-official-state--alterado { color: var(--action); }
+.lanc-official-state--erro, .lanc-official-state--conflito, .lanc-official-error { color: var(--danger); }
+.lanc-official-warning { color: var(--warning); }
+.lanc-official-errors { margin: 12px 0; padding: 12px; background: color-mix(in srgb, var(--danger) 8%, var(--surface)); border: 1px solid var(--danger); border-radius: var(--radius-sm); }
+.lanc-official-errors p { margin: 5px 0 0; }
+.lanc-official-success { margin: 12px 0; padding: 12px; color: var(--success); background: color-mix(in srgb, var(--success) 8%, var(--surface)); border-radius: var(--radius-sm); }
+.lanc-official-modal .modal-actions { flex-shrink: 0; }
+@media (max-width: 700px) { .lanc-official-overlay { padding: 8px; } .lanc-official-modal { width: 100%; max-height: 96vh; } .lanc-official-body { padding: 12px; } .lanc-official-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
