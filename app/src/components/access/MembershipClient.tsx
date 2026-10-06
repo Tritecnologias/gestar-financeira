@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import TermsStatusPanel from "@/components/access/TermsStatusPanel";
 import "./access.css";
 
 type Profile = { id: string; nome: string; ativo: boolean };
@@ -72,6 +73,7 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
           }}>{m.status === "ACTIVE" ? "Inativar" : "Ativar"}</button>}</td></tr>)}
       {!shown.length && <tr><td className="access-empty" colSpan={5}>Nenhum vínculo encontrado.</td></tr>}
     </tbody></table></div>
+    {role !== "MEMBER" && <TermsStatusPanel />}
     {modal && <div className="access-modal-backdrop"><section className="access-modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
       <h2 id="member-modal-title">Adicionar acesso</h2><p className="access-hint">Email existente reutiliza a identidade. Para nova identidade, informe nome e senha de pelo menos 12 caracteres.</p>
       <label>Nome (nova identidade)<input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></label>

@@ -5,7 +5,8 @@ import Link from "next/link";
 import "./access.css";
 
 type Tenant = { id: string; nome: string; slug: string; email: string; plano: string; ativo: boolean;
-  _count: { memberships: number }; activeOwnerCount: number; lastOwnerDesignationAt: string | null };
+  _count: { memberships: number }; activeOwnerCount: number; lastOwnerDesignationAt: string | null;
+  contractualResponsibleMembershipId: string | null; contractualResponsibleReady: boolean };
 type Identity = { id: string; nome: string; email: string; status: string;
   platformAdmin: { status: string } | null; memberships: { id: string; role: string; tenant: { nome: string } }[] };
 type Membership = { id: string; role: string; status: string; identity: { nome: string; email: string };
@@ -27,10 +28,11 @@ export default function PlatformClient() {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"" | "create" | "edit" | "owner">("");
+  const [mode, setMode] = useState<"" | "create" | "edit" | "owner" | "responsible">("");
   const [selected, setSelected] = useState<Tenant | null>(null);
   const [tenantForm, setTenantForm] = useState({ nome: "", email: "", plano: "trial" });
   const [ownerForm, setOwnerForm] = useState({ nome: "", email: "", senha: "" });
+  const [responsibleMembershipId, setResponsibleMembershipId] = useState("");
   useEffect(() => {
     const saved = localStorage.getItem("theme");
     if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
@@ -61,13 +63,16 @@ export default function PlatformClient() {
 
   async function submit() {
     if (mode === "owner" && !window.confirm(`Designar ${ownerForm.email} como OWNER de ${selected?.nome}? Esta ação concede administração essencial do tenant e será registrada.`)) return;
+    if (mode === "responsible" && !window.confirm(`Designar o OWNER selecionado como responsável contratual de ${selected?.nome}?`)) return;
     setBusy(true); setError("");
     try {
-      const url = mode === "owner" ? `/api/platform/tenants/${selected!.id}/owners`
+      const url = mode === "responsible" ? `/api/platform/tenants/${selected!.id}/contractual-responsible`
+        : mode === "owner" ? `/api/platform/tenants/${selected!.id}/owners`
         : mode === "edit" ? `/api/platform/tenants/${selected!.id}` : "/api/tenants";
       const response = await fetch(url, { method: mode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "owner" ? { ...ownerForm, confirm: true } : tenantForm) });
+        body: JSON.stringify(mode === "responsible" ? { membershipId: responsibleMembershipId, confirm: true }
+          : mode === "owner" ? { ...ownerForm, confirm: true } : tenantForm) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Não foi possível concluir.");
       setMode(""); setSelected(null); setOwnerForm({ nome: "", email: "", senha: "" }); await load();
@@ -93,6 +98,7 @@ export default function PlatformClient() {
     <header className="access-header"><div><h1>Administração da Plataforma</h1>
       <p>Tenants, identidades e vínculos da plataforma. Dados financeiros ficam no contexto de cada tenant.</p></div>
       <div className="access-header-actions"><button type="button" className="access-button access-button-secondary" onClick={toggleTheme}>Alternar tema</button>
+        <Link href="/plataforma/termos" className="access-button access-button-secondary">Termos e Políticas</Link>
         <Link href="/selecionar-tenant" className="access-button access-button-secondary">Selecionar tenant</Link></div>
     </header>
     <div className="access-toolbar">
@@ -115,11 +121,12 @@ export default function PlatformClient() {
       {tab === "tenants" && (shown as Tenant[]).map(t => <tr key={t.id}><td><strong>{t.nome}</strong><small>{t.slug}</small></td>
         <td>{t.email}</td><td>{t.plano}</td><td>{t.ativo ? "Ativo" : "Inativo"}
           {t.activeOwnerCount === 0 && <small className="access-warning">Sem OWNER ativo · designação necessária</small>}
+          {!t.contractualResponsibleReady && <small className="access-warning">Responsável contratual pendente ou inativo</small>}
           {t.lastOwnerDesignationAt && <small>Última designação: {new Date(t.lastOwnerDesignationAt).toLocaleDateString("pt-BR")}</small>}</td><td>{t._count.memberships}</td>
         <td className="access-actions"><button onClick={() => edit(t)}>Editar</button><button disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button>
           <button onClick={() => { setSelected(t); setOwnerForm({ nome: "", email: "", senha: "" }); setMode("owner"); }}>
             {t.activeOwnerCount ? "Adicionar OWNER" : "Designar OWNER"}
-          </button></td></tr>)}
+          </button><button onClick={() => { setSelected(t); setResponsibleMembershipId(t.contractualResponsibleMembershipId || ""); setMode("responsible"); }}>Responsável contratual</button></td></tr>)}
       {tab === "identidades" && (shown as Identity[]).map(i => <tr key={i.id}><td><strong>{i.nome}</strong></td><td>{i.email}</td>
         <td>{i.status}</td><td>{i.platformAdmin?.status === "ACTIVE" ? "Sim" : "Não"}</td>
         <td>{i.memberships.map(m => `${m.tenant.nome} (${m.role})`).join(", ") || "—"}</td></tr>)}
@@ -128,8 +135,12 @@ export default function PlatformClient() {
       {!shown.length && <tr><td colSpan={6} className="access-empty">Nenhum registro encontrado.</td></tr>}
     </tbody></table></div>
     {mode && <div className="access-modal-backdrop" role="presentation"><section className="access-modal" role="dialog" aria-modal="true" aria-labelledby="platform-modal-title">
-      <h2 id="platform-modal-title">{mode === "owner" ? `Adicionar OWNER · ${selected?.nome}` : mode === "edit" ? "Editar tenant" : "Novo tenant"}</h2>
-      {mode === "owner" ? <>
+      <h2 id="platform-modal-title">{mode === "responsible" ? `Responsável contratual · ${selected?.nome}` : mode === "owner" ? `Adicionar OWNER · ${selected?.nome}` : mode === "edit" ? "Editar tenant" : "Novo tenant"}</h2>
+      {mode === "responsible" ? <><p className="access-hint">Escolha explicitamente um OWNER ativo deste tenant. O vínculo designado será o único autorizado a aceitar o termo do contratante.</p>
+        <label>OWNER responsável<select value={responsibleMembershipId} onChange={event => setResponsibleMembershipId(event.target.value)}>
+          <option value="">Selecione</option>{memberships.filter(m => m.tenant.id === selected?.id && m.role === "OWNER" && m.status === "ACTIVE").map(m =>
+            <option key={m.id} value={m.id}>{m.identity.nome} · {m.identity.email}</option>)}
+        </select></label></> : mode === "owner" ? <>
         <p className="access-hint">Selecione explicitamente o responsável legítimo. Um vínculo existente será promovido; uma identidade nova exige nome e senha. A designação fica registrada.</p>
         <label>Vínculo existente neste tenant
           <select value={memberships.some(m => m.tenant.id === selected?.id && m.identity.email === ownerForm.email) ? ownerForm.email : ""}
