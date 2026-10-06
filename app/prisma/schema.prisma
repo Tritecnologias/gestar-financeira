@@ -35,6 +35,8 @@ model Tenant {
   ownerEvents       AccessOwnerEvent[]
   contractualResponsible TenantContractualResponsible?
   termAcceptances  TermAcceptance[]
+  supportGrants     SupportGrant[]
+  supportEvents     SupportGrantEvent[]
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
@@ -107,6 +109,9 @@ model AuthIdentity {
   publishedTermVersions TermVersion[] @relation("TermPublisher")
   termAcceptances TermAcceptance[]
   assignedResponsibilities TenantContractualResponsible[] @relation("ResponsibleAssigner")
+  requestedSupportGrants SupportGrant[] @relation("SupportRequester")
+  revokedSupportGrants SupportGrant[] @relation("SupportRevoker")
+  supportEvents SupportGrantEvent[] @relation("SupportEventActor")
 
   @@map("auth_identities")
 }
@@ -127,6 +132,7 @@ model TenantMembership {
   legacyMaps  LegacyUserAccessMap[]
   contractualResponsibility TenantContractualResponsible?
   termAcceptances TermAcceptance[]
+  approvedSupportGrants SupportGrant[]
 
   @@unique([identityId, tenantId])
   @@unique([id, tenantId])
@@ -221,6 +227,87 @@ model TenantContractualResponsible {
 
   @@unique([membershipId, tenantId])
   @@map("tenant_contractual_responsibles")
+}
+
+// ACCESS-5B: autorização temporária. Não cria TenantMembership nem papel empresarial.
+enum SupportGrantStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  REVOKED
+  EXPIRED
+}
+
+enum SupportAccessLevel {
+  READ_ONLY
+  OPERATIONAL
+}
+
+enum SupportModule {
+  ESTRUTURA_EMPRESA
+  ESTRUTURA_FINANCEIRA
+}
+
+enum SupportGrantEventType {
+  REQUESTED
+  APPROVED
+  REJECTED
+  ACTIVATED
+  USED
+  REVOKED
+  EXPIRED
+}
+
+model SupportGrant {
+  id                      String @id @default(uuid())
+  tenantId                String @map("tenant_id")
+  platformAdminIdentityId String @map("platform_admin_identity_id")
+  status                  SupportGrantStatus @default(PENDING)
+  reason                  String
+  modules                 SupportModule[]
+  accessLevel             SupportAccessLevel @default(READ_ONLY) @map("access_level")
+  requestedMinutes        Int @map("requested_minutes")
+  requestedAt             DateTime @default(now()) @map("requested_at")
+  approvedAt              DateTime? @map("approved_at")
+  approvedByMembershipId  String? @map("approved_by_membership_id")
+  startsAt                DateTime? @map("starts_at")
+  expiresAt               DateTime? @map("expires_at")
+  rejectedAt              DateTime? @map("rejected_at")
+  rejectionReason         String? @map("rejection_reason")
+  revokedAt               DateTime? @map("revoked_at")
+  revokedByIdentityId     String? @map("revoked_by_identity_id")
+  revocationReason        String? @map("revocation_reason")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  requester AuthIdentity @relation("SupportRequester", fields: [platformAdminIdentityId], references: [id], onDelete: Restrict)
+  approver TenantMembership? @relation(fields: [approvedByMembershipId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  revoker AuthIdentity? @relation("SupportRevoker", fields: [revokedByIdentityId], references: [id], onDelete: Restrict)
+  events SupportGrantEvent[]
+
+  @@index([tenantId, status, expiresAt])
+  @@index([platformAdminIdentityId, status, expiresAt])
+  @@unique([id, tenantId])
+  @@map("support_grants")
+}
+
+model SupportGrantEvent {
+  id String @id @default(uuid())
+  grantId String @map("grant_id")
+  tenantId String @map("tenant_id")
+  type SupportGrantEventType
+  actorIdentityId String? @map("actor_identity_id")
+  detail String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  grant SupportGrant @relation(fields: [grantId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actor AuthIdentity? @relation("SupportEventActor", fields: [actorIdentityId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([grantId, createdAt])
+  @@map("support_grant_events")
 }
 
 enum TermAudience {
