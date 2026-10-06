@@ -227,6 +227,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
 
   // Campos calculados no JS (não mapeados no banco)
   const SORT_COMPUTED = new Set(["statusAuto", "diasAtrasoOriginal", "diasAtrasoPlano", "rangeAtraso", "vencA", "vencM", "vencD", "vencAM", "emissaoAM"]);
+  const SYSTEM_VISUAL = new Set(["dre", "cont"]);
 
   // Tabelas de apoio
   const [fornecedores, setFornecedores] = useState<FornecedorDTO[]>([]);
@@ -330,11 +331,16 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     if (!valor && !valorPrevisto) { showToast("❌ Preencha o Vl. Realizado ou Vl. Previsto"); return; }
     setInlineNewSaving(true);
     try {
+      // Campos legados de sistema não participam da inclusão rápida, mesmo se
+      // um rascunho anterior ainda os mantiver em memória após atualização da tela.
+      const submitted = { ...inlineNewValues };
+      delete submitted.dre;
+      delete submitted.cont;
       const res = await fetch("/api/lancamentos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...inlineNewValues,
+          ...submitted,
           valor: valor ? parseFloat(String(valor).replace(",", ".")) : (valorPrevisto ? parseFloat(String(valorPrevisto).replace(",", ".")) : 0),
           valorPrevisto: inlineNewValues.valorPrevisto ? parseFloat(String(inlineNewValues.valorPrevisto).replace(",", ".")) : null,
           tipo: tipo || "SAIDA",
@@ -1051,7 +1057,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                   return (
                     <th
                       key={def.key}
-                      className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : ""].filter(Boolean).join(" ")}
+                      className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : "", SYSTEM_VISUAL.has(def.key) ? "lanc-system-visual" : ""].filter(Boolean).join(" ")}
                       style={{
                         ...getThStyle(def),
                         padding: def.key === "seq" ? "8px 4px" : "8px 8px",
@@ -1169,7 +1175,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                         aria-label={canEdit && !isEditing && def.editavel !== false ? `Editar ${def.label}, lançamento ${row.seq}` : undefined}
                         onClick={() => { if (canEdit && !isEditing && def.editavel !== false) void startEdit(row, def.key); }}
                         onKeyDown={event => { if (canEdit && !isEditing && def.editavel !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); void startEdit(row, def.key); } }}
-                        className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : ""].filter(Boolean).join(" ")} style={getTdStyle(def, isEditing)}>
+                        className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : "", SYSTEM_VISUAL.has(def.key) ? "lanc-system-visual" : ""].filter(Boolean).join(" ")} style={getTdStyle(def, isEditing)}>
                         {isEditing ? renderEditCell(def, row.id) : renderCell(def.key, row, statusTipos, accounts)}
                       </td>
                     ))}
@@ -1184,7 +1190,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                     <button className="action-btn" onClick={cancelInlineNew} title="Cancelar novo lançamento">✕</button>
                   </span><span className="lanc-row-state-label lanc-row-state-label--new" aria-hidden="true">Novo</span></td>
                   {visibleCols.map((def, idx) => (
-                    <td key={def.key} className={def.key === "contaId" ? "lanc-financial-end" : undefined} style={getTdStyle(def, true)}>
+                    <td key={def.key} className={[def.key === "contaId" ? "lanc-financial-end" : "", SORT_COMPUTED.has(def.key) ? "lanc-calculated" : "", SYSTEM_VISUAL.has(def.key) ? "lanc-system-visual" : ""].filter(Boolean).join(" ")} style={getTdStyle(def, true)}>
                       {def.key === "seq" ? (
                         <span style={{ color: "var(--accent-green)", fontWeight: 700, fontSize: 11 }}>+</span>
                       ) : def.editavel === false ? (

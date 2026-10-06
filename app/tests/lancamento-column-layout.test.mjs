@@ -11,6 +11,14 @@ test("layout padrão mantém Direção, Categoria N1 e Conta N2 lado a lado", ()
   assert.deepEqual(result.slice(direction, direction + 3), ["tipo", "categoria", "contaId"]);
 });
 
+test("DRE e Cont. são somente leitura na tabela e na inclusão rápida", () => {
+  for (const key of ["dre", "cont"]) {
+    const column = COLUNAS_DEF.find(col => col.key === key);
+    assert.equal(column?.editavel, false);
+    assert.equal(column?.tipo, undefined);
+  }
+});
+
 const oldKeys = [
   "seq", "dataLanc", "dataEmissao", "statusManual", "dataVencOriginal", "dataVencPlano",
   "fantasiaPadrao", "descricao", "dataEvento", "statusExtrato", "fornecedor", "banco",
@@ -26,30 +34,61 @@ test("novo usuário e restaurar padrão recebem a sequência oficial", () => {
   assert.deepEqual(keys(DEFAULT_COLUNAS_CONFIG), COLUNAS_DEF.map(col => col.key));
   assert.deepEqual(keys(DEFAULT_COLUNAS_CONFIG).filter(key => LANCAMENTO_FIELD_ORDER.includes(key)),
     LANCAMENTO_FIELD_ORDER.filter(key => COLUNAS_DEF.some(col => col.key === key)));
-  assert.deepEqual(keys(DEFAULT_COLUNAS_CONFIG).slice(0, 9), ["seq", "descricao", "fantasiaPadrao",
-    "tipo", "categoria", "contaId", "valorPrevisto", "valor", "dataLanc"]);
+  assert.deepEqual(keys(DEFAULT_COLUNAS_CONFIG).slice(0, 23), [
+    "seq", "dataLanc", "descricao", "fantasiaPadrao", "tipo", "categoria", "contaId",
+    "valorPrevisto", "dataPagamento", "valor", "statusAuto", "statusManual",
+    "dataVencOriginal", "dataVencPlano", "dataEmissao", "dataEvento", "banco",
+    "centroCusto", "fornecedor", "statusExtrato", "dre", "cont", "anotacao",
+  ]);
   assert.deepEqual(keys(DEFAULT_COLUNAS_CONFIG).slice(-8), ["vencA", "vencM", "vencD", "vencAM",
     "diasAtrasoOriginal", "diasAtrasoPlano", "rangeAtraso", "emissaoAM"]);
 });
 
-test("padrão anterior migra ordem e larguras de fábrica sem reexibir colunas ocultas", () => {
+test("padrão histórico inteiramente de fábrica recebe a nova ordem e larguras", () => {
   const saved = oldDefault();
-  saved.find(col => col.key === "dre").visible = false;
   const result = alignLegacyDefaultColumns(saved);
   assert.deepEqual(keys(result), keys(DEFAULT_COLUNAS_CONFIG));
   assert.equal(result.find(col => col.key === "descricao").width, 320);
   assert.equal(result.find(col => col.key === "contaId").width, 220);
-  assert.equal(result.find(col => col.key === "dre").visible, false);
   assert.deepEqual(alignLegacyDefaultColumns(result), result);
 });
 
-test("larguras personalizadas sobrevivem à migração do padrão anterior", () => {
+test("layout com coluna oculta preserva inclusive sua ordem histórica", () => {
+  const saved = oldDefault();
+  saved.find(col => col.key === "dre").visible = false;
+  const result = alignLegacyDefaultColumns(saved);
+  assert.deepEqual(keys(result), keys(saved));
+  assert.equal(result.find(col => col.key === "dre").visible, false);
+});
+
+test("larguras personalizadas preservam largura e ordem histórica", () => {
   const saved = oldDefault();
   saved.find(col => col.key === "descricao").width = 405;
   saved.find(col => col.key === "dataLanc").width = 205;
   const result = alignLegacyDefaultColumns(saved);
+  assert.deepEqual(keys(result), keys(saved));
   assert.equal(result.find(col => col.key === "descricao").width, 405);
   assert.equal(result.find(col => col.key === "dataLanc").width, 205);
+});
+
+test("padrão imediatamente anterior migra, mas customização de largura impede migração", () => {
+  const priorKeys = [
+    "seq", "descricao", "fantasiaPadrao", "tipo", "categoria", "contaId", "valorPrevisto", "valor",
+    "dataLanc", "dataEmissao", "dataVencOriginal", "dataVencPlano", "dataPagamento", "dataEvento",
+    "statusAuto", "statusManual", "fornecedor", "banco", "centroCusto", "dre", "statusExtrato",
+    "cont", "anotacao", "vencA", "vencM", "vencD", "vencAM", "diasAtrasoOriginal",
+    "diasAtrasoPlano", "rangeAtraso", "emissaoAM",
+  ];
+  const priorWidths = { seq: 45, tipo: 110, statusAuto: 145, statusManual: 120, cont: 94,
+    vencA: 86, vencM: 86, vencD: 86, vencAM: 86, diasAtrasoOriginal: 94,
+    diasAtrasoPlano: 94, rangeAtraso: 94, emissaoAM: 110 };
+  const prior = priorKeys.map((key, order) => ({ key, order, visible: true,
+    width: priorWidths[key] ?? COLUNAS_DEF.find(col => col.key === key).width }));
+  assert.deepEqual(keys(alignLegacyDefaultColumns(prior)), keys(DEFAULT_COLUNAS_CONFIG));
+  prior.find(col => col.key === "descricao").width = 405;
+  const preserved = alignLegacyDefaultColumns(prior);
+  assert.deepEqual(keys(preserved), priorKeys);
+  assert.equal(preserved.find(col => col.key === "descricao").width, 405);
 });
 
 test("ordem personalizada não é substituída pelo novo padrão", () => {

@@ -100,7 +100,8 @@
 .lanc-page .data-table .lanc-select-cell { padding: 3px 4px; text-align: center; background: var(--surface); border-right: 1px solid var(--border); }
 .lanc-page .data-table td.lanc-select-cell { overflow: visible !important; position: relative; z-index: 2; }
 .lanc-select-cell input { width: 16px; height: 16px; accent-color: var(--action); cursor: pointer; }
-.lanc-page .data-table :is(th, td).lanc-calculated { background-color: color-mix(in srgb, var(--text-muted) 6%, var(--surface)); color: var(--text-secondary); cursor: default; }
+.lanc-page .data-table :is(th, td):is(.lanc-calculated, .lanc-system-visual) { background-color: color-mix(in srgb, var(--text-muted) 6%, var(--surface)); color: var(--text-secondary); }
+.lanc-page .data-table :is(th, td).lanc-calculated { cursor: default; }
 .lanc-selection-bar { margin: 8px 28px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); color: var(--text-primary); font-size: 12px; }
 .lanc-selection-bar .btn { min-height: 30px; padding: 4px 9px; font-size: 12px; }
 .lanc-row-controls { display: inline-flex; align-items: center; gap: 3px; margin-left: 3px; }
@@ -176,7 +177,7 @@
   background: var(--lanc-edit-bg);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--action) 42%, var(--border)), inset 0 -1px 0 color-mix(in srgb, var(--action) 42%, var(--border));
 }
-.lanc-page .lancamentos-scroll tr.lanc-inline-editing > td:is(.lanc-calculated, :not([data-editable="true"])) {
+.lanc-page .lancamentos-scroll tr.lanc-inline-editing > td:is(.lanc-calculated, .lanc-system-visual, :not([data-editable="true"])) {
   background: color-mix(in srgb, var(--text-muted) 5%, var(--lanc-edit-bg));
   color: var(--text-secondary);
 }

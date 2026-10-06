@@ -17,10 +17,10 @@ export interface ColDef {
 }
 
 const COLUNAS_BASE: ColDef[] = [
-  { key: "seq",              label: "#",             width: 45,  editavel: false, align: "center" },
+  { key: "seq",              label: "#",             width: 42,  editavel: false, align: "center" },
   { key: "descricao",        label: "Descrição Objetiva", width: 320, tipo: "text" },
   { key: "fantasiaPadrao",   label: "Fantasia", width: 210, tipo: "select-api", source: "fornecedores" },
-  { key: "tipo",             label: "Direção",       width: 110, tipo: "select",
+  { key: "tipo",             label: "Direção",       width: 100, tipo: "select",
     options: [{ value: "ENTRADA", label: "ENTRADA" }, { value: "SAIDA", label: "SAÍDA" }] },
   { key: "categoria",        label: "Categoria N1",  width: 190, tipo: "select-api", source: "categorias" },
   { key: "contaId",          label: "Conta N2",      width: 220, tipo: "select-api", source: "plano-contas" },
@@ -32,23 +32,23 @@ const COLUNAS_BASE: ColDef[] = [
   { key: "dataVencPlano",    label: "Vencimento Planejado", width: 150, tipo: "date" },
   { key: "dataPagamento",    label: "Data Pagamento", width: 150, tipo: "date" },
   { key: "dataEvento",       label: "Data Evento", width: 150, tipo: "date" },
-  { key: "statusAuto",       label: "Status Automático", width: 145, editavel: false },
-  { key: "statusManual",     label: "Status Manual", width: 120, tipo: "select-api", source: "status-tipos" },
+  { key: "statusAuto",       label: "Status Automático", width: 132, editavel: false },
+  { key: "statusManual",     label: "Status Manual", width: 118, tipo: "select-api", source: "status-tipos" },
   { key: "fornecedor",       label: "Empresa",       width: 140, tipo: "text" },
   { key: "banco",            label: "Local Financeiro", width: 160, tipo: "text" },
-  { key: "centroCusto",      label: "C. Custo",      width: 120, tipo: "text" },
-  { key: "dre",              label: "DRE",           width: 100, tipo: "text" },
+  { key: "centroCusto",      label: "Centro de Custo", width: 120, tipo: "text" },
+  { key: "dre",              label: "DRE",           width: 100, editavel: false },
   { key: "statusExtrato",    label: "Extrato",       width: 120, tipo: "text" },
-  { key: "cont",             label: "Cont.",         width: 94,  tipo: "text" },
+  { key: "cont",             label: "Cont.",         width: 84,  editavel: false },
   { key: "anotacao",         label: "Anotação",      width: 240, tipo: "text" },
-  { key: "vencA",            label: "Venc A",        width: 86,  editavel: false, align: "center" },
-  { key: "vencM",            label: "Venc M",        width: 86,  editavel: false, align: "center" },
-  { key: "vencD",            label: "Venc D",        width: 86,  editavel: false, align: "center" },
-  { key: "vencAM",           label: "Venc A_M",      width: 86,  editavel: false, align: "center" },
-  { key: "diasAtrasoOriginal",label: "Atr. Orig.",   width: 94,  editavel: false, align: "right" },
-  { key: "diasAtrasoPlano",  label: "Atr. Plano",    width: 94,  editavel: false, align: "right" },
-  { key: "rangeAtraso",      label: "Range",         width: 94,  editavel: false },
-  { key: "emissaoAM",        label: "Emissão A_M",   width: 110, editavel: false, align: "center" },
+  { key: "vencA",            label: "Venc A",        width: 76,  editavel: false, align: "center" },
+  { key: "vencM",            label: "Venc M",        width: 76,  editavel: false, align: "center" },
+  { key: "vencD",            label: "Venc D",        width: 76,  editavel: false, align: "center" },
+  { key: "vencAM",           label: "Venc A_M",      width: 76,  editavel: false, align: "center" },
+  { key: "diasAtrasoOriginal",label: "Atr. Orig.",   width: 84,  editavel: false, align: "right" },
+  { key: "diasAtrasoPlano",  label: "Atr. Plano",    width: 84,  editavel: false, align: "right" },
+  { key: "rangeAtraso",      label: "Range",         width: 84,  editavel: false },
+  { key: "emissaoAM",        label: "Emissão A_M",   width: 100, editavel: false, align: "center" },
 ];
 
 const canonicalRank = new Map<string, number>(LANCAMENTO_FIELD_ORDER.map((key, index) => [key, index]));
@@ -61,7 +61,7 @@ export const COLUNAS_DEF: ColDef[] = [...COLUNAS_BASE].sort((a, b) => {
 // Largura mínima que mantém os controles da edição inline utilizáveis.
 export function minColumnWidth(def: ColDef): number {
   const longestWord = Math.max(...def.label.split(/\s+/).map(word => word.length));
-  const headingMinimum = longestWord * 8 + 54; // palavra inteira + drag + ordenação + respiro
+  const headingMinimum = longestWord * 8 + 44; // palavra inteira + drag + ordenação + respiro
   if (def.key === "seq") return 42;
   const controlMinimum = def.minWidth ?? (def.tipo === "date" ? 148
     : def.tipo === "number" ? 118
@@ -81,8 +81,22 @@ export const DEFAULT_COLUNAS_CONFIG: ColConfig[] = COLUNAS_DEF.map((c, i) => ({
   width:   c.width,
 }));
 
-// Assinatura do padrão anterior. Só essa sequência (e a variante histórica) é migrada.
-// Visibilidade e larguras ajustadas pelo usuário permanecem independentes da ordem.
+// Assinaturas de padrões publicados. Só layouts inteiramente de fábrica migram;
+// uma alteração de ordem, largura ou visibilidade torna o layout pessoal.
+const lastDefaultKeys = [
+  "seq", "descricao", "fantasiaPadrao", "tipo", "categoria", "contaId",
+  "valorPrevisto", "valor", "dataLanc", "dataEmissao", "dataVencOriginal",
+  "dataVencPlano", "dataPagamento", "dataEvento", "statusAuto", "statusManual",
+  "fornecedor", "banco", "centroCusto", "dre", "statusExtrato", "cont",
+  "anotacao", "vencA", "vencM", "vencD", "vencAM", "diasAtrasoOriginal",
+  "diasAtrasoPlano", "rangeAtraso", "emissaoAM",
+];
+const lastDefaultWidths: Record<string, number> = {
+  ...Object.fromEntries(COLUNAS_BASE.map(col => [col.key, col.width])),
+  seq: 45, tipo: 110, statusAuto: 145, statusManual: 120, cont: 94,
+  vencA: 86, vencM: 86, vencD: 86, vencAM: 86,
+  diasAtrasoOriginal: 94, diasAtrasoPlano: 94, rangeAtraso: 94, emissaoAM: 110,
+};
 const previousDefaultWidths: Record<string, number> = {
   seq: 45, dataLanc: 160, dataEmissao: 155, statusManual: 120,
   dataVencOriginal: 170, dataVencPlano: 180, fantasiaPadrao: 180,
@@ -140,22 +154,19 @@ function reconcileColumnKeys(config: ColConfig[]): ColConfig[] {
 export function alignLegacyDefaultColumns(config: ColConfig[]): ColConfig[] {
   const complete = reconcileColumnKeys(Array.isArray(config) ? config : []);
   const ordered = [...complete].sort((a, b) => a.order - b.order);
-  const previousDefault = ordered.length === previousDefaultKeys.length &&
-    ordered.every((col, index) => col.key === previousDefaultKeys[index]);
-  const olderDefault = ordered.length === olderDefaultKeys.length &&
-    ordered.every((col, index) => col.key === olderDefaultKeys[index]);
-  const currentDefault = ordered.length === COLUNAS_DEF.length &&
-    ordered.every((col, index) => col.key === COLUNAS_DEF[index].key);
-  if (!previousDefault && !olderDefault && !currentDefault) return complete;
+  const factory = (keys: string[], widths: Record<string, number>) =>
+    Array.isArray(config) && config.length === keys.length &&
+    ordered.length === keys.length && ordered.every((col, index) => {
+      const def = COLUNAS_DEF.find(item => item.key === col.key)!;
+      return col.key === keys[index] && col.visible === true &&
+        col.width === Math.max(minColumnWidth(def), widths[col.key]);
+    });
+  if (!factory(lastDefaultKeys, lastDefaultWidths) &&
+      !factory(previousDefaultKeys, previousDefaultWidths) &&
+      !factory(olderDefaultKeys, previousDefaultWidths)) return complete;
   const nextOrder = new Map(COLUNAS_DEF.map((col, index) => [col.key, index]));
   return complete.map(col => ({ ...col,
     order: nextOrder.get(col.key) ?? col.order,
-    width: currentDefault ? col.width : (() => {
-      const def = COLUNAS_DEF.find(item => item.key === col.key)!;
-      const previousWidth = previousDefaultWidths[col.key];
-      const priorEffectiveWidth = Math.max(minColumnWidth(def), previousWidth);
-      return col.width === priorEffectiveWidth || col.width === previousWidth
-        ? Math.max(minColumnWidth(def), def.width) : col.width;
-    })(),
+    width: DEFAULT_COLUNAS_CONFIG.find(item => item.key === col.key)!.width,
   })).sort((a, b) => a.order - b.order);
 }

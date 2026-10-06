@@ -8,11 +8,11 @@ import {
 
 test("XLSX segue a sequência de negócio e agrupa ID e versão no final", () => {
   assert.deepEqual(OFFICIAL_HEADERS, [
-    "DESCRICAO", "CLIENTE_CODIGO", "FORNECEDOR_CODIGO", "DIRECAO", "CATEGORIA_N1", "CONTA_N2",
-    "VALOR_PREVISTO", "VALOR_REALIZADO", "DATA_LANCAMENTO", "DATA_EMISSAO",
-    "VENCIMENTO_ORIGINAL", "VENCIMENTO_PLANO", "DATA_REALIZACAO", "DATA_EVENTO",
-    "STATUS", "STATUS_MANUAL", "EMPRESA", "BANCO", "CENTRO_CUSTO", "DRE",
-    "EXTRATO", "ANOTACAO", "REGISTRO_ID", "REGISTRO_VERSAO",
+    "DATA_LANCAMENTO", "DESCRICAO", "CLIENTE_CODIGO", "FORNECEDOR_CODIGO",
+    "DIRECAO", "CATEGORIA_N1", "CONTA_N2", "VALOR_PREVISTO", "DATA_REALIZACAO",
+    "VALOR_REALIZADO", "STATUS_MANUAL", "STATUS", "VENCIMENTO_ORIGINAL",
+    "VENCIMENTO_PLANO", "DATA_EMISSAO", "DATA_EVENTO", "BANCO", "CENTRO_CUSTO",
+    "EMPRESA", "EXTRATO", "DRE", "ANOTACAO", "REGISTRO_ID", "REGISTRO_VERSAO",
   ]);
 });
 
@@ -78,6 +78,36 @@ test("XLSX oficial anterior continua importável sem deslocar células", async (
   assert.equal(parsed[0].cells.DESCRICAO, "Teste");
   const plan = await planOfficialImport(mockDb(), tenant, parsed);
   assert.equal(plan.rows[0].acao, "INALTERADO");
+});
+
+test("XLSX do padrão imediatamente anterior e colunas reordenadas são lidos por cabeçalho", async () => {
+  const priorHeaders = [
+    "DESCRICAO", "CLIENTE_CODIGO", "FORNECEDOR_CODIGO", "DIRECAO", "CATEGORIA_N1",
+    "CONTA_N2", "VALOR_PREVISTO", "VALOR_REALIZADO", "DATA_LANCAMENTO",
+    "DATA_EMISSAO", "VENCIMENTO_ORIGINAL", "VENCIMENTO_PLANO", "DATA_REALIZACAO",
+    "DATA_EVENTO", "STATUS", "STATUS_MANUAL", "EMPRESA", "BANCO", "CENTRO_CUSTO",
+    "DRE", "EXTRATO", "ANOTACAO", "REGISTRO_ID", "REGISTRO_VERSAO",
+  ];
+  const cells = recordCells(existing);
+  for (const headers of [priorHeaders, [...priorHeaders].reverse()]) {
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([headers, headers.map(header => cells[header])]), "LANCAMENTOS");
+    const parsed = parseOfficialWorkbook(new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" })));
+    assert.equal(parsed[0].cells.CONTA_N2, "001");
+    assert.equal(parsed[0].cells.REGISTRO_ID, id);
+    assert.equal((await planOfficialImport(mockDb(), tenant, parsed)).rows[0].acao, "INALTERADO");
+  }
+});
+
+test("download, edição de fixture e prévia fazem round-trip pelo mesmo ID", async () => {
+  const book = XLSX.read(new Uint8Array(createOfficialWorkbook([existing])), { type: "array" });
+  const sheet = book.Sheets.LANCAMENTOS;
+  sheet[XLSX.utils.encode_cell({ r: 1, c: OFFICIAL_HEADERS.indexOf("DESCRICAO") })].v = "Fixture DEV atualizada";
+  const parsed = parseOfficialWorkbook(new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" })));
+  const preview = await planOfficialImport(mockDb(), tenant, parsed);
+  assert.equal(preview.rows[0].acao, "ALTERADO");
+  assert.equal(preview.changes[0].id, id);
+  assert.equal(preview.changes[0].data.descricao, "Fixture DEV atualizada");
 });
 
 test("reimportação idêntica é inalterada; descrição e valor viram update por ID", async () => {
@@ -162,4 +192,12 @@ test("arquivo legado sem REGISTRO_ID não é interpretado como atualização", (
   const old = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(old, XLSX.utils.aoa_to_sheet([["DESCRICAO", "VALOR"], ["Antigo", "1,00"]]), "LANCAMENTOS");
   assert.throws(() => parseOfficialWorkbook(new Uint8Array(XLSX.write(old, { type: "array", bookType: "xlsx" }))), /Cabeçalhos incompatíveis/);
+});
+
+test("cabeçalho duplicado não pode assumir o lugar de uma coluna ausente", () => {
+  const headers = [...OFFICIAL_HEADERS];
+  headers[headers.indexOf("CONTA_N2")] = "CATEGORIA_N1";
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([headers]), "LANCAMENTOS");
+  assert.throws(() => parseOfficialWorkbook(new Uint8Array(XLSX.write(book, { type: "array", bookType: "xlsx" }))), /Cabeçalhos incompatíveis/);
 });

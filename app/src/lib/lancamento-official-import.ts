@@ -17,14 +17,6 @@ export const OFFICIAL_HEADERS = [
   ...LANCAMENTO_FIELD_ORDER.flatMap(key => headersByField[key as keyof typeof headersByField]),
   "REGISTRO_ID", "REGISTRO_VERSAO",
 ];
-// Planilhas oficiais já baixadas continuam aceitas para reimportação.
-const PREVIOUS_OFFICIAL_HEADERS = [
-  "REGISTRO_ID", "REGISTRO_VERSAO", "DATA_LANCAMENTO", "DESCRICAO", "DIRECAO", "STATUS",
-  "VALOR_REALIZADO", "VALOR_PREVISTO", "DATA_REALIZACAO", "DATA_EMISSAO",
-  "VENCIMENTO_ORIGINAL", "VENCIMENTO_PLANO", "DATA_EVENTO", "STATUS_MANUAL", "EXTRATO",
-  "EMPRESA", "BANCO", "CATEGORIA_N1", "CONTA_N2", "CLIENTE_CODIGO", "FORNECEDOR_CODIGO",
-  "CENTRO_CUSTO", "DRE", "ANOTACAO",
-] as const;
 const technicalHeaders = new Set(["REGISTRO_ID", "REGISTRO_VERSAO"]);
 type Header = typeof OFFICIAL_HEADERS[number];
 export type OfficialFileRow = { linha: number; cells: Record<Header, string> };
@@ -89,7 +81,7 @@ export function createOfficialWorkbook(records: any[]): ArrayBuffer {
   const instructions = XLSX.utils.aoa_to_sheet([
     ["REGRA", "ORIENTAÇÃO"],
     ["Base", "Este arquivo contém todos os lançamentos do filtro atual, sem limite da paginação. Sem registros, preencha a aba LANCAMENTOS."],
-    ["Cabeçalhos", "Não renomeie a aba LANCAMENTOS nem os cabeçalhos."],
+    ["Cabeçalhos", "Não renomeie a aba LANCAMENTOS nem os cabeçalhos. A importação identifica cada coluna pelo cabeçalho."],
     ["Existentes", "Mantenha REGISTRO_ID e REGISTRO_VERSAO. Edite somente as demais colunas."],
     ["Novos", "Deixe REGISTRO_ID e REGISTRO_VERSAO vazios. O sistema criará ID e sequência."],
     ["Códigos", "Trate Categoria, Conta, Cliente e Fornecedor como códigos de texto; preserve zeros à esquerda."],
@@ -125,15 +117,16 @@ export function parseOfficialWorkbook(bytes: Uint8Array): OfficialFileRow[] {
   if (!sheet) throw new Error("A aba LANCAMENTOS é obrigatória. Baixe o XLSX oficial.");
   const matrix = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, { header: 1, raw: true, defval: "", blankrows: true });
   const headers = matrix[0] || [];
-  const accepted = [OFFICIAL_HEADERS, PREVIOUS_OFFICIAL_HEADERS].find(candidate =>
-    headers.length === candidate.length && candidate.every((header, index) => headers[index] === header));
-  if (!accepted) {
-    throw new Error("Cabeçalhos incompatíveis. Não renomeie nem reordene as colunas do XLSX oficial.");
+  const expected = new Set(OFFICIAL_HEADERS);
+  const positions = new Map(headers.map((header, index) => [header, index]));
+  if (headers.length !== expected.size || positions.size !== expected.size ||
+      headers.some(header => !expected.has(header as Header))) {
+    throw new Error("Cabeçalhos incompatíveis. Não renomeie, remova nem duplique as colunas do XLSX oficial.");
   }
   if (matrix.length > 10002) throw new Error("O arquivo excede 10.000 linhas de dados.");
   return matrix.slice(1).flatMap((values, index) => {
     if (!values?.some(value => text(value))) return [];
-    const cells = Object.fromEntries(accepted.map((header, column) => [header, text(values[column])])) as Record<Header, string>;
+    const cells = Object.fromEntries(OFFICIAL_HEADERS.map(header => [header, text(values[positions.get(header)!])])) as Record<Header, string>;
     return [{ linha: index + 2, cells }];
   });
 }
