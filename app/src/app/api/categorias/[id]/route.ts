@@ -10,7 +10,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { codigo, nome, tipo } = await req.json();
   if (!nome?.trim()) return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
   try {
-    const item = await db.categoria.update({ where: { id }, data: { codigo: codigo?.trim(), nome: nome.trim(), tipo: tipo || null } });
+    const current = await db.categoria.findFirst({ where: { id }, select: { codigo: true } });
+    if (!current) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+    if (codigo !== undefined && codigo !== current.codigo) return NextResponse.json({ error: "Código da Categoria é imutável." }, { status: 409 });
+    const item = await db.categoria.update({ where: { id }, data: { nome: nome.trim(), tipo: tipo || null } });
     return NextResponse.json(item);
   } catch (e: any) {
     if (e.code === "P2002") return NextResponse.json({ error: "Código já cadastrado" }, { status: 409 });

@@ -5,8 +5,14 @@ import { useCan } from "@/components/access/PermissionContext";
 import ExportOnlyButton from "@/components/access/ExportOnlyButton";
 import "./dimensao-pessoas.css";
 
-interface Pessoa { id: string; codigo: string; nome: string; cargo?: string; departamento?: string; email?: string; telefone?: string; }
+interface Pessoa { id: string; codigo: string; nome: string; cargo?: string | null; departamento?: string | null; email?: string | null; telefone?: string | null; documento?: string | null; dataAdmissao?: string | null; salario?: string | number | null; }
 interface CentroCusto { id: string; codigo: string; nome: string; }
+type PessoaForm = { nome: string; cargo: string; departamento: string; email: string; telefone: string; documento: string; dataAdmissao: string; salario: string };
+const toPessoaForm = (pessoa: Pessoa): PessoaForm => ({
+  nome: pessoa.nome, cargo: pessoa.cargo || "", departamento: pessoa.departamento || "",
+  email: pessoa.email || "", telefone: pessoa.telefone || "", documento: pessoa.documento || "",
+  dataAdmissao: pessoa.dataAdmissao?.slice(0, 10) || "", salario: pessoa.salario == null ? "" : String(pessoa.salario),
+});
 
 export default function DimensaoPessoasPage() {
   const can = useCan();
@@ -19,7 +25,8 @@ export default function DimensaoPessoasPage() {
   const [form, setForm] = useState({ nome: "", cargo: "", departamento: "", email: "", telefone: "" });
   const [proximoCodigo, setProximoCodigo] = useState("001");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<any>({});
+  const [modalEditing, setModalEditing] = useState(false);
+  const [editData, setEditData] = useState<PessoaForm | null>(null);
   const [showImport, setShowImport] = useState(false);
 
   const load = useCallback(async () => {
@@ -56,10 +63,12 @@ export default function DimensaoPessoasPage() {
   };
 
   const salvarEdit = async () => {
-    if (!editingId || saving) return; setError(""); setSaving(true);
+    if (!editingId || !editData || saving) return;
+    if (!editData.nome.trim()) { setError("Nome é obrigatório"); return; }
+    setError(""); setSaving(true);
     try {
       const res = await fetch(`/api/pessoas/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editData) });
-      if (res.ok) { setEditingId(null); await load(); } else { const e = await res.json().catch(() => ({})); setError(e.error || "Não foi possível salvar a edição."); }
+      if (res.ok) { const updated = await res.json() as Pessoa; setEditData(toPessoaForm(updated)); await load(); setModalEditing(false); } else { const e = await res.json().catch(() => ({})); setError(e.error || "Não foi possível salvar a edição."); }
     } catch { setError("Não foi possível salvar a edição. Verifique a conexão."); }
     finally { setSaving(false); }
   };
@@ -76,6 +85,9 @@ export default function DimensaoPessoasPage() {
   };
 
   const filtered = items.filter(p => !busca || p.nome.toLowerCase().includes(busca.toLowerCase()) || p.codigo.includes(busca) || (p.cargo||"").toLowerCase().includes(busca.toLowerCase())).sort((a, b) => a.nome.localeCompare(b.nome));
+  const selectedPessoa = items.find(p => p.id === editingId);
+  const closePerson = () => { if (saving) return; setEditingId(null); setModalEditing(false); setEditData(null); setError(""); };
+  const openPerson = (pessoa: Pessoa) => { setEditingId(pessoa.id); setModalEditing(false); setEditData(toPessoaForm(pessoa)); setError(""); };
 
   return (
     <div className="people-page">
@@ -106,7 +118,7 @@ export default function DimensaoPessoasPage() {
           <table className="data-table people-table">
             <thead>
               <tr>
-                <th>#</th><th>Código</th><th>Nome</th><th>Cargo</th><th>Centro de Custo</th><th>Email</th><th>Telefone</th><th>Ações</th>
+                <th>#</th><th>Código</th><th>Nome</th><th>Cargo</th><th>Centro de Custo</th><th>Email</th><th>Telefone</th><th>Perfil de Acesso</th><th>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -118,44 +130,67 @@ export default function DimensaoPessoasPage() {
                 <td><select className="cell-input" aria-label="Centro de Custo da nova pessoa" value={form.departamento} onChange={e=>setForm(f=>({...f,departamento:e.target.value}))}><option value="">—</option>{centros.map(c=><option key={c.id} value={c.nome}>{c.codigo} - {c.nome}</option>)}</select></td>
                 <td><input className="cell-input" aria-label="Email da nova pessoa" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="email@..." /></td>
                 <td><input className="cell-input" aria-label="Telefone da nova pessoa" value={form.telefone} onChange={e=>setForm(f=>({...f,telefone:e.target.value}))} placeholder="(00)..." /></td>
+                <td className="people-muted">—</td>
                 <td><button type="button" className="btn btn-primary btn-sm people-add-button" onClick={() => void criar()} disabled={saving || loading} aria-label="Adicionar pessoa">+</button></td>
               </tr>}
-              {loading && <tr><td colSpan={8} className="people-state" role="status">Carregando pessoas...</td></tr>}
-              {!loading && filtered.length === 0 && <tr><td colSpan={8} className="people-state">{busca ? "Nenhuma pessoa encontrada." : "Nenhuma pessoa cadastrada."}</td></tr>}
+              {loading && <tr><td colSpan={9} className="people-state" role="status">Carregando pessoas...</td></tr>}
+              {!loading && filtered.length === 0 && <tr><td colSpan={9} className="people-state">{busca ? "Nenhuma pessoa encontrada." : "Nenhuma pessoa cadastrada."}</td></tr>}
               {filtered.map((p, i) => (
-                <tr key={p.id} className={editingId === p.id ? "editing" : ""} onKeyDown={e => { if (editingId === p.id && e.key === "Escape") setEditingId(null); }}>
-                  {can("estrutura.pessoas.edit") && editingId === p.id ? (
-                    <>
-                      <td>{i+1}</td>
-                      <td><span style={{fontWeight:600}}>{p.codigo}</span></td>
-                      <td><input className="cell-input" aria-label="Nome" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} autoFocus onKeyDown={e=>{if(e.key==="Enter")void salvarEdit();if(e.key==="Escape")setEditingId(null);}} /></td>
-                      <td><input className="cell-input" value={editData.cargo||""} onChange={e=>setEditData((d:any)=>({...d,cargo:e.target.value}))} /></td>
-                      <td><select className="cell-input" aria-label="Centro de Custo" value={editData.departamento||""} onChange={e=>setEditData((d:any)=>({...d,departamento:e.target.value}))}>
-                        <option value="">—</option>
-                        {centros.map(c=><option key={c.id} value={c.nome}>{c.codigo} - {c.nome}</option>)}
-                      </select></td>
-                      <td><input className="cell-input" value={editData.email||""} onChange={e=>setEditData((d:any)=>({...d,email:e.target.value}))} /></td>
-                      <td><input className="cell-input" value={editData.telefone||""} onChange={e=>setEditData((d:any)=>({...d,telefone:e.target.value}))} /></td>
-                      <td><div className="people-row-actions"><button type="button" className="action-btn people-save" aria-label={`Salvar ${p.nome}`} onClick={() => void salvarEdit()} disabled={saving}>✓</button><button type="button" className="action-btn" aria-label={`Cancelar edição de ${p.nome}`} onClick={()=>setEditingId(null)}>✕</button></div></td>
-                    </>
-                  ) : (
-                    <>
-                      <td style={{color:"var(--text-muted)",fontSize:11}}>{i+1}</td>
-                      <td><span style={{fontWeight:600}}>{p.codigo}</span></td>
-                      <td>{p.nome}</td>
-                      <td style={{fontSize:11,color:"var(--text-secondary)"}}>{p.cargo||"—"}</td>
-                      <td style={{fontSize:11,color:"var(--text-secondary)"}}>{p.departamento||"—"}</td>
-                      <td style={{fontSize:11,color:"var(--text-secondary)"}}>{p.email||"—"}</td>
-                      <td style={{fontSize:11}}>{p.telefone||"—"}</td>
-                      <td><div className="people-row-actions">{can("estrutura.pessoas.edit") && <button type="button" className="action-btn" aria-label={`Editar ${p.nome}`} onClick={()=>{setEditingId(p.id);setEditData({...p});setError("");}}>✏️</button>}{can("estrutura.pessoas.delete") && <button type="button" className="action-btn" aria-label={`Desativar ${p.nome}`} onClick={()=>void excluir(p.id)} disabled={saving}>🗑️</button>}</div></td>
-                    </>
-                  )}
+                <tr key={p.id}>
+                  <td style={{color:"var(--text-muted)",fontSize:11}}>{i+1}</td>
+                  <td><span style={{fontWeight:600}}>{p.codigo}</span></td>
+                  <td>{p.nome}</td>
+                  <td style={{fontSize:11,color:"var(--text-secondary)"}}>{p.cargo||"—"}</td>
+                  <td style={{fontSize:11,color:"var(--text-secondary)"}}>{p.departamento||"—"}</td>
+                  <td style={{fontSize:11,color:"var(--text-secondary)"}}>{p.email||"—"}</td>
+                  <td style={{fontSize:11}}>{p.telefone||"—"}</td>
+                  <td className="people-muted" title="Pessoa sem vínculo explícito com um perfil de acesso">—</td>
+                  <td><div className="people-row-actions"><button type="button" className="action-btn" aria-label={`Abrir cadastro de ${p.nome}`} onClick={() => openPerson(p)}>{can("estrutura.pessoas.edit") ? "✏️" : "👁"}</button>{can("estrutura.pessoas.delete") && <button type="button" className="action-btn" aria-label={`Desativar ${p.nome}`} onClick={()=>void excluir(p.id)} disabled={saving}>🗑️</button>}</div></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+      {selectedPessoa && editData && <div className="modal-overlay open people-detail-overlay" onMouseDown={event => { if (event.target === event.currentTarget) closePerson(); }}>
+        <div className="modal-content people-detail-modal" role="dialog" aria-modal="true" aria-labelledby="people-detail-title" onKeyDown={event => { if (event.key === "Escape" && !saving) { event.stopPropagation(); if (modalEditing) { setModalEditing(false); setError(""); } else closePerson(); } }}>
+          <div className="modal-header"><h2 id="people-detail-title">{selectedPessoa.codigo} · {selectedPessoa.nome}</h2><button type="button" className="modal-close" aria-label="Fechar cadastro" onClick={closePerson} disabled={saving}>✕</button></div>
+          {error && <div className="alert alert-error people-detail-error" role="alert">{error}</div>}
+          {modalEditing ? <form onSubmit={event => { event.preventDefault(); void salvarEdit(); }}>
+            <div className="people-detail-body people-detail-grid">
+              <label>Código<input value={selectedPessoa.codigo} readOnly /></label>
+              <label className="people-detail-wide">Nome<input autoFocus value={editData.nome} onChange={event => setEditData({ ...editData, nome: event.target.value })} required /></label>
+              <label>Cargo<input value={editData.cargo} onChange={event => setEditData({ ...editData, cargo: event.target.value })} /></label>
+              <label>Centro de Custo<select value={editData.departamento} onChange={event => setEditData({ ...editData, departamento: event.target.value })}><option value="">—</option>{centros.map(c => <option key={c.id} value={c.nome}>{c.codigo} - {c.nome}</option>)}</select></label>
+              <label>E-mail<input type="email" value={editData.email} onChange={event => setEditData({ ...editData, email: event.target.value })} /></label>
+              <label>Telefone<input value={editData.telefone} onChange={event => setEditData({ ...editData, telefone: event.target.value })} /></label>
+              <label>Documento<input value={editData.documento} onChange={event => setEditData({ ...editData, documento: event.target.value })} /></label>
+              <label>Data de admissão<input type="date" value={editData.dataAdmissao} onChange={event => setEditData({ ...editData, dataAdmissao: event.target.value })} /></label>
+              <label>Salário<input type="number" min="0" step="0.01" value={editData.salario} onChange={event => setEditData({ ...editData, salario: event.target.value })} /></label>
+              <div className="people-detail-profile"><span>Perfil de Acesso</span><strong>—</strong></div>
+            </div>
+            <div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={() => { setModalEditing(false); setError(""); }} disabled={saving}>Cancelar edição</button><button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Salvando..." : "Salvar dados da pessoa"}</button></div>
+          </form> : <>
+            <div className="people-detail-body people-detail-grid">
+              <div><span>Código</span><strong>{selectedPessoa.codigo}</strong></div>
+              <div className="people-detail-wide"><span>Nome</span><strong>{selectedPessoa.nome}</strong></div>
+              <div><span>Cargo</span><strong>{selectedPessoa.cargo || "—"}</strong></div>
+              <div><span>Centro de Custo</span><strong>{selectedPessoa.departamento || "—"}</strong></div>
+              <div><span>E-mail</span><strong>{selectedPessoa.email || "—"}</strong></div>
+              <div><span>Telefone</span><strong>{selectedPessoa.telefone || "—"}</strong></div>
+              <div><span>Documento</span><strong>{selectedPessoa.documento || "—"}</strong></div>
+              <div><span>Data de admissão</span><strong>{selectedPessoa.dataAdmissao ? new Date(selectedPessoa.dataAdmissao).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "—"}</strong></div>
+              <div><span>Salário</span><strong>{selectedPessoa.salario == null ? "—" : Number(selectedPessoa.salario).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong></div>
+              <div className="people-detail-profile"><span>Perfil de Acesso</span><strong>—</strong></div>
+            </div>
+            <div className="modal-actions">
+              {can("acessos.perfis.view") && <a className="btn btn-secondary" href="/acessos/perfis" target="_blank" rel="noopener noreferrer">Ir para Perfis de Acesso</a>}
+              {can("estrutura.pessoas.edit") && <button type="button" className="btn btn-primary" autoFocus onClick={() => setModalEditing(true)}>Editar dados da pessoa</button>}
+              <button type="button" className="btn btn-secondary" onClick={closePerson}>Fechar</button>
+            </div>
+          </>}
+        </div>
+      </div>}
       {can("estrutura.pessoas.import") && showImport && <PeopleImportModal onClose={() => setShowImport(false)} onImported={() => void load()} />}
     </div>
   );

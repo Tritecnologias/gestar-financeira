@@ -134,10 +134,15 @@
 .financial-tree-header h3 { flex: 1 1 270px; min-width: 0; border-bottom: 0; background: transparent; white-space: normal; }
 .financial-tree-controls { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0; }
 .financial-tree-controls .btn { min-height: 32px; padding: 5px 9px; font-size: var(--font-size-table); }
-.financial-forms { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); border-bottom: 1px solid var(--border); }
-.financial-forms .financial-add + .financial-add { border-left: 1px solid var(--border); }
-.financial-forms .financial-add--category { grid-template-columns: 116px 76px minmax(0, 1fr) 36px; }
-.financial-forms .financial-add--account { grid-template-columns: 92px 76px minmax(0, 1fr) minmax(115px, .8fr) 130px 36px; }
+.financial-tree-controls .financial-tree-action-needed { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 65%, var(--border)); background: color-mix(in srgb, var(--warning) 9%, var(--surface)); }
+.financial-tree-controls .financial-tree-action-needed:hover { background: color-mix(in srgb, var(--warning) 16%, var(--surface)); }
+.financial-tree-controls .financial-tree-action-needed:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.financial-auto-code { color: var(--text-secondary); background: var(--surface-elevated); cursor: default; }
+.financial-forms { --financial-shared-field: calc((100% - 436px) / 2); display: grid; grid-template-columns: minmax(0, 1fr); border-bottom: 1px solid var(--border); }
+.financial-forms .financial-add + .financial-add { border-top: 1px solid var(--border); }
+.financial-forms .financial-add--category { grid-template-columns: 142px 88px minmax(0, var(--financial-shared-field)) minmax(0, 1fr) 36px; }
+.financial-forms .financial-add--category .financial-add-button { grid-column: 5; }
+.financial-forms .financial-add--account { grid-template-columns: 142px 88px minmax(0, var(--financial-shared-field)) minmax(0, var(--financial-shared-field)) 130px 36px; }
 .financial-form-label { align-self: center; color: var(--text-secondary); font-size: var(--font-size-table); }
 .financial-tree-table { min-width: 850px; }
 .financial-tree-table thead th { position: sticky; top: 0; z-index: 2; }
@@ -146,6 +151,9 @@
 .financial-tree-table :is(th, td):nth-child(4) { width: 175px; }
 .financial-tree-table :is(th, td):last-child { width: 110px; min-width: 110px; white-space: nowrap; }
 .financial-category-row td { background: var(--surface-elevated); border-top: 1px solid var(--border); color: var(--text-primary); }
+.financial-category-row--interactive td:not(:last-child) { cursor: pointer; }
+.financial-category-row--interactive:hover td { background: var(--surface-hover); }
+.financial-category-row--interactive:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .financial-category-row td:first-child { white-space: nowrap; }
 .financial-category-toggle { width: 32px; height: 32px; margin-right: 5px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--action); font: inherit; font-size: 18px; cursor: pointer; }
 .financial-category-toggle:hover { background: var(--selection); }
@@ -154,20 +162,16 @@
 .financial-account-indent { display: inline-block; margin-right: 8px; color: var(--action); font-weight: 700; }
 .financial-legacy-row td { background: var(--surface-elevated); color: var(--warning); font-weight: 700; }
 
-@media (max-width: 1500px) {
-  .financial-forms { grid-template-columns: minmax(0, 1fr); }
-  .financial-forms .financial-add + .financial-add { border-left: 0; border-top: 1px solid var(--border); }
-  .financial-forms .financial-add--account { grid-template-columns: 92px 76px minmax(0, 1fr) minmax(115px, .8fr) 130px 36px; }
-}
 @media (max-width: 1279px) {
   .financial-tree-card { flex: none; }
   .financial-tree-table { min-width: 850px; }
 }
 @media (max-width: 850px) {
   .financial-forms .financial-add--category { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) 44px; }
+  .financial-forms .financial-add--category .financial-add-button { grid-column: auto; }
   .financial-forms .financial-add--account { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .financial-form-label { grid-column: 1 / -1; }
-  .financial-forms .financial-add--account .financial-add-button { grid-column: 1 / -1; }
+  .financial-forms .financial-add--account .financial-add-button { grid-column: 2; justify-self: end; width: 44px; }
 }
 @media (max-width: 600px) {
   .financial-actions { flex-wrap: wrap; }

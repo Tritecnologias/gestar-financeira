@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { FINANCIAL_ACCOUNT_TYPES } from "@/lib/financial-account-types";
 import { categoryCandidatesFromCode, createDescriptionLookup } from "@/lib/financial-import-insights";
+import { accountCodeBelongsToCategory, validNewAccountCode, validNewCategoryCode } from "@/lib/financial-codes";
 
 export type FinancialIssue = { aba: string; linha: number; campo: string; codigo: string; motivo: string };
 export type FinancialRow = { linha: number; codigo: string; descricao: string; codigoCategoria?: string; tipo?: string; acao?: "novo" | "atualizar" | "igual" | "erro"; detalhes?: string[]; avisos?: string[]; sugestoes?: string[] };
@@ -101,6 +102,8 @@ export async function validateFinancialWorkbook(input: FinancialWorkbook, db: an
   }
 
   for (const row of categorias) if (catsByCode.get(row.codigo)?.ativo === false) issue(CATEGORY, row, "CODIGO_CATEGORIA", "Código existente inativo; não será reativado.");
+  for (const row of categorias) if (row.codigo && !catsByCode.has(row.codigo) && !validNewCategoryCode(row.codigo))
+    issue(CATEGORY, row, "CODIGO_CATEGORIA", "Categoria nova exige código numérico com exatamente 2 dígitos.");
   for (const row of contas) {
     const old = accountsByCode.get(row.codigo);
     if (old?.ativo === false) issue(ACCOUNT, row, "CODIGO_CONTA", "Código existente inativo; não será reativado.");
@@ -110,6 +113,12 @@ export async function validateFinancialWorkbook(input: FinancialWorkbook, db: an
       if (fromFile.length && fromFile.some(cat => invalidCategoryLines.has(cat.linha))) issue(ACCOUNT, row, "CODIGO_CATEGORIA", "Categoria inválida na aba CATEGORIAS_N1.");
       else if (!fromFile.length && !catsByCode.get(row.codigoCategoria)?.ativo) issue(ACCOUNT, row, "CODIGO_CATEGORIA", catsByCode.has(row.codigoCategoria) ? "Categoria inativa neste tenant." : "Categoria não encontrada neste tenant.");
     }
+    if (row.codigo && row.codigoCategoria && !old && !validNewAccountCode(row.codigo, row.codigoCategoria))
+      issue(ACCOUNT, row, "CODIGO_CONTA", "Conta nova exige CODIGO_CATEGORIA.sequencial com pelo menos 2 dígitos e prefixo da Categoria informada.");
+    if (old?.codigo && /^.+\.\d{2,}$/.test(old.codigo) &&
+        old.categoriaId !== catsByCode.get(row.codigoCategoria || "")?.id &&
+        !validNewAccountCode(old.codigo, row.codigoCategoria || ""))
+      issue(ACCOUNT, row, "CODIGO_CATEGORIA", "Conta com código estrutural não pode mudar de Categoria pela importação comum.");
   }
   for (const row of categorias) {
     const old = catsByCode.get(row.codigo);
@@ -166,7 +175,7 @@ export async function validateFinancialWorkbook(input: FinancialWorkbook, db: an
       const context = other.codigoCategoria && other.codigoCategoria !== row.codigoCategoria ? ` em outra Categoria (${other.codigoCategoria})` : "";
       insight(warnings, "avisos", ACCOUNT, row, "DESCRICAO_CONTA", `Descrição igual ou semelhante à Conta ${other.codigo}${context}, com código diferente. Nenhum cadastro será mesclado.`);
     }
-    if (row.codigo.includes(".") && row.codigoCategoria && !row.codigo.startsWith(`${row.codigoCategoria}.`)) {
+    if (row.codigo.includes(".") && row.codigoCategoria && !accountCodeBelongsToCategory(row.codigo, row.codigoCategoria)) {
       insight(warnings, "avisos", ACCOUNT, row, "CODIGO_CONTA", `O prefixo de ${row.codigo} aparentemente não corresponde à Categoria ${row.codigoCategoria}. Confira o vínculo; ele não será alterado automaticamente.`);
     }
   }

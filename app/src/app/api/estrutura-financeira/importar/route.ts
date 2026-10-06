@@ -2,6 +2,7 @@ import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
 import { parseFinancialWorkbook, validateFinancialWorkbook, type FinancialPreview } from "@/lib/financial-import";
+import { financialCodeTransaction } from "@/lib/financial-codes";
 
 class InvalidImport extends Error {
   constructor(readonly preview: FinancialPreview) { super("A estrutura contém erros bloqueantes."); }
@@ -9,8 +10,8 @@ class InvalidImport extends Error {
 
 export async function POST(req: NextRequest) {
   const access = await guardApi("estrutura.financeiras.import"); if (access) return access;
-  let db: any;
-  try { ({ db } = await requireEscrita()); }
+  let db: any, tenantId: string;
+  try { ({ db, baseTenantId: tenantId } = await requireEscrita()); }
   catch (error: any) { return NextResponse.json({ error: error?.message || "Não autorizado" }, { status: error?.status || 401 }); }
 
   const form = await req.formData();
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (mode === "preview") return NextResponse.json({ preview: await validateFinancialWorkbook(parsed, db) });
 
   try {
-    const result = await db.$transaction(async (tx: any) => {
+    const result = await financialCodeTransaction(db, tenantId, async (tx: any) => {
       const preview = await validateFinancialWorkbook(parsed, tx);
       if (preview.errors.length) throw new InvalidImport(preview);
 
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
         else await tx.planoContas.create({ data: { codigo: row.codigo, descricao: row.descricao, categoriaId, tipo: row.tipo } });
       }
       return preview.resumo;
-    }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 60_000 });
+    });
     return NextResponse.json({ ok: true, resumo: result });
   } catch (error: any) {
     if (error instanceof InvalidImport) return NextResponse.json({ error: error.message, preview: error.preview }, { status: 422 });

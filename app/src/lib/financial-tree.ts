@@ -27,6 +27,16 @@ function compareCodes(first: string | null, second: string | null) {
   return codeCollator.compare(first, second) || (first < second ? -1 : first > second ? 1 : 0);
 }
 
+function compareAccountCodes(first: string | null, second: string | null) {
+  const firstSuffix = first?.match(/\.(\d+)$/)?.[1];
+  const secondSuffix = second?.match(/\.(\d+)$/)?.[1];
+  if (firstSuffix && secondSuffix) {
+    const a = BigInt(firstSuffix), b = BigInt(secondSuffix);
+    if (a !== b) return a < b ? -1 : 1;
+  }
+  return compareCodes(first, second);
+}
+
 export function buildFinancialTree(categories: FinancialCategory[], accounts: FinancialAccount[], filters: FinancialTreeFilters) {
   const term = filters.busca.trim().toLocaleLowerCase("pt-BR");
   const matches = (values: (string | null | undefined)[]) =>
@@ -40,6 +50,7 @@ export function buildFinancialTree(categories: FinancialCategory[], accounts: Fi
     group.push(account);
     accountsByCategory.set(account.categoriaId, group);
   }
+  for (const group of accountsByCategory.values()) group.sort((a, b) => compareAccountCodes(a.codigo, b.codigo) || a.id.localeCompare(b.id));
   const grouped = sortedCategories.flatMap(cat => {
     if (filters.categoriaId && cat.id !== filters.categoriaId) return [];
     const allChildren = accountsByCategory.get(cat.id) || [];
