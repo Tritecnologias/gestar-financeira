@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg", "bcryptjs"],
+  // PDFs jurídicos são lidos de um volume privado em runtime, nunca do build.
+  outputFileTracingExcludes: {
+    "/*": ["**/next.config.ts", "**/.private/**/*"],
+  },
   poweredByHeader: false,
 
   // Headers de segurança
