@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import Sidebar from "@/components/layout/Sidebar";
 import { permissionsFor } from "@/lib/permissions";
 import { PermissionProvider } from "@/components/access/PermissionContext";
+import { SUPPORT_MODULES } from "@/lib/support-policy";
+import Link from "next/link";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   let ctx: any;
@@ -35,7 +37,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         platformAdmin={session.platformAdmin}
         permissions={permissions}
       />
-      <main className="main" style={{ overflow: "hidden" }}>{children}</main>
+      <main className="main" style={{ overflow: "hidden" }}>
+        {session.accessSource === "SUPPORT_GRANT" ? <>
+          <div className="support-mode-banner" role="status">
+            <strong>MODO SUPORTE</strong><span>Tenant: {session.tenantNome}</span>
+            <span>Escopo: {(session.supportModules ?? []).map((m: keyof typeof SUPPORT_MODULES) => SUPPORT_MODULES[m].label).join(", ")}</span>
+            <span>{session.supportLevel === "READ_ONLY" ? "Somente leitura" : "Operacional"}</span>
+            <span>Expira: {session.supportExpiresAt ? new Date(session.supportExpiresAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}</span>
+            <Link href="/selecionar-tenant">Trocar contexto</Link>
+          </div>
+          <div className="support-mode-content">{children}</div>
+        </> : children}
+      </main>
     </div>
     </PermissionProvider>
   );

@@ -57,7 +57,10 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
 
   return <section className="access-page">
     <header className="access-header"><div><h1>Acessos / Usuários</h1><p>Identidades vinculadas ao tenant atual e seus perfis de acesso.</p></div>
-      {canViewProfiles && <Link className="access-button access-button-secondary" href="/acessos/perfis">Perfis de Acesso</Link>}</header>
+      <div className="access-header-actions">
+        {role === "OWNER" && <Link className="access-button access-button-secondary" href="/acessos/suporte">Suporte</Link>}
+        {canViewProfiles && <Link className="access-button access-button-secondary" href="/acessos/perfis">Perfis de Acesso</Link>}
+      </div></header>
     <div className="access-toolbar"><input placeholder="Buscar usuário ou perfil" aria-label="Buscar usuários" value={query} onChange={e => setQuery(e.target.value)} />
       {canManage && <button className="access-button access-button-primary" onClick={() => setModal(true)}>+ Adicionar acesso</button>}</div>
     {error && <p role="alert" className="access-error">{error}</p>}

@@ -608,6 +608,11 @@ body {
   display: flex;
   flex-direction: column;
 }
+.support-mode-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 14px; flex-shrink: 0; padding: 9px 16px; background: color-mix(in srgb, var(--warning) 12%, var(--surface)); border-bottom: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border)); color: var(--text-primary); font-size: 12px; }
+.support-mode-banner strong { color: var(--warning); letter-spacing: .04em; }
+.support-mode-banner a { color: var(--action); font-weight: 700; margin-left: auto; }
+.support-mode-content { flex: 1; min-height: 0; min-width: 0; overflow: auto; display: flex; flex-direction: column; }
+@media (max-width: 700px) { .support-mode-banner { padding: 8px 12px; font-size: 11px; } .support-mode-banner a { margin-left: 0; } }
 
 /* ── Topbar ───────────────────────────────────────────────── */
 .topbar {

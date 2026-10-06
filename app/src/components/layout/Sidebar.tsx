@@ -96,7 +96,9 @@ const DISABLED_HREFS = new Set([
 
 // ── Tenant Selector: memberships (ou compatibilidade admin_global legado) ──
 function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome: string; legacyGlobal: boolean }) {
-  const [tenants, setTenants] = useState<{ id: string; nome: string; isActive?: boolean }[]>([]);
+  type Choice = { id: string; nome: string; kind?: "MEMBERSHIP" | "SUPPORT_GRANT";
+    grantId?: string; accessLevel?: string; expiresAt?: string; isActive?: boolean };
+  const [tenants, setTenants] = useState<Choice[]>([]);
   const [active, setActive] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -107,18 +109,19 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
         if (Array.isArray(d)) {
           setTenants(d);
           const current = d.find((t: any) => t.isActive);
-          if (current) setActive(current.id);
+          if (current) setActive(current.grantId ?? current.id);
         }
       })
       .catch(() => {});
   }, []);
 
-  const switchTenant = async (tenantId: string) => {
-    const res = await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) });
+  const switchTenant = async (choice: Choice) => {
+    const res = await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenantId: choice.id, ...(choice.grantId ? { grantId: choice.grantId } : {}) }) });
     if (!res.ok) { window.location.assign("/selecionar-tenant"); return; }
-    setActive(tenantId);
+    setActive(choice.grantId ?? choice.id);
     setOpen(false);
-    window.location.reload(); // Recarregar para aplicar o novo tenant
+    window.location.assign(choice.kind === "SUPPORT_GRANT" ? "/estrutura/dimensao-empresa" : "/lancamentos");
   };
 
   const resetTenant = async () => {
@@ -130,7 +133,7 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
 
   if (tenants.length <= 1) return null;
 
-  const activeTenant = tenants.find(t => t.id === active);
+  const activeTenant = tenants.find(t => (t.grantId ?? t.id) === active);
   const isCustomTenant = legacyGlobal && active && active !== "00000000-0000-0000-0000-000000000001";
 
   return (
@@ -171,16 +174,18 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
               ↩ Voltar ao meu tenant (Dez Soluções)
             </button>
           )}
-          {tenants.map(t => (
+          {tenants.map((t, index) => (
+            <div key={t.grantId ?? t.id}>
+            {(index === 0 || tenants[index - 1].kind !== t.kind) && <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-secondary)", padding: "8px 4px 4px" }}>
+              {t.kind === "SUPPORT_GRANT" ? "SUPORTE AUTORIZADO" : "MEUS TENANTS"}</div>}
             <button
-              key={t.id}
-              onClick={() => switchTenant(t.id)}
+              onClick={() => switchTenant(t)}
               style={{
                 width: "100%",
                 padding: "6px 10px",
                 fontSize: 11,
-                background: active === t.id ? "var(--selection)" : "transparent",
-                border: active === t.id ? "1px solid var(--focus)" : "none",
+                background: active === (t.grantId ?? t.id) ? "var(--selection)" : "transparent",
+                border: active === (t.grantId ?? t.id) ? "1px solid var(--focus)" : "none",
                 borderRadius: 5,
                 cursor: "pointer",
                 color: "var(--text-primary)",
@@ -189,12 +194,15 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                fontWeight: active === t.id ? 700 : 500,
+                fontWeight: active === (t.grantId ?? t.id) ? 700 : 500,
               }}
             >
-              <span>{t.nome}</span>
-              {active === t.id && <span style={{ fontSize: 11, color: "var(--action)" }}>✓ Ativo</span>}
+              <span>{t.nome}{t.kind === "SUPPORT_GRANT" && <small style={{ display: "block", color: "var(--warning)" }}>
+                {t.accessLevel === "READ_ONLY" ? "Somente leitura" : "Operacional"} · até {t.expiresAt ? new Date(t.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+              </small>}</span>
+              {active === (t.grantId ?? t.id) && <span style={{ fontSize: 11, color: "var(--action)" }}>✓ Ativo</span>}
             </button>
+            </div>
           ))}
         </div>
       )}

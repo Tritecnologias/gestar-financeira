@@ -65,4 +65,23 @@
 @media (max-width: 700px) { .access-terms-form label, .access-terms-form .access-button { flex-basis: 100%; } }
 .access-terms-status { margin-top: 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 14px; }
 .access-terms-status summary { cursor: pointer; font-weight: 700; color: var(--text-primary); }
+.support-request textarea { width: 100%; min-height: 70px; }
+.support-modules { display: flex; flex-wrap: wrap; gap: 8px 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+.support-request .support-modules { flex: 1 1 240px; }
+.support-modules legend { color: var(--text-secondary); font-size: var(--font-size-label); font-weight: 600; }
+.support-modules label { display: flex; align-items: center; gap: 7px; margin: 0; }
+.support-notice { padding: 10px 12px; color: var(--success); background: color-mix(in srgb, var(--success) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--success) 25%, var(--border)); border-radius: var(--radius-sm); margin-bottom: 12px; }
+.support-grant-list { display: grid; gap: 12px; }
+.support-grant { padding: 14px; background: var(--surface-elevated); border: 1px solid var(--border); border-radius: var(--radius); overflow-wrap: anywhere; }
+.support-grant p { margin: 6px 0; color: var(--text-secondary); font-size: 13px; }
+.support-grant p strong { color: var(--text-primary); }
+.support-grant-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; }
+.support-grant-head > span { color: var(--text-secondary); font-size: 12px; }
+.support-state { display: inline-block; margin-left: 8px; padding: 3px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--text-primary); border: 1px solid var(--border); }
+.support-state-active { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+.support-state-pending { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+.support-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.support-grant details { margin-top: 10px; color: var(--text-secondary); font-size: 12px; }
+.support-grant summary { cursor: pointer; }
+.support-grant ul { padding-left: 20px; }
 .access-terms-status .access-table-wrap { margin-top: 14px; }

@@ -98,6 +98,7 @@ export default function PlatformClient() {
     <header className="access-header"><div><h1>Administração da Plataforma</h1>
       <p>Tenants, identidades e vínculos da plataforma. Dados financeiros ficam no contexto de cada tenant.</p></div>
       <div className="access-header-actions"><button type="button" className="access-button access-button-secondary" onClick={toggleTheme}>Alternar tema</button>
+        <Link href="/plataforma/suporte" className="access-button access-button-secondary">Suporte</Link>
         <Link href="/plataforma/termos" className="access-button access-button-secondary">Termos e Políticas</Link>
         <Link href="/selecionar-tenant" className="access-button access-button-secondary">Selecionar tenant</Link></div>
     </header>
