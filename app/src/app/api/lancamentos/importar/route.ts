@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/permissions";
-import { prisma, getTenantPrisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { parseDateOnly } from "@/lib/lancamento";
 import { resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 
@@ -24,22 +24,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nenhum lançamento enviado" }, { status: 400 });
   }
 
-  // Se admin_global especificou o tenant explicitamente, valida e direciona
-  let targetTenantId = session.tenantId;
-  let targetTenantNome = session.tenantNome;
-  let targetDb = db;
-
-  if (requestedTenantId && session.papel === "admin_global") {
-    const validTenant = await prisma.tenant.findUnique({
-      where: { id: requestedTenantId, ativo: true },
-      select: { id: true, nome: true },
-    });
-    if (validTenant) {
-      targetTenantId = validTenant.id;
-      targetTenantNome = validTenant.nome;
-      targetDb = getTenantPrisma(validTenant.id);
-    }
+  if (requestedTenantId && requestedTenantId !== session.tenantId) {
+    return NextResponse.json({ error: "Importação entre tenants não é permitida." }, { status: 403 });
   }
+  const targetTenantId = session.tenantId;
+  const targetTenantNome = session.tenantNome;
+  const targetDb = db;
 
   let inseridos = 0;
   let duplicados = 0;

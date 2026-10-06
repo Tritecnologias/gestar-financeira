@@ -63,10 +63,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  // Server-only routing evidence for SupportGrant. Overwrite any client value.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-10s-request-path", pathname);
+  requestHeaders.set("x-10s-request-method", req.method);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
-

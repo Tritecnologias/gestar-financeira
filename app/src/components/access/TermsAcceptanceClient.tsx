@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import type { PendingTerm } from "@/lib/terms";
 
-export default function TermsAcceptanceClient({ initialPending }: { initialPending: PendingTerm[] }) {
+export default function TermsAcceptanceClient({ initialPending, returnPath = "/lancamentos" }: { initialPending: PendingTerm[]; returnPath?: string }) {
   const [pending, setPending] = useState(initialPending);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -28,7 +28,7 @@ export default function TermsAcceptanceClient({ initialPending }: { initialPendi
       if (!next.ok) throw new Error("Não foi possível conferir os aceites pendentes.");
       const body = await next.json();
       setPending(body.pending); setAgreed(false);
-      if (!body.pending.length) window.location.assign("/lancamentos");
+      if (!body.pending.length) window.location.assign(returnPath);
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }

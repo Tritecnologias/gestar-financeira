@@ -27,11 +27,12 @@ test("admin do tenant não administra admin global nem outro tenant", () => {
   assert.equal(canUseActiveTenant("admin", "A", "A", false), false);
 });
 
-test("admin global atual pode operar em tenant ativo", () => {
+test("admin global legado não opera em outro tenant", () => {
   const global = { papel: "admin_global", tenantId: "A" };
-  assert.equal(canManageLegacyUser(global, { papel: "admin_global", tenantId: "B" }), true);
-  assert.equal(canAssignLegacyRole(global.papel, "admin_global"), true);
-  assert.equal(canUseActiveTenant(global.papel, "A", "B", true), true);
+  assert.equal(canManageLegacyUser(global, { papel: "admin_global", tenantId: "B" }), false);
+  assert.equal(canAssignLegacyRole(global.papel, "admin_global"), false);
+  assert.equal(canUseActiveTenant(global.papel, "A", "B", true), false);
+  assert.equal(canUseActiveTenant(global.papel, "A", "A", true), true);
   assert.equal(canUseActiveTenant(global.papel, "A", "B", false), false);
 });
 

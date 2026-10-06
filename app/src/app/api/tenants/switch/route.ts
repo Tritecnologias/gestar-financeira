@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIdentityAccess, requireSession } from "@/lib/tenant";
 import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { canUseActiveTenant, tenantContextCookieOptions, tenantOverrideCookieOptions } from "@/lib/access-policy";
+import { tenantContextCookieOptions, tenantOverrideCookieOptions } from "@/lib/access-policy";
 
 // POST /api/tenants/switch — trocar tenant ativo (admin_global apenas)
 export async function POST(req: NextRequest) {
   if (!legacyAuthEnabled) {
     let tenantId: unknown;
-    try { ({ tenantId } = await req.json()); }
+    let grantId: unknown;
+    try { ({ tenantId, grantId } = await req.json()); }
     catch { return NextResponse.json({ error: "Requisição inválida" }, { status: 400 }); }
     if (typeof tenantId !== "string" || !tenantId) {
       return NextResponse.json({ error: "Tenant inválido" }, { status: 400 });
@@ -16,9 +17,26 @@ export async function POST(req: NextRequest) {
     try {
       const identity = await getIdentityAccess();
       const membership = identity.memberships.find(m => m.tenantId === tenantId);
+      if (grantId !== undefined) {
+        if (typeof grantId !== "string" || !grantId || membership || identity.platformAdmin?.status !== "ACTIVE") {
+          return NextResponse.json({ error: "Contexto de suporte inválido" }, { status: 403 });
+        }
+        const grant = await prisma.supportGrant.findFirst({ where: {
+          id: grantId, tenantId, platformAdminIdentityId: identity.id, status: "ACTIVE",
+          startsAt: { lte: new Date() }, expiresAt: { gt: new Date() }, tenant: { ativo: true },
+        }, select: { id: true, tenantId: true } });
+        if (!grant) return NextResponse.json({ error: "Acesso de suporte ausente, revogado ou expirado" }, { status: 403 });
+        await prisma.supportGrantEvent.create({ data: { grantId: grant.id, tenantId: grant.tenantId,
+          type: "USED", actorIdentityId: identity.id, detail: "Entrada no contexto de suporte." } });
+        const res = NextResponse.json({ active: tenantId, kind: "SUPPORT_GRANT" });
+        res.cookies.set("support_context", `${identity.id}:${identity.loginNonce}:${grant.id}`, tenantContextCookieOptions());
+        res.cookies.set("tenant_context", "", { ...tenantContextCookieOptions(), maxAge: 0 });
+        return res;
+      }
       if (!membership) return NextResponse.json({ error: "Acesso ao tenant não permitido" }, { status: 403 });
-      const res = NextResponse.json({ active: tenantId, role: membership.role });
+      const res = NextResponse.json({ active: tenantId, role: membership.role, kind: "MEMBERSHIP" });
       res.cookies.set("tenant_context", `${identity.id}:${identity.loginNonce}:${tenantId}`, tenantContextCookieOptions());
+      res.cookies.set("support_context", "", { ...tenantContextCookieOptions(), maxAge: 0 });
       return res;
     } catch (error) {
       return NextResponse.json({ error: "Não autenticado" }, { status: (error as {status?: number}).status ?? 401 });
@@ -44,13 +62,5 @@ export async function POST(req: NextRequest) {
   if (typeof tenantId !== "string" || !tenantId.trim()) {
     return NextResponse.json({ error: "Tenant inválido" }, { status: 400 });
   }
-  const target = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { ativo: true } });
-  if (!target || !canUseActiveTenant(context.session.papel, context.baseTenantId, tenantId, target.ativo)) {
-    return NextResponse.json({ error: "Tenant inexistente ou inativo" }, { status: 404 });
-  }
-
-  // Temporário: Admin Global pode selecionar tenant ativo até SupportGrant.
-  const res = NextResponse.json({ active: tenantId, message: "Tenant alterado" });
-  res.cookies.set("tenant_override", tenantId, tenantOverrideCookieOptions());
-  return res;
+  return NextResponse.json({ error: "Troca empresarial entre tenants exige SupportGrant no modo de identidade." }, { status: 403 });
 }

@@ -6,11 +6,12 @@ import { requireSession } from "@/lib/tenant";
 export async function POST(req: NextRequest) {
   try {
     const { session } = await requireSession({ allowPendingTerms: true });
-    if (session.authMode !== "identity" || !session.identityId || !session.membershipId) {
+    if (session.authMode !== "identity" || !session.identityId ||
+        (!session.membershipId && session.accessSource !== "SUPPORT_GRANT")) {
       return NextResponse.json({ error: "Identidade válida necessária." }, { status: 403 });
     }
     const identityId = session.identityId;
-    const membershipId = session.membershipId;
+    const membershipId = session.membershipId ?? null;
     const body = await req.json();
     if (body.agreed !== true || typeof body.versionId !== "string") {
       return NextResponse.json({ error: "Leia o documento e marque o aceite ativo." }, { status: 400 });

@@ -3,22 +3,39 @@ import { getIdentityAccess, requirePlatformAdmin, requireSession } from "@/lib/t
 import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
+import { expireListedSupportGrants } from "@/lib/support-grants";
 
-// GET /api/tenants — lista todos os tenants (apenas admin_global)
+// GET /api/tenants — lista memberships e grants; legado vê apenas o tenant de origem.
 export async function GET() {
   if (!legacyAuthEnabled) {
     try {
       const identity = await getIdentityAccess();
       const tenants = identity.memberships.map(m => ({
         id: m.tenantId, nome: m.tenant.nome, membershipId: m.id, role: m.role,
+        kind: "MEMBERSHIP" as const,
         isActive: false,
       }));
       const { cookies } = await import("next/headers");
       const selected = (await cookies()).get("tenant_context")?.value;
+      const selectedSupport = (await cookies()).get("support_context")?.value;
       const cookiePrefix = `${identity.id}:${identity.loginNonce}:`;
-      const activeId = tenants.length === 1 ? tenants[0].id
+      const activeId = selectedSupport?.startsWith(cookiePrefix) ? null : tenants.length === 1 ? tenants[0].id
         : selected?.startsWith(cookiePrefix) ? selected.slice(cookiePrefix.length) : null;
-      return NextResponse.json(tenants.map(t => ({ ...t, isActive: t.id === activeId })));
+      const grants = identity.platformAdmin?.status === "ACTIVE" ? await prisma.supportGrant.findMany({
+        where: { platformAdminIdentityId: identity.id, status: "ACTIVE", tenant: { ativo: true } },
+        select: { id: true, tenantId: true, status: true, expiresAt: true, accessLevel: true,
+          modules: true, tenant: { select: { nome: true } } },
+      }) : [];
+      await expireListedSupportGrants(grants);
+      const supportChoices = grants.filter(g => g.expiresAt && g.expiresAt > new Date() &&
+          !tenants.some(m => m.id === g.tenantId)).map(g => ({
+        id: g.tenantId, nome: g.tenant.nome, grantId: g.id, kind: "SUPPORT_GRANT" as const,
+        accessLevel: g.accessLevel, modules: g.modules, expiresAt: g.expiresAt,
+        isActive: selectedSupport === `${cookiePrefix}${g.id}`,
+      }));
+      return NextResponse.json([...tenants.map(t => ({ ...t, isActive: t.id === activeId })), ...supportChoices],
+        { headers: { "Cache-Control": "private, no-store",
+          "X-Platform-Admin": identity.platformAdmin?.status === "ACTIVE" ? "true" : "false" } });
     } catch (error) {
       return NextResponse.json({ error: "Não autenticado" }, { status: (error as {status?: number}).status ?? 401 });
     }
@@ -31,7 +48,7 @@ export async function GET() {
   }
 
   const tenants = await prisma.tenant.findMany({
-    where: { ativo: true },
+    where: { id: session.tenantId, ativo: true },
     select: { id: true, nome: true, slug: true, email: true, plano: true },
     orderBy: [{ nome: "asc" }],
   });

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { legacyAuthEnabled } from "@/lib/auth";
 import { requireSession, requireTenantAdmin } from "@/lib/tenant";
 import { ALL_PERMISSIONS, PERMISSION_SET } from "@/lib/access-catalog";
+import { supportPermissions } from "@/lib/support-policy";
 import { NextResponse } from "next/server";
 
 type Context = Pick<Awaited<ReturnType<typeof requireSession>>, "db" | "session">;
@@ -14,6 +15,9 @@ const OWNER_ESSENTIAL = [
 /** Re-read the current profile: changes and revocations affect existing sessions. */
 export async function permissionsFor(context: Context): Promise<ReadonlySet<string>> {
   if (legacyAuthEnabled) return new Set(ALL_PERMISSIONS);
+  if (context.session.accessSource === "SUPPORT_GRANT") {
+    return supportPermissions(context.session.supportModules ?? [], context.session.supportLevel ?? "READ_ONLY");
+  }
   const membershipId = context.session.membershipId;
   if (!membershipId) return new Set();
   const membership = await prisma.tenantMembership.findFirst({

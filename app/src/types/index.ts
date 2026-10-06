@@ -148,7 +148,12 @@ export interface UserSession {
   identityId?: string;
   membershipId?: string;
   membershipRole?: "OWNER" | "ADMIN" | "MEMBER";
-  platformAdmin?: boolean;
+    platformAdmin?: boolean;
+    accessSource?: "MEMBERSHIP" | "SUPPORT_GRANT";
+    supportGrantId?: string;
+    supportLevel?: "READ_ONLY" | "OPERATIONAL";
+    supportModules?: ("ESTRUTURA_EMPRESA" | "ESTRUTURA_FINANCEIRA")[];
+    supportExpiresAt?: string;
   nome:       string;
   email:      string;
   papel:      Papel;

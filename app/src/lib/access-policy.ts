@@ -3,13 +3,13 @@ export function canManageLegacyUser(
   actor: { papel: string; tenantId: string },
   target: { papel: string; tenantId: string },
 ): boolean {
-  return actor.papel === "admin_global" ||
-    (actor.papel === "admin" && actor.tenantId === target.tenantId && target.papel !== "admin_global");
+  return actor.tenantId === target.tenantId &&
+    (actor.papel === "admin_global" || (actor.papel === "admin" && target.papel !== "admin_global"));
 }
 
 export function canAssignLegacyRole(actorRole: string, requestedRole: string): boolean {
-  return (requestedRole === "admin" || requestedRole === "membro") ||
-    (actorRole === "admin_global" && requestedRole === "admin_global");
+  void actorRole;
+  return requestedRole === "admin" || requestedRole === "membro";
 }
 
 export function canUseActiveTenant(
@@ -18,7 +18,8 @@ export function canUseActiveTenant(
   targetTenantId: string,
   targetActive: boolean,
 ): boolean {
-  return targetActive && (actorRole === "admin_global" || actorTenantId === targetTenantId);
+  void actorRole;
+  return targetActive && actorTenantId === targetTenantId;
 }
 
 export function isActiveLegacySession(user: { ativo: boolean; tenant?: { ativo: boolean } } | null): boolean {

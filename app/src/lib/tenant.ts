@@ -1,10 +1,12 @@
 import { auth, legacyAuthEnabled } from "@/lib/auth";
 import { prisma, getTenantPrisma } from "@/lib/db";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { UserSession, Papel } from "@/types";
 import { isActiveLegacySession } from "@/lib/access-policy";
 import { emailEqualsNormalized } from "@/lib/email";
 import { requireAcceptedTerms } from "@/lib/terms";
+import { expireSupportGrant } from "@/lib/support-grants";
+import { supportRequestAllowed } from "@/lib/support-policy";
 
 function accessError(message: string, status: number) {
   return Object.assign(new Error(message), { status });
@@ -45,7 +47,7 @@ export async function requirePlatformAdmin() {
 
 /**
  * Valida a sessão e retorna o Prisma Client escopado ao tenant efetivo.
- * O override de admin_global existe somente no modo legado explícito.
+ * Mesmo no modo legado de rollback, o contexto empresarial fica no tenant de origem.
  */
 export async function requireSession(options: { allowPendingTerms?: boolean } = {}): Promise<{
   db: ReturnType<typeof getTenantPrisma>; baseTenantId: string; session: UserSession;
@@ -59,8 +61,50 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
   if (!legacyAuthEnabled) {
     const identity = await getIdentityAccess(user);
     const memberships = identity.memberships;
-    if (memberships.length === 0) throw accessError("Nenhum tenant ativo disponível para esta identidade", 403);
     const cookieStore = await cookies();
+    const supportCookie = cookieStore.get("support_context")?.value;
+    const supportPrefix = `${identity.id}:${identity.loginNonce}:`;
+    if (supportCookie?.startsWith(supportPrefix)) {
+      if (identity.platformAdmin?.status !== "ACTIVE") throw accessError("Acesso de suporte revogado", 403);
+      const grantId = supportCookie.slice(supportPrefix.length);
+      const grant = await prisma.supportGrant.findUnique({
+        where: { id: grantId },
+        select: { id: true, tenantId: true, platformAdminIdentityId: true, status: true,
+          modules: true, accessLevel: true, startsAt: true, expiresAt: true,
+          tenant: { select: { nome: true, ativo: true } } },
+      });
+      if (!grant || grant.platformAdminIdentityId !== identity.id || !grant.tenant.ativo ||
+          memberships.some(m => m.tenantId === grant.tenantId)) {
+        throw accessError("Contexto de suporte indisponível; selecione um vínculo normal ou outro grant", 409);
+      }
+      if (grant.status === "ACTIVE" && grant.expiresAt && grant.expiresAt <= new Date()) {
+        await expireSupportGrant(grant.id, grant.tenantId, grant.expiresAt);
+        throw accessError("Acesso de suporte expirado", 409);
+      }
+      if (grant.status !== "ACTIVE" || !grant.startsAt || grant.startsAt > new Date() || !grant.expiresAt) {
+        throw accessError("Acesso de suporte revogado ou ainda não autorizado", 409);
+      }
+      const requestHeaders = await headers();
+      const path = requestHeaders.get("x-10s-request-path") ?? "";
+      const method = requestHeaders.get("x-10s-request-method") ?? "";
+      if (!supportRequestAllowed(path, method, grant.modules, grant.accessLevel)) {
+        throw accessError("Recurso fora do escopo do suporte autorizado", 403);
+      }
+      const context = {
+        db: getTenantPrisma(grant.tenantId), baseTenantId: grant.tenantId,
+        session: {
+          id: `support:${identity.id}`, identityId: identity.id, authMode: "identity",
+          platformAdmin: true, accessSource: "SUPPORT_GRANT", supportGrantId: grant.id,
+          supportLevel: grant.accessLevel, supportModules: grant.modules,
+          supportExpiresAt: grant.expiresAt.toISOString(), nome: identity.nome, email: identity.email,
+          papel: "membro" as Papel, tenantId: grant.tenantId, tenantNome: grant.tenant.nome,
+          tenantSelecionado: true,
+        } satisfies UserSession,
+      };
+      if (!options.allowPendingTerms) await requireAcceptedTerms(context.session);
+      return context;
+    }
+    if (memberships.length === 0) throw accessError("Nenhum tenant ativo disponível para esta identidade", 403);
     const selected = cookieStore.get("tenant_context")?.value;
     const cookiePrefix = `${identity.id}:${identity.loginNonce}:`;
     const selectedTenantId = selected?.startsWith(cookiePrefix)
@@ -90,6 +134,7 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
         membershipId: membership.id,
         membershipRole: membership.role,
         platformAdmin: identity.platformAdmin?.status === "ACTIVE",
+        accessSource: "MEMBERSHIP",
         authMode: "identity",
         nome: identity.nome,
         email: identity.email,
@@ -105,7 +150,6 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
 
   if (user.authMode !== "legacy") throw accessError("Não autenticado", 401);
 
-  // Admin global pode operar em qualquer tenant via cookie
   // O JWT pode estar desatualizado; estado, papel e tenant de origem vêm do banco.
   const dbUser = await prisma.usuario.findUnique({
     where: { id: user.id },
@@ -118,25 +162,9 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
   }
 
   const papelAtual = dbUser.papel as Papel;
-  let activeTenantId = dbUser.tenantId;
-  let activeTenantNome = dbUser.tenant.nome;
-
-  // Mecanismo temporário até TenantMembership/SupportGrant. Admin Global ainda
-  // pode escolher outro tenant ativo; admin/membro permanecem no de origem.
-  let tenantSelecionado = true;
-
-  if (papelAtual === "admin_global") {
-    const cookieStore = await cookies();
-    const override = cookieStore.get("tenant_override")?.value;
-    if (override) {
-      const tenant = await prisma.tenant.findUnique({ where: { id: override }, select: { id: true, nome: true, ativo: true } });
-      if (tenant && tenant.ativo) {
-        activeTenantId = tenant.id;
-        activeTenantNome = tenant.nome;
-        tenantSelecionado = true;
-      }
-    }
-  }
+  const activeTenantId = dbUser.tenantId;
+  const activeTenantNome = dbUser.tenant.nome;
+  const tenantSelecionado = true;
 
   const db = getTenantPrisma(activeTenantId);
   return {
@@ -160,6 +188,9 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
  */
 export async function requireEscrita() {
   const ctx = await requireSession();
+  if (ctx.session.accessSource === "SUPPORT_GRANT" && ctx.session.supportLevel !== "OPERATIONAL") {
+    throw accessError("Acesso de suporte somente leitura", 403);
+  }
   if (!ctx.session.tenantSelecionado) {
     throw Object.assign(
       new Error("Selecione um tenant antes de gravar dados. Use o seletor de empresa (admin global)."),
@@ -189,8 +220,13 @@ export async function getSession(): Promise<UserSession> {
  * Use em rotas que só admins devem acessar.
  */
 export async function requireTenantMembership() {
-  return requireSession();
+  const context = await requireSession();
+  if (context.session.accessSource === "SUPPORT_GRANT") throw accessError("Membership empresarial necessário", 403);
+  return context;
 }
+
+/** Explicit alias for callers that accept either membership or scoped support. */
+export const requireTenantAccess = requireSession;
 
 /** Administração empresarial requer o papel do membership, não PlatformAdmin. */
 export async function requireTenantAdmin() {
