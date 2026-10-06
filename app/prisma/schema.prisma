@@ -37,6 +37,7 @@ model Tenant {
   termAcceptances  TermAcceptance[]
   supportGrants     SupportGrant[]
   supportEvents     SupportGrantEvent[]
+  auditEvents       AuditEvent[]
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
@@ -112,6 +113,7 @@ model AuthIdentity {
   requestedSupportGrants SupportGrant[] @relation("SupportRequester")
   revokedSupportGrants SupportGrant[] @relation("SupportRevoker")
   supportEvents SupportGrantEvent[] @relation("SupportEventActor")
+  auditEvents AuditEvent[] @relation("AuditActor")
 
   @@map("auth_identities")
 }
@@ -133,6 +135,7 @@ model TenantMembership {
   contractualResponsibility TenantContractualResponsible?
   termAcceptances TermAcceptance[]
   approvedSupportGrants SupportGrant[]
+  auditEvents AuditEvent[] @relation("AuditMembership")
 
   @@unique([identityId, tenantId])
   @@unique([id, tenantId])
@@ -188,6 +191,7 @@ model PlatformAdmin {
 
   identity    AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
   legacyMaps  LegacyUserAccessMap[]
+  auditEvents AuditEvent[] @relation("AuditPlatformAdmin")
 
   @@unique([id, identityId])
   @@map("platform_admins")
@@ -285,6 +289,7 @@ model SupportGrant {
   approver TenantMembership? @relation(fields: [approvedByMembershipId, tenantId], references: [id, tenantId], onDelete: Restrict)
   revoker AuthIdentity? @relation("SupportRevoker", fields: [revokedByIdentityId], references: [id], onDelete: Restrict)
   events SupportGrantEvent[]
+  auditEvents AuditEvent[] @relation("AuditSupportGrant")
 
   @@index([tenantId, status, expiresAt])
   @@index([platformAdminIdentityId, status, expiresAt])
@@ -308,6 +313,51 @@ model SupportGrantEvent {
   @@index([tenantId, createdAt])
   @@index([grantId, createdAt])
   @@map("support_grant_events")
+}
+
+enum AuditAccessMode {
+  MEMBERSHIP
+  PLATFORM_ADMIN
+  SUPPORT_GRANT
+  SYSTEM
+}
+
+enum AuditResult {
+  SUCCESS
+  DENIED
+  FAILURE
+}
+
+// ACCESS-5C: immutable security/admin trail. No raw credentials or document content.
+model AuditEvent {
+  id                String @id @default(uuid())
+  occurredAt        DateTime @default(now()) @map("occurred_at")
+  actorIdentityId   String? @map("actor_identity_id")
+  actorMembershipId String? @map("actor_membership_id")
+  platformAdminId   String? @map("platform_admin_id")
+  tenantId          String? @map("tenant_id")
+  accessMode        AuditAccessMode @map("access_mode")
+  supportGrantId    String? @map("support_grant_id")
+  action            String
+  resourceType      String @map("resource_type")
+  resourceId        String? @map("resource_id")
+  result            AuditResult
+  reason            String?
+  metadata          Json? @db.JsonB
+  changes           Json? @db.JsonB
+  requestId         String? @map("request_id")
+
+  actor AuthIdentity? @relation("AuditActor", fields: [actorIdentityId], references: [id], onDelete: Restrict)
+  membership TenantMembership? @relation("AuditMembership", fields: [actorMembershipId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  platformAdmin PlatformAdmin? @relation("AuditPlatformAdmin", fields: [platformAdminId, actorIdentityId], references: [id, identityId], onDelete: Restrict)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  supportGrant SupportGrant? @relation("AuditSupportGrant", fields: [supportGrantId, tenantId], references: [id, tenantId], onDelete: Restrict)
+
+  @@index([tenantId, occurredAt(sort: Desc)])
+  @@index([actorIdentityId, occurredAt(sort: Desc)])
+  @@index([action, occurredAt(sort: Desc)])
+  @@index([supportGrantId, occurredAt(sort: Desc)])
+  @@map("audit_events")
 }
 
 enum TermAudience {
