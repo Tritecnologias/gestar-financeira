@@ -1,0 +1,17 @@
+.terms-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--background); color: var(--text-primary); }
+.terms-card { width: min(100%, 760px); padding: clamp(20px, 4vw, 42px); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-elevated); }
+.terms-card header { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 22px; }
+.terms-eyebrow, .terms-audience { color: var(--action); font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.terms-card h1 { font-size: clamp(23px, 3vw, 30px); margin: 8px 0; }
+.terms-card h2 { font-size: clamp(18px, 2.4vw, 23px); margin: 8px 0; }
+.terms-card p { color: var(--text-secondary); line-height: 1.5; }
+.terms-document { display: grid; justify-items: start; gap: 10px; }
+.terms-file-link { display: inline-flex; min-height: 40px; align-items: center; color: var(--action); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.terms-agreement { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0 4px; line-height: 1.4; cursor: pointer; }
+.terms-agreement input { width: 18px; height: 18px; accent-color: var(--action); flex: none; }
+.terms-page :is(button, a, input):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.terms-wait { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); padding: 12px; }
+.terms-remaining { margin-top: 20px; }
+.terms-error { color: var(--danger) !important; }
+.terms-signout { margin-top: 22px; border: 0; background: transparent; color: var(--text-secondary); text-decoration: underline; cursor: pointer; }
+@media (max-width: 600px) { .terms-page { padding: 12px; align-items: start; } .terms-card { padding: 20px; } }

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import type { UserSession, Papel } from "@/types";
 import { isActiveLegacySession } from "@/lib/access-policy";
 import { emailEqualsNormalized } from "@/lib/email";
+import { requireAcceptedTerms } from "@/lib/terms";
 
 function accessError(message: string, status: number) {
   return Object.assign(new Error(message), { status });
@@ -46,7 +47,9 @@ export async function requirePlatformAdmin() {
  * Valida a sessão e retorna o Prisma Client escopado ao tenant efetivo.
  * O override de admin_global existe somente no modo legado explícito.
  */
-export async function requireSession() {
+export async function requireSession(options: { allowPendingTerms?: boolean } = {}): Promise<{
+  db: ReturnType<typeof getTenantPrisma>; baseTenantId: string; session: UserSession;
+}> {
   const session = await auth();
   const user = session?.user as any;
   if (!user?.id) {
@@ -78,7 +81,7 @@ export async function requireSession() {
     });
     if (!mapping?.legacyUsuario.ativo) throw accessError("Vínculo legado pendente ou inativo", 409);
     const papelAtual: Papel = membership.role === "MEMBER" ? "membro" : "admin";
-    return {
+    const context = {
       db: getTenantPrisma(membership.tenantId),
       baseTenantId: membership.tenantId,
       session: {
@@ -96,6 +99,8 @@ export async function requireSession() {
         tenantSelecionado: true,
       } satisfies UserSession,
     };
+    if (!options.allowPendingTerms) await requireAcceptedTerms(context.session);
+    return context;
   }
 
   if (user.authMode !== "legacy") throw accessError("Não autenticado", 401);

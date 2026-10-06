@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ctx = await requireSession();
   } catch (error) {
     const status = (error as {status?: number}).status;
-    redirect(status === 409 || status === 403 ? "/selecionar-tenant" : "/login");
+    redirect(status === 428 ? "/termos/aceite" : status === 409 || status === 403 ? "/selecionar-tenant" : "/login");
   }
 
   const { session } = ctx;
