@@ -10,6 +10,7 @@ type Context = Pick<Awaited<ReturnType<typeof requireSession>>, "db" | "session"
 const OWNER_ESSENTIAL = [
   "acessos.usuarios.view", "acessos.usuarios.manage",
   "acessos.perfis.view", "acessos.perfis.manage",
+  "acessos.auditoria.view",
 ];
 
 /** Re-read the current profile: changes and revocations affect existing sessions. */

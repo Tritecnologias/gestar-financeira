@@ -480,7 +480,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
           })}
 
           {/* Administração de acesso, separada do contexto empresarial */}
-          {(platformAdmin || userPapel === "admin_global" || allowed.has("acessos.usuarios.view") || allowed.has("acessos.perfis.view")) && (
+          {(platformAdmin || userPapel === "admin_global" || allowed.has("acessos.usuarios.view") || allowed.has("acessos.perfis.view") || allowed.has("acessos.auditoria.view")) && (
             <>
               <div className="sb-divider" />
               {platformAdmin && <div
@@ -505,6 +505,11 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
               {allowed.has("acessos.perfis.view") && <div className="sb-row-wrap">
                 <Link href="/acessos/perfis" className={`sb-row ${pathname.startsWith("/acessos/perfis") ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
                   <span className="sb-icon">🔑</span><span className="sb-label">Perfis de Acesso</span>
+                </Link>
+              </div>}
+              {allowed.has("acessos.auditoria.view") && <div className="sb-row-wrap">
+                <Link href="/acessos/auditoria" className={`sb-row ${pathname.startsWith("/acessos/auditoria") ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
+                  <span className="sb-icon">📋</span><span className="sb-label">Auditoria</span>
                 </Link>
               </div>}
             </>

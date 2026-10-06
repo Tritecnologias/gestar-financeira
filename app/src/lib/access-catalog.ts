@@ -28,6 +28,7 @@ export const ACCESS_CATALOG = [
   { id: "acessos", label: "Acessos", screens: [
     { id: "usuarios", label: "Usuários", href: "/acessos", actions: [["view", "Visualizar"], ["manage", "Administrar"]] },
     { id: "perfis", label: "Perfis de Acesso", href: "/acessos/perfis", actions: [["view", "Visualizar"], ["manage", "Administrar"]] },
+    { id: "auditoria", label: "Auditoria", href: "/acessos/auditoria", actions: [["view", "Visualizar"]] },
   ] },
   { id: "sistema", label: "Sistema", screens: [
     { id: "configuracoes", label: "Configurações", href: "/configuracoes", actions: [["view", "Visualizar"], ["manage", "Alterar logo"]] },
