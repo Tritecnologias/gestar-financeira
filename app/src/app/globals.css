@@ -612,7 +612,8 @@ body {
 .support-mode-banner strong { color: var(--warning); letter-spacing: .04em; }
 .support-mode-banner a { color: var(--action); font-weight: 700; margin-left: auto; }
 .support-mode-content { flex: 1; min-height: 0; min-width: 0; overflow: auto; display: flex; flex-direction: column; }
-@media (max-width: 700px) { .support-mode-banner { padding: 8px 12px; font-size: 11px; } .support-mode-banner a { margin-left: 0; } }
+@media (max-width: 1279px) { .support-mode-banner { padding-left: 68px; } }
+@media (max-width: 700px) { .support-mode-banner { padding: 8px 12px 8px 68px; font-size: 11px; } .support-mode-banner a { margin-left: 0; } }
 
 /* ── Topbar ───────────────────────────────────────────────── */
 .topbar {
