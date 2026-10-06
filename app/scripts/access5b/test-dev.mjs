@@ -93,7 +93,7 @@ try {
       db.authIdentity.create({ data: { nome: name, email: `${name}-${suffix}@localhost.invalid`, senhaHash: hash } })),
   ]);
   await Promise.all([platform, otherPlatform].map(p => db.platformAdmin.create({ data: { identityId: p.id } })));
-  const profile = await db.accessProfile.create({ data: { tenantId: high.id, nome: "ACCESS-5B DEV",
+  const profile = await db.accessProfile.create({ data: { tenantId: high.id, nome: "FINANCEIRO OPERACIONAL",
     permissoes: ["estrutura.empresa.view"] } });
   async function addMembership(identity, role) {
     const membership = await db.tenantMembership.create({ data: { identityId: identity.id, tenantId: high.id, role, profileId: profile.id } });
@@ -104,13 +104,20 @@ try {
   }
   const ownerMembership = await addMembership(owner, "OWNER");
   const memberMembership = await addMembership(member, "MEMBER");
-  const homeProfile = await db.accessProfile.create({ data: { tenantId: home.id, nome: "ACCESS-5B HOME", permissoes: [] } });
+  const homeProfile = await db.accessProfile.create({ data: { tenantId: home.id, nome: "FINANCEIRO GERENTE",
+    permissoes: ["estrutura.empresa.view"] } });
   const homeOwnerMembership = await db.tenantMembership.create({ data: { identityId: ownerHome.id, tenantId: home.id,
     role: "OWNER", profileId: homeProfile.id } });
   const homeLegacy = await db.usuario.create({ data: { tenantId: home.id, nome: ownerHome.nome,
     email: ownerHome.email, senhaHash: hash, papel: "admin" } });
   await db.legacyUserAccessMap.create({ data: { tenantId: home.id, identityId: ownerHome.id,
     membershipId: homeOwnerMembership.id, legacyUsuarioId: homeLegacy.id } });
+  const homeMember = await db.tenantMembership.create({ data: { identityId: member.id, tenantId: home.id,
+    role: "MEMBER", profileId: homeProfile.id } });
+  const homeMemberLegacy = await db.usuario.create({ data: { tenantId: home.id, nome: member.nome,
+    email: member.email, senhaHash: hash, papel: "membro" } });
+  await db.legacyUserAccessMap.create({ data: { tenantId: home.id, identityId: member.id,
+    membershipId: homeMember.id, legacyUsuarioId: homeMemberLegacy.id } });
   await db.tenantContractualResponsible.create({ data: { tenantId: high.id,
     membershipId: ownerMembership.id, assignedByIdentityId: platform.id } });
   await db.tenantContractualResponsible.create({ data: { tenantId: home.id,
@@ -248,12 +255,20 @@ try {
   result = await request("/api/audit?view=tenant", ownerJar);
   ok("5C HIGH OWNER sees HIGH events", result.status === 200 && result.body.rows.length > 0 &&
     result.body.rows.every(e => e.tenantId === high.id));
+  const auditDay = new Date().toISOString().slice(0, 10);
+  result = await request(`/api/audit?view=tenant&from=${auditDay}&to=${auditDay}&user=owner&type=SupportGrant&result=SUCCESS`, ownerJar);
+  ok("5C period/user/type/result filters combine", result.status === 200 && result.body.rows.length > 0 &&
+    result.body.rows.every(e => e.tenantId === high.id && e.resourceType === "SupportGrant" &&
+      e.result === "SUCCESS" && e.actorName.toLowerCase().includes("owner")));
   result = await request("/api/audit?view=tenant", homeJar);
   ok("5C HOME OWNER sees no HIGH events", result.status === 200 &&
     result.body.rows.every(e => e.tenantId === home.id));
   result = await request(`/api/audit?view=platform&supportGrantId=${readGrant.id}&action=SUPPORT_APPROVED`, adminJar);
   ok("5C platform audit filters grant and action", result.status === 200 && result.body.rows.length === 1 &&
     result.body.rows[0].supportGrantId === readGrant.id);
+  result = await request(`/api/audit?view=platform&tenantId=${high.id}&action=SUPPORT_APPROVED`, adminJar);
+  ok("5C platform tenant filter does not leak another tenant", result.status === 200 &&
+    result.body.rows.every(e => e.tenantId === high.id));
   ok("5C member without audit permission denied", (await request("/api/audit?view=tenant", memberJar)).status === 403);
   ok("5C tenant and platform audit pages render", (await request("/acessos/auditoria", ownerJar)).status === 200 &&
     (await request("/plataforma/auditoria", adminJar)).status === 200);
@@ -280,6 +295,15 @@ try {
   ok("5C platform audit shows plan before/after", result.status === 200 &&
     result.body.rows.some(e => e.resourceId === createdTenant.body.id && e.changes?.before?.plano === "trial" &&
       e.changes?.after?.plano === "mensal"));
+  ok("5C same identity can switch HIGH to THE HOME", (await choose(memberJar, home.id)).status === 200);
+  result = await request("/api/empresa", memberJar);
+  ok("5C THE HOME role reads only THE HOME", result.status === 200 && result.body.length === 1 &&
+    result.body[0].razaoSocial === "HOME FIXTURE");
+  const highContext = await db.auditEvent.findFirst({ where: { tenantId: high.id, actorIdentityId: member.id,
+    action: "TENANT_CONTEXT_SELECTED" } });
+  const homeContext = await db.auditEvent.findFirst({ where: { tenantId: home.id, actorIdentityId: member.id,
+    action: "TENANT_CONTEXT_SWITCHED" } });
+  ok("5C one identity has separate tenant context events", !!highContext && !!homeContext);
   const failedJar = jar();
   const failedCsrf = await fetch(`${base}/api/auth/csrf`); failedJar.add(failedCsrf);
   const { csrfToken: badToken } = await failedCsrf.json();
