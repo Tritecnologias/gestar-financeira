@@ -15,6 +15,7 @@ const suffix = randomBytes(5).toString("hex");
 const schema = `access5a_test_${suffix}`;
 const databaseUrl = new URL(baseUrl);
 databaseUrl.searchParams.set("schema", schema);
+databaseUrl.searchParams.set("sslmode", "disable");
 const testStorage = resolve(process.cwd(), ".private", `access5a-test-${suffix}`);
 const port = 3015;
 const base = `http://127.0.0.1:${port}`;
