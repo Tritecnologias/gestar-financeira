@@ -4,6 +4,7 @@ import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
 import { expireListedSupportGrants } from "@/lib/support-grants";
+import { writeAudit } from "@/lib/audit";
 
 // GET /api/tenants — lista memberships e grants; legado vê apenas o tenant de origem.
 export async function GET() {
@@ -66,7 +67,8 @@ export async function GET() {
 
 // POST /api/tenants — criar novo tenant (apenas admin_global)
 export async function POST(req: NextRequest) {
-  try { await requirePlatformAdmin(); }
+  let actor: Awaited<ReturnType<typeof requirePlatformAdmin>>;
+  try { actor = await requirePlatformAdmin(); }
   catch (error) { return NextResponse.json({ error: "Acesso negado" }, { status: (error as {status?: number}).status ?? 403 }); }
 
   const { nome, email, plano } = await req.json();
@@ -85,9 +87,15 @@ export async function POST(req: NextRequest) {
   const existente = await prisma.tenant.findFirst({ where: { OR: [{ slug }, { email: emailEqualsNormalized(email) }] } });
   if (existente) return NextResponse.json({ error: "Nome ou email já cadastrado" }, { status: 409 });
 
-  const tenant = await prisma.tenant.create({
-    data: { nome: nome.trim(), slug, email: normalizeEmail(email), plano: plano || "trial" },
-    select: { id: true, nome: true, slug: true, email: true, plano: true },
+  const tenant = await prisma.$transaction(async tx => {
+    const created = await tx.tenant.create({
+      data: { nome: nome.trim(), slug, email: normalizeEmail(email), plano: plano || "trial" },
+      select: { id: true, nome: true, slug: true, email: true, plano: true },
+    });
+    await writeAudit(tx, { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+      action: "TENANT_CREATED", resourceType: "Tenant", resourceId: created.id,
+      metadata: { tenantName: created.nome, plan: created.plano } });
+    return created;
   });
 
   return NextResponse.json(tenant, { status: 201 });

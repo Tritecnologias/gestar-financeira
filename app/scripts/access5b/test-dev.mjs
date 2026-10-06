@@ -103,7 +103,7 @@ try {
     return membership;
   }
   const ownerMembership = await addMembership(owner, "OWNER");
-  await addMembership(member, "MEMBER");
+  const memberMembership = await addMembership(member, "MEMBER");
   const homeProfile = await db.accessProfile.create({ data: { tenantId: home.id, nome: "ACCESS-5B HOME", permissoes: [] } });
   const homeOwnerMembership = await db.tenantMembership.create({ data: { identityId: ownerHome.id, tenantId: home.id,
     role: "OWNER", profileId: homeProfile.id } });
@@ -218,8 +218,89 @@ try {
   const events = await db.supportGrantEvent.findMany({ where: { tenantId: high.id } });
   ok("audit events requested/approved/rejected/activated/used/revoked/expired",
     ["REQUESTED", "APPROVED", "REJECTED", "ACTIVATED", "USED", "REVOKED", "EXPIRED"].every(type => events.some(e => e.type === type)));
+  const trail = await db.auditEvent.findMany({ where: { tenantId: high.id } });
+  ok("5C support lifecycle and action results", ["SUPPORT_REQUESTED", "SUPPORT_APPROVED", "SUPPORT_ACTIVATED",
+    "SUPPORT_CONTEXT_ENTERED", "SUPPORT_ACTION_EXECUTED", "SUPPORT_ACTION_DENIED", "SUPPORT_REVOKED", "SUPPORT_EXPIRED"]
+    .every(action => trail.some(e => e.action === action && e.supportGrantId)));
+  ok("5C membership, platform and support origins", ["MEMBERSHIP", "PLATFORM_ADMIN", "SUPPORT_GRANT"]
+    .every(mode => trail.some(e => e.accessMode === mode)));
+  ok("5C terms audit alongside evidence", trail.some(e => e.action === "TERM_ACCEPTED") &&
+    await db.termAcceptance.count() === 2);
+  ok("5C meaningful before/after", trail.some(e => e.action === "SUPPORT_APPROVED" &&
+    e.changes?.before?.status === "PENDING" && e.changes?.after?.status === "ACTIVE"));
+  ok("5C no password or hash copied", !JSON.stringify(trail).includes(password) &&
+    !JSON.stringify(trail).includes(hash) && !JSON.stringify(trail).includes("senhaHash"));
+  let immutableUpdate = false, immutableDelete = false;
+  try { await db.auditEvent.update({ where: { id: trail[0].id }, data: { reason: "tamper" } }); }
+  catch { immutableUpdate = true; }
+  try { await db.auditEvent.delete({ where: { id: trail[0].id } }); }
+  catch { immutableDelete = true; }
+  ok("5C database rejects audit UPDATE and DELETE", immutableUpdate && immutableDelete);
+  let crossTenant = false;
+  try { await db.auditEvent.create({ data: { tenantId: home.id, actorIdentityId: owner.id,
+    actorMembershipId: ownerMembership.id, accessMode: "MEMBERSHIP", action: "TEST_DENIED",
+    resourceType: "Test", result: "DENIED" } }); } catch { crossTenant = true; }
+  ok("5C composite membership FK prevents cross-tenant context", crossTenant);
+  ok("5C HIGH OWNER accepts user term for audit access", (await request("/api/terms/accept", ownerJar, "POST", { versionId: userTerm.id, agreed: true })).status === 200);
+  ok("5C HOME OWNER accepts user term", (await request("/api/terms/accept", homeJar, "POST", { versionId: userTerm.id, agreed: true })).status === 200);
+  ok("5C HOME OWNER accepts contract term", (await request("/api/terms/accept", homeJar, "POST", { versionId: contractTerm.id, agreed: true })).status === 200);
+  ok("5C MEMBER accepts user term", (await request("/api/terms/accept", memberJar, "POST", { versionId: userTerm.id, agreed: true })).status === 200);
+  result = await request("/api/audit?view=tenant", ownerJar);
+  ok("5C HIGH OWNER sees HIGH events", result.status === 200 && result.body.rows.length > 0 &&
+    result.body.rows.every(e => e.tenantId === high.id));
+  result = await request("/api/audit?view=tenant", homeJar);
+  ok("5C HOME OWNER sees no HIGH events", result.status === 200 &&
+    result.body.rows.every(e => e.tenantId === home.id));
+  result = await request(`/api/audit?view=platform&supportGrantId=${readGrant.id}&action=SUPPORT_APPROVED`, adminJar);
+  ok("5C platform audit filters grant and action", result.status === 200 && result.body.rows.length === 1 &&
+    result.body.rows[0].supportGrantId === readGrant.id);
+  ok("5C member without audit permission denied", (await request("/api/audit?view=tenant", memberJar)).status === 403);
+  ok("5C tenant and platform audit pages render", (await request("/acessos/auditoria", ownerJar)).status === 200 &&
+    (await request("/plataforma/auditoria", adminJar)).status === 200);
+  result = await request("/api/access/profiles", ownerJar, "POST", { nome: `PERFIL AUDIT ${suffix}`,
+    descricao: "Fixture isolada", permissoes: ["estrutura.empresa.view"] });
+  ok("5C profile created with audit", result.status === 201);
+  const auditProfile = result.body;
+  result = await request(`/api/access/profiles/${auditProfile.id}`, ownerJar, "PATCH", {
+    nome: `PERFIL AUDIT ALTERADO ${suffix}`, permissoes: ["estrutura.empresa.view", "estrutura.empresa.export"],
+  });
+  ok("5C profile changed with audit", result.status === 200);
+  result = await request(`/api/access/memberships/${memberMembership.id}`, ownerJar, "PATCH", { profileId: auditProfile.id });
+  ok("5C membership profile changed with audit", result.status === 200);
+  result = await request(`/api/audit?view=tenant&action=ACCESS_PROFILE_CHANGED`, ownerJar);
+  ok("5C profile before/after shown to tenant", result.status === 200 &&
+    result.body.rows.some(e => e.resourceId === memberMembership.id && e.changes?.before?.profile === profile.nome &&
+      e.changes?.after?.profile === `PERFIL AUDIT ALTERADO ${suffix}`));
+  const createdTenant = await request("/api/tenants", adminJar, "POST", { nome: `TENANT AUDIT ${suffix}`,
+    email: `tenant-audit-${suffix}@localhost.invalid`, plano: "trial" });
+  ok("5C platform tenant creation audited", createdTenant.status === 201);
+  result = await request(`/api/platform/tenants/${createdTenant.body.id}`, adminJar, "PATCH", { plano: "mensal" });
+  ok("5C platform tenant change audited", result.status === 200);
+  result = await request("/api/audit?view=platform&action=TENANT_CHANGED", adminJar);
+  ok("5C platform audit shows plan before/after", result.status === 200 &&
+    result.body.rows.some(e => e.resourceId === createdTenant.body.id && e.changes?.before?.plano === "trial" &&
+      e.changes?.after?.plano === "mensal"));
+  const failedJar = jar();
+  const failedCsrf = await fetch(`${base}/api/auth/csrf`); failedJar.add(failedCsrf);
+  const { csrfToken: badToken } = await failedCsrf.json();
+  await fetch(`${base}/api/auth/callback/credentials`, { method: "POST", redirect: "manual",
+    headers: { Cookie: failedJar.header(), "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ csrfToken: badToken, email: platform.email,
+      password: "incorrect-fixture-password", callbackUrl: `${base}/login` }),
+  });
+  ok("5C login success and denied attempt audited without credentials",
+    await db.auditEvent.count({ where: { actorIdentityId: platform.id, action: "LOGIN_SUCCESS" } }) > 0 &&
+    await db.auditEvent.count({ where: { actorIdentityId: platform.id, action: "LOGIN_FAILURE", result: "DENIED" } }) > 0);
+  await db.$executeRawUnsafe(`CREATE FUNCTION "${schema}".reject_audit_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'audit unavailable'; END; $$`);
+  await db.$executeRawUnsafe(`CREATE TRIGGER reject_audit_insert BEFORE INSERT ON "${schema}".audit_events FOR EACH ROW EXECUTE FUNCTION "${schema}".reject_audit_insert()`);
+  const failClosedName = `FAIL CLOSED ${suffix}`;
+  result = await request("/api/access/profiles", ownerJar, "POST", { nome: failClosedName, permissoes: ["estrutura.empresa.view"] });
+  ok("5C critical mutation fails when audit insert fails", result.status >= 400 &&
+    await db.accessProfile.count({ where: { tenantId: high.id, nome: failClosedName } }) === 0);
+  await db.$executeRawUnsafe(`DROP TRIGGER reject_audit_insert ON "${schema}".audit_events`);
+  await db.$executeRawUnsafe(`DROP FUNCTION "${schema}".reject_audit_insert()`);
   ok("fixtures never touched HOM-REAL", await db.lancamento.count() === 0);
-  console.log(`ACCESS-5B DEV: ${passed.length} checks passed in isolated schema. Fixtures will be dropped.`);
+  console.log(`ACCESS-5B/5C DEV: ${passed.length} checks passed in isolated schema. Fixtures will be dropped.`);
 } finally {
   if (server && server.exitCode === null) {
     server.kill();

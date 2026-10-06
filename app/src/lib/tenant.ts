@@ -7,6 +7,7 @@ import { emailEqualsNormalized } from "@/lib/email";
 import { requireAcceptedTerms } from "@/lib/terms";
 import { expireSupportGrant } from "@/lib/support-grants";
 import { supportRequestAllowed } from "@/lib/support-policy";
+import { writeAudit } from "@/lib/audit";
 
 function accessError(message: string, status: number) {
   return Object.assign(new Error(message), { status });
@@ -30,6 +31,11 @@ export async function getIdentityAccess(authenticatedUser?: { id?: string; authM
       },
     },
   });
+  if (identity?.status === "INACTIVE") {
+    await writeAudit(prisma, { actorIdentityId: identity.id, accessMode: "SYSTEM",
+      action: "IDENTITY_DISABLED_ACCESS_ATTEMPT", resourceType: "AuthIdentity",
+      resourceId: identity.id, result: "DENIED" }).catch(() => {});
+  }
   if (!identity || identity.status !== "ACTIVE") throw accessError("Não autenticado", 401);
   return { ...identity, loginNonce: user.loginNonce };
 }
@@ -82,12 +88,20 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
         throw accessError("Acesso de suporte expirado", 409);
       }
       if (grant.status !== "ACTIVE" || !grant.startsAt || grant.startsAt > new Date() || !grant.expiresAt) {
+        await writeAudit(prisma, { tenantId: grant.tenantId, actorIdentityId: identity.id,
+          supportGrantId: grant.id, accessMode: "SUPPORT_GRANT", action: "SESSION_BLOCKED",
+          resourceType: "SupportGrant", resourceId: grant.id, result: "DENIED",
+          metadata: { status: grant.status } }).catch(() => {});
         throw accessError("Acesso de suporte revogado ou ainda não autorizado", 409);
       }
       const requestHeaders = await headers();
       const path = requestHeaders.get("x-10s-request-path") ?? "";
       const method = requestHeaders.get("x-10s-request-method") ?? "";
       if (!supportRequestAllowed(path, method, grant.modules, grant.accessLevel)) {
+        await writeAudit(prisma, { tenantId: grant.tenantId, actorIdentityId: identity.id,
+          supportGrantId: grant.id, accessMode: "SUPPORT_GRANT", action: "SUPPORT_ACTION_DENIED",
+          resourceType: "Route", resourceId: path, result: "DENIED",
+          metadata: { method } });
         throw accessError("Recurso fora do escopo do suporte autorizado", 403);
       }
       const context = {
@@ -102,16 +116,27 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
         } satisfies UserSession,
       };
       if (!options.allowPendingTerms) await requireAcceptedTerms(context.session);
+      if (!options.allowPendingTerms && path.startsWith("/api/") &&
+          !path.startsWith("/api/access/") && !path.startsWith("/api/terms/")) {
+        await writeAudit(prisma, { tenantId: grant.tenantId, actorIdentityId: identity.id,
+          supportGrantId: grant.id, accessMode: "SUPPORT_GRANT", action: method === "GET" ?
+            "SUPPORT_ACTION_EXECUTED" : "SUPPORT_ACTION_AUTHORIZED",
+          resourceType: "Route", resourceId: path, metadata: { method } });
+      }
       return context;
     }
-    if (memberships.length === 0) throw accessError("Nenhum tenant ativo disponível para esta identidade", 403);
     const selected = cookieStore.get("tenant_context")?.value;
     const cookiePrefix = `${identity.id}:${identity.loginNonce}:`;
     const selectedTenantId = selected?.startsWith(cookiePrefix)
       ? selected.slice(cookiePrefix.length) : null;
     if (selectedTenantId && !memberships.some(m => m.tenantId === selectedTenantId)) {
+      const inactive = await prisma.tenantMembership.findFirst({ where: { identityId: identity.id, tenantId: selectedTenantId }, select: { id: true } });
+      if (inactive) await writeAudit(prisma, { tenantId: selectedTenantId, actorIdentityId: identity.id,
+        accessMode: "MEMBERSHIP", action: "MEMBERSHIP_INACTIVE_ACCESS_ATTEMPT",
+        resourceType: "TenantMembership", resourceId: inactive.id, result: "DENIED" });
       throw accessError("Contexto revogado; selecione outro tenant", 409);
     }
+    if (memberships.length === 0) throw accessError("Nenhum tenant ativo disponível para esta identidade", 403);
     const membership = selectedTenantId
       ? memberships.find(m => m.tenantId === selectedTenantId)
       : memberships.length === 1 ? memberships[0] : undefined;
@@ -123,7 +148,12 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
       where: { identityId: identity.id, tenantId: membership.tenantId, membershipId: membership.id },
       select: { legacyUsuarioId: true, legacyUsuario: { select: { ativo: true } } },
     });
-    if (!mapping?.legacyUsuario.ativo) throw accessError("Vínculo legado pendente ou inativo", 409);
+    if (!mapping?.legacyUsuario.ativo) {
+      await writeAudit(prisma, { tenantId: membership.tenantId, actorIdentityId: identity.id,
+        actorMembershipId: membership.id, accessMode: "MEMBERSHIP", action: "SESSION_BLOCKED",
+        resourceType: "TenantMembership", resourceId: membership.id, result: "DENIED" }).catch(() => {});
+      throw accessError("Vínculo legado pendente ou inativo", 409);
+    }
     const papelAtual: Papel = membership.role === "MEMBER" ? "membro" : "admin";
     const context = {
       db: getTenantPrisma(membership.tenantId),

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { supportStatus } from "@/lib/support-policy";
+import { writeAudit } from "@/lib/audit";
 
 /** Expiration is enforced by time, not by a scheduled task. This write only records it. */
 export async function expireSupportGrant(id: string, tenantId: string, expiresAt: Date | null) {
@@ -12,6 +13,9 @@ export async function expireSupportGrant(id: string, tenantId: string, expiresAt
     if (changed.count) await tx.supportGrantEvent.create({
       data: { grantId: id, tenantId, type: "EXPIRED", detail: "Prazo do acesso encerrado." },
     });
+    if (changed.count) await writeAudit(tx, { tenantId, accessMode: "SYSTEM", action: "SUPPORT_EXPIRED",
+      resourceType: "SupportGrant", resourceId: id, supportGrantId: id,
+      changes: { before: { status: "ACTIVE" }, after: { status: "EXPIRED" } } });
   });
   return true;
 }

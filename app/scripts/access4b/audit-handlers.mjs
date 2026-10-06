@@ -26,7 +26,7 @@ for (const file of walk(root)) {
   for (let i = 0; i < handlers.length; i++) {
     const body = source.slice(handlers[i].index, handlers[i + 1]?.index ?? source.length);
     checked++;
-    if (!/\b(guardApi|requirePermission|requireTenantPermission|requirePlatformAdmin|requireAdmin|requireUserAdminActor)\(/.test(body)) {
+    if (!/\b(guardApi|requirePermission|requireTenantPermission|requirePlatformAdmin|requireAdmin|requireUserAdminActor|requireSession|requireTenantAccess)\(/.test(body)) {
       uncovered.push(`${handlers[i][1]} ${path}`);
     }
   }

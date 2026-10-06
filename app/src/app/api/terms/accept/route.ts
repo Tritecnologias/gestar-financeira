@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/tenant";
+import { auditContext, writeAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,13 +40,18 @@ export async function POST(req: NextRequest) {
         ...(current.requiresReaccept ? { termVersionId: current.id } : { version: { documentId: current.documentId } }),
       }, select: { id: true } });
       if (existing) return { alreadyAccepted: true };
-      await tx.termAcceptance.create({ data: {
+      const acceptance = await tx.termAcceptance.create({ data: {
         identityId, termVersionId: current.id,
         tenantId: contract ? session.tenantId : null,
         membershipId: contract ? membershipId : null,
         scopeKey: contract ? session.tenantId : "GLOBAL", roleAtAcceptance: contract ? "OWNER" : null,
         ipAddress: ip, userAgent, documentHash: current.sha256,
       } });
+      await writeAudit(tx, { ...auditContext(session), tenantId: session.tenantId,
+        actorMembershipId: contract ? membershipId : null, action: "TERM_ACCEPTED",
+        resourceType: "TermVersion", resourceId: current.id,
+        metadata: { acceptanceId: acceptance.id, audience: version.document.audience,
+          documentCode: version.document.code, version: current.version } });
       return { alreadyAccepted: false };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json(result, { headers: { "Cache-Control": "private, no-store" } });

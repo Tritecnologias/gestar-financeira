@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
 import { requireSupportApprover } from "@/lib/support-approval";
 import { expireSupportGrant } from "@/lib/support-grants";
+import { writeAudit } from "@/lib/audit";
 
 const noStore = { "Cache-Control": "private, no-store" };
 function failure(error: unknown) {
@@ -32,12 +33,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     let actorIdentityId: string;
     let approverMembershipId: string | null = null;
+    let requesterRevoked = false;
     if (action === "revoke") {
       // The requester may end their own grant. The responsible may revoke any grant of this tenant.
       try {
         const actor = await requirePlatformAdmin();
         if (!actor.identityId || actor.identityId !== grant.platformAdminIdentityId) throw new Error("Not requester");
         actorIdentityId = actor.identityId;
+        requesterRevoked = true;
       } catch {
         const { session } = await requireSupportApprover();
         if (session.tenantId !== grant.tenantId) throw Object.assign(new Error("Tenant incorreto."), { status: 403 });
@@ -94,6 +97,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (action === "approve") await tx.supportGrantEvent.create({ data: {
         grantId: id, tenantId: grant.tenantId, type: "ACTIVATED", actorIdentityId,
         detail: `Válido por ${grant.requestedMinutes} minutos.` } });
+      await writeAudit(tx, { tenantId: grant.tenantId, actorIdentityId,
+        actorMembershipId: approverMembershipId,
+        accessMode: requesterRevoked ? "PLATFORM_ADMIN" : "MEMBERSHIP",
+        action: action === "approve" ? "SUPPORT_APPROVED" : action === "reject" ? "SUPPORT_REJECTED" :
+          requesterRevoked ? "SUPPORT_ENDED_BY_PLATFORM_ADMIN" : "SUPPORT_REVOKED",
+        resourceType: "SupportGrant", resourceId: id, supportGrantId: id,
+        changes: { before: { status: previousStatus }, after: { status: targetStatus } } });
+      if (action === "approve") await writeAudit(tx, { tenantId: grant.tenantId, actorIdentityId,
+        actorMembershipId: approverMembershipId, accessMode: "MEMBERSHIP", action: "SUPPORT_ACTIVATED",
+        resourceType: "SupportGrant", resourceId: id, supportGrantId: id });
       return { status: targetStatus };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json(result, { headers: noStore });

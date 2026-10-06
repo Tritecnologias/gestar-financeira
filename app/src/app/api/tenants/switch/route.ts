@@ -3,6 +3,7 @@ import { getIdentityAccess, requireSession } from "@/lib/tenant";
 import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { tenantContextCookieOptions, tenantOverrideCookieOptions } from "@/lib/access-policy";
+import { writeAudit } from "@/lib/audit";
 
 // POST /api/tenants/switch — trocar tenant ativo (admin_global apenas)
 export async function POST(req: NextRequest) {
@@ -26,14 +27,27 @@ export async function POST(req: NextRequest) {
           startsAt: { lte: new Date() }, expiresAt: { gt: new Date() }, tenant: { ativo: true },
         }, select: { id: true, tenantId: true } });
         if (!grant) return NextResponse.json({ error: "Acesso de suporte ausente, revogado ou expirado" }, { status: 403 });
-        await prisma.supportGrantEvent.create({ data: { grantId: grant.id, tenantId: grant.tenantId,
-          type: "USED", actorIdentityId: identity.id, detail: "Entrada no contexto de suporte." } });
+        const previous = req.cookies.get("tenant_context")?.value || req.cookies.get("support_context")?.value;
+        await prisma.$transaction(async tx => {
+          await tx.supportGrantEvent.create({ data: { grantId: grant.id, tenantId: grant.tenantId,
+            type: "USED", actorIdentityId: identity.id, detail: "Entrada no contexto de suporte." } });
+          await writeAudit(tx, { tenantId, actorIdentityId: identity.id, accessMode: "SUPPORT_GRANT",
+            action: "SUPPORT_CONTEXT_ENTERED", resourceType: "SupportGrant", resourceId: grant.id,
+            supportGrantId: grant.id });
+          await writeAudit(tx, { tenantId, actorIdentityId: identity.id, accessMode: "SUPPORT_GRANT",
+            action: previous ? "TENANT_CONTEXT_SWITCHED" : "TENANT_CONTEXT_SELECTED",
+            resourceType: "Tenant", resourceId: tenantId, supportGrantId: grant.id });
+        });
         const res = NextResponse.json({ active: tenantId, kind: "SUPPORT_GRANT" });
         res.cookies.set("support_context", `${identity.id}:${identity.loginNonce}:${grant.id}`, tenantContextCookieOptions());
         res.cookies.set("tenant_context", "", { ...tenantContextCookieOptions(), maxAge: 0 });
         return res;
       }
       if (!membership) return NextResponse.json({ error: "Acesso ao tenant não permitido" }, { status: 403 });
+      const previous = req.cookies.get("tenant_context")?.value || req.cookies.get("support_context")?.value;
+      await writeAudit(prisma, { tenantId, actorIdentityId: identity.id, actorMembershipId: membership.id,
+        accessMode: "MEMBERSHIP", action: previous ? "TENANT_CONTEXT_SWITCHED" : "TENANT_CONTEXT_SELECTED",
+        resourceType: "Tenant", resourceId: tenantId });
       const res = NextResponse.json({ active: tenantId, role: membership.role, kind: "MEMBERSHIP" });
       res.cookies.set("tenant_context", `${identity.id}:${identity.loginNonce}:${tenantId}`, tenantContextCookieOptions());
       res.cookies.set("support_context", "", { ...tenantContextCookieOptions(), maxAge: 0 });

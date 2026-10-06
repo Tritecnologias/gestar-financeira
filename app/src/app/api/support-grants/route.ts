@@ -5,6 +5,7 @@ import { getIdentityAccess, requirePlatformAdmin } from "@/lib/tenant";
 import { requireSupportApprover } from "@/lib/support-approval";
 import { expireListedSupportGrants } from "@/lib/support-grants";
 import { SUPPORT_MINUTES, validSupportModules } from "@/lib/support-policy";
+import { writeAudit } from "@/lib/audit";
 
 const noStore = { "Cache-Control": "private, no-store" };
 const withDetails = {
@@ -85,6 +86,9 @@ export async function POST(req: NextRequest) {
       } });
       await tx.supportGrantEvent.create({ data: { grantId: grant.id, tenantId, type: "REQUESTED",
         actorIdentityId: actor.identityId, detail: `${accessLevel}; ${body.modules.join(",")}; ${minutes} min` } });
+      await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+        action: "SUPPORT_REQUESTED", resourceType: "SupportGrant", resourceId: grant.id,
+        supportGrantId: grant.id, metadata: { accessLevel, modules: body.modules, requestedMinutes: minutes } });
       return grant;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json(result, { status: 201, headers: noStore });

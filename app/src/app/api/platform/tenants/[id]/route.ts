@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
 import { normalizeEmail } from "@/lib/email";
+import { writeAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
-    await requirePlatformAdmin();
+    const actor = await requirePlatformAdmin();
     const { id } = await params;
     const body = await req.json();
     const data: { nome?: string; email?: string; plano?: string; ativo?: boolean } = {};
@@ -28,8 +29,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       data.ativo = body.ativo;
     }
     if (!Object.keys(data).length) throw Object.assign(new Error("Nenhuma alteração informada."), { status: 400 });
-    const result = await prisma.tenant.update({ where: { id }, data,
-      select: { id: true, nome: true, slug: true, email: true, plano: true, ativo: true } });
+    const result = await prisma.$transaction(async tx => {
+      const before = await tx.tenant.findUniqueOrThrow({ where: { id }, select: {
+        nome: true, plano: true, ativo: true,
+      } });
+      const updated = await tx.tenant.update({ where: { id }, data,
+        select: { id: true, nome: true, slug: true, email: true, plano: true, ativo: true } });
+      await writeAudit(tx, { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+        action: before.ativo !== updated.ativo ? "TENANT_STATUS_CHANGED" : "TENANT_CHANGED",
+        resourceType: "Tenant", resourceId: id,
+        changes: { before: { nome: before.nome, plano: before.plano, ativo: before.ativo },
+          after: { nome: updated.nome, plano: updated.plano, ativo: updated.ativo } } });
+      return updated;
+    });
     return NextResponse.json(result);
   } catch (error: any) {
     if (error?.code === "P2025") return NextResponse.json({ error: "Tenant não encontrado." }, { status: 404 });

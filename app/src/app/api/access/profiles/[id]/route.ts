@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantPermission, permissionError } from "@/lib/permissions";
 import { normalizedPermissions } from "@/lib/access-catalog";
+import { prisma } from "@/lib/db";
+import { auditContext, writeAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
-    const { db } = await requireTenantPermission("acessos.perfis.manage");
+    const { db, session } = await requireTenantPermission("acessos.perfis.manage");
     const { id } = await params;
     const existing = await db.accessProfile.findFirst({ where: { id },
       include: { _count: { select: { memberships: true } } } });
@@ -33,7 +35,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       data.ativo = body.ativo;
     }
     if (body.permissoes !== undefined) data.permissoes = normalizedPermissions(body.permissoes);
-    const profile = await db.accessProfile.update({ where: { id }, data });
+    const profile = await prisma.$transaction(async tx => {
+      const fresh = await tx.accessProfile.findFirst({ where: { id, tenantId: session.tenantId } });
+      if (!fresh) throw Object.assign(new Error("Perfil não encontrado."), { status: 404 });
+      const row = await tx.accessProfile.update({ where: { id, tenantId: session.tenantId }, data });
+      await writeAudit(tx, { ...auditContext(session),
+        action: fresh.ativo && !row.ativo ? "PERMISSION_PROFILE_DISABLED" : "PERMISSION_PROFILE_CHANGED",
+        resourceType: "AccessProfile", resourceId: id,
+        changes: { before: { name: fresh.nome, active: fresh.ativo, permissions: fresh.permissoes },
+          after: { name: row.nome, active: row.ativo, permissions: row.permissoes } } });
+      return row;
+    });
     return NextResponse.json(profile);
   } catch (error: any) {
     if (error?.code === "P2002") return NextResponse.json({ error: "Perfil já existe neste tenant." }, { status: 409 });

@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { normalizeEmail } from "@/lib/email";
 import { requireTenantPermission, permissionError } from "@/lib/permissions";
+import { auditContext, writeAudit } from "@/lib/audit";
 
 const ROLES = new Set(["OWNER", "ADMIN", "MEMBER"]);
 
@@ -54,6 +55,9 @@ export async function POST(req: NextRequest) {
         identity = await tx.authIdentity.create({ data: {
           email, nome: body.nome.trim(), senhaHash: await bcrypt.hash(body.senha, 12),
         } });
+        await writeAudit(tx, { ...auditContext(session), action: "IDENTITY_CREATED",
+          resourceType: "AuthIdentity", resourceId: identity.id,
+          metadata: { identityName: identity.nome } });
       }
       const membership = await tx.tenantMembership.create({ data: {
         tenantId, identityId: identity.id, role, profileId,
@@ -65,6 +69,9 @@ export async function POST(req: NextRequest) {
       await tx.legacyUserAccessMap.create({ data: {
         tenantId, identityId: identity.id, membershipId: membership.id, legacyUsuarioId: legacy.id,
       } });
+      await writeAudit(tx, { ...auditContext(session), action: "MEMBERSHIP_CREATED",
+        resourceType: "TenantMembership", resourceId: membership.id,
+        metadata: { targetIdentityId: identity.id, role, profileName: profile.nome } });
       return { id: membership.id, role: membership.role, status: membership.status,
         profileId: membership.profileId, identity: { nome: identity.nome, email: identity.email } };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });

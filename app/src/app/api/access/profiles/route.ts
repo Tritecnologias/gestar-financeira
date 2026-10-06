@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantPermission, permissionError } from "@/lib/permissions";
 import { normalizedPermissions } from "@/lib/access-catalog";
+import { prisma } from "@/lib/db";
+import { auditContext, writeAudit } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -16,7 +18,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { db, session } = await requireTenantPermission("acessos.perfis.manage");
+    const { session } = await requireTenantPermission("acessos.perfis.manage");
     const body = await req.json();
     const nome = typeof body.nome === "string" ? body.nome.trim() : "";
     const descricao = typeof body.descricao === "string" ? body.descricao.trim() : null;
@@ -24,7 +26,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nome ou descrição inválidos." }, { status: 400 });
     }
     const permissoes = normalizedPermissions(body.permissoes ?? []);
-    const profile = await db.accessProfile.create({ data: { tenantId: session.tenantId, nome, descricao, permissoes } });
+    const profile = await prisma.$transaction(async tx => {
+      const row = await tx.accessProfile.create({ data: { tenantId: session.tenantId, nome, descricao, permissoes } });
+      await writeAudit(tx, { ...auditContext(session), action: "PERMISSION_PROFILE_CREATED",
+        resourceType: "AccessProfile", resourceId: row.id, metadata: { profileName: nome, permissions: permissoes } });
+      return row;
+    });
     return NextResponse.json(profile, { status: 201 });
   } catch (error: any) {
     if (error?.code === "P2002") return NextResponse.json({ error: "Perfil já existe neste tenant." }, { status: 409 });

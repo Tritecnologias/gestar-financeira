@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
 import { normalizeEmail } from "@/lib/email";
 import { ALL_PERMISSIONS } from "@/lib/access-catalog";
+import { writeAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -44,6 +45,10 @@ export async function POST(req: NextRequest, { params }: Params) {
           targetIdentityId: identity!.id, targetMembershipId: membership.id,
           previousRole: existing.role, previousStatus: existing.status,
         } });
+        await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId,
+          accessMode: "PLATFORM_ADMIN", action: "OWNER_ASSIGNED", resourceType: "TenantMembership",
+          resourceId: membership.id, changes: { before: { role: existing.role, status: existing.status },
+            after: { role: "OWNER", status: "ACTIVE" } } });
         return { id: membership.id, email, tenantId, role: membership.role, profileId: membership.profileId };
       }
       if (await tx.usuario.findFirst({ where: { tenantId, email } })) {
@@ -56,6 +61,9 @@ export async function POST(req: NextRequest, { params }: Params) {
         identity = await tx.authIdentity.create({ data: {
           email, nome: body.nome.trim(), senhaHash: await bcrypt.hash(body.senha, 12),
         } });
+        await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+          action: "IDENTITY_CREATED", resourceType: "AuthIdentity", resourceId: identity.id,
+          metadata: { identityName: identity.nome } });
       }
       const profile = await tx.accessProfile.upsert({
         where: { tenantId_nome: { tenantId, nome: "ADMINISTRAÇÃO" } },
@@ -73,6 +81,9 @@ export async function POST(req: NextRequest, { params }: Params) {
         targetIdentityId: identity.id, targetMembershipId: membership.id,
         previousRole: null, previousStatus: null,
       } });
+      await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+        action: "OWNER_ASSIGNED", resourceType: "TenantMembership", resourceId: membership.id,
+        changes: { before: { role: null }, after: { role: "OWNER", status: "ACTIVE" } } });
       return { id: membership.id, email, tenantId, role: membership.role, profileId: profile.id };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
     return NextResponse.json(result, { status: 201 });

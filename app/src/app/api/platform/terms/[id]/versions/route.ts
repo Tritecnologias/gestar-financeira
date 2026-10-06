@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
 import { discardTermPdf, saveTermPdf } from "@/lib/term-storage";
+import { writeAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Params) {
   let storageKey: string | null = null;
   try {
-    await requirePlatformAdmin();
+    const actor = await requirePlatformAdmin();
     const { id: documentId } = await params;
     const document = await prisma.termDocument.findUnique({ where: { id: documentId }, select: { id: true } });
     if (!document) return NextResponse.json({ error: "Documento não encontrado." }, { status: 404 });
@@ -24,10 +25,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
     const stored = await saveTermPdf(file);
     storageKey = stored.storageKey;
-    const created = await prisma.termVersion.create({ data: {
-      documentId, version, title, description: description || null,
-      ...stored, requiresReaccept,
-    } });
+    const created = await prisma.$transaction(async tx => {
+      const row = await tx.termVersion.create({ data: {
+        documentId, version, title, description: description || null,
+        ...stored, requiresReaccept,
+      } });
+      await writeAudit(tx, { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+        action: "TERM_VERSION_UPLOADED", resourceType: "TermVersion", resourceId: row.id,
+        metadata: { documentId, version, requiresReaccept } });
+      return row;
+    });
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     if (storageKey) await discardTermPdf(storageKey);

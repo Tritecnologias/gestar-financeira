@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
+import { writeAudit } from "@/lib/audit";
 
 export async function GET() {
   try { await requirePlatformAdmin(); }
@@ -14,13 +15,19 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    await requirePlatformAdmin();
+    const actor = await requirePlatformAdmin();
     const body = await req.json();
     const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
     if (!/^[A-Z][A-Z0-9_]{2,63}$/.test(code) || !["CONTRATANTE", "USUARIO"].includes(body.audience) || typeof body.required !== "boolean") {
       return NextResponse.json({ error: "Código, audiência e obrigatoriedade são necessários." }, { status: 400 });
     }
-    const document = await prisma.termDocument.create({ data: { code, audience: body.audience, required: body.required } });
+    const document = await prisma.$transaction(async tx => {
+      const created = await tx.termDocument.create({ data: { code, audience: body.audience, required: body.required } });
+      await writeAudit(tx, { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+        action: "TERM_DOCUMENT_CREATED", resourceType: "TermDocument", resourceId: created.id,
+        metadata: { code, audience: body.audience, required: body.required } });
+      return created;
+    });
     return NextResponse.json(document, { status: 201 });
   } catch (error) {
     const status = (error as {code?: string}).code === "P2002" ? 409 : (error as {status?: number}).status ?? 500;

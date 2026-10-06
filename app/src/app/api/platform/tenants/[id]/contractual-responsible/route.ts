@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
+import { writeAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -17,10 +18,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (!membership) return NextResponse.json({ error: "OWNER ativo deste tenant não encontrado." }, { status: 409 });
     const current = await prisma.tenantContractualResponsible.findUnique({ where: { tenantId } });
     if (current?.membershipId === membershipId) return NextResponse.json({ membershipId, unchanged: true });
-    await prisma.tenantContractualResponsible.upsert({
-      where: { tenantId },
-      create: { tenantId, membershipId, assignedByIdentityId: actor.identityId },
-      update: { membershipId, assignedByIdentityId: actor.identityId, assignedAt: new Date() },
+    await prisma.$transaction(async tx => {
+      await tx.tenantContractualResponsible.upsert({
+        where: { tenantId },
+        create: { tenantId, membershipId, assignedByIdentityId: actor.identityId! },
+        update: { membershipId, assignedByIdentityId: actor.identityId!, assignedAt: new Date() },
+      });
+      await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+        action: current ? "OWNER_REASSIGNED" : "OWNER_ASSIGNED",
+        resourceType: "TenantContractualResponsible", resourceId: tenantId,
+        changes: { before: { membershipId: current?.membershipId ?? null }, after: { membershipId } } });
     });
     return NextResponse.json({ membershipId });
   } catch (error) {

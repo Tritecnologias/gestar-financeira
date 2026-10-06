@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireTenantPermission, permissionError } from "@/lib/permissions";
+import { auditContext, writeAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 const ROLES = new Set(["OWNER", "ADMIN", "MEMBER"]);
@@ -50,6 +51,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         ...(body.role !== undefined ? { papel: body.role === "MEMBER" ? "membro" : "admin" } : {}),
         ...(body.status !== undefined ? { ativo: body.status === "ACTIVE" } : {}),
       } });
+      const base = { ...auditContext(session), resourceType: "TenantMembership", resourceId: id };
+      if (current.role !== update.role) await writeAudit(tx, { ...base,
+        action: update.role === "OWNER" ? "OWNER_ASSIGNED" : current.role === "OWNER" ? "OWNER_REMOVED" : "MEMBERSHIP_ROLE_CHANGED",
+        changes: { before: { role: current.role }, after: { role: update.role } } });
+      if (current.status !== update.status) await writeAudit(tx, { ...base,
+        action: update.status === "ACTIVE" ? "MEMBERSHIP_ACTIVATED" : "MEMBERSHIP_DEACTIVATED",
+        changes: { before: { status: current.status }, after: { status: update.status } } });
+      if (current.profileId !== update.profileId) {
+        const beforeProfile = current.profileId ? await tx.accessProfile.findFirst({ where: { id: current.profileId, tenantId }, select: { nome: true } }) : null;
+        const afterProfile = update.profileId ? await tx.accessProfile.findFirst({ where: { id: update.profileId, tenantId }, select: { nome: true } }) : null;
+        await writeAudit(tx, { ...base, action: "ACCESS_PROFILE_CHANGED",
+          changes: { before: { profile: beforeProfile?.nome ?? null }, after: { profile: afterProfile?.nome ?? null } } });
+      }
       return { id: update.id, role: update.role, status: update.status, profileId: update.profileId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
     return NextResponse.json(result);
