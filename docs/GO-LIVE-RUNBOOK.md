@@ -183,7 +183,7 @@ Arquivos fonte para revisão: [`app/docs/access-final-rollout.md`](../app/docs/a
 - [ ] Backup integral **e restore** testados; RPO/RTO e operador definidos.
 - [ ] Dry-run legado somente leitura e ACCESS-FINAL pós-migration com agregados aprovados.
 - [ ] Executor de **backfill de produção** aprovado e ensaiado em clone; conflitos decididos.
-- [ ] PlatformAdmins, OWNERs, responsáveis, tenants ativos e perfis aprovados nominalmente.
+- [ ] PlatformAdmins, OWNERs, responsáveis, tenants ativos e perfis aprovados nominalmente no [mapa administrativo](GO-LIVE-ADMIN-MAP.md), com identidades exatas em ata privada.
 - [ ] Permissões dos perfis legados revisadas; isolamento de dois tenants autenticados testado.
 - [ ] PDFs oficiais, versão/reaceite e storage privado persistente com backup/restore.
 - [ ] Staging: migrations, auth novo, termos, suporte, auditoria, smoke e **rollback para legacy** aprovados.
