@@ -187,7 +187,7 @@ Arquivos fonte para revisão: [`app/docs/access-final-rollout.md`](../app/docs/a
 - [ ] Permissões dos perfis legados revisadas; isolamento de dois tenants autenticados testado.
 - [ ] PDFs oficiais, versão/reaceite e storage privado persistente com backup/restore.
 - [ ] Staging: migrations, auth novo, termos, suporte, auditoria, [onboarding inicial](GO-LIVE-ONBOARDING.md), smoke e **rollback para legacy** aprovados.
-- [ ] Integrar entrega privada de convite por e-mail, remover bloqueio de emissão em produção somente após revisão de segurança e ensaiar ativação/reenvio/revogação com titulares.
+- [ ] Configurar e aprovar o adapter SMTP conforme [EMAIL-DELIVERY.md](EMAIL-DELIVERY.md): caixa/remetente, secrets, `APP_PUBLIC_URL`, SPF/DKIM/DMARC, entrega controlada e monitoramento; ensaiar ativação/reenvio/revogação com titulares. Sem configuração completa, a emissão fora do DEV retorna 503.
 - [ ] Janela, monitoramento, contatos, ponto de decisão e autorização GO assinados.
 
 **Situação nesta data: NO-GO para produção.** Pendem inventário/dry-run do banco real, reconciliação do baseline, executor de backfill próprio de produção, decisões humanas, PDFs/storage e ensaio de rollback HTTP. Este documento não substitui essas aprovações. Nenhum merge, deploy ou mudança de produção foi realizado.
