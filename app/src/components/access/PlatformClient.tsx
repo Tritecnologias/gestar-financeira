@@ -34,6 +34,7 @@ export default function PlatformClient() {
   const [tenantForm, setTenantForm] = useState({ nome: "", email: "", plano: "trial" });
   const [ownerForm, setOwnerForm] = useState({ nome: "", email: "" });
   const [devLink, setDevLink] = useState("");
+  const [deliveryNotice, setDeliveryNotice] = useState("");
   const [ownerInvites, setOwnerInvites] = useState<OwnerInvite[]>([]);
   const [responsibleMembershipId, setResponsibleMembershipId] = useState("");
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function PlatformClient() {
   async function submit() {
     if (mode === "owner" && !window.confirm(`Designar ${ownerForm.email} como OWNER de ${selected?.nome}? Esta ação concede administração essencial do tenant e será registrada.`)) return;
     if (mode === "responsible" && !window.confirm(`Designar o OWNER selecionado como responsável contratual de ${selected?.nome}?`)) return;
-    setBusy(true); setError(""); setDevLink("");
+    setBusy(true); setError(""); setDevLink(""); setDeliveryNotice("");
     try {
       const existingOwnerCandidate = mode === "owner" && memberships.some(m =>
         m.tenant.id === selected?.id && m.identity.email.toLowerCase() === ownerForm.email.trim().toLowerCase());
@@ -80,7 +81,12 @@ export default function PlatformClient() {
           : mode === "owner" ? { ...ownerForm, confirm: true } : tenantForm) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Não foi possível concluir.");
-      setDevLink(body.devLink || ""); setMode(""); setSelected(null); setOwnerForm({ nome: "", email: "" }); await load();
+      setDevLink(body.devLink || "");
+      if (mode === "owner" && !existingOwnerCandidate) setDeliveryNotice(body.delivery?.status === "SENT" ?
+        "Convite OWNER enviado por e-mail." : body.delivery?.status === "SIMULATED" ?
+          "Convite OWNER simulado no DEV; nenhum e-mail foi enviado." :
+          "Convite OWNER criado, mas o e-mail não foi enviado. Reenvie pela lista de convites.");
+      setMode(""); setSelected(null); setOwnerForm({ nome: "", email: "" }); await load();
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
@@ -93,14 +99,19 @@ export default function PlatformClient() {
 
   async function ownerInviteAction(inviteId: string, action: "resend" | "revoke") {
     if (!selected || !window.confirm(action === "revoke" ? "Revogar convite OWNER?" : "Gerar novo link OWNER e invalidar o anterior?")) return;
-    setBusy(true); setError(""); setDevLink("");
+    setBusy(true); setError(""); setDevLink(""); setDeliveryNotice("");
     try {
       const url = `/api/platform/tenants/${selected.id}/owner-invitations`;
       const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ inviteId, action }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Falha ao alterar convite OWNER.");
-      setDevLink(body.devLink || ""); setOwnerInvites(await read<OwnerInvite[]>(url));
+      setDevLink(body.devLink || "");
+      setDeliveryNotice(action === "revoke" ? "Convite OWNER revogado." : body.delivery?.status === "SENT" ?
+        "Novo convite OWNER enviado por e-mail." : body.delivery?.status === "SIMULATED" ?
+          "Novo convite OWNER simulado no DEV; nenhum e-mail foi enviado." :
+          "Novo convite OWNER criado, mas o e-mail não foi enviado. Tente novamente após o limite de segurança.");
+      setOwnerInvites(await read<OwnerInvite[]>(url));
       if (body.devLink) { setMode(""); setSelected(null); }
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
@@ -141,6 +152,7 @@ export default function PlatformClient() {
       }}>+ Novo tenant</button>}
     </div>
     {error && <p className="access-error" role="alert">{error}</p>}
+    {deliveryNotice && <p className="access-hint" role="status">{deliveryNotice}</p>}
     {devLink && <div className="access-dev-link" role="status"><strong>Link de convite OWNER · DEV</strong>
       <p>Compartilhe somente por canal privado. O vínculo ficará ativo após o aceite.</p>
       <input readOnly aria-label="Link de convite OWNER DEV" value={devLink} onFocus={e => e.currentTarget.select()} />

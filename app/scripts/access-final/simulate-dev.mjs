@@ -19,7 +19,7 @@ const isolated = new URL(source);
 isolated.searchParams.set("schema", schema);
 isolated.searchParams.set("sslmode", "disable");
 const root = new Client({ connectionString: source.toString() });
-let db, server, created = false;
+let db, server, failureServer, created = false;
 const check = (label, condition) => { if (!condition) throw new Error(`FAIL ${label}`); checks.push(label); };
 const checks = [];
 const password = randomBytes(20).toString("hex");
@@ -147,7 +147,8 @@ try {
 
   server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", "3017"],
     { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: isolated.toString(),
-      NEXTAUTH_URL: base, AUTH_TRUST_HOST: "true" }, stdio: ["ignore", "pipe", "pipe"] });
+      NEXTAUTH_URL: base, AUTH_TRUST_HOST: "true", EMAIL_PROVIDER: "mock",
+      APP_PUBLIC_URL: base }, stdio: ["ignore", "pipe", "pipe"] });
   for (let i = 0; i < 80; i++) {
     if (server.exitCode !== null) throw new Error("Isolated HTTP server exited.");
     try { if ((await fetch(`${base}/login`)).status === 200) break; } catch { /* starting */ }
@@ -344,8 +345,12 @@ try {
     role: "MEMBER", profileId: readerProfile.id });
   const newInvite = await newInviteResponse.json();
   check("new email receives pending invite and no active identity", newInviteResponse.status === 201 &&
+    newInvite.delivery?.status === "SIMULATED" && newInvite.delivery?.provider === "mock" &&
     !await db.authIdentity.findUnique({ where: { email: newEmail } }) &&
     await db.tenantMembership.count({ where: { tenantId: highId, identity: { email: newEmail } } }) === 0);
+  check("mock delivery has separate audit and never claims real email sent",
+    await db.auditEvent.count({ where: { resourceId: newInvite.id, action: "INVITE_EMAIL_SIMULATED" } }) === 1 &&
+    await db.auditEvent.count({ where: { resourceId: newInvite.id, action: "INVITE_EMAIL_SENT" } }) === 0);
   const newToken = tokenFrom(newInvite);
   const storedInvite = await db.accessInvite.findUnique({ where: { id: newInvite.id } });
   check("only token hash stored and 72h expiry", storedInvite.tokenHash !== newToken &&
@@ -434,11 +439,58 @@ try {
   check("concurrent accepts produce exactly one membership", both.filter(r => r.status === 200).length === 1 &&
     await db.tenantMembership.count({ where: { tenantId: highId,
       identity: { email: `concurrent-${schema}@localhost.invalid` } } }) === 1);
+  const limitedEmail = `limited-${schema}@localhost.invalid`;
+  const firstLimited = await inviteRequest(inviteOwnerJar, { nome: "Rate limit fixture", email: limitedEmail,
+    role: "MEMBER", profileId: readerProfile.id });
+  let limited = await firstLimited.json();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await api(`/api/access/invitations/${limited.id}`, inviteOwnerJar, "POST", { action: "resend" });
+    check(`rate limit permits resend ${attempt + 1} of two`, response.status === 200);
+    limited = await response.json();
+  }
+  const blockedResend = await api(`/api/access/invitations/${limited.id}`, inviteOwnerJar, "POST", { action: "resend" });
+  check("fourth email in 15 minutes is rate-limited without revoking current link", blockedResend.status === 429 &&
+    (await db.accessInvite.findUnique({ where: { id: limited.id } })).status === "PENDING" &&
+    await db.accessInvite.count({ where: { tenantId: highId, email: limitedEmail } }) === 3);
+
+  // Separate local process exercises a genuine SMTP connection failure, without sending mail.
+  const failureBase = "http://127.0.0.1:3018";
+  failureServer = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", "3018"],
+    { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: isolated.toString(),
+      NEXTAUTH_URL: failureBase, AUTH_TRUST_HOST: "true", EMAIL_PROVIDER: "smtp",
+      APP_PUBLIC_URL: failureBase, SMTP_HOST: "127.0.0.1", SMTP_PORT: "1", SMTP_SECURE: "false",
+      SMTP_USER: "fixture", SMTP_PASSWORD: randomBytes(16).toString("hex"),
+      EMAIL_FROM_ADDRESS: "fixture@localhost.invalid", EMAIL_FROM_NAME: "10S Fixture" },
+      stdio: ["ignore", "pipe", "pipe"] });
+  for (let i = 0; i < 80; i++) {
+    if (failureServer.exitCode !== null) throw new Error("SMTP failure fixture server exited.");
+    try { if ((await fetch(`${failureBase}/login`)).status === 200) break; } catch { /* starting */ }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  const failedEmail = `failed-${schema}@localhost.invalid`;
+  const failedResponse = await fetch(`${failureBase}/api/access/invitations`, { method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: inviteOwnerJar.header() },
+    body: JSON.stringify({ nome: "SMTP failure fixture", email: failedEmail,
+      role: "MEMBER", profileId: readerProfile.id }) });
+  const failedBody = await failedResponse.json();
+  check("SMTP connection failure is reported without claiming sent", failedResponse.status === 201 &&
+    failedBody.delivery?.status === "FAILED" && failedBody.delivery?.provider === "smtp" && !failedBody.devLink &&
+    await db.accessInvite.count({ where: { tenantId: highId, email: failedEmail, status: "PENDING" } }) === 1);
+  check("failed delivery is audited without SMTP details", await db.auditEvent.count({ where: {
+    resourceId: failedBody.id, action: "INVITE_EMAIL_FAILED", result: "FAILURE" } }) === 1 &&
+    !(await db.auditEvent.findMany({ where: { resourceId: failedBody.id }, select: { metadata: true } })).some(row =>
+      JSON.stringify(row).includes("SMTP_PASSWORD") || JSON.stringify(row).includes(failedEmail)));
   check("invitation audit excludes token and password", await db.auditEvent.count({ where: { action: "INVITE_ACCEPTED" } }) >= 2 &&
     !(await db.auditEvent.findMany({ select: { metadata: true, changes: true } })).some(row =>
       JSON.stringify(row).includes(newToken) || JSON.stringify(row).includes(password)));
   console.log(`ACCESS-FINAL isolated simulation: ${checks.length} checks passed; ${migrationNames.length} ordered migrations; fixtures removed.`);
 } finally {
+  if (failureServer && failureServer.exitCode === null) {
+    failureServer.kill();
+    await Promise.race([new Promise(resolve => failureServer.once("exit", resolve)),
+      new Promise(resolve => setTimeout(resolve, 5000))]);
+    if (failureServer.exitCode === null) failureServer.kill("SIGKILL");
+  }
   if (server && server.exitCode === null) {
     server.kill();
     await Promise.race([new Promise(resolve => server.once("exit", resolve)),

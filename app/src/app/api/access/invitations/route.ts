@@ -4,7 +4,9 @@ import { prisma } from "@/lib/db";
 import { normalizeEmail } from "@/lib/email";
 import { requireTenantPermission, permissionError } from "@/lib/permissions";
 import { auditContext, writeAudit } from "@/lib/audit";
-import { canIssueDevInvite, devInviteLink, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
+import { assertInviteRateLimit, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
+import { getEmailServiceConfig } from "@/lib/email-service";
+import { deliverAndAuditInvitation } from "@/lib/invite-delivery";
 
 const ROLES = new Set(["OWNER", "ADMIN", "MEMBER"]);
 
@@ -27,7 +29,8 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const { session } = await requireTenantPermission("acessos.usuarios.manage");
-    if (!session.identityId || !canIssueDevInvite(req.nextUrl)) {
+    const emailConfig = getEmailServiceConfig(req.nextUrl);
+    if (!session.identityId || !emailConfig) {
       return NextResponse.json({ error: "Envio de convites não configurado neste ambiente." }, { status: 503 });
     }
     const body = await req.json();
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
     const result = await prisma.$transaction(async tx => {
       const tenantId = session.tenantId;
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite:${tenantId}:${email}`}, 0))`;
-      const tenant = await tx.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true } });
+      const tenant = await tx.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true, nome: true } });
       const profile = await tx.accessProfile.findFirst({ where: { id: profileId, tenantId, ativo: true }, select: { id: true } });
       if (!tenant || !profile) throw Object.assign(new Error("Tenant ou perfil indisponível."), { status: 400 });
       const stale = await tx.accessInvite.findMany({ where: { tenantId, email, status: "PENDING",
@@ -65,14 +68,18 @@ export async function POST(req: NextRequest) {
       if (identity?.status === "INACTIVE" || existing || pending || legacy) {
         throw Object.assign(new Error("Já existe acesso ou convite para este email neste tenant; revise o cadastro."), { status: 409 });
       }
+      await assertInviteRateLimit(tx, tenantId, email);
       const invitation = await tx.accessInvite.create({ data: { tenantId, email, name, role, profileId,
         status: "PENDING", tokenHash: secret.tokenHash, expiresAt: inviteExpiresAt(),
         invitedByIdentityId: session.identityId! } });
       await writeAudit(tx, { ...auditContext(session), action: "INVITE_CREATED", resourceType: "AccessInvite",
         resourceId: invitation.id, metadata: { role } });
-      return { id: invitation.id, status: invitation.status, expiresAt: invitation.expiresAt };
+      return { id: invitation.id, status: invitation.status, expiresAt: invitation.expiresAt, tenantName: tenant.nome };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
-    return NextResponse.json({ ...result, devLink: devInviteLink(req.nextUrl.origin, secret.token) },
+    const sent = await deliverAndAuditInvitation(emailConfig, { id: result.id, tenantId: session.tenantId,
+      to: email, tenantName: result.tenantName, token: secret.token, expiresAt: result.expiresAt,
+      actor: auditContext(session) });
+    return NextResponse.json({ id: result.id, status: result.status, expiresAt: result.expiresAt, ...sent },
       { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch (error: unknown) {
     if ((error as { code?: string })?.code === "P2002") return NextResponse.json({ error: "Já existe convite pendente para este email." }, { status: 409 });

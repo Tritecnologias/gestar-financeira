@@ -19,6 +19,8 @@ const labels: Record<string, string> = {
   MEMBERSHIP_ACTIVATED: "Vínculo ativado", MEMBERSHIP_DEACTIVATED: "Vínculo desativado",
   INVITE_CREATED: "Convite criado", INVITE_REVOKED: "Convite revogado",
   INVITE_EXPIRED: "Convite expirado", INVITE_ACCEPTED: "Convite aceito",
+  INVITE_EMAIL_SENT: "E-mail de convite enviado", INVITE_EMAIL_SIMULATED: "Envio de convite simulado",
+  INVITE_EMAIL_FAILED: "Falha no e-mail de convite",
   MEMBERSHIP_ROLE_CHANGED: "Papel alterado", ACCESS_PROFILE_CHANGED: "Perfil de acesso alterado",
   OWNER_ASSIGNED: "OWNER designado", OWNER_REMOVED: "OWNER removido", OWNER_REASSIGNED: "OWNER reassociado",
   PERMISSION_PROFILE_CREATED: "Perfil criado", PERMISSION_PROFILE_CHANGED: "Perfil alterado",

@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 
@@ -22,12 +23,14 @@ export function inviteExpiresAt() {
   return new Date(Date.now() + INVITE_HOURS * 60 * 60 * 1000);
 }
 
-// Fragmento não é enviado ao servidor nos GETs e não deve ir para logs.
-export function devInviteLink(origin: string, token: string) {
-  return `${origin}/ativar-acesso#token=${token}`;
+// Chamado sob o advisory lock por tenant/e-mail nas operações de emissão.
+export async function assertInviteRateLimit(tx: Prisma.TransactionClient, tenantId: string, email: string) {
+  const recent = await tx.accessInvite.count({ where: { tenantId, email,
+    createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) } } });
+  if (recent >= 3) throw Object.assign(new Error("Limite de convites atingido. Aguarde 15 minutos para reenviar."), { status: 429 });
 }
 
-// Sem provedor de email, emissão fica estritamente no sandbox DEV local.
+// O modo simulado e a exibição do link bruto ficam estritamente no sandbox DEV local.
 export function canIssueDevInvite(requestUrl: URL) {
   try {
     const database = new URL(process.env.DATABASE_URL || "");

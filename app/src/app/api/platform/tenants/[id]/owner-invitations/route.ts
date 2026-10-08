@@ -5,7 +5,9 @@ import { requirePlatformAdmin } from "@/lib/tenant";
 import { normalizeEmail } from "@/lib/email";
 import { ALL_PERMISSIONS } from "@/lib/access-catalog";
 import { writeAudit } from "@/lib/audit";
-import { canIssueDevInvite, devInviteLink, expireInvite, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
+import { assertInviteRateLimit, expireInvite, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
+import { getEmailServiceConfig } from "@/lib/email-service";
+import { deliverAndAuditInvitation } from "@/lib/invite-delivery";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -28,11 +30,12 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function POST(req: NextRequest, { params }: Params) {
   try {
     const actor = await requirePlatformAdmin();
-    if (!actor.identityId || !canIssueDevInvite(req.nextUrl)) {
-      return NextResponse.json({ error: "Envio de convites não configurado neste ambiente." }, { status: 503 });
-    }
     const { id: tenantId } = await params;
     const body = await req.json();
+    const emailConfig = getEmailServiceConfig(req.nextUrl);
+    if (!actor.identityId || (body.action !== "revoke" && !emailConfig)) {
+      return NextResponse.json({ error: "Envio de convites não configurado neste ambiente." }, { status: 503 });
+    }
     if (body.action === "revoke" || body.action === "resend") {
       const inviteId = typeof body.inviteId === "string" ? body.inviteId : "";
       if (!inviteId) return NextResponse.json({ error: "Convite obrigatório." }, { status: 400 });
@@ -41,7 +44,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       const changed = await prisma.$transaction(async tx => {
         await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite-id:${inviteId}`}, 0))`;
         const old = await tx.accessInvite.findFirst({ where: { id: inviteId, tenantId, role: "OWNER" },
-          include: { tenant: { select: { ativo: true } }, profile: { select: { ativo: true } } } });
+          include: { tenant: { select: { ativo: true, nome: true } }, profile: { select: { ativo: true } } } });
         if (!old || (old.status !== "PENDING" && old.status !== "EXPIRED")) {
           throw Object.assign(new Error("Convite OWNER indisponível."), { status: 409 });
         }
@@ -54,6 +57,8 @@ export async function POST(req: NextRequest, { params }: Params) {
           return { id: inviteId, status: "REVOKED" };
         }
         if (!old.tenant.ativo || !old.profile.ativo) throw Object.assign(new Error("Tenant ou perfil inativo."), { status: 409 });
+        await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite:${tenantId}:${old.email}`}, 0))`;
+        await assertInviteRateLimit(tx, tenantId, old.email);
         const targetIdentity = await tx.authIdentity.findUnique({ where: { email: old.email }, select: { id: true, status: true } });
         const legacy = await tx.usuario.findFirst({ where: { tenantId, email: old.email }, select: { id: true } });
         if (targetIdentity?.status === "INACTIVE" || targetIdentity && await tx.tenantMembership.findUnique({
@@ -71,9 +76,16 @@ export async function POST(req: NextRequest, { params }: Params) {
           expiresAt: inviteExpiresAt(), invitedByIdentityId: actor.identityId! } });
         await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
           action: "INVITE_CREATED", resourceType: "AccessInvite", resourceId: next.id, reason: "Reenvio" });
-        return { id: next.id, status: next.status, expiresAt: next.expiresAt };
+        return { id: next.id, status: next.status, expiresAt: next.expiresAt,
+          tenantName: old.tenant.nome, email: old.email };
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
-      return NextResponse.json({ ...changed, ...(secret ? { devLink: devInviteLink(req.nextUrl.origin, secret.token) } : {}) },
+      const sent = secret && emailConfig && "email" in changed && changed.email && changed.tenantName && changed.expiresAt
+        ? await deliverAndAuditInvitation(emailConfig, {
+        id: changed.id, tenantId, to: changed.email, tenantName: changed.tenantName,
+        token: secret.token, expiresAt: changed.expiresAt,
+        actor: { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN" } }) : null;
+      return NextResponse.json({ id: changed.id, status: changed.status,
+        ...("expiresAt" in changed ? { expiresAt: changed.expiresAt } : {}), ...sent },
         { headers: { "Cache-Control": "private, no-store" } });
     }
     const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
@@ -84,7 +96,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const secret = newInviteToken();
     const invite = await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite:${tenantId}:${email}`}, 0))`;
-      const tenant = await tx.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true } });
+      const tenant = await tx.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true, nome: true } });
       if (!tenant) throw Object.assign(new Error("Tenant ativo não encontrado."), { status: 404 });
       const identity = await tx.authIdentity.findUnique({ where: { email }, select: { id: true, status: true } });
       const membership = identity && await tx.tenantMembership.findUnique({ where: { identityId_tenantId: {
@@ -102,6 +114,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
           action: "INVITE_EXPIRED", resourceType: "AccessInvite", resourceId: item.id });
       }
+      await assertInviteRateLimit(tx, tenantId, email);
       const profile = await tx.accessProfile.upsert({
         where: { tenantId_nome: { tenantId, nome: "ADMINISTRAÇÃO" } },
         create: { tenantId, nome: "ADMINISTRAÇÃO", descricao: "Perfil inicial de administração", permissoes: ALL_PERMISSIONS },
@@ -114,9 +127,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
         action: "INVITE_CREATED", resourceType: "AccessInvite", resourceId: created.id,
         metadata: { role: "OWNER" } });
-      return { id: created.id, expiresAt: created.expiresAt };
+      return { id: created.id, expiresAt: created.expiresAt, tenantName: tenant.nome };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
-    return NextResponse.json({ ...invite, devLink: devInviteLink(req.nextUrl.origin, secret.token) },
+    const sent = await deliverAndAuditInvitation(emailConfig!, { id: invite.id, tenantId,
+      to: email, tenantName: invite.tenantName, token: secret.token, expiresAt: invite.expiresAt,
+      actor: { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN" } });
+    return NextResponse.json({ id: invite.id, expiresAt: invite.expiresAt, ...sent },
       { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch (error: unknown) {
     const failure = error as { code?: string; status?: number; message?: string };

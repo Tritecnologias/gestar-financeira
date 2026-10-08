@@ -22,6 +22,7 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ nome: "", email: "", role: "MEMBER", profileId: "" });
   const [devLink, setDevLink] = useState("");
+  const [deliveryNotice, setDeliveryNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -56,20 +57,29 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
       const response = await fetch("/api/access/invitations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Não foi possível criar convite.");
-      setDevLink(body.devLink || ""); setModal(false);
+      setDevLink(body.devLink || "");
+      setDeliveryNotice(body.delivery?.status === "SENT" ? "Convite criado e e-mail enviado." :
+        body.delivery?.status === "SIMULATED" ? "Convite criado. Envio simulado no DEV; nenhum e-mail foi enviado." :
+          "Convite criado, mas o e-mail não foi enviado. Use Reenviar convite.");
+      setModal(false);
       setForm({ nome: "", email: "", role: "MEMBER", profileId: "" }); await load(); router.refresh();
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
   async function invitationAction(id: string, action: "resend" | "revoke") {
     if (!window.confirm(action === "revoke" ? "Revogar este convite?" : "Gerar novo link e invalidar o anterior?")) return;
-    setBusy(true); setError(""); setDevLink("");
+    setBusy(true); setError(""); setDevLink(""); setDeliveryNotice("");
     try {
       const response = await fetch(`/api/access/invitations/${id}`, { method: "POST",
         headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Não foi possível alterar o convite.");
-      setDevLink(body.devLink || ""); await load();
+      setDevLink(body.devLink || "");
+      setDeliveryNotice(action === "revoke" ? "Convite revogado." : body.delivery?.status === "SENT" ?
+        "Novo convite enviado por e-mail." : body.delivery?.status === "SIMULATED" ?
+          "Novo convite simulado no DEV; nenhum e-mail foi enviado." :
+          "Novo convite criado, mas o e-mail não foi enviado. Tente reenviar após o limite de segurança.");
+      await load();
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
@@ -81,8 +91,9 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
         {canViewProfiles && <Link className="access-button access-button-secondary" href="/acessos/perfis">Perfis de Acesso</Link>}
       </div></header>
     <div className="access-toolbar"><input placeholder="Buscar usuário ou perfil" aria-label="Buscar usuários" value={query} onChange={e => setQuery(e.target.value)} />
-      {canManage && <button className="access-button access-button-primary" onClick={() => { setDevLink(""); setModal(true); }}>+ Convidar usuário</button>}</div>
+      {canManage && <button className="access-button access-button-primary" onClick={() => { setDevLink(""); setDeliveryNotice(""); setModal(true); }}>+ Convidar usuário</button>}</div>
     {error && <p role="alert" className="access-error">{error}</p>}
+    {deliveryNotice && <p role="status" className="access-hint">{deliveryNotice}</p>}
     {devLink && <div className="access-dev-link" role="status"><strong>Link de convite DEV</strong>
       <p>Envie por canal privado ao destinatário. Este link aparece somente agora; contém um segredo de uso único.</p>
       <input readOnly aria-label="Link de convite DEV" value={devLink} onFocus={e => e.currentTarget.select()} />
