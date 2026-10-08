@@ -1,7 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
+import { validateActiveArea } from "@/lib/management-structure";
 
 export async function GET() {
+  const access = await guardApi(["estrutura.empresa.view","estrutura.pessoas.view"]); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
   const items = await db.centroCusto.findMany({ where: { ativo: true }, orderBy: [{ codigo: "asc" }], include: { area: { select: { codigo: true, nome: true } } } });
@@ -9,12 +12,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const access = await guardApi("estrutura.empresa.create"); if (access) return access;
   let db: any;
   try { ({ db } = await requireEscrita()); } catch (e: any) { return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 }); }
   const { codigo, nome, areaId } = await req.json();
   if (!codigo?.trim() || !nome?.trim()) return NextResponse.json({ error: "Código e nome são obrigatórios" }, { status: 400 });
+  const area = await validateActiveArea(db, areaId);
+  if (!area.ok) return NextResponse.json({ error: area.error }, { status: area.status });
   try {
-    const item = await db.centroCusto.create({ data: { codigo: codigo.trim(), nome: nome.trim(), areaId: areaId || null } });
+    const item = await db.centroCusto.create({ data: { codigo: codigo.trim(), nome: nome.trim(), areaId: area.id } });
     return NextResponse.json(item, { status: 201 });
   } catch (e: any) {
     if (e.code === "P2002") return NextResponse.json({ error: "Código já cadastrado" }, { status: 409 });

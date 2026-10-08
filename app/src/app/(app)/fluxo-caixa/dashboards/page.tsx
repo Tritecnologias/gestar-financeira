@@ -1,21 +1,16 @@
-import type { Metadata } from 'next';
+import type { Metadata } from "next";
+import OverviewClient from "./OverviewClient";
+import "./overview.css";
+import { requirePermission } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: 'Dashboards – Dez Soluções' };
+export const metadata: Metadata = { title: "Visão Geral – Dez Soluções" };
 
-export default function Page() {
-  return (
-    <div>
-      <header className="topbar">
-        <div>
-          <h1 className="page-title">Dashboards</h1>
-          <p className="page-sub">Fluxo de Caixa</p>
-        </div>
-      </header>
-      <div style={{ padding: '60px 28px', textAlign: 'center', color: 'var(--text-muted)' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🚧</div>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Dashboards</div>
-        <div style={{ fontSize: 13 }}>Esta tela está em desenvolvimento. Em breve disponível.</div>
-      </div>
-    </div>
-  );
+export default async function Page() {
+  try { await requirePermission("fluxo.visao.view"); }
+  catch (error: any) { redirect(error?.status === 403 ? "/acesso-negado" : "/login"); }
+  const hoje = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  return <OverviewClient hoje={hoje} />;
 }

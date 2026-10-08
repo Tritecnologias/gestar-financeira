@@ -1,55 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession, requireEscrita } from "@/lib/tenant";
+import { requirePermission, hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
+import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
+import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamentos } from "@/lib/lancamento-filters";
+import { CARDS_LANCAMENTO, type CardLancamento } from "@/lib/lancamento-card-filter";
+import { consultarIdsDoCard } from "@/lib/lancamento-card-query";
 import type { PaginatedResponse, LancamentoDTO } from "@/types";
+import { Prisma } from "@prisma/client";
 
 // ── GET /api/lancamentos ──────────────────────────────────────
 export async function GET(req: NextRequest) {
-  let db: any, session: any;
+  let db: any, session: any, context: Awaited<ReturnType<typeof requirePermission>>;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    context = await requirePermission("fluxo.lancamentos.view");
+    ({ db, session } = context);
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
   }
 
+  const canSeeBalances = await hasPermission("fluxo.visao.saldos", context);
   const { searchParams } = new URL(req.url);
-  const tipo        = searchParams.get("tipo") || "";
-  const status      = searchParams.get("status") || "";
-  const statusManual = searchParams.get("statusManual") || "";
-  const centroCusto = searchParams.get("centroCusto") || "";
-  const fornecedor  = searchParams.get("fornecedor") || "";
-  const busca       = searchParams.get("busca") || "";
-  const dataInicio  = searchParams.get("dataInicio") || "";
-  const dataFim     = searchParams.get("dataFim") || "";
+  let filtros: ReturnType<typeof lerFiltrosLancamentos>;
+  try { filtros = lerFiltrosLancamentos(searchParams); }
+  catch (error: any) { return NextResponse.json({ error: error.message }, { status: 400 }); }
   const pagina      = parseInt(searchParams.get("pagina") || "1");
-  const porPagina   = Math.min(200, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
+  const tudo        = searchParams.get("porPagina") === "all";
+  const porPagina   = tudo ? 500 : Math.min(500, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
   const sortKey     = searchParams.get("sortKey") || "";
   const sortDir     = (searchParams.get("sortDir") || "desc") as "asc" | "desc";
-
-  // ⚡ Sem tenantId manual — o db já filtra automaticamente via Extension
-  const where: any = {};
-  if (tipo)        where.tipo = tipo;
-  if (status)      where.status = status;
-  if (statusManual) where.statusManual = statusManual;
-  if (centroCusto) where.centroCusto = centroCusto;
-  if (fornecedor)  where.fornecedor = { contains: fornecedor, mode: "insensitive" };
-  if (dataInicio || dataFim) {
-    where.dataLanc = {};
-    if (dataInicio) where.dataLanc.gte = new Date(dataInicio);
-    if (dataFim)    where.dataLanc.lte = new Date(dataFim);
+  const card = searchParams.get("card");
+  if (card && !CARDS_LANCAMENTO.includes(card as CardLancamento)) {
+    return NextResponse.json({ error: "Indicador inválido." }, { status: 400 });
   }
-  if (busca) {
-    where.OR = [
-      { descricao:      { contains: busca, mode: "insensitive" } },
-      { fornecedor:     { contains: busca, mode: "insensitive" } },
-      { fantasiaPadrao: { contains: busca, mode: "insensitive" } },
-      { centroCusto:    { contains: busca, mode: "insensitive" } },
-      { referencia:     { contains: busca, mode: "insensitive" } },
-      { anotacao:       { contains: busca, mode: "insensitive" } },
-      { statusManual:   { contains: busca, mode: "insensitive" } },
-      { banco:          { contains: busca, mode: "insensitive" } },
-    ];
+
+  const where = whereLancamentos(filtros, session.tenantId, !card);
+  if (card) {
+    const ids = await consultarIdsDoCard(db, filtros, session.tenantId, card as CardLancamento, hojeSaoPaulo());
+    where.id = { in: ids };
   }
 
   // ── Mapeamento sortKey (DTO) → campo Prisma ─────────────────
@@ -73,6 +61,7 @@ export async function GET(req: NextRequest) {
     statusExtrato:    { statusExtrato:    sortDir },
     centroCusto:      { centroCusto:      sortDir },
     categoria:        { categoria:        sortDir },
+    contaId:          { conta: { codigo: sortDir } },
     dre:              { dre:              sortDir },
     cont:             { cont:             sortDir },
     anotacao:         { anotacao:         sortDir },
@@ -82,32 +71,49 @@ export async function GET(req: NextRequest) {
     ? [SORT_MAP[sortKey], { seq: "desc" as const }]
     : [{ dataLanc: "desc" as const }, { seq: "desc" as const }];
 
-  const [total, lancamentos] = await Promise.all([
-    db.lancamento.count({ where }),
-    db.lancamento.findMany({
-      where,
-      orderBy,
-      skip: (pagina - 1) * porPagina,
-      take: porPagina,
-      include: { fornecedorRef: { select: { codigo: true, nome: true } } },
-    }),
-  ]);
+  let total: number;
+  let lancamentos: any[];
+  let valorPrevisto = new Prisma.Decimal(0);
+  let valorRealizado = new Prisma.Decimal(0);
+  if (filtros.status) {
+    const candidatos = await db.lancamento.findMany({ where, orderBy, include: counterpartInclude });
+    const selecionados = candidatos.filter((row: any) => statusCorresponde(row, filtros.status, hojeSaoPaulo()));
+    total = selecionados.length;
+    for (const row of selecionados) {
+      valorPrevisto = valorPrevisto.plus(row.valorPrevisto ?? 0);
+      valorRealizado = valorRealizado.plus(row.valor ?? 0);
+    }
+    lancamentos = tudo ? selecionados : selecionados.slice((pagina - 1) * porPagina, pagina * porPagina);
+  } else {
+    const [count, rows, sums] = await Promise.all([
+      db.lancamento.count({ where }),
+      db.lancamento.findMany({ where, orderBy,
+        ...(!tudo ? { skip: (pagina - 1) * porPagina, take: porPagina } : {}),
+        include: counterpartInclude }),
+      db.lancamento.aggregate({ where, _sum: { valorPrevisto: true, valor: true } }),
+    ]);
+    total = count;
+    lancamentos = rows;
+    valorPrevisto = sums._sum.valorPrevisto ?? valorPrevisto;
+    valorRealizado = sums._sum.valor ?? valorRealizado;
+  }
 
   const data = lancamentos.map((l: any, i: number) =>
-    toLancamentoDTO(l, (pagina - 1) * porPagina + i + 1)
+    toLancamentoDTO(l, (tudo ? 0 : (pagina - 1) * porPagina) + i + 1)
   );
 
   return NextResponse.json({
-    data, total, pagina, porPagina,
-    totalPaginas: Math.ceil(total / porPagina),
-  } satisfies PaginatedResponse<LancamentoDTO>);
+    data, total, pagina: tudo ? 1 : pagina, porPagina: tudo ? total : porPagina,
+    totalPaginas: tudo ? 1 : Math.ceil(total / porPagina),
+    totais: canSeeBalances ? { valorPrevisto: valorPrevisto.toFixed(2), valorRealizado: valorRealizado.toFixed(2), cont: total } : { cont: total },
+  } satisfies PaginatedResponse<LancamentoDTO> & { totais: { valorPrevisto?: string; valorRealizado?: string; cont: number } });
 }
 
 // ── POST /api/lancamentos ─────────────────────────────────────
 export async function POST(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireEscrita());
+    ({ db, session } = await requirePermission("fluxo.lancamentos.create"));
   } catch (e: any) {
     const status = e?.status ?? 401;
     return NextResponse.json({ error: e?.message ?? "Não autenticado" }, { status });
@@ -116,7 +122,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
     dataLanc, descricao, valor, tipo, status,
-    fornecedor, fornecedorId, centroCusto, referencia, contaId,
+    fornecedor, fornecedorId, clienteId, centroCusto, referencia, contaId,
     dataEmissao, dataVencOriginal, dataVencPlano, dataEvento, dataPagamento,
     statusManual, statusExtrato, valorPrevisto, banco,
     fantasiaPadrao, categoria, dre, cont, anotacao,
@@ -128,10 +134,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Campos obrigatórios: dataLanc, descricao, valor, tipo" }, { status: 400 });
   }
 
+  let counterpart: Record<string, unknown>, account: Record<string, unknown>;
+  try {
+    counterpart = await resolveCounterpartyLink(db, session.tenantId, { clienteId, fornecedorId });
+    account = await resolveAccountSelection(db, session.tenantId, contaId, undefined, tipo, categoria);
+  }
+  catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 400 }); }
+
 
   // ⚡ seq calculado por tenant dentro de uma transação para garantir unicidade.
   // MAX(seq) + 1 filtrado pelo tenantId — cada tenant tem sua própria sequência.
   const lancamento = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`lancamento-seq:${session.tenantId}`}, 0))`;
     const resultado = await tx.$queryRaw<{ nextseq: number }[]>`
       SELECT COALESCE(MAX(seq), 0) + 1 AS nextseq
       FROM lancamentos
@@ -146,7 +160,7 @@ export async function POST(req: NextRequest) {
         dataLanc:         parseDateOnly(dataLanc) ?? new Date(),
         dataEmissao:      parseDateOnly(dataEmissao),
         dataVencOriginal: parseDateOnly(dataVencOriginal),
-        dataVencPlano:    parseDateOnly(dataVencPlano),
+        dataVencPlano:    parseDateOnly(dataVencPlano || dataVencOriginal),
         dataEvento:       parseDateOnly(dataEvento),
         dataPagamento:    parseDateOnly(dataPagamento),
         descricao:        descricao.trim(),
@@ -159,17 +173,20 @@ export async function POST(req: NextRequest) {
         banco:            banco         || null,
         fornecedor:       fornecedor    || null,
         fornecedorId:     fornecedorId  || null,
+        clienteId:        clienteId || null,
         fantasiaPadrao:   fantasiaPadrao|| null,
+        ...counterpart,
         centroCusto:      centroCusto   || null,
         referencia:       referencia    || null,
         contaId:          contaId       || null,
         categoria:        categoria     || null,
+        ...account,
         dre:              dre           || null,
         cont:             cont          || null,
         anotacao:         anotacao      || null,
         criadoPor:        session.id,
       },
-      include: { fornecedorRef: { select: { codigo: true, nome: true } } },
+      include: counterpartInclude,
     });
   });
 

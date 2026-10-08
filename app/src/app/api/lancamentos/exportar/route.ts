@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { toNumber } from "@/lib/formatters";
+import { counterpartyDisplay } from "@/lib/counterparty";
+import { counterpartInclude } from "@/lib/lancamento-counterparty";
+import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamentos } from "@/lib/lancamento-filters";
 
 // ── GET /api/lancamentos/exportar ─────────────────────────────
 // Exporta TODOS os lançamentos (sem paginação) para CSV.
@@ -8,44 +11,19 @@ import { toNumber } from "@/lib/formatters";
 export async function GET(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    ({ db, session } = await requirePermission("fluxo.lancamentos.export"));
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
   }
 
   const { searchParams } = new URL(req.url);
-  const tipo        = searchParams.get("tipo") || "";
-  const status      = searchParams.get("status") || "";
-  const statusManual = searchParams.get("statusManual") || "";
-  const centroCusto = searchParams.get("centroCusto") || "";
-  const fornecedor  = searchParams.get("fornecedor") || "";
-  const busca       = searchParams.get("busca") || "";
-  const dataInicio  = searchParams.get("dataInicio") || "";
-  const dataFim     = searchParams.get("dataFim") || "";
+  let filtros: ReturnType<typeof lerFiltrosLancamentos>;
+  try { filtros = lerFiltrosLancamentos(searchParams); }
+  catch (error: any) { return NextResponse.json({ error: error.message }, { status: 400 }); }
   const sortKey     = searchParams.get("sortKey") || "";
   const sortDir     = (searchParams.get("sortDir") || "desc") as "asc" | "desc";
 
-  const where: any = {};
-  if (tipo)        where.tipo = tipo;
-  if (status)      where.status = status;
-  if (statusManual) where.statusManual = statusManual;
-  if (centroCusto) where.centroCusto = centroCusto;
-  if (fornecedor)  where.fornecedor = { contains: fornecedor, mode: "insensitive" };
-  if (dataInicio || dataFim) {
-    where.dataLanc = {};
-    if (dataInicio) where.dataLanc.gte = new Date(dataInicio);
-    if (dataFim)    where.dataLanc.lte = new Date(dataFim);
-  }
-  if (busca) {
-    where.OR = [
-      { descricao:    { contains: busca, mode: "insensitive" } },
-      { fornecedor:   { contains: busca, mode: "insensitive" } },
-      { centroCusto:  { contains: busca, mode: "insensitive" } },
-      { referencia:   { contains: busca, mode: "insensitive" } },
-      { anotacao:     { contains: busca, mode: "insensitive" } },
-      { statusManual: { contains: busca, mode: "insensitive" } },
-    ];
-  }
+  const where = whereLancamentos(filtros, session.tenantId, true);
 
   const SORT_MAP: Record<string, any> = {
     seq:              { seq:              sortDir },
@@ -77,26 +55,26 @@ export async function GET(req: NextRequest) {
     : [{ dataLanc: "desc" as const }, { seq: "desc" as const }];
 
   // Buscar TODOS os registros (sem paginação)
-  const lancamentos = await db.lancamento.findMany({
+  const candidatos = await db.lancamento.findMany({
     where,
     orderBy,
-    include: { fornecedorRef: { select: { codigo: true, nome: true } } },
+    include: counterpartInclude,
   });
+  const lancamentos = candidatos.filter((row: any) => statusCorresponde(row, filtros.status, hojeSaoPaulo()));
 
   // Montar CSV
-  const fmt = (d: Date | null | undefined) => d ? new Date(d).toISOString().split("T")[0] : "";
   const fmtBR = (d: Date | null | undefined) => {
     if (!d) return "";
     const dt = new Date(d);
-    return `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")}/${dt.getFullYear()}`;
+    return `${String(dt.getUTCDate()).padStart(2, "0")}/${String(dt.getUTCMonth() + 1).padStart(2, "0")}/${dt.getUTCFullYear()}`;
   };
 
   const headers = [
     "Seq", "Data Lanç.", "Data Emissão", "Venc. Original", "Venc. Plano",
     "Data Evento", "Data Pagamento", "Descrição", "Fornecedor", "Fantasia",
-    "Banco", "Tipo", "Status", "Status Manual", "Status Extrato",
-    "Valor Realizado", "Valor Previsto", "Centro de Custo", "Categoria",
-    "DRE", "Conta", "Referência", "Anotação",
+    "Banco", "Direção", "Status", "Status Manual", "Status Extrato",
+    "Valor Realizado", "Valor Previsto", "Centro de Custo", "Categoria N1",
+    "DRE", "Conta N2", "Cont.", "Referência", "Anotação",
   ];
 
   const rows = lancamentos.map((l: any, i: number) => [
@@ -109,7 +87,7 @@ export async function GET(req: NextRequest) {
     fmtBR(l.dataPagamento),
     l.descricao ?? "",
     l.fornecedor ?? "",
-    l.fornecedorRef ? `${l.fornecedorRef.codigo} – ${l.fornecedorRef.nome}` : (l.fantasiaPadrao ?? ""),
+    l.clienteRef ? counterpartyDisplay(l.clienteRef) : l.fornecedorRef ? counterpartyDisplay(l.fornecedorRef) : (l.fantasiaPadrao || l.fornecedor || ""),
     l.banco ?? "",
     l.tipo ?? "",
     l.status ?? "",
@@ -118,8 +96,9 @@ export async function GET(req: NextRequest) {
     l.valor != null ? toNumber(l.valor) : "",
     l.valorPrevisto != null ? toNumber(l.valorPrevisto) : "",
     l.centroCusto ?? "",
-    l.categoria ?? "",
+    l.conta?.categoria?.tenantId === l.tenantId ? l.conta.categoria.codigo : l.categoria ?? "",
     l.dre ?? "",
+    l.conta?.tenantId === l.tenantId ? `${l.conta.codigo ?? ""} – ${l.conta.descricao}` : "",
     l.cont ?? "",
     l.referencia ?? "",
     l.anotacao ?? "",

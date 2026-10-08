@@ -39,6 +39,7 @@ build/
 # ── Docker volumes (dados locais) ─────────────────────────
 postgres_data/
 pgadmin_data/
+/app/.private/
 
 # ── Logs ──────────────────────────────────────────────────
 *.log

@@ -1,0 +1,13 @@
+// Normalização compartilhada pelo login da identidade e pelo rollback legado.
+export function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export function emailEqualsNormalized(value: string) {
+  return { equals: normalizeEmail(value), mode: "insensitive" as const };
+}
+
+// Never choose a tenant by query ordering when the same email has two accounts.
+export function unambiguousLegacyAccount<T>(accounts: T[]): T | null {
+  return accounts.length === 1 ? accounts[0] : null;
+}

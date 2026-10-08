@@ -1,29 +1,23 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { ColConfig, LayoutColunasDTO } from "@/types";
-import { DEFAULT_COLUNAS_CONFIG, COLUNAS_DEF } from "./colunasConfig";
+import { DEFAULT_COLUNAS_CONFIG, COLUNAS_DEF, alignLegacyDefaultColumns } from "./colunasConfig";
 
 interface Props {
-  onLayoutChange: (colunas: ColConfig[]) => void;
+  colConfig: ColConfig[];
+  onLayoutChange: Dispatch<SetStateAction<ColConfig[]>>;
 }
 
-export default function LayoutManager({ onLayoutChange }: Props) {
+export default function LayoutManager({ colConfig, onLayoutChange }: Props) {
   const [layouts, setLayouts] = useState<LayoutColunasDTO[]>([]);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [novoNome, setNovoNome] = useState("");
-  const [colConfig, setColConfig] = useState<ColConfig[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("gestar_col_config");
-      if (saved) try { return JSON.parse(saved); } catch {}
-    }
-    return DEFAULT_COLUNAS_CONFIG;
-  });
   const [selectorOpen, setSelectorOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Drag & drop no painel de seletor
-  const OBRIGATORIAS = new Set(["acoes"]);
+  const OBRIGATORIAS = new Set<string>();
   const panelDragKey = useRef<string | null>(null);
   const [panelDragOver, setPanelDragOver] = useState<string | null>(null);
 
@@ -38,7 +32,7 @@ export default function LayoutManager({ onLayoutChange }: Props) {
   const handlePanelDrop = (targetKey: string) => {
     const srcKey = panelDragKey.current;
     if (!srcKey || srcKey === targetKey) { setPanelDragOver(null); panelDragKey.current = null; return; }
-    setColConfig(prev => {
+    onLayoutChange(prev => {
       const ordered = [...prev].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       const si = ordered.findIndex(c => c.key === srcKey);
       const ti = ordered.findIndex(c => c.key === targetKey);
@@ -70,29 +64,19 @@ export default function LayoutManager({ onLayoutChange }: Props) {
     fetch("/api/layouts").then(r => r.json()).then(data => {
       if (Array.isArray(data)) {
         setLayouts(data);
-        const def = data.find((l: LayoutColunasDTO) => l.isDefault);
-        if (def) applyLayout(def.colunas);
       }
     }).catch(() => {});
   }, []);
 
-  // Propagar mudanças
-  useEffect(() => {
-    onLayoutChange(colConfig);
-    localStorage.setItem("gestar_col_config", JSON.stringify(colConfig));
-  }, [colConfig]);
-
   const applyLayout = (colunas: ColConfig[]) => {
-    setColConfig(colunas);
+    onLayoutChange(alignLegacyDefaultColumns(colunas));
   };
 
   const toggleCol = (key: string) => {
-    // Não ocultar coluna de ações
-    if (key === "acoes") return;
-    setColConfig(prev => prev.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
+    onLayoutChange(prev => prev.map(c => c.key === key ? { ...c, visible: !c.visible } : c));
   };
 
-  const resetLayout = () => setColConfig(DEFAULT_COLUNAS_CONFIG);
+  const resetLayout = () => onLayoutChange(DEFAULT_COLUNAS_CONFIG);
 
   const saveLayout = async () => {
     if (!novoNome.trim()) return;
@@ -164,7 +148,6 @@ export default function LayoutManager({ onLayoutChange }: Props) {
           </div>
           {/* ordenadas pelo order atual */}
           {[...COLUNAS_DEF]
-            .filter(c => c.key !== "acoes")
             .sort((a, b) => {
               const oa = colConfig.find(c => c.key === a.key)?.order ?? 999;
               const ob = colConfig.find(c => c.key === b.key)?.order ?? 999;
@@ -186,8 +169,8 @@ export default function LayoutManager({ onLayoutChange }: Props) {
                   style={{
                     display: "flex", alignItems: "center", gap: 8,
                     padding: "6px 16px",
-                    cursor: obrigatorio ? "not-allowed" : "grab",
-                    opacity: obrigatorio ? 0.5 : 1,
+                    cursor: obrigatorio ? "default" : "grab",
+                    opacity: 1,
                     background: isDragOver ? "rgba(37,99,235,0.07)" : "transparent",
                     borderTop: isDragOver ? "2px solid var(--accent-blue)" : "2px solid transparent",
                     transition: "background 0.1s, border-top 0.1s",
@@ -200,8 +183,7 @@ export default function LayoutManager({ onLayoutChange }: Props) {
                     type="checkbox"
                     checked={cfg?.visible ?? true}
                     onChange={() => toggleCol(col.key)}
-                    disabled={obrigatorio}
-                    style={{ cursor: obrigatorio ? "not-allowed" : "pointer" }}
+                    style={{ cursor: "pointer" }}
                   />
                   <span style={{ fontSize: 13, color: "var(--text-primary)", flex: 1 }}>{col.label}</span>
                 </div>

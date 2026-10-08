@@ -1,8 +1,10 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 
 // GET /api/layouts — lista layouts do usuário logado
 export async function GET(req: NextRequest) {
+  const access = await guardApi("fluxo.lancamentos.view"); if (access) return access;
   let db: any, session: any;
   try {
     ({ db, session } = await requireSession());
@@ -22,6 +24,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/layouts — salvar novo layout
 export async function POST(req: NextRequest) {
+  const access = await guardApi("fluxo.lancamentos.view"); if (access) return access;
   let db: any, session: any;
   try {
     ({ db, session } = await requireEscrita());

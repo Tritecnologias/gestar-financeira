@@ -6,12 +6,16 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import type { Papel } from "@/types";
+import { viewPermissionForPath } from "@/lib/access-catalog";
 
 interface SidebarProps {
   userNome: string;
   userPapel: Papel;
   tenantNome: string;
   tenantLogoUrl?: string | null;
+  authMode?: "identity" | "legacy";
+  platformAdmin?: boolean;
+  permissions?: string[];
 }
 
 interface SubItem {
@@ -42,19 +46,14 @@ const MENU: MenuGroup[] = [
     { letra: "b", label: "Dimensão de Pessoas",    href: "/estrutura/dimensao-pessoas"      },
     { letra: "c", label: "Dimensões Financeiras",  href: "/estrutura/dimensoes-financeiras" },
     { letra: "d", label: "Dimensões Cadastrais",   href: "/estrutura/dimensoes-cadastrais"  },
-    { letra: "e", label: "Dimensão Produtos/Serv", href: "/estrutura/dimensao-produtos"     },
+    { letra: "e", label: "Dimensão de Portfólio", href: "/estrutura/dimensao-produtos"     },
     { letra: "f", label: "Dimensões Comerciais",   href: "/estrutura/dimensoes-comerciais"  },
   ]},
   { num: 3,  icon: "💰", label: "Fluxo de Caixa",          sub: [
-    { letra: "a", label: "Lançamento", href: "/lancamentos"             },
-    { letra: "b", label: "Relatórios", href: "/fluxo-caixa/relatorios" },
-    { letra: "c", label: "Gráficos",   href: "/fluxo-caixa/graficos"   },
-    { letra: "—", label: "—", href: "---" },
-    { letra: "d", label: "Dashboards", href: "/fluxo-caixa/dashboards" },
-    { letra: "—", label: "—", href: "---2" },
-    { letra: "e", label: "Investimentos", href: "/fluxo-caixa/investimentos" },
-    { letra: "f", label: "Endividamento", href: "/fluxo-caixa/endividamento" },
-    { letra: "g", label: "Cartão de Crédito", href: "/fluxo-caixa/cartao-credito" },
+    { letra: "a", label: "Visão Geral", href: "/fluxo-caixa/dashboards" },
+    { letra: "b", label: "Lançamentos", href: "/lancamentos" },
+    { letra: "c", label: "Relatórios", href: "/fluxo-caixa/relatorios" },
+    { letra: "d", label: "Análises", href: "/fluxo-caixa/graficos" },
   ]},
   { num: 4,  icon: "📊", label: "Orçamento Empresarial",   sub: [
     { letra: "a", label: "Vendas por Produto", href: "/orcamento/vendas-produto" },
@@ -86,8 +85,6 @@ const MENU: MenuGroup[] = [
 ];
 
 const DISABLED_HREFS = new Set([
-  "/fluxo-caixa/dashboards",
-  "/fluxo-caixa/investimentos", "/fluxo-caixa/endividamento", "/fluxo-caixa/cartao-credito",
   "/acao/5w2h", "/acao/calendario", "/acao/cronograma",
   "/orcamento/vendas-produto", "/orcamento/folha", "/orcamento/opex", "/orcamento/capex",
   "/relacionamento/fornecedores", "/relacionamento/clientes",
@@ -97,9 +94,11 @@ const DISABLED_HREFS = new Set([
   "/plano-negocios/analise-situacional", "/plano-negocios/analise-swot",
 ]);
 
-// ── Tenant Selector (admin_global) ────────────────────────────
-function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
-  const [tenants, setTenants] = useState<{ id: string; nome: string; isActive?: boolean }[]>([]);
+// ── Tenant Selector: memberships (ou compatibilidade admin_global legado) ──
+function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome: string; legacyGlobal: boolean }) {
+  type Choice = { id: string; nome: string; kind?: "MEMBERSHIP" | "SUPPORT_GRANT";
+    grantId?: string; accessLevel?: string; expiresAt?: string; isActive?: boolean };
+  const [tenants, setTenants] = useState<Choice[]>([]);
   const [active, setActive] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -110,17 +109,19 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
         if (Array.isArray(d)) {
           setTenants(d);
           const current = d.find((t: any) => t.isActive);
-          if (current) setActive(current.id);
+          if (current) setActive(current.grantId ?? current.id);
         }
       })
       .catch(() => {});
   }, []);
 
-  const switchTenant = async (tenantId: string) => {
-    await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId }) });
-    setActive(tenantId);
+  const switchTenant = async (choice: Choice) => {
+    const res = await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenantId: choice.id, ...(choice.grantId ? { grantId: choice.grantId } : {}) }) });
+    if (!res.ok) { window.location.assign("/selecionar-tenant"); return; }
+    setActive(choice.grantId ?? choice.id);
     setOpen(false);
-    window.location.reload(); // Recarregar para aplicar o novo tenant
+    window.location.assign(choice.kind === "SUPPORT_GRANT" ? "/estrutura/dimensao-empresa" : "/inicio");
   };
 
   const resetTenant = async () => {
@@ -132,16 +133,16 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
 
   if (tenants.length <= 1) return null;
 
-  const activeTenant = tenants.find(t => t.id === active);
-  const isCustomTenant = active && active !== "00000000-0000-0000-0000-000000000001";
+  const activeTenant = tenants.find(t => (t.grantId ?? t.id) === active);
+  const isCustomTenant = legacyGlobal && active && active !== "00000000-0000-0000-0000-000000000001";
 
   return (
-    <div style={{ padding: "8px 10px", borderTop: "1px solid var(--border)", position: "relative" }}>
+    <div className="sidebar-tenant-selector" style={{ padding: "8px 10px", borderTop: "1px solid var(--border)", position: "relative" }}>
       <button
         onClick={() => setOpen(p => !p)}
         style={{
-          background: isCustomTenant ? "rgba(234, 88, 12, 0.1)" : "var(--bg-hover)",
-          border: `1px solid ${isCustomTenant ? "rgba(234, 88, 12, 0.3)" : "var(--border)"}`,
+          background: isCustomTenant ? "var(--selection)" : "var(--surface-hover)",
+          border: `1px solid ${isCustomTenant ? "var(--focus)" : "var(--border)"}`,
           borderRadius: 6,
           padding: "6px 10px",
           fontSize: 11,
@@ -161,28 +162,30 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
         <span style={{ fontSize: 10, color: "var(--text-muted)" }}>▼</span>
       </button>
       {open && (
-        <div style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.2)", padding: 8, zIndex: 100, marginBottom: 6 }}>
+        <div className="sidebar-tenant-options" style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-elevated)", padding: 8, zIndex: 100, marginBottom: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 6, padding: "2px 4px" }}>
             Alternar Empresa / Tenant
           </div>
-          {isCustomTenant && (
+          {legacyGlobal && isCustomTenant && (
             <button
               onClick={resetTenant}
-              style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "rgba(34, 197, 94, 0.12)", border: "1px solid rgba(34, 197, 94, 0.25)", borderRadius: 5, cursor: "pointer", color: "var(--accent-green)", marginBottom: 6, textAlign: "left", fontWeight: 700 }}
+              style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "var(--selection)", border: "1px solid var(--border)", borderRadius: 5, cursor: "pointer", color: "var(--action)", marginBottom: 6, textAlign: "left", fontWeight: 700 }}
             >
               ↩ Voltar ao meu tenant (Dez Soluções)
             </button>
           )}
-          {tenants.map(t => (
+          {tenants.map((t, index) => (
+            <div key={t.grantId ?? t.id}>
+            {(index === 0 || tenants[index - 1].kind !== t.kind) && <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-secondary)", padding: "8px 4px 4px" }}>
+              {t.kind === "SUPPORT_GRANT" ? "SUPORTE AUTORIZADO" : "MEUS TENANTS"}</div>}
             <button
-              key={t.id}
-              onClick={() => switchTenant(t.id)}
+              onClick={() => switchTenant(t)}
               style={{
                 width: "100%",
                 padding: "6px 10px",
                 fontSize: 11,
-                background: active === t.id ? "rgba(37,99,235,0.12)" : "transparent",
-                border: active === t.id ? "1px solid var(--accent-blue)" : "none",
+                background: active === (t.grantId ?? t.id) ? "var(--selection)" : "transparent",
+                border: active === (t.grantId ?? t.id) ? "1px solid var(--focus)" : "none",
                 borderRadius: 5,
                 cursor: "pointer",
                 color: "var(--text-primary)",
@@ -191,12 +194,15 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                fontWeight: active === t.id ? 700 : 500,
+                fontWeight: active === (t.grantId ?? t.id) ? 700 : 500,
               }}
             >
-              <span>{t.nome}</span>
-              {active === t.id && <span style={{ fontSize: 11, color: "var(--accent-blue)" }}>✓ Ativo</span>}
+              <span>{t.nome}{t.kind === "SUPPORT_GRANT" && <small style={{ display: "block", color: "var(--warning)" }}>
+                {t.accessLevel === "READ_ONLY" ? "Somente leitura" : "Operacional"} · até {t.expiresAt ? new Date(t.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+              </small>}</span>
+              {active === (t.grantId ?? t.id) && <span style={{ fontSize: 11, color: "var(--action)" }}>✓ Ativo</span>}
             </button>
+            </div>
           ))}
         </div>
       )}
@@ -204,20 +210,30 @@ function TenantSelector({ defaultTenantNome }: { defaultTenantNome: string }) {
   );
 }
 
-export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl }: SidebarProps) {
+export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl, authMode, platformAdmin, permissions = [] }: SidebarProps) {
   const pathname = usePathname();
+  const allowed = new Set(permissions);
+  const menu = MENU.map(group => ({ ...group,
+    sub: group.sub?.filter(item => {
+      const key = viewPermissionForPath(item.href);
+      return !key || allowed.has(key);
+    }),
+  })).filter(group => !group.sub || group.sub.length > 0);
 
   // ── Collapsed state ───────────────────────────────────────────
   // Sempre começa como false (expandido) para evitar hydration mismatch.
   // O valor persistido é aplicado após o mount via useEffect.
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const sidebarToggleRef = useRef<HTMLButtonElement>(null);
 
-  // ── Open groups para accordion ────────────────────────────────
-  const defaultOpen = new Set<number>(
-    MENU.filter((g) => g.sub?.some((s) => pathname.startsWith(s.href))).map((g) => g.num)
-  );
-  const [openGroups, setOpenGroups] = useState<Set<number>>(defaultOpen);
+  // ── Um único grupo aberto por vez ─────────────────────────────
+  const activeGroup = menu.find((g) => g.sub?.some((s) => pathname.startsWith(s.href)))?.num ?? null;
+  const [openGroup, setOpenGroup] = useState<number | null>(activeGroup);
 
   // ── Tooltip para modo compacto ────────────────────────────────
   const [tooltip, setTooltip] = useState<{ num: number; y: number } | null>(null);
@@ -240,28 +256,63 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
   }, [collapsed, mounted]);
 
   useEffect(() => {
-    setOpenGroups((prev) => {
-      const next = new Set(prev);
-      MENU.forEach((g) => {
-        if (g.sub?.some((s) => pathname.startsWith(s.href))) next.add(g.num);
-      });
-      return next;
-    });
-  }, [pathname]);
+    const media = window.matchMedia("(max-width: 1279px)");
+    const update = () => {
+      setIsMobile(media.matches);
+      setMobileOpen(false);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile || !mobileOpen) return;
+    const focusFrame = requestAnimationFrame(() => sidebarToggleRef.current?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        mobileTriggerRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab" || !sidebarRef.current) return;
+      const controls = Array.from(sidebarRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]'))
+        .filter((element) => element.getClientRects().length > 0 && !element.closest('.sb-sub[style*="max-height: 0"]'));
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isMobile, mobileOpen]);
+
+  useEffect(() => {
+    if (activeGroup !== null) setOpenGroup(activeGroup);
+    setMobileOpen(false);
+  }, [pathname, activeGroup]);
 
   function toggleGroup(num: number) {
     // Se collapsed, expandir primeiro
-    if (collapsed) {
+    if (collapsed && !isMobile) {
       setCollapsed(false);
-      setTimeout(() => setOpenGroups((prev) => new Set([...prev, num])), 10);
+      setOpenGroup(num);
       return;
     }
-    setOpenGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(num)) next.delete(num);
-      else next.add(num);
-      return next;
-    });
+    setOpenGroup((prev) => prev === num ? (activeGroup === num ? num : null) : num);
+  }
+
+  function closeMobileMenu() {
+    setMobileOpen(false);
+    mobileTriggerRef.current?.focus();
   }
 
   function handleMouseEnterGroup(num: number, e: React.MouseEvent) {
@@ -278,15 +329,28 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
 
   const iniciais = userNome.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
-  const group = tooltip !== null ? MENU.find((g) => g.num === tooltip.num) : null;
+  const group = tooltip !== null ? menu.find((g) => g.num === tooltip.num) : null;
 
   // Classe calculada: antes do mount usa sempre 'expanded' (igual ao SSR)
-  const sidebarClass = `sidebar ${mounted && collapsed ? "sidebar--collapsed" : "sidebar--expanded"}`;
+  const compact = mounted && collapsed && !isMobile;
+  const sidebarClass = `sidebar ${compact ? "sidebar--collapsed" : "sidebar--expanded"}${mobileOpen ? " sidebar--mobile-open" : ""}`;
 
   return (
     <>
+      <button
+        ref={mobileTriggerRef}
+        type="button"
+        className="mobile-menu-trigger"
+        aria-label="Abrir menu"
+        aria-expanded={mobileOpen}
+        aria-controls="application-sidebar"
+        onClick={() => setMobileOpen(true)}
+      >
+        ☰
+      </button>
+      {mobileOpen && <button type="button" className="sidebar-backdrop" aria-label="Fechar menu" onClick={closeMobileMenu} />}
       {/* ── Sidebar ──────────────────────────────────────────── */}
-      <aside className={sidebarClass} suppressHydrationWarning>
+      <aside id="application-sidebar" ref={sidebarRef} className={sidebarClass} aria-label="Navegação principal" aria-hidden={isMobile && !mobileOpen} inert={isMobile && !mobileOpen} suppressHydrationWarning>
 
         {/* ── Header: Logo + Toggle ─────────────────────────── */}
         <div className="sidebar-header">
@@ -311,12 +375,13 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
           </div>
 
           <button
+            ref={sidebarToggleRef}
             className="sidebar-toggle"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={mounted && collapsed ? "Expandir menu" : "Recolher menu"}
-            title={mounted && collapsed ? "Expandir menu" : "Recolher menu"}
+            onClick={() => isMobile ? closeMobileMenu() : setCollapsed((c) => !c)}
+            aria-label={isMobile ? "Fechar menu" : compact ? "Expandir menu" : "Recolher menu"}
+            title={isMobile ? "Fechar menu" : compact ? "Expandir menu" : "Recolher menu"}
           >
-            <span className={`toggle-icon ${mounted && collapsed ? "toggle-icon--open" : "toggle-icon--close"}`}>
+            <span className={`toggle-icon ${compact ? "toggle-icon--open" : "toggle-icon--close"}`}>
               ‹
             </span>
           </button>
@@ -324,9 +389,9 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
 
         {/* ── Nav ───────────────────────────────────────────── */}
         <nav className="sidebar-nav" aria-label="Menu principal">
-          {MENU.map((g) => {
+          {menu.map((g) => {
             const hasSub   = g.sub && g.sub.length > 0;
-            const isOpen   = openGroups.has(g.num);
+            const isOpen   = openGroup === g.num;
             const hasActive = g.sub?.some((s) => pathname.startsWith(s.href)) ?? false;
             const isSelfActive = !hasSub && g.href && pathname.startsWith(g.href) && !g.disabled;
 
@@ -350,6 +415,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                     <Link
                       href={g.href!}
                       className={`sb-row ${isSelfActive ? "sb-row--active" : ""}`}
+                      onClick={() => setMobileOpen(false)}
                     >
                       <span className="sb-icon">{g.icon}</span>
                       <span className="sb-label">
@@ -384,7 +450,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                 {/* Sub-itens */}
                 <div
                   className="sb-sub"
-                  style={{ maxHeight: (!(mounted && collapsed) && isOpen) ? `${g.sub!.length * 34}px` : "0" }}
+                  style={{ maxHeight: (!compact && isOpen) ? `${g.sub!.length * (isMobile ? 48 : 34)}px` : "0" }}
                 >
                   {g.sub!.map((item) => {
                     // Divisória
@@ -401,6 +467,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
                         key={item.href}
                         href={item.href}
                         className={`sb-sub-item ${isActive ? "sb-sub-item--active" : ""}`}
+                        onClick={() => setMobileOpen(false)}
                       >
                         <span className="sb-sub-letra">{item.letra}.</span>
                         <span className="sb-sub-label">{item.label}</span>
@@ -412,29 +479,45 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
             );
           })}
 
-          {/* Admin global */}
-          {userPapel === "admin_global" && (
+          {/* Administração de acesso, separada do contexto empresarial */}
+          {(platformAdmin || userPapel === "admin_global" || allowed.has("acessos.usuarios.view") || allowed.has("acessos.perfis.view") || allowed.has("acessos.auditoria.view")) && (
             <>
               <div className="sb-divider" />
-              <div
+              {platformAdmin && <div
                 className="sb-row-wrap"
                 onMouseEnter={(e) => handleMouseEnterGroup(-1, e)}
                 onMouseLeave={handleMouseLeaveGroup}
               >
                 <Link
-                  href="/admin"
-                  className={`sb-row ${pathname.startsWith("/admin") ? "sb-row--active" : ""}`}
+                  href="/plataforma"
+                  className={`sb-row ${pathname.startsWith("/plataforma") ? "sb-row--active" : ""}`}
+                  onClick={() => setMobileOpen(false)}
                 >
                   <span className="sb-icon">🛡️</span>
-                  <span className="sb-label">Admin Global</span>
+                  <span className="sb-label">Administração da Plataforma</span>
                 </Link>
-              </div>
+              </div>}
+              {allowed.has("acessos.usuarios.view") && <div className="sb-row-wrap">
+                <Link href="/acessos" className={`sb-row ${pathname === "/acessos" ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
+                  <span className="sb-icon">🛡️</span><span className="sb-label">Acessos / Usuários</span>
+                </Link>
+              </div>}
+              {allowed.has("acessos.perfis.view") && <div className="sb-row-wrap">
+                <Link href="/acessos/perfis" className={`sb-row ${pathname.startsWith("/acessos/perfis") ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
+                  <span className="sb-icon">🔑</span><span className="sb-label">Perfis de Acesso</span>
+                </Link>
+              </div>}
+              {allowed.has("acessos.auditoria.view") && <div className="sb-row-wrap">
+                <Link href="/acessos/auditoria" className={`sb-row ${pathname.startsWith("/acessos/auditoria") ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
+                  <span className="sb-icon">📋</span><span className="sb-label">Auditoria</span>
+                </Link>
+              </div>}
             </>
           )}
 
           {/* Configurações */}
-          <div className="sb-divider" />
-          <div
+          {allowed.has("sistema.configuracoes.view") && <div className="sb-divider" />}
+          {allowed.has("sistema.configuracoes.view") && <div
             className="sb-row-wrap"
             onMouseEnter={(e) => handleMouseEnterGroup(-2, e)}
             onMouseLeave={handleMouseLeaveGroup}
@@ -442,16 +525,17 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
             <Link
               href="/configuracoes"
               className={`sb-row ${pathname.startsWith("/configuracoes") ? "sb-row--active" : ""}`}
+              onClick={() => setMobileOpen(false)}
             >
               <span className="sb-icon">⚙️</span>
               <span className="sb-label">Configurações</span>
             </Link>
-          </div>
+          </div>}
         </nav>
 
-        {/* ── Tenant Selector (admin_global only) ────────────── */}
-        {userPapel === "admin_global" && (
-          <TenantSelector defaultTenantNome={tenantNome} />
+        {/* ── Tenant Selector ─────────────────────────────────── */}
+        {(authMode === "identity" || userPapel === "admin_global") && (
+          <TenantSelector defaultTenantNome={tenantNome} legacyGlobal={authMode === "legacy" && userPapel === "admin_global"} />
         )}
 
         {/* ── Footer ────────────────────────────────────────── */}
@@ -470,10 +554,12 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
               localStorage.setItem("theme", next);
             }}
             title="Alternar tema claro/escuro"
-            className="logout-btn"
+            aria-label="Alternar tema claro/escuro"
+            className="logout-btn theme-toggle"
             style={{ marginRight: 2 }}
           >
-            🌙
+            <span className="theme-icon--clean" aria-hidden="true">☀️</span>
+            <span className="theme-icon--dark" aria-hidden="true">🌙</span>
           </button>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
@@ -486,7 +572,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
       </aside>
 
       {/* ── Tooltip flutuante no modo compacto ─────────────── */}
-      {collapsed && tooltip !== null && group && (
+      {compact && tooltip !== null && group && (
         <div
           className="sb-tooltip"
           style={{ top: tooltip.y }}

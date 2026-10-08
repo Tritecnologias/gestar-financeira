@@ -1,5 +1,7 @@
 import { toNumber } from "@/lib/formatters";
 import type { LancamentoDTO, StatusAuto } from "@/types";
+import { counterpartyDisplay, counterpartyName } from "@/lib/counterparty";
+import { classificarLancamento } from "@/lib/cash-flow";
 
 /**
  * Converte qualquer representação de data (ISO 'YYYY-MM-DD', BR 'DD/MM/YYYY',
@@ -77,12 +79,10 @@ export function calcularCamposDerivados(l: any): Partial<LancamentoDTO> {
   };
 
   const getStatusAuto = (): StatusAuto => {
-    // PAGO: data de pagamento registrada OU lançamento marcado como "realizado"
-    if (l.dataPagamento != null || l.status === "realizado") return "PAGO";
-    // ATRASADO/A VENCER: baseado no vencimento plano (só para previsto/cancelado)
-    if (l.dataVencPlano && new Date(l.dataVencPlano) < hoje) return "ATRASADO";
-    if (l.dataVencPlano && new Date(l.dataVencPlano) >= hoje) return "A VENCER";
-    return "PREVISTO";
+    const reference = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo",
+      year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const status = classificarLancamento(l, reference).status;
+    return status === "REALIZADO" ? "PAGO" : status;
   };
 
   const vencPlano = l.dataVencPlano ? new Date(l.dataVencPlano) : null;
@@ -107,6 +107,10 @@ export function calcularCamposDerivados(l: any): Partial<LancamentoDTO> {
  */
 export function toLancamentoDTO(l: any, seq?: number): LancamentoDTO {
   const derivados = calcularCamposDerivados(l);
+  const referencia = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo",
+    year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const problemasFinanceiros = classificarLancamento(l, referencia).problemas;
+  const linked = l.clienteRef || l.fornecedorRef;
   const fmt = (d: Date | string | null | undefined) => {
     if (!d) return null;
     if (typeof d === "string") return d.slice(0, 10);
@@ -131,14 +135,21 @@ export function toLancamentoDTO(l: any, seq?: number): LancamentoDTO {
     statusManual:     l.statusManual ?? null,
     statusExtrato:    l.statusExtrato ?? null,
     statusAuto:       (derivados.statusAuto ?? "PREVISTO") as StatusAuto,
+    problemasFinanceiros,
     descricao:        l.descricao,
     fornecedor:       l.fornecedor ?? null,
     fornecedorId:     l.fornecedorId ?? null,
-    fantasiaPadrao:   l.fornecedorRef ? `${l.fornecedorRef.codigo} – ${l.fornecedorRef.nome}` : (l.fantasiaPadrao ?? null),
+    clienteId:        l.clienteId ?? null,
+    contraparteTipo:  l.clienteRef ? "CLIENTE" : l.fornecedorRef ? "FORNECEDOR" : null,
+    contraparteCodigo: linked?.codigo ?? null,
+    contraparteNome: linked ? counterpartyName(linked) : null,
+    fantasiaPadrao:   linked ? counterpartyDisplay(linked) : (l.fantasiaPadrao || l.fornecedor || null),
     centroCusto:      l.centroCusto ?? null,
     referencia:       l.referencia ?? null,
     contaId:          l.contaId ?? null,
-    categoria:        l.categoria ?? null,
+    contaN2Codigo:    l.conta?.tenantId === l.tenantId ? l.conta.codigo : null,
+    contaN2Descricao: l.conta?.tenantId === l.tenantId ? l.conta.descricao : null,
+    categoria:        l.conta?.categoria?.tenantId === l.tenantId ? l.conta.categoria.codigo : l.categoria ?? null,
     dre:              l.dre ?? null,
     cont:             l.cont ?? null,
     anotacao:         l.anotacao ?? null,
@@ -153,4 +164,3 @@ export function toLancamentoDTO(l: any, seq?: number): LancamentoDTO {
     criadoEm:         l.criadoEm instanceof Date ? l.criadoEm.toISOString() : (l.criadoEm ?? new Date().toISOString()),
   };
 }
-

@@ -1,0 +1,110 @@
+.access-page { min-height: 100vh; padding: 24px clamp(16px, 3vw, 40px); background: var(--background); color: var(--text-primary); overflow: auto; }
+.access-platform { max-width: 100%; }
+.access-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 22px; }
+.access-header h1 { font-size: var(--font-size-page-title); font-weight: 700; }
+.access-header p, .access-hint { color: var(--text-secondary); font-size: var(--font-size-body); margin-top: 5px; }
+.access-header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.access-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.access-toolbar > input { flex: 1 1 220px; max-width: 360px; }
+.access-page input, .access-page select, .access-page textarea { min-height: 38px; padding: 8px 10px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; }
+.access-page input:focus-visible, .access-page select:focus-visible, .access-page textarea:focus-visible,
+.access-page button:focus-visible, .access-page a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.access-page input[type=checkbox] { width: 16px; height: 16px; min-height: 0; padding: 0; accent-color: var(--action); }
+.access-button { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 13px; border-radius: var(--radius-sm); border: 1px solid var(--border); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.access-button-primary { background: var(--action); border-color: var(--action); color: var(--action-contrast); }
+.access-button-primary:hover { background: var(--action-hover); }
+.access-button-secondary { background: var(--surface); color: var(--text-primary); }
+.access-button-secondary:hover { background: var(--surface-hover); }
+.access-button:disabled, .access-page button:disabled { opacity: .55; cursor: not-allowed; }
+.access-tabs { display: flex; gap: 4px; padding: 3px; background: var(--surface-elevated); border: 1px solid var(--border); border-radius: var(--radius); }
+.access-tabs button { padding: 8px 12px; border: 0; background: transparent; color: var(--text-secondary); border-radius: var(--radius-sm); cursor: pointer; }
+.access-tabs button.active { color: var(--action); background: var(--selection); font-weight: 700; }
+.access-table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.access-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-table); }
+.access-table th, .access-table td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.access-table th { background: var(--surface-elevated); color: var(--text-secondary); font-size: var(--font-size-table-head); text-transform: uppercase; white-space: nowrap; }
+.access-table tr:last-child td { border-bottom: 0; }
+.access-table td strong { display: block; font-weight: 600; }
+.access-table td small { display: block; color: var(--text-muted); margin-top: 3px; }
+.access-table tbody tr:hover { background: var(--surface-hover); }
+.access-actions { white-space: nowrap; }
+.access-actions button { margin-right: 8px; border: 0; color: var(--action); background: transparent; cursor: pointer; font: inherit; font-weight: 600; }
+.access-actions button:hover { text-decoration: underline; }
+.access-empty { text-align: center !important; color: var(--text-muted); padding: 30px !important; }
+.access-error { padding: 10px 12px; margin: 10px 0; background: color-mix(in srgb, var(--danger) 9%, var(--surface)); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 25%, var(--border)); border-radius: var(--radius-sm); }
+.access-subtitle { font-size: 17px; margin: 24px 0 12px; }
+.access-dev-link { padding: 12px; margin: 12px 0 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-elevated); }
+.access-dev-link p { font-size: 13px; color: var(--text-secondary); margin: 6px 0 10px; }
+.access-dev-link input { width: min(100%, 760px); margin-right: 8px; }
+.access-dev-link button { margin: 8px 8px 0 0; }
+.access-owner-invites { display: grid; gap: 8px; max-height: 170px; overflow: auto; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; }
+.access-owner-invites > div { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+.access-owner-invites button { margin-left: 8px; color: var(--action); background: none; border: 0; cursor: pointer; }
+.access-warning { color: var(--warning) !important; font-weight: 600; }
+.access-modal-backdrop { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgba(3, 14, 27, .68); }
+.access-modal { width: min(620px, 100%); max-height: min(92vh, 850px); overflow-y: auto; padding: 22px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-elevated); }
+.access-modal h2 { font-size: 18px; margin-bottom: 15px; }
+.access-modal label { display: grid; gap: 6px; margin: 13px 0; font-size: var(--font-size-label); color: var(--text-secondary); font-weight: 600; }
+.access-modal label.access-check-label { display: flex; align-items: center; gap: 8px; }
+.access-modal label input, .access-modal label select { width: 100%; }
+.access-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.access-tree { max-height: 48vh; overflow: auto; padding: 12px; border: 1px solid var(--border); background: var(--surface-elevated); border-radius: var(--radius); }
+.access-tree details { border-left: 1px solid var(--border); padding-left: 12px; margin: 8px 0; }
+.access-tree summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 5px; }
+.access-tree summary::before { content: '▸'; color: var(--text-muted); }
+.access-tree details[open] > summary::before { content: '▾'; }
+.access-tree label { display: flex; align-items: center; gap: 8px; margin: 4px 0; color: var(--text-primary); font-size: 13px; cursor: pointer; }
+.access-tree input[type=checkbox] { min-height: unset; width: 16px; height: 16px; accent-color: var(--action); }
+.access-tree-actions { display: flex; gap: 8px; margin-bottom: 8px; }
+.access-tree-actions button { border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); border-radius: var(--radius-sm); padding: 5px 9px; cursor: pointer; }
+@media (max-width: 700px) { .access-page { padding: 16px; } .access-header { flex-direction: column; } .access-toolbar > input { max-width: none; } .access-table { min-width: 650px; } .access-modal { padding: 17px; } }
+@media (max-width: 1279px) { .access-page:not(.access-platform) { padding-top: 70px; } }
+.access-terms-form, .access-terms-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; }
+.access-terms-form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.access-terms-form h2 { flex-basis: 100%; font-size: 17px; }
+.access-terms-form label { display: grid; gap: 5px; flex: 1 1 220px; color: var(--text-secondary); font-size: var(--font-size-label); }
+.access-terms-form label.access-check-label { display: flex; align-items: center; flex: 0 1 150px; }
+.access-terms-form input, .access-terms-form select { width: 100%; }
+.access-terms-card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.access-terms-card-head h2 { font-size: 17px; }
+.access-terms-card-head p { color: var(--text-secondary); font-size: 12px; }
+.access-terms-card .access-actions a { color: var(--action); margin-right: 8px; }
+.access-terms-card .access-table td small { overflow-wrap: anywhere; }
+@media (max-width: 700px) { .access-terms-form label, .access-terms-form .access-button { flex-basis: 100%; } }
+.access-terms-status { margin-top: 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 14px; }
+.access-terms-status summary { cursor: pointer; font-weight: 700; color: var(--text-primary); }
+.support-request textarea { width: 100%; min-height: 70px; }
+.support-modules { display: flex; flex-wrap: wrap; gap: 8px 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+.support-request .support-modules { flex: 1 1 240px; }
+.support-modules legend { color: var(--text-secondary); font-size: var(--font-size-label); font-weight: 600; }
+.support-modules label { display: flex; align-items: center; gap: 7px; margin: 0; }
+.support-notice { padding: 10px 12px; color: var(--success); background: color-mix(in srgb, var(--success) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--success) 25%, var(--border)); border-radius: var(--radius-sm); margin-bottom: 12px; }
+.support-grant-list { display: grid; gap: 12px; }
+.support-grant { padding: 14px; background: var(--surface-elevated); border: 1px solid var(--border); border-radius: var(--radius); overflow-wrap: anywhere; }
+.support-grant p { margin: 6px 0; color: var(--text-secondary); font-size: 13px; }
+.support-grant p strong { color: var(--text-primary); }
+.support-grant-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; }
+.support-grant-head > span { color: var(--text-secondary); font-size: 12px; }
+.support-state { display: inline-block; margin-left: 8px; padding: 3px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--text-primary); border: 1px solid var(--border); }
+.support-state-active { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); }
+.support-state-pending { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+.support-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.support-grant details { margin-top: 10px; color: var(--text-secondary); font-size: 12px; }
+.support-grant summary { cursor: pointer; }
+.support-grant ul { padding-left: 20px; }
+.access-terms-status .access-table-wrap { margin-top: 14px; }
+.audit-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.audit-filters label { display: grid; gap: 5px; flex: 1 1 145px; min-width: 0; color: var(--text-secondary); font-size: var(--font-size-label); }
+.audit-filters input, .audit-filters select { width: 100%; }
+.audit-list { display: grid; gap: 10px; }
+.audit-event { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow-wrap: anywhere; }
+.audit-event-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.audit-event p { margin: 6px 0; color: var(--text-secondary); font-size: 12px; }
+.audit-result-ok { color: var(--success); }.audit-result-denied { color: var(--danger); }
+.audit-changes { display: grid; gap: 5px; margin: 10px 0; }
+.audit-changes > div { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(100px, 2fr) auto minmax(100px, 2fr); gap: 8px; padding: 7px; background: var(--surface-elevated); border-radius: var(--radius-sm); font-size: 12px; }
+.audit-changes strong { color: var(--text-primary); }.audit-changes span { color: var(--text-secondary); }
+.audit-event details { margin-top: 8px; color: var(--text-secondary); font-size: 12px; }
+.audit-event summary { cursor: pointer; }.audit-event pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.audit-pages { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; }
+@media (max-width: 700px) { .audit-filters label { flex-basis: 100%; } .audit-filters button { width: 100%; } .audit-changes > div { grid-template-columns: 1fr 1fr; } .audit-changes > div span:nth-child(3) { display: none; } }

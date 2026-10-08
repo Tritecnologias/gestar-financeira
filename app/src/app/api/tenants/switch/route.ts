@@ -1,31 +1,80 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getIdentityAccess, requireSession } from "@/lib/tenant";
+import { legacyAuthEnabled } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { tenantContextCookieOptions, tenantOverrideCookieOptions } from "@/lib/access-policy";
+import { writeAudit } from "@/lib/audit";
 
 // POST /api/tenants/switch — trocar tenant ativo (admin_global apenas)
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  const user = session?.user as any;
-  if (!user || user.papel !== "admin_global") {
+  if (!legacyAuthEnabled) {
+    let tenantId: unknown;
+    let grantId: unknown;
+    try { ({ tenantId, grantId } = await req.json()); }
+    catch { return NextResponse.json({ error: "Requisição inválida" }, { status: 400 }); }
+    if (typeof tenantId !== "string" || !tenantId) {
+      return NextResponse.json({ error: "Tenant inválido" }, { status: 400 });
+    }
+    try {
+      const identity = await getIdentityAccess();
+      const membership = identity.memberships.find(m => m.tenantId === tenantId);
+      if (grantId !== undefined) {
+        if (typeof grantId !== "string" || !grantId || membership || identity.platformAdmin?.status !== "ACTIVE") {
+          return NextResponse.json({ error: "Contexto de suporte inválido" }, { status: 403 });
+        }
+        const grant = await prisma.supportGrant.findFirst({ where: {
+          id: grantId, tenantId, platformAdminIdentityId: identity.id, status: "ACTIVE",
+          startsAt: { lte: new Date() }, expiresAt: { gt: new Date() }, tenant: { ativo: true },
+        }, select: { id: true, tenantId: true } });
+        if (!grant) return NextResponse.json({ error: "Acesso de suporte ausente, revogado ou expirado" }, { status: 403 });
+        const previous = req.cookies.get("tenant_context")?.value || req.cookies.get("support_context")?.value;
+        await prisma.$transaction(async tx => {
+          await tx.supportGrantEvent.create({ data: { grantId: grant.id, tenantId: grant.tenantId,
+            type: "USED", actorIdentityId: identity.id, detail: "Entrada no contexto de suporte." } });
+          await writeAudit(tx, { tenantId, actorIdentityId: identity.id, accessMode: "SUPPORT_GRANT",
+            action: "SUPPORT_CONTEXT_ENTERED", resourceType: "SupportGrant", resourceId: grant.id,
+            supportGrantId: grant.id });
+          await writeAudit(tx, { tenantId, actorIdentityId: identity.id, accessMode: "SUPPORT_GRANT",
+            action: previous ? "TENANT_CONTEXT_SWITCHED" : "TENANT_CONTEXT_SELECTED",
+            resourceType: "Tenant", resourceId: tenantId, supportGrantId: grant.id });
+        });
+        const res = NextResponse.json({ active: tenantId, kind: "SUPPORT_GRANT" });
+        res.cookies.set("support_context", `${identity.id}:${identity.loginNonce}:${grant.id}`, tenantContextCookieOptions());
+        res.cookies.set("tenant_context", "", { ...tenantContextCookieOptions(), maxAge: 0 });
+        return res;
+      }
+      if (!membership) return NextResponse.json({ error: "Acesso ao tenant não permitido" }, { status: 403 });
+      const previous = req.cookies.get("tenant_context")?.value || req.cookies.get("support_context")?.value;
+      await writeAudit(prisma, { tenantId, actorIdentityId: identity.id, actorMembershipId: membership.id,
+        accessMode: "MEMBERSHIP", action: previous ? "TENANT_CONTEXT_SWITCHED" : "TENANT_CONTEXT_SELECTED",
+        resourceType: "Tenant", resourceId: tenantId });
+      const res = NextResponse.json({ active: tenantId, role: membership.role, kind: "MEMBERSHIP" });
+      res.cookies.set("tenant_context", `${identity.id}:${identity.loginNonce}:${tenantId}`, tenantContextCookieOptions());
+      res.cookies.set("support_context", "", { ...tenantContextCookieOptions(), maxAge: 0 });
+      return res;
+    } catch (error) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: (error as {status?: number}).status ?? 401 });
+    }
+  }
+  let context: Awaited<ReturnType<typeof requireSession>>;
+  try { context = await requireSession(); } catch { return NextResponse.json({ error: "Não autenticado" }, { status: 401 }); }
+  if (context.session.papel !== "admin_global") {
     return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
   }
 
-  const { tenantId } = await req.json();
+  let tenantId: unknown;
+  try { ({ tenantId } = await req.json()); }
+  catch { return NextResponse.json({ error: "Requisição inválida" }, { status: 400 }); }
 
-  if (!tenantId || tenantId === user.tenantId) {
+  if (tenantId == null || tenantId === context.baseTenantId) {
     // Voltar ao tenant original — deletar cookie
-    const res = NextResponse.json({ active: user.tenantId, message: "Voltou ao tenant original" });
-    res.cookies.set("tenant_override", "", { maxAge: 0, path: "/" });
+    const res = NextResponse.json({ active: context.baseTenantId, message: "Voltou ao tenant original" });
+    res.cookies.set("tenant_override", "", { ...tenantOverrideCookieOptions(), maxAge: 0 });
     return res;
   }
 
-  // Setar override via Set-Cookie header
-  const res = NextResponse.json({ active: tenantId, message: "Tenant alterado" });
-  res.cookies.set("tenant_override", tenantId, {
-    httpOnly: true,
-    secure: false, // HTTP em dev
-    sameSite: "lax",
-    maxAge: 60 * 60 * 8,
-    path: "/",
-  });
-  return res;
+  if (typeof tenantId !== "string" || !tenantId.trim()) {
+    return NextResponse.json({ error: "Tenant inválido" }, { status: 400 });
+  }
+  return NextResponse.json({ error: "Troca empresarial entre tenants exige SupportGrant no modo de identidade." }, { status: 403 });
 }

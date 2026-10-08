@@ -1,0 +1,17 @@
+.searchable-select-trigger { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-width:0; text-align:left; cursor:pointer; color:var(--text-primary); background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:7px 9px; font:inherit; }
+.searchable-select-trigger > span:first-child { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.searchable-select-trigger:hover { border-color:var(--action); }
+.searchable-select-trigger:focus-visible, .searchable-select-panel :focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+.searchable-select-trigger:disabled { opacity:.55; cursor:not-allowed; }
+.searchable-select-panel { position:fixed; z-index:1200; display:flex; flex-direction:column; overflow:hidden; color:var(--text-primary); background:var(--surface-elevated); border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 28px rgba(0,0,0,.22); }
+.searchable-select-search { display:flex; align-items:center; gap:7px; flex:none; padding:8px; border-bottom:1px solid var(--border); color:var(--text-secondary); }
+.searchable-select-search input { width:100%; min-width:0; color:var(--text-primary); background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:7px; font:inherit; }
+.searchable-select-options { min-height:0; overflow-y:auto; padding:4px; }
+.searchable-select-options button { display:block; width:100%; padding:8px; text-align:left; color:var(--text-primary); background:transparent; border:0; border-radius:5px; font:inherit; cursor:pointer; }
+.searchable-select-options button:hover, .searchable-select-options button.active { background:var(--selection); }
+.searchable-select-options button.selected { color:var(--action); font-weight:650; }
+.searchable-select-message { padding:12px 9px; color:var(--text-secondary); }
+.searchable-select-footer { display:flex; flex-wrap:wrap; gap:4px; flex:none; padding:7px; border-top:1px solid var(--border); }
+.searchable-select-footer a { flex:1 1 auto; padding:7px 8px; color:var(--action); text-decoration:none; border-radius:5px; font-weight:600; }
+.searchable-select-footer a:hover { background:var(--selection); }
+@media(max-width:700px) { .searchable-select-trigger { min-height:40px; } .searchable-select-options button,.searchable-select-footer a { min-height:40px; } }

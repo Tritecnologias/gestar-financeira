@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/tenant";
+import { requirePermission } from "@/lib/permissions";
 import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
+import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 
 type Params = { params: Promise<{ id: string }> };
 
 // ── PUT /api/lancamentos/[id] ────────────────────────────────
 export async function PUT(req: NextRequest, { params }: Params) {
-  let db: any;
+  let db: any, session: any;
   try {
-    ({ db } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    ({ db, session } = await requirePermission("fluxo.lancamentos.edit"));
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
   }
   const { id } = await params;
 
@@ -25,7 +26,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const {
     dataLanc, descricao, valor, tipo, status,
-    fornecedor, fornecedorId, centroCusto, referencia, contaId,
+    fornecedor, fornecedorId, clienteId, centroCusto, referencia, contaId,
     dataEmissao, dataVencOriginal, dataVencPlano, dataEvento, dataPagamento,
     statusManual, statusExtrato, valorPrevisto, banco,
     fantasiaPadrao, categoria, dre, cont, anotacao,
@@ -51,12 +52,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
   if (banco !== undefined) updateData.banco = banco || null;
   if (fornecedor !== undefined) updateData.fornecedor = fornecedor || null;
-  if (fornecedorId !== undefined) updateData.fornecedorId = fornecedorId || null;
   if (fantasiaPadrao !== undefined) updateData.fantasiaPadrao = fantasiaPadrao || null;
+  try {
+    Object.assign(updateData, await resolveCounterpartyLink(db, session.tenantId,
+      Object.fromEntries([["clienteId", clienteId], ["fornecedorId", fornecedorId]].filter(([, value]) => value !== undefined)), existente));
+    const accountChanged = contaId !== undefined && contaId !== existente.contaId;
+    const directionChanged = tipo !== undefined && tipo !== existente.tipo;
+    if (accountChanged || directionChanged) {
+      Object.assign(updateData, await resolveAccountSelection(db, session.tenantId,
+        accountChanged ? contaId : existente.contaId, existente.contaId, tipo ?? existente.tipo, categoria));
+    }
+  } catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 400 }); }
   if (centroCusto !== undefined) updateData.centroCusto = centroCusto || null;
   if (referencia !== undefined) updateData.referencia = referencia || null;
   if (contaId !== undefined) updateData.contaId = contaId || null;
-  if (categoria !== undefined) updateData.categoria = categoria || null;
+  const effectiveAccountId = Object.hasOwn(updateData, "contaId") ? updateData.contaId : existente.contaId;
+  if (categoria !== undefined && !effectiveAccountId) updateData.categoria = categoria || null;
   if (dre !== undefined) updateData.dre = dre || null;
   if (cont !== undefined) updateData.cont = cont || null;
   if (anotacao !== undefined) updateData.anotacao = anotacao || null;
@@ -65,7 +76,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const atualizado = await db.lancamento.update({
     where: { id },
     data: updateData,
-    include: { fornecedorRef: { select: { codigo: true, nome: true } } },
+    include: counterpartInclude,
   });
 
   return NextResponse.json(toLancamentoDTO(atualizado, atualizado.seq));
@@ -75,14 +86,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 export async function DELETE(req: NextRequest, { params }: Params) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireSession());
-  } catch {
-    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-  }
-
-  // Apenas admin pode excluir lançamentos
-  if (session.papel === "membro") {
-    return NextResponse.json({ error: "Sem permissão para excluir" }, { status: 403 });
+    ({ db, session } = await requirePermission("fluxo.lancamentos.delete"));
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 });
   }
 
   const { id } = await params;

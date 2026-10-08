@@ -1,8 +1,12 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
+import { defaultAccountRelation, profileData, validateDefaultAccount } from "@/lib/registration-profile";
+import { registrationCodeAllocator, registrationTransaction } from "@/lib/registration-codes";
 
 // GET /api/fornecedores — lista todos do tenant
 export async function GET(req: NextRequest) {
+  const access = await guardApi(["estrutura.cadastrais.view","fluxo.lancamentos.view"]); if (access) return access;
   let db: any;
   try {
     ({ db } = await requireSession());
@@ -17,6 +21,7 @@ export async function GET(req: NextRequest) {
   const fornecedores = await db.fornecedor.findMany({
     where: { ...(ativo !== null ? { ativo: ativo !== "false" } : {}) },
     orderBy: [{ codigo: "asc" }],
+    include: defaultAccountRelation,
   });
 
   return NextResponse.json(fornecedores.map((f: any) => ({ ...f, display: `${f.codigo} – ${f.nome}` })));
@@ -24,28 +29,27 @@ export async function GET(req: NextRequest) {
 
 // POST /api/fornecedores — criar novo
 export async function POST(req: NextRequest) {
-  let db: any;
+  const access = await guardApi("estrutura.cadastrais.create"); if (access) return access;
+  let db: any, tenantId: string;
   try {
-    ({ db } = await requireEscrita());
+    const context = await requireEscrita();
+    db = context.db; tenantId = context.session.tenantId;
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 });
   }
 
-  const body = await req.json();
-  const { codigo, nome } = body;
-
-  if (!codigo?.trim() || !nome?.trim()) {
-    return NextResponse.json({ error: "Código e nome são obrigatórios" }, { status: 400 });
-  }
-
   try {
-    // ⚡ tenantId injetado automaticamente no create via Extension
-    const fornecedor = await db.fornecedor.create({
-      data: { codigo: codigo.trim().toUpperCase(), nome: nome.trim() },
+    const data = profileData(await req.json());
+    const fornecedor = await registrationTransaction(db, tenantId, ["fornecedor"], async tx => {
+      await validateDefaultAccount(tx, tenantId, data);
+      const nextCode = await registrationCodeAllocator(tx, tenantId, "fornecedor");
+      return tx.fornecedor.create({ data: { ...data, codigo: nextCode() } });
     });
     return NextResponse.json({ ...fornecedor, display: `${fornecedor.codigo} – ${fornecedor.nome}` }, { status: 201 });
   } catch (e: any) {
-    if (e.code === "P2002") return NextResponse.json({ error: "Código já cadastrado" }, { status: 409 });
+    if (e.status) return NextResponse.json({ error: e.message }, { status: e.status });
+    if (e.code === "P2002" || e.code === "P2034") return NextResponse.json({ error: "Não foi possível reservar o próximo código. Tente novamente." }, { status: 409 });
+    if (e.code === "P2003") return NextResponse.json({ error: "Conta padrão inválida ou de outro tenant" }, { status: 400 });
     throw e;
   }
 }

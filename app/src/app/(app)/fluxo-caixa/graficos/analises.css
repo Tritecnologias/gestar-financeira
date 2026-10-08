@@ -1,0 +1,120 @@
+.fca-page { width: 100%; height: 100%; min-width: 0; overflow-y: auto; background: var(--background); color: var(--text-primary); }
+.fca-topbar { gap: 12px; }
+.fca-topbar > div { min-width: 0; }
+.fca-topbar .btn { flex-shrink: 0; text-decoration: none; }
+.fca-body { width: 100%; max-width: 1900px; min-width: 0; margin: 0 auto; padding: 20px 28px 40px; }
+.fca-controls, .fca-panel, .fca-summary button { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.fca-controls { display: flex; gap: 12px 16px; align-items: end; flex-wrap: wrap; padding: 15px 16px; }
+.fca-controls fieldset { min-width: 0; margin: 0; padding: 0; border: 0; white-space: nowrap; }
+.fca-controls legend, .fca-controls label, .fca-period > span { color: var(--text-secondary); font-size: 11px; font-weight: 600; margin-bottom: 5px; }
+.fca-controls button, .fca-controls select, .fca-controls input { min-height: 34px; padding: 6px 10px; background: var(--surface-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; font-size: 12px; }
+.fca-controls button { cursor: pointer; }
+.fca-controls button + button { margin-left: 4px; }
+.fca-controls button:hover { border-color: var(--action); background: var(--surface-hover); }
+.fca-controls button.selected { border-color: var(--action); background: var(--selection); color: var(--action); font-weight: 700; }
+.fca-period > div { display: flex; align-items: center; gap: 4px; }
+.fca-period strong { min-width: 148px; font-size: 11px; text-align: center; font-variant-numeric: tabular-nums; }
+.fca-period input { width: 145px; }
+.fca-controls label { display: flex; flex-direction: column; gap: 2px; margin-bottom: 0; }
+.fca-controls select { width: min(210px, 100%); }
+.fca-context { margin: 10px 2px 16px; color: var(--text-secondary); font-size: 12px; }
+.fca-state { min-height: 180px; display: flex; justify-content: center; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 13px; }
+.fca-error { flex-direction: column; color: var(--danger); text-align: center; }
+.fca-notice { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; padding: 10px 12px; font-size: 12px; border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border)); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--warning) 8%, var(--surface)); }
+.fca-notice strong { color: var(--warning); }
+.fca-notice a { color: var(--action); }
+.fca-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.fca-summary button { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 12px 15px; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
+.fca-summary button:hover { border-color: var(--action); background: var(--surface-hover); }
+.fca-summary button > span { color: var(--text-secondary); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.fca-summary button strong { font-size: clamp(18px, 1.8vw, 24px); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.fca-summary button small { color: var(--text-muted); font-size: 10px; }
+.fca-summary .entrada strong, .fca-summary .resultado.positivo strong, .fca-summary .realizado.positivo strong { color: var(--success); }
+.fca-summary .saida strong, .fca-summary .resultado.negativo strong, .fca-summary .realizado.negativo strong { color: var(--outflow); }
+.fca-summary .previsto strong, .fca-summary.fca-forecast .resultado strong { color: var(--financial-forecast); }
+.fca-summary.fca-forecast .entrada strong { color: var(--financial-receivable); }
+.fca-summary.fca-forecast .saida strong { color: var(--financial-payable); }
+.fca-summary .variacao.positivo strong { color: var(--success); }
+.fca-summary .variacao.negativo strong { color: var(--outflow); }
+.fca-summary .neutro strong { color: var(--text-secondary) !important; }
+.fca-no-data { display: flex; flex-direction: column; gap: 5px; padding: 40px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); color: var(--text-primary); text-align: center; font-size: 13px; }
+.fca-no-data span { color: var(--text-muted); font-size: 12px; }
+.fca-panel { min-width: 0; padding: 16px; }
+.fca-section-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.fca-section-heading h2 { margin: 0; font-size: 15px; }
+.fca-section-heading p { margin: 3px 0 0; font-size: 12px; color: var(--text-secondary); }
+.fca-legend { display: flex; gap: 8px 14px; flex-wrap: wrap; font-size: 11px; color: var(--text-secondary); }
+.fca-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.fca-legend i { width: 13px; height: 3px; border-radius: 2px; }
+.fca-legend .real-line, .fca-legend .balance-line { background: var(--action); }
+.fca-legend .plan-line { background: var(--financial-forecast); }
+.fca-legend .income-bar { background: var(--success); }
+.fca-legend .outflow-bar { background: var(--outflow); }
+.fca-forecast .fca-legend .balance-line { background: var(--financial-forecast); }
+.fca-forecast .fca-legend .income-bar { background: var(--financial-receivable); }
+.fca-forecast .fca-legend .outflow-bar { background: var(--financial-payable); }
+.fca-chart-scroll { width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.fca-chart-label, .fca-chart-date { fill: var(--text-muted); font: 10px var(--font); }
+.fca-chart-rule { stroke: var(--border); stroke-width: 1; }
+.fca-chart-line { fill: none; stroke-width: 2.7; stroke-linecap: round; stroke-linejoin: round; }
+.fca-chart-line.real { stroke: var(--action); }
+.fca-chart-line.plan { stroke: var(--financial-forecast); stroke-dasharray: 6 4; }
+.fca-chart-point.real { fill: var(--action); }
+.fca-chart-point.plan { fill: var(--financial-forecast); }
+.fca-chart-income { fill: var(--success); }
+.fca-chart-outflow { fill: var(--outflow); }
+.fca-forecast .fca-chart-income { fill: var(--financial-receivable); }
+.fca-forecast .fca-chart-outflow { fill: var(--financial-payable); }
+.fca-chart [role="button"]:focus-visible { outline: 2px solid var(--focus); }
+.fca-composition-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.fca-composition .fca-section-heading { margin-bottom: 10px; }
+.fca-empty { padding: 26px 4px; color: var(--text-muted); font-size: 12px; }
+.fca-category { padding: 11px 0; border-top: 1px solid var(--border); }
+.fca-category-head { display: flex; justify-content: space-between; gap: 8px; }
+.fca-category-head button { padding: 3px 0; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
+.fca-category-head button:hover, .fca-account-list button:hover { color: var(--action); }
+.fca-category-head .fca-category-total { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.fca-track { height: 5px; margin-top: 6px; overflow: hidden; border-radius: 3px; background: var(--surface-elevated); }
+.fca-track > div { height: 100%; background: var(--success); border-radius: inherit; }
+.fca-composition:nth-child(2) .fca-track > div { background: var(--outflow); }
+.fca-composition.fca-forecast:nth-child(1) .fca-track > div { background: var(--financial-receivable); }
+.fca-composition.fca-forecast:nth-child(2) .fca-track > div { background: var(--financial-payable); }
+.fca-account-list { margin: 8px 0 0 17px; border-left: 1px solid var(--border); padding-left: 10px; }
+.fca-account-list button { width: 100%; display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
+.fca-account-list strong { flex-shrink: 0; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.fca-composition-note { display: flex; gap: 5px; flex-wrap: wrap; margin: 9px 0 0; color: var(--text-muted); font-size: 11px; }
+.fca-composition-note button { border: 0; padding: 0; background: transparent; color: var(--action); font: inherit; cursor: pointer; text-decoration: underline; }
+.fca-comparison { margin-top: 16px; }
+.fca-comparison-table { display: grid; grid-template-columns: minmax(105px, 1fr) repeat(3, minmax(95px, 1fr)); gap: 0; overflow-x: auto; font-size: 12px; }
+.fca-comparison-table > span { padding: 8px; color: var(--text-muted); font-size: 11px; font-weight: 700; }
+.fca-comparison-table > button { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; gap: 8px; min-width: 0; padding: 11px 8px; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; }
+.fca-comparison-table > button:hover { background: var(--surface-hover); }
+.fca-comparison-table > button span, .fca-comparison-table > button strong:last-child { font-variant-numeric: tabular-nums; }
+.fca-comparison-table > button.fca-compare-entradas span:nth-child(2) { color: var(--financial-receivable); }
+.fca-comparison-table > button.fca-compare-saidas span:nth-child(2) { color: var(--financial-payable); }
+.fca-comparison-table > button.fca-compare-resultado span:nth-child(2) { color: var(--financial-forecast); }
+.fca-comparison-table > button .positivo { color: var(--success); }
+.fca-comparison-table > button .negativo { color: var(--outflow); }
+.fca-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--background) 72%, transparent); }
+.fca-modal { width: min(920px, 100%); max-height: min(760px, 92dvh); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-elevated); }
+.fca-modal header, .fca-modal footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 18px; }
+.fca-modal header { border-bottom: 1px solid var(--border); }
+.fca-modal h2 { margin: 0; font-size: 17px; }
+.fca-modal header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; }
+.fca-modal header button { width: 36px; height: 36px; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); color: var(--text-primary); cursor: pointer; }
+.fca-modal-body { min-height: 110px; overflow-y: auto; padding: 0 18px; }
+.fca-detail { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.3fr) 105px; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+.fca-detail > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.fca-detail small, .fca-detail > div:not(:first-child) { color: var(--text-secondary); }
+.fca-detail-value { text-align: right; font-variant-numeric: tabular-nums; }
+.fca-detail-value.realizado, .fca-detail-value.entrada { color: var(--success); }
+.fca-detail-value.saida { color: var(--outflow); }
+.fca-detail-value.previsto-entrada { color: var(--financial-receivable); }
+.fca-detail-value.previsto-saida { color: var(--financial-payable); }
+.fca-detail a { grid-column: 1 / -1; color: var(--action); text-decoration: none; }
+.fca-modal footer { justify-content: flex-end; border-top: 1px solid var(--border); }
+.fca-modal footer a { text-decoration: none; }
+button:focus-visible, .fca-controls select:focus-visible, .fca-controls input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 1100px) { .fca-composition-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .fca-body { padding: 14px 12px 28px; } .fca-topbar { padding: 12px 12px 12px 68px; } .fca-topbar .btn { font-size: 11px; padding: 8px; } .fca-controls { padding: 12px; } .fca-summary { gap: 6px; } .fca-summary button { padding: 9px; } .fca-summary button strong { font-size: 15px; } .fca-summary button small { display: none; } .fca-summary button > span { font-size: 9px; } .fca-detail { grid-template-columns: minmax(0, 1fr) 100px; } .fca-detail > div:nth-child(2), .fca-detail > div:nth-child(3) { grid-column: 1 / -1; } .fca-detail-value { grid-column: 2; grid-row: 1; } }
+@media (max-width: 440px) { .fca-backdrop { padding: 7px; } .fca-modal header, .fca-modal footer { padding: 11px; } .fca-modal-body { padding: 0 11px; } .fca-comparison-table { grid-template-columns: minmax(75px, 1fr) repeat(3, minmax(70px, 1fr)); font-size: 10px; } .fca-comparison-table > span, .fca-comparison-table > button { padding: 8px 3px; } }

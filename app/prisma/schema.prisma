@@ -30,6 +30,15 @@ model Tenant {
   atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
 
   usuarios          Usuario[]
+  memberships       TenantMembership[]
+  accessProfiles    AccessProfile[]
+  ownerEvents       AccessOwnerEvent[]
+  contractualResponsible TenantContractualResponsible?
+  termAcceptances  TermAcceptance[]
+  supportGrants     SupportGrant[]
+  supportEvents     SupportGrantEvent[]
+  auditEvents       AuditEvent[]
+  accessInvites     AccessInvite[]
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
@@ -37,6 +46,10 @@ model Tenant {
   pessoas           Pessoa[]
   empresas          Empresa[]
   produtos          Produto[]
+  produtosGrupos    ProdutoGrupo[]
+  produtosTipos     ProdutoTipo[]
+  produtosLinhas    ProdutoLinha[]
+  produtosSequencias ProdutoSequencia[]
   tarefas           Tarefa[]
   tarefaStatus      TarefaStatus[]
   statusManualTipos StatusManualTipo[]
@@ -64,9 +77,400 @@ model Usuario {
   tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   lancamentos   Lancamento[]
   layoutsColunas LayoutColunas[]
+  legacyAccessMap LegacyUserAccessMap?
 
   @@unique([tenantId, email])
+  @@unique([id, tenantId])
   @@map("usuarios")
+}
+
+// ACCESS-2: identidade de autenticação global, separada de Pessoa empresarial.
+enum AccessStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model AuthIdentity {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  nome        String
+  senhaHash   String   @map("senha_hash")
+  status      AccessStatus @default(ACTIVE)
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  memberships TenantMembership[]
+  platformAdmin PlatformAdmin?
+  legacyMaps LegacyUserAccessMap[]
+  publishedTermVersions TermVersion[] @relation("TermPublisher")
+  termAcceptances TermAcceptance[]
+  assignedResponsibilities TenantContractualResponsible[] @relation("ResponsibleAssigner")
+  requestedSupportGrants SupportGrant[] @relation("SupportRequester")
+  revokedSupportGrants SupportGrant[] @relation("SupportRevoker")
+  supportEvents SupportGrantEvent[] @relation("SupportEventActor")
+  auditEvents AuditEvent[] @relation("AuditActor")
+  invitedAccess AccessInvite[] @relation("InviteCreator")
+  acceptedAccess AccessInvite[] @relation("InviteAcceptor")
+  revokedAccess AccessInvite[] @relation("InviteRevoker")
+
+  @@map("auth_identities")
+}
+
+model TenantMembership {
+  id          String   @id @default(uuid())
+  identityId  String   @map("identity_id")
+  tenantId    String   @map("tenant_id")
+  status      AccessStatus @default(ACTIVE)
+  role        MembershipRole @default(MEMBER)
+  profileId   String?  @map("profile_id")
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  identity    AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  profile     AccessProfile? @relation(fields: [profileId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  legacyMaps  LegacyUserAccessMap[]
+  contractualResponsibility TenantContractualResponsible?
+  termAcceptances TermAcceptance[]
+  approvedSupportGrants SupportGrant[]
+  auditEvents AuditEvent[] @relation("AuditMembership")
+
+  @@unique([identityId, tenantId])
+  @@unique([id, tenantId])
+  @@unique([id, identityId, tenantId])
+  @@index([tenantId, status])
+  @@map("tenant_memberships")
+}
+
+model AccessProfile {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  nome         String
+  descricao    String?
+  ativo        Boolean  @default(true)
+  permissoes   String[] @default([])
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  memberships  TenantMembership[]
+  accessInvites AccessInvite[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, nome])
+  @@index([tenantId, ativo])
+  @@map("access_profiles")
+}
+
+enum AccessInviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+// Convite é intenção de acesso; o membership só nasce após aceite.
+model AccessInvite {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  email String
+  name String
+  role MembershipRole
+  profileId String @map("profile_id")
+  status AccessInviteStatus @default(PENDING)
+  tokenHash String @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  invitedByIdentityId String @map("invited_by_identity_id")
+  acceptedByIdentityId String? @map("accepted_by_identity_id")
+  revokedByIdentityId String? @map("revoked_by_identity_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  acceptedAt DateTime? @map("accepted_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  profile AccessProfile @relation(fields: [profileId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  invitedBy AuthIdentity @relation("InviteCreator", fields: [invitedByIdentityId], references: [id], onDelete: Restrict)
+  acceptedBy AuthIdentity? @relation("InviteAcceptor", fields: [acceptedByIdentityId], references: [id], onDelete: Restrict)
+  revokedBy AuthIdentity? @relation("InviteRevoker", fields: [revokedByIdentityId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status, createdAt(sort: Desc)])
+  @@index([tenantId, email, status])
+  @@map("access_invites")
+}
+
+// Registro pontual da designação explícita de OWNER pela plataforma.
+model AccessOwnerEvent {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  actorIdentityId    String?  @map("actor_identity_id")
+  actorLegacyUserId  String?  @map("actor_legacy_user_id")
+  targetIdentityId   String   @map("target_identity_id")
+  targetMembershipId String   @map("target_membership_id")
+  previousRole       String?  @map("previous_role")
+  previousStatus     String?  @map("previous_status")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@map("access_owner_events")
+}
+
+// Plataforma não é papel empresarial e não dá acesso financeiro implícito.
+model PlatformAdmin {
+  id          String   @id @default(uuid())
+  identityId  String   @unique @map("identity_id")
+  status      AccessStatus @default(ACTIVE)
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  identity    AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  legacyMaps  LegacyUserAccessMap[]
+  auditEvents AuditEvent[] @relation("AuditPlatformAdmin")
+
+  @@unique([id, identityId])
+  @@map("platform_admins")
+}
+
+// ID explícito do Usuario preserva autoria/histórico; nunca inferir mapping por email.
+model LegacyUserAccessMap {
+  id                String   @id @default(uuid())
+  legacyUsuarioId   String   @unique @map("legacy_usuario_id")
+  identityId        String   @map("identity_id")
+  tenantId          String   @map("tenant_id")
+  membershipId      String?  @map("membership_id")
+  platformAdminId   String?  @map("platform_admin_id")
+  criadoEm          DateTime @default(now()) @map("criado_em")
+
+  legacyUsuario Usuario @relation(fields: [legacyUsuarioId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  identity AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  membership TenantMembership? @relation(fields: [membershipId, identityId, tenantId], references: [id, identityId, tenantId], onDelete: Restrict)
+  platformAdmin PlatformAdmin? @relation(fields: [platformAdminId, identityId], references: [id, identityId], onDelete: Restrict)
+
+  @@index([identityId])
+  @@index([tenantId])
+  @@unique([legacyUsuarioId, tenantId])
+  @@map("legacy_user_access_maps")
+}
+
+// A designação contratual é explícita; nenhum OWNER histórico é escolhido por inferência.
+model TenantContractualResponsible {
+  tenantId             String   @id @map("tenant_id")
+  membershipId         String   @unique @map("membership_id")
+  assignedByIdentityId String   @map("assigned_by_identity_id")
+  assignedAt           DateTime @default(now()) @map("assigned_at")
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  membership   TenantMembership @relation(fields: [membershipId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  assignedBy   AuthIdentity @relation("ResponsibleAssigner", fields: [assignedByIdentityId], references: [id], onDelete: Restrict)
+
+  @@unique([membershipId, tenantId])
+  @@map("tenant_contractual_responsibles")
+}
+
+// ACCESS-5B: autorização temporária. Não cria TenantMembership nem papel empresarial.
+enum SupportGrantStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  REVOKED
+  EXPIRED
+}
+
+enum SupportAccessLevel {
+  READ_ONLY
+  OPERATIONAL
+}
+
+enum SupportModule {
+  ESTRUTURA_EMPRESA
+  ESTRUTURA_FINANCEIRA
+}
+
+enum SupportGrantEventType {
+  REQUESTED
+  APPROVED
+  REJECTED
+  ACTIVATED
+  USED
+  REVOKED
+  EXPIRED
+}
+
+model SupportGrant {
+  id                      String @id @default(uuid())
+  tenantId                String @map("tenant_id")
+  platformAdminIdentityId String @map("platform_admin_identity_id")
+  status                  SupportGrantStatus @default(PENDING)
+  reason                  String
+  modules                 SupportModule[]
+  accessLevel             SupportAccessLevel @default(READ_ONLY) @map("access_level")
+  requestedMinutes        Int @map("requested_minutes")
+  requestedAt             DateTime @default(now()) @map("requested_at")
+  approvedAt              DateTime? @map("approved_at")
+  approvedByMembershipId  String? @map("approved_by_membership_id")
+  startsAt                DateTime? @map("starts_at")
+  expiresAt               DateTime? @map("expires_at")
+  rejectedAt              DateTime? @map("rejected_at")
+  rejectionReason         String? @map("rejection_reason")
+  revokedAt               DateTime? @map("revoked_at")
+  revokedByIdentityId     String? @map("revoked_by_identity_id")
+  revocationReason        String? @map("revocation_reason")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  requester AuthIdentity @relation("SupportRequester", fields: [platformAdminIdentityId], references: [id], onDelete: Restrict)
+  approver TenantMembership? @relation(fields: [approvedByMembershipId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  revoker AuthIdentity? @relation("SupportRevoker", fields: [revokedByIdentityId], references: [id], onDelete: Restrict)
+  events SupportGrantEvent[]
+  auditEvents AuditEvent[] @relation("AuditSupportGrant")
+
+  @@index([tenantId, status, expiresAt])
+  @@index([platformAdminIdentityId, status, expiresAt])
+  @@unique([id, tenantId])
+  @@map("support_grants")
+}
+
+model SupportGrantEvent {
+  id String @id @default(uuid())
+  grantId String @map("grant_id")
+  tenantId String @map("tenant_id")
+  type SupportGrantEventType
+  actorIdentityId String? @map("actor_identity_id")
+  detail String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  grant SupportGrant @relation(fields: [grantId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actor AuthIdentity? @relation("SupportEventActor", fields: [actorIdentityId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([grantId, createdAt])
+  @@map("support_grant_events")
+}
+
+enum AuditAccessMode {
+  MEMBERSHIP
+  PLATFORM_ADMIN
+  SUPPORT_GRANT
+  SYSTEM
+}
+
+enum AuditResult {
+  SUCCESS
+  DENIED
+  FAILURE
+}
+
+// ACCESS-5C: immutable security/admin trail. No raw credentials or document content.
+model AuditEvent {
+  id                String @id @default(uuid())
+  occurredAt        DateTime @default(now()) @map("occurred_at")
+  actorIdentityId   String? @map("actor_identity_id")
+  actorMembershipId String? @map("actor_membership_id")
+  platformAdminId   String? @map("platform_admin_id")
+  tenantId          String? @map("tenant_id")
+  accessMode        AuditAccessMode @map("access_mode")
+  supportGrantId    String? @map("support_grant_id")
+  action            String
+  resourceType      String @map("resource_type")
+  resourceId        String? @map("resource_id")
+  result            AuditResult
+  reason            String?
+  metadata          Json? @db.JsonB
+  changes           Json? @db.JsonB
+  requestId         String? @map("request_id")
+
+  actor AuthIdentity? @relation("AuditActor", fields: [actorIdentityId], references: [id], onDelete: Restrict)
+  membership TenantMembership? @relation("AuditMembership", fields: [actorMembershipId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  platformAdmin PlatformAdmin? @relation("AuditPlatformAdmin", fields: [platformAdminId, actorIdentityId], references: [id, identityId], onDelete: Restrict)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  supportGrant SupportGrant? @relation("AuditSupportGrant", fields: [supportGrantId, tenantId], references: [id, tenantId], onDelete: Restrict)
+
+  @@index([tenantId, occurredAt(sort: Desc)])
+  @@index([actorIdentityId, occurredAt(sort: Desc)])
+  @@index([action, occurredAt(sort: Desc)])
+  @@index([supportGrantId, occurredAt(sort: Desc)])
+  @@map("audit_events")
+}
+
+enum TermAudience {
+  CONTRATANTE
+  USUARIO
+}
+
+enum TermVersionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+model TermDocument {
+  id        String @id @default(uuid())
+  code      String @unique
+  audience  TermAudience
+  required  Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  versions  TermVersion[]
+
+  @@map("term_documents")
+}
+
+model TermVersion {
+  id                    String @id @default(uuid())
+  documentId            String @map("document_id")
+  version               String
+  title                 String
+  description           String?
+  storageKey            String @unique @map("storage_key")
+  mimeType              String @map("mime_type")
+  byteSize              Int @map("byte_size")
+  sha256                String
+  status                TermVersionStatus @default(DRAFT)
+  requiresReaccept      Boolean @default(true) @map("requires_reaccept")
+  publishedAt           DateTime? @map("published_at")
+  publishedByIdentityId String? @map("published_by_identity_id")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  document    TermDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  publishedBy AuthIdentity? @relation("TermPublisher", fields: [publishedByIdentityId], references: [id], onDelete: Restrict)
+  acceptances TermAcceptance[]
+
+  @@unique([documentId, version])
+  @@index([documentId, status])
+  @@map("term_versions")
+}
+
+// Evidência append-only. scopeKey = GLOBAL ou tenantId, impedindo duplicidade com NULL.
+model TermAcceptance {
+  id               String @id @default(uuid())
+  identityId       String @map("identity_id")
+  termVersionId    String @map("term_version_id")
+  tenantId         String? @map("tenant_id")
+  membershipId     String? @map("membership_id")
+  scopeKey         String @map("scope_key")
+  roleAtAcceptance String? @map("role_at_acceptance")
+  acceptedAt       DateTime @default(now()) @map("accepted_at")
+  ipAddress        String? @map("ip_address")
+  userAgent        String? @map("user_agent")
+  documentHash     String @map("document_hash")
+
+  identity   AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  version    TermVersion @relation(fields: [termVersionId], references: [id], onDelete: Restrict)
+  tenant     Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  membership TenantMembership? @relation(fields: [membershipId, identityId, tenantId], references: [id, identityId, tenantId], onDelete: Restrict)
+
+  @@unique([identityId, termVersionId, scopeKey])
+  @@index([tenantId, acceptedAt])
+  @@index([termVersionId, acceptedAt])
+  @@map("term_acceptances")
 }
 
 // ── Plano de Contas ───────────────────────────────────────────
@@ -78,14 +482,21 @@ model PlanoContas {
   // tipo: 'RECEITA' | 'DESPESA' | 'TRANSFERENCIA'
   tipo      String
   paiId     String? @map("pai_id")
+  categoriaId String? @map("categoria_id")
   ativo     Boolean @default(true)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   pai         PlanoContas?  @relation("PlanoContasPai", fields: [paiId], references: [id])
   filhos      PlanoContas[] @relation("PlanoContasPai")
+  categoria   Categoria?    @relation(fields: [categoriaId], references: [id])
   lancamentos Lancamento[]
+  fornecedoresPadrao Fornecedor[] @relation("FornecedorContaPadrao")
+  clientesPadrao Cliente[] @relation("ClienteContaPadrao")
 
+  @@unique([tenantId, id])
+  @@index([tenantId, categoriaId], map: "idx_plano_contas_tenant_categoria")
+  @@index([tenantId, codigo], map: "idx_plano_contas_tenant_codigo")
   @@map("plano_contas")
 }
 
@@ -142,7 +553,7 @@ model DadoBancario {
   @@map("dados_bancarios")
 }
 
-// ── Categoria (classificação gerencial n5) ────────────────────
+// ── Categoria N1 (classificação financeira) ────────────────────
 model Categoria {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
@@ -153,6 +564,7 @@ model Categoria {
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contas PlanoContas[]
 
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_categoria_tenant")
@@ -182,14 +594,23 @@ model Fornecedor {
   tenantId  String   @map("tenant_id")
   codigo    String   @db.VarChar(20)
   nome      String
+  tipoPessoa String? @map("tipo_pessoa") @db.VarChar(2)
+  nomeFantasia String? @map("nome_fantasia")
+  documento String?
+  email String?
+  telefone String?
+  endereco String?
+  contaPadraoId String? @map("conta_padrao_id")
   ativo     Boolean  @default(true)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contaPadrao PlanoContas? @relation("FornecedorContaPadrao", fields: [tenantId, contaPadraoId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
   lancamentos Lancamento[]
 
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_fornecedores_tenant")
+  @@index([tenantId, contaPadraoId], map: "idx_fornecedores_conta_padrao")
   @@map("fornecedores")
 }
 
@@ -199,17 +620,24 @@ model Cliente {
   tenantId  String   @map("tenant_id")
   codigo    String   @db.VarChar(20)
   nome      String
+  tipoPessoa String? @map("tipo_pessoa") @db.VarChar(2)
+  nomeFantasia String? @map("nome_fantasia")
   email     String?
   telefone  String?
   documento String?  // CPF ou CNPJ
   endereco  String?
+  contaPadraoId String? @map("conta_padrao_id")
   ativo     Boolean  @default(true)
   criadoEm DateTime @default(now()) @map("criado_em")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contaPadrao PlanoContas? @relation("ClienteContaPadrao", fields: [tenantId, contaPadraoId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  lancamentos Lancamento[]
 
   @@unique([tenantId, codigo])
+  @@unique([tenantId, id])
   @@index([tenantId], map: "idx_clientes_tenant")
+  @@index([tenantId, contaPadraoId], map: "idx_clientes_conta_padrao")
   @@map("clientes")
 }
 
@@ -261,13 +689,91 @@ model Empresa {
   @@map("empresas")
 }
 
+// ── Classificação de Produtos/Serviços ────────────────────────
+model ProdutoGrupo {
+  id       String   @id @default(uuid())
+  tenantId String   @map("tenant_id")
+  codigo   String   @db.VarChar(30)
+  nome     String
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tipos  ProdutoTipo[]
+  itens  Produto[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, codigo])
+  @@index([tenantId], map: "idx_produto_grupos_tenant")
+  @@map("produto_grupos")
+}
+
+// Reserva durável de códigos do portfólio, inclusive após exclusão física.
+model ProdutoSequencia {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  escopo       String @db.VarChar(100)
+  ultimoNumero BigInt @map("ultimo_numero")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, escopo])
+  @@map("produto_sequencias")
+}
+
+model ProdutoTipo {
+  id       String   @id @default(uuid())
+  tenantId String   @map("tenant_id")
+  grupo    String?  // Valor textual legado; novos Tipos usam grupoId.
+  grupoId  String?  @map("grupo_id")
+  codigo   String   @db.VarChar(30)
+  nome     String
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grupoRef ProdutoGrupo? @relation(fields: [tenantId, grupoId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
+  linhas ProdutoLinha[]
+  itens  Produto[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, grupo, codigo])
+  @@unique([tenantId, grupoId, codigo])
+  @@index([tenantId], map: "idx_produto_tipos_tenant")
+  @@map("produto_tipos")
+}
+
+model ProdutoLinha {
+  id       String   @id @default(uuid())
+  tenantId String   @map("tenant_id")
+  tipoId   String   @map("tipo_id")
+  codigo   String   @db.VarChar(30)
+  nome     String
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tipo ProdutoTipo @relation(fields: [tenantId, tipoId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
+  itens Produto[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, tipoId, codigo])
+  @@index([tenantId, tipoId], map: "idx_produto_linhas_tipo")
+  @@map("produto_linhas")
+}
+
 // ── Produto/Serviço ───────────────────────────────────────────
 model Produto {
   id         String   @id @default(uuid())
   tenantId   String   @map("tenant_id")
   codigo     String   @db.VarChar(30)
   nome       String
-  tipo       String?  // PRODUTO | SERVICO
+  tipo       String?  // Grupo legado: PRODUTO | SERVICO
+  grupoId    String?  @map("grupo_id")
+  tipoId     String?  @map("tipo_id")
+  linhaId    String?  @map("linha_id")
+  descricao  String?
+  observacoes String?
   unidade    String?  // UN, KG, HR, etc
   precoVenda Decimal? @map("preco_venda") @db.Decimal(15, 2)
   precoCusto Decimal? @map("preco_custo") @db.Decimal(15, 2)
@@ -276,9 +782,15 @@ model Produto {
   criadoEm   DateTime @default(now()) @map("criado_em")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grupoRef ProdutoGrupo? @relation(fields: [tenantId, grupoId], references: [tenantId, id], onDelete: Restrict, onUpdate: NoAction)
+  tipoRef ProdutoTipo? @relation(fields: [tenantId, tipoId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  linhaRef ProdutoLinha? @relation(fields: [tenantId, linhaId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([tenantId, codigo])
   @@index([tenantId], map: "idx_produtos_tenant")
+  @@index([tenantId, tipoId], map: "idx_produtos_tipo")
+  @@index([tenantId, grupoId], map: "idx_produtos_grupo")
+  @@index([tenantId, linhaId], map: "idx_produtos_linha")
   @@map("produtos")
 }
 
@@ -388,6 +900,7 @@ model Lancamento {
   // ── Vínculos ──────────────────────────────────────────────
   contaId      String?  @map("conta_id")
   fornecedorId String?  @map("fornecedor_id")
+  clienteId    String?  @map("cliente_id")
 
   // ── Campos de texto ───────────────────────────────────────
   fornecedor     String?  // texto livre (legado / fallback)
@@ -412,11 +925,13 @@ model Lancamento {
   conta       PlanoContas? @relation(fields: [contaId], references: [id])
   criador     Usuario?     @relation(fields: [criadoPor], references: [id])
   fornecedorRef Fornecedor? @relation(fields: [fornecedorId], references: [id])
+  clienteRef Cliente? @relation(fields: [tenantId, clienteId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([tenantId, dataLanc(sort: Desc)], map: "idx_lancamentos_tenant_data")
   @@index([tenantId, status], map: "idx_lancamentos_tenant_status")
   @@index([tenantId, tipo], map: "idx_lancamentos_tenant_tipo")
   @@index([fornecedorId], map: "idx_lancamentos_fornecedor")
+  @@index([tenantId, clienteId], map: "idx_lancamentos_tenant_cliente")
   @@index([tenantId, dataVencPlano], map: "idx_lancamentos_venc_plano")
   @@map("lancamentos")
 }

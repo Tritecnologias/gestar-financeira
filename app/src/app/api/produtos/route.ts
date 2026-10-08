@@ -1,23 +1,41 @@
+import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
+import { nextProductCode, productApiError, productText, productTransaction, validateProductClassification } from "@/lib/product-catalog";
+
+const relations = { grupoRef: { select: { id: true, codigo: true, nome: true, ativo: true } }, tipoRef: { select: { id: true, codigo: true, nome: true, grupoId: true, ativo: true } }, linhaRef: { select: { id: true, codigo: true, nome: true, tipoId: true, ativo: true } } };
 
 export async function GET() {
-  let db: any;
-  try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
-  const items = await db.produto.findMany({ where: { ativo: true }, orderBy: [{ codigo: "asc" }] });
-  return NextResponse.json(items);
+  const access = await guardApi("estrutura.portfolio.view"); if (access) return access;
+  try {
+    const { db } = await requireSession();
+    return NextResponse.json(await db.produto.findMany({ orderBy: { codigo: "asc" }, include: relations }));
+  } catch (error: any) {
+    const e = productApiError(error, "Não foi possível carregar os itens.");
+    return NextResponse.json({ error: e.message }, { status: e.status });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  let db: any;
-  try { ({ db } = await requireEscrita()); } catch (e: any) { return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 }); }
-  const { codigo, nome, tipo, unidade, precoVenda, precoCusto, categoria } = await req.json();
-  if (!codigo?.trim() || !nome?.trim()) return NextResponse.json({ error: "Código e nome são obrigatórios" }, { status: 400 });
+  const access = await guardApi("estrutura.portfolio.create"); if (access) return access;
   try {
-    const item = await db.produto.create({ data: { codigo: codigo.trim(), nome: nome.trim(), tipo: tipo || null, unidade: unidade || null, precoVenda: precoVenda ? parseFloat(precoVenda) : null, precoCusto: precoCusto ? parseFloat(precoCusto) : null, categoria: categoria || null } });
+    const { db, session } = await requireEscrita();
+    const input = await req.json();
+    const nome = productText(input.nome, "Nome", true)!;
+    const grupoId = productText(input.grupoId, "Grupo", true, 80)!;
+    const tipoId = productText(input.tipoId, "Tipo", true, 80)!;
+    const linhaId = productText(input.linhaId, "Linha", false, 80);
+    const descricao = productText(input.descricao, "Descrição", false, 5000);
+    const observacoes = productText(input.observacoes, "Observações", false, 5000);
+    const unidade = productText(input.unidade, "Unidade", false, 30);
+    const item = await productTransaction(db, session.tenantId, async tx => {
+      await validateProductClassification(tx, session.tenantId, grupoId, tipoId, linhaId);
+      const codigo = await nextProductCode(tx, session.tenantId);
+      return tx.produto.create({ data: { codigo, nome, grupoId, tipoId, linhaId, descricao, observacoes, unidade }, include: relations });
+    });
     return NextResponse.json(item, { status: 201 });
-  } catch (e: any) {
-    if (e.code === "P2002") return NextResponse.json({ error: "Código já cadastrado" }, { status: 409 });
-    throw e;
+  } catch (error: any) {
+    const e = productApiError(error, "Não foi possível criar o item.");
+    return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }

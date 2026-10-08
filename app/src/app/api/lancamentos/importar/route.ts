@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireEscrita } from "@/lib/tenant";
-import { prisma, getTenantPrisma } from "@/lib/db";
+import { requirePermission } from "@/lib/permissions";
+import { prisma } from "@/lib/db";
 import { parseDateOnly } from "@/lib/lancamento";
+import { resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
 
 // ── POST /api/lancamentos/importar ────────────────────────────
 // Importação em lote com verificação de duplicidade.
@@ -10,7 +11,7 @@ import { parseDateOnly } from "@/lib/lancamento";
 export async function POST(req: NextRequest) {
   let db: any, session: any;
   try {
-    ({ db, session } = await requireEscrita());
+    ({ db, session } = await requirePermission("fluxo.lancamentos.import"));
   } catch (e: any) {
     const status = e?.status ?? 401;
     return NextResponse.json({ error: e?.message ?? "Não autenticado" }, { status });
@@ -23,22 +24,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nenhum lançamento enviado" }, { status: 400 });
   }
 
-  // Se admin_global especificou o tenant explicitamente, valida e direciona
-  let targetTenantId = session.tenantId;
-  let targetTenantNome = session.tenantNome;
-  let targetDb = db;
-
-  if (requestedTenantId && session.papel === "admin_global") {
-    const validTenant = await prisma.tenant.findUnique({
-      where: { id: requestedTenantId, ativo: true },
-      select: { id: true, nome: true },
-    });
-    if (validTenant) {
-      targetTenantId = validTenant.id;
-      targetTenantNome = validTenant.nome;
-      targetDb = getTenantPrisma(validTenant.id);
-    }
+  if (requestedTenantId && requestedTenantId !== session.tenantId) {
+    return NextResponse.json({ error: "Importação entre tenants não é permitida." }, { status: 403 });
   }
+  const targetTenantId = session.tenantId;
+  const targetTenantNome = session.tenantNome;
+  const targetDb = db;
 
   let inseridos = 0;
   let duplicados = 0;
@@ -57,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   // Busca o MAX(seq) atual do tenant de destino uma única vez antes do lote.
   const resultado = await prisma.$queryRaw<{ maxseq: number }[]>`
-    SELECT COALESCE(MAX(seq), 0) AS maxseq FROM lancamentos WHERE tenant_id = ${targetTenantId}::uuid
+    SELECT COALESCE(MAX(seq), 0) AS maxseq FROM lancamentos WHERE tenant_id = ${targetTenantId}
   `;
   let proximoSeq = Number(resultado[0]?.maxseq ?? 0) + 1;
 
@@ -66,7 +57,7 @@ export async function POST(req: NextRequest) {
     try {
       const {
         dataLanc, descricao, valor, tipo, status,
-        fornecedor, fornecedorId, centroCusto, referencia, contaId,
+        fornecedor, fornecedorId, clienteId, centroCusto, referencia, contaId,
         dataEmissao, dataVencOriginal, dataVencPlano, dataEvento, dataPagamento,
         statusManual, statusExtrato, valorPrevisto, banco,
         fantasiaPadrao, categoria, dre, cont, anotacao,
@@ -142,6 +133,7 @@ export async function POST(req: NextRequest) {
       }
 
       const valorPrevNum = valorPrevisto != null ? (typeof valorPrevisto === "number" ? valorPrevisto : parseFloat(String(valorPrevisto).replace(",", "."))) : null;
+      const counterpart = await resolveCounterpartyLink(targetDb, targetTenantId, { clienteId, fornecedorId });
 
       await targetDb.lancamento.create({
         data: {
@@ -149,7 +141,7 @@ export async function POST(req: NextRequest) {
           dataLanc:         dataLancDate,
           dataEmissao:      parseDateOnly(dataEmissao),
           dataVencOriginal: dataVencOrigDate,
-          dataVencPlano:    parseDateOnly(dataVencPlano),
+          dataVencPlano:    parseDateOnly(dataVencPlano || dataVencOriginal),
           dataEvento:       parseDateOnly(dataEvento),
           dataPagamento:    parseDateOnly(dataPagamento),
           descricao:        descricao.trim(),
@@ -162,7 +154,9 @@ export async function POST(req: NextRequest) {
           banco:            banco         || null,
           fornecedor:       fornecedor    || null,
           fornecedorId:     fornecedorId  || null,
+          clienteId:        clienteId || null,
           fantasiaPadrao:   fantasiaPadrao|| null,
+          ...counterpart,
           centroCusto:      centroCusto   || null,
           referencia:       referencia    || null,
           contaId:          contaId       || null,

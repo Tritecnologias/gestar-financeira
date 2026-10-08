@@ -10,7 +10,10 @@ const globalForPrisma = globalThis as unknown as {
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL!;
-  const adapter = new PrismaPg({ connectionString });
+  // Keep the adapter in the same PostgreSQL schema selected by Prisma Migrate.
+  // The production URL has no schema override; isolated DEV tests use one.
+  const schema = new URL(connectionString).searchParams.get("schema") || undefined;
+  const adapter = new PrismaPg({ connectionString }, schema ? { schema } : undefined);
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
@@ -32,110 +35,112 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 // ⚠️  Não use o `prisma` singleton diretamente nas rotas de API —
 //     use sempre `getTenantPrisma` para garantir o isolamento.
 export function getTenantPrisma(tenantId: string) {
-  // Helper: verifica se um registro pertence ao tenant antes de operações
-  // que exigem where por chave única (update/delete/findUnique/upsert).
-  //
-  // Motivo: o Prisma só aceita campos de identificador ÚNICO no where dessas
-  // operações. Como não há @@unique([tenantId, id]) no schema, injetar tenantId
-  // diretamente no where quebraria em runtime ("Unknown argument tenantId").
-  // Então, em vez disso, validamos a posse com um findFirst (que aceita filtros
-  // arbitrários) e só executamos a operação se o registro for do tenant.
-  async function pertenceAoTenant(model: string, where: any): Promise<boolean> {
-    const registro = await (prisma as any)[model].findFirst({
-      where: { ...where, tenantId },
-      select: { id: true },
-    });
-    return registro != null;
-  }
+  // Prisma 7 aceita filtros adicionais no where com identificador único.
+  // Mantê-los na própria operação evita a janela entre verificar posse e gravar.
+  const scopedWhere = (where: any) => ({ ...where, tenantId });
+  const scopedData = (data: any) => ({ ...data, tenantId });
 
   return prisma.$extends({
     query: {
       $allModels: {
         // ── Leitura em massa / agregação: filtro por tenant é suficiente ──
         async findMany({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-          args.where = { tenantId, ...args.where };
+          args.where = scopedWhere(args.where);
           return query(args);
         },
         async findFirst({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-          args.where = { tenantId, ...args.where };
+          args.where = scopedWhere(args.where);
           return query(args);
         },
         async findFirstOrThrow({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-          args.where = { tenantId, ...args.where };
+          args.where = scopedWhere(args.where);
           return query(args);
         },
         async count({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-          args.where = { tenantId, ...args.where };
+          args.where = scopedWhere(args.where);
           return query(args);
         },
         async aggregate({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-          args.where = { tenantId, ...args.where };
+          args.where = scopedWhere(args.where);
           return query(args);
         },
         async groupBy({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-          args.where = { tenantId, ...args.where };
+          args.where = scopedWhere(args.where);
           return query(args);
         },
 
-        // ── findUnique/findUniqueOrThrow: valida posse, mantém where único ──
-        async findUnique({ args, query, model }: { args: any; query: (args: any) => Promise<any>; model: string }) {
-          if (!(await pertenceAoTenant(model, args.where))) return null;
+        // ── Operações por chave única: escopo no mesmo statement SQL ──
+        async findUnique({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
+          args.where = scopedWhere(args.where);
           return query(args);
         },
-        async findUniqueOrThrow({ args, query, model }: { args: any; query: (args: any) => Promise<any>; model: string }) {
-          if (!(await pertenceAoTenant(model, args.where))) {
-            throw Object.assign(new Error("Registro não encontrado no tenant"), { code: "P2025" });
-          }
+        async findUniqueOrThrow({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
+          args.where = scopedWhere(args.where);
           return query(args);
         },
 
         // ── Escrita: injeta o tenantId automaticamente no data ──
         async create({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-          args.data = { tenantId, ...args.data };
+          args.data = scopedData(args.data);
           return query(args);
         },
         async createMany({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
           if (Array.isArray(args.data)) {
-            args.data = args.data.map((item: any) => ({ tenantId, ...item }));
+            args.data = args.data.map(scopedData);
           } else {
-            args.data = { tenantId, ...args.data };
+            args.data = scopedData(args.data);
           }
+          return query(args);
+        },
+        async createManyAndReturn({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
+          args.data = Array.isArray(args.data) ? args.data.map(scopedData) : scopedData(args.data);
           return query(args);
         },
 
-        // ── update/delete por chave única: valida posse antes de executar ──
-        // Mantém o where original (chave única) intacto para não violar o
-        // contrato do Prisma, mas impede operar em registro de outro tenant.
-        async update({ args, query, model }: { args: any; query: (args: any) => Promise<any>; model: string }) {
-          if (!(await pertenceAoTenant(model, args.where))) {
-            throw Object.assign(new Error("Registro não encontrado no tenant"), { code: "P2025" });
-          }
+        async update({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
+          args.where = scopedWhere(args.where);
+          args.data = scopedData(args.data);
           return query(args);
         },
-        async delete({ args, query, model }: { args: any; query: (args: any) => Promise<any>; model: string }) {
-          if (!(await pertenceAoTenant(model, args.where))) {
-            throw Object.assign(new Error("Registro não encontrado no tenant"), { code: "P2025" });
-          }
+        async delete({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
+          args.where = scopedWhere(args.where);
           return query(args);
         },
-        async upsert({ args, query, model }: { args: any; query: (args: any) => Promise<any>; model: string }) {
-          // Se já existe no tenant, faz update; senão, cria com tenantId injetado.
-          args.create = { tenantId, ...args.create };
-          if (!(await pertenceAoTenant(model, args.where))) {
-            // Registro não pertence ao tenant (ou não existe): força o caminho de create.
-            // Removemos o update para evitar sobrescrever dados de outro tenant.
-            args.update = {};
+        async upsert({ args, model }: { args: any; model: string }) {
+          // O upsert nativo usa a chave única no ON CONFLICT e pode ignorar o
+          // tenantId adicional no ramo UPDATE. Nunca executá-lo diretamente.
+          const delegate = (prisma as any)[model] ?? (prisma as any)[model[0].toLowerCase() + model.slice(1)];
+          const where = scopedWhere(args.where);
+          const projection = args.select ? { select: args.select } : args.include ? { include: args.include } : {};
+          const existing = await delegate.findUnique({ where, select: { id: true } });
+          if (existing) {
+            return delegate.update({ where: { id: existing.id, tenantId }, data: scopedData(args.update), ...projection });
           }
-          return query(args);
+          try {
+            return await delegate.create({ data: scopedData(args.create), ...projection });
+          } catch (error: any) {
+            if (error.code !== "P2002") throw error;
+            // Corrida de criação no mesmo tenant: tentar o ramo UPDATE apenas
+            // após confirmar posse. Conflito com outro tenant continua erro.
+            const concurrent = await delegate.findUnique({ where, select: { id: true } });
+            if (!concurrent) throw error;
+            return delegate.update({ where: { id: concurrent.id, tenantId }, data: scopedData(args.update), ...projection });
+          }
         },
 
         // ── updateMany/deleteMany: filtro por tenant é suficiente e seguro ──
         async updateMany({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-          args.where = { tenantId, ...args.where };
+          args.where = scopedWhere(args.where);
+          args.data = scopedData(args.data);
+          return query(args);
+        },
+        async updateManyAndReturn({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
+          args.where = scopedWhere(args.where);
+          args.data = scopedData(args.data);
           return query(args);
         },
         async deleteMany({ args, query }: { args: any; query: (args: any) => Promise<any> }) {
-          args.where = { tenantId, ...args.where };
+          args.where = scopedWhere(args.where);
           return query(args);
         },
       },

@@ -2,7 +2,7 @@
 
 export type TipoLancamento  = "ENTRADA" | "SAIDA";
 export type StatusLancamento = "realizado" | "previsto" | "cancelado";
-export type StatusAuto      = "PAGO" | "ATRASADO" | "A VENCER" | "PREVISTO";
+export type StatusAuto      = "PAGO" | "ATRASADO" | "A VENCER" | "PREVISTO" | "CANCELADO" | "INCONSISTENTE";
 export type TipoConta       = "RECEITA" | "DESPESA" | "TRANSFERENCIA";
 export type Papel           = "admin_global" | "admin" | "membro";
 export type Plano           = "trial" | "mensal" | "anual";
@@ -32,15 +32,22 @@ export interface LancamentoDTO {
   statusManual:  string | null;   // ex: PAGO, PENDENTE
   statusExtrato: string | null;   // ex: A
   statusAuto:    StatusAuto;      // calculado
+  problemasFinanceiros?: string[]; // sinais do motor financeiro para revisão
 
   // Campos de texto
   descricao:      string;
   fornecedor:     string | null;
   fornecedorId:   string | null;
+  clienteId:      string | null;
+  contraparteTipo: "CLIENTE" | "FORNECEDOR" | null;
+  contraparteCodigo: string | null;
+  contraparteNome: string | null;
   fantasiaPadrao: string | null;  // display: "codigo – nome"
   centroCusto:    string | null;
   referencia:     string | null;
   contaId:        string | null;
+  contaN2Codigo:  string | null;
+  contaN2Descricao: string | null;
   categoria:      string | null;
   dre:            string | null;
   cont:           string | null;
@@ -137,16 +144,23 @@ export interface PlanoContasDTO {
 // ── Session do usuário logado ─────────────────────────────────
 export interface UserSession {
   id:         string;
+  authMode:   "identity" | "legacy";
+  identityId?: string;
+  membershipId?: string;
+  membershipRole?: "OWNER" | "ADMIN" | "MEMBER";
+    platformAdmin?: boolean;
+    accessSource?: "MEMBERSHIP" | "SUPPORT_GRANT";
+    supportGrantId?: string;
+    supportLevel?: "READ_ONLY" | "OPERATIONAL";
+    supportModules?: ("ESTRUTURA_EMPRESA" | "ESTRUTURA_FINANCEIRA")[];
+    supportExpiresAt?: string;
   nome:       string;
   email:      string;
   papel:      Papel;
   tenantId:   string;
   tenantNome: string;
-  // Indica se o tenant ativo foi selecionado de forma explícita e legítima.
-  // Para admin/membro é sempre true (tenant fixo). Para admin_global só é true
-  // quando há um "tenant override" válido selecionado. Usado para bloquear
-  // operações de escrita do admin_global quando nenhum tenant está selecionado,
-  // evitando gravar dados no tenant pessoal dele por engano.
+  // Em identity: membership ativo validado no banco. Em legacy: contexto do
+  // Usuario e eventual override temporário de admin_global.
   tenantSelecionado: boolean;
 }
 
