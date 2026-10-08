@@ -11,7 +11,7 @@ export default async function TermsAcceptancePage() {
   catch (error) { redirect((error as {status?: number}).status === 409 ? "/selecionar-tenant" : "/login"); }
   const pending = await pendingTerms(session);
   const returnPath = session.accessSource === "SUPPORT_GRANT"
-    ? SUPPORT_MODULES[session.supportModules?.[0] ?? "ESTRUTURA_EMPRESA"].page : "/lancamentos";
+    ? SUPPORT_MODULES[session.supportModules?.[0] ?? "ESTRUTURA_EMPRESA"].page : "/inicio";
   if (!pending.length) redirect(returnPath);
   return <TermsAcceptanceClient initialPending={pending} returnPath={returnPath} />;
 }

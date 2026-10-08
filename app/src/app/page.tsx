@@ -13,7 +13,7 @@ export default async function RootPage() {
       } catch { /* requireSession will reject an invalid session */ }
       if (platformOnly) redirect("/plataforma");
     }
-    redirect("/lancamentos");
+    redirect("/inicio");
   } else {
     redirect("/login");
   }

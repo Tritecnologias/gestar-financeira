@@ -43,7 +43,7 @@ export default function SelecionarTenant() {
         body: JSON.stringify({ tenantId: choice.id, ...(choice.grantId ? { grantId: choice.grantId } : {}) }),
       });
       if (!res.ok) throw new Error("Este vínculo não está mais disponível.");
-      window.location.assign(choice.grantId ? "/estrutura/dimensao-empresa" : "/lancamentos");
+      window.location.assign(choice.grantId ? "/estrutura/dimensao-empresa" : "/inicio");
     } catch (cause) {
       setError((cause as Error).message);
       setBusy(false);

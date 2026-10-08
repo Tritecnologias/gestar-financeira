@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import type { PendingTerm } from "@/lib/terms";
 
-export default function TermsAcceptanceClient({ initialPending, returnPath = "/lancamentos" }: { initialPending: PendingTerm[]; returnPath?: string }) {
+export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio" }: { initialPending: PendingTerm[]; returnPath?: string }) {
   const [pending, setPending] = useState(initialPending);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);

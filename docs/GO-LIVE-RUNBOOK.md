@@ -186,7 +186,7 @@ Arquivos fonte para revisão: [`app/docs/access-final-rollout.md`](../app/docs/a
 - [ ] PlatformAdmins, OWNERs, responsáveis, tenants ativos e perfis aprovados nominalmente no [mapa administrativo](GO-LIVE-ADMIN-MAP.md), com identidades exatas em ata privada.
 - [ ] Permissões dos perfis legados revisadas; isolamento de dois tenants autenticados testado.
 - [ ] PDFs oficiais, versão/reaceite e storage privado persistente com backup/restore.
-- [ ] Staging: migrations, auth novo, termos, suporte, auditoria, smoke e **rollback para legacy** aprovados.
+- [ ] Staging: migrations, auth novo, termos, suporte, auditoria, [onboarding inicial](GO-LIVE-ONBOARDING.md), smoke e **rollback para legacy** aprovados.
 - [ ] Janela, monitoramento, contatos, ponto de decisão e autorização GO assinados.
 
 **Situação nesta data: NO-GO para produção.** Pendem inventário/dry-run do banco real, reconciliação do baseline, executor de backfill próprio de produção, decisões humanas, PDFs/storage e ensaio de rollback HTTP. Este documento não substitui essas aprovações. Nenhum merge, deploy ou mudança de produção foi realizado.

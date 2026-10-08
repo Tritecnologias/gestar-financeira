@@ -1,0 +1,22 @@
+.onboarding-page { height: 100%; overflow: auto; padding: clamp(16px, 3vw, 36px); color: var(--text-primary); }
+.onboarding-content { width: min(100%, 1100px); margin: 0 auto; display: grid; gap: 16px; }
+.onboarding-header h1 { margin: 4px 0 6px; font-size: clamp(24px, 3vw, 32px); }
+.onboarding-header p, .onboarding-panel p { color: var(--text-secondary); line-height: 1.5; }
+.onboarding-eyebrow { color: var(--action); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.onboarding-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: clamp(16px, 2vw, 24px); }
+.onboarding-panel h2 { margin: 0 0 12px; font-size: 17px; }
+.onboarding-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 16px; margin: 0 0 14px; }
+.onboarding-facts div { min-width: 0; }
+.onboarding-facts dt { color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.onboarding-facts dd { margin: 4px 0 0; overflow-wrap: anywhere; font-weight: 600; }
+.onboarding-facts small { display: block; color: var(--text-secondary); font-weight: 400; }
+.onboarding-note { margin: 0 0 14px; font-size: 13px; }
+.onboarding-link, .onboarding-actions a { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 12px; color: var(--action); border: 1px solid var(--border); border-radius: 8px; background: var(--surface-elevated); text-decoration: none; font-weight: 600; }
+.onboarding-link:hover, .onboarding-actions a:hover { border-color: var(--focus); background: var(--surface-hover); }
+.onboarding-link:focus-visible, .onboarding-actions a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.onboarding-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.onboarding-modules { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 18px; }
+.onboarding-modules h3 { margin: 0 0 8px; color: var(--text-secondary); font-size: 13px; }
+@media (max-width: 1279px) {
+  .onboarding-page { padding-top: 72px; }
+}

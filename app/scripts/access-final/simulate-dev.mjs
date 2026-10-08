@@ -160,6 +160,9 @@ try {
       callbackUrl: `${base}/selecionar-tenant` }) });
   addCookies(loginResponse);
   check("backfilled identity logs in over HTTP", cookieHeader().includes("authjs.session-token="));
+  const singleChoices = await get("/api/tenants");
+  check("single active membership is available without tenant selection", singleChoices.status === 200 &&
+    (await singleChoices.json()).length === 1 && (await get("/inicio")).status === 200);
   const switchResponse = await fetch(`${base}/api/tenants/switch`, { method: "POST", redirect: "manual",
     headers: { Cookie: cookieHeader(), "Content-Type": "application/json" },
     body: JSON.stringify({ tenantId: highId }) });
@@ -229,6 +232,15 @@ try {
     headers: { Cookie: jar.header(), ...(body ? { "Content-Type": "application/json" } : {}) },
     body: body ? JSON.stringify(body) : undefined });
   const opJar = await fixtureLogin(opIdentity.email, highId);
+  const opStart = await api("/inicio", opJar);
+  const opStartHtml = await opStart.text();
+  check("operational start shows current tenant and profile without OWNER actions", opStart.status === 200 &&
+    opStartHtml.includes("FINANCEIRO OPERACIONAL") && opStartHtml.includes("HIGH ACCESS-FINAL") &&
+    !opStartHtml.includes("Primeira configuração do tenant"));
+  const unselectedJar = await fixtureLogin(opIdentity.email);
+  const unselectedStart = await api("/inicio", unselectedJar);
+  check("two memberships require tenant selection before start", [307, 308].includes(unselectedStart.status) &&
+    (unselectedStart.headers.get("location") ?? "").includes("/selecionar-tenant"));
   let context = await (await api("/api/access/context", opJar)).json();
   check("HIGH operational profile and no sensitive balance", context.profile?.nome === "FINANCEIRO OPERACIONAL" &&
     !context.permissions.includes("fluxo.visao.saldos"));
@@ -239,9 +251,36 @@ try {
   const readerWrite = await api("/api/lancamentos", readerJar, "POST", {});
   check(`CONSULTA reads but cannot write (${readerRead.status}/${readerWrite.status})`,
     readerRead.status === 200 && readerWrite.status === 403);
+  await db.tenantMembership.update({ where: { id: readerMembership.id }, data: { role: "OWNER" } });
+  const ownerStart = await api("/inicio", readerJar);
+  const ownerStartHtml = await ownerStart.text();
+  check("OWNER start presents administration shortcuts", ownerStart.status === 200 &&
+    ownerStartHtml.includes("Responsável pelo tenant (OWNER)") &&
+    ownerStartHtml.includes("Primeira configuração do tenant") && ownerStartHtml.includes("Perfis de Acesso") &&
+    !ownerStartHtml.includes('href="/acessos/suporte"'));
+  await db.tenantContractualResponsible.create({ data: { tenantId: highId,
+    membershipId: readerMembership.id, assignedByIdentityId: readerIdentity.id } });
+  const responsibleStart = await api("/inicio", readerJar);
+  check("only designated OWNER gets support shortcut", responsibleStart.status === 200 &&
+    (await responsibleStart.text()).includes('href="/acessos/suporte"'));
+  await db.tenantMembership.update({ where: { id: readerMembership.id }, data: { status: "INACTIVE" } });
+  const inactiveMembershipStart = await api("/inicio", readerJar);
+  check("inactive membership cannot open start", [307, 308].includes(inactiveMembershipStart.status) &&
+    (inactiveMembershipStart.headers.get("location") ?? "").includes("/selecionar-tenant"));
+  await db.authIdentity.update({ where: { id: readerIdentity.id }, data: { status: "INACTIVE" } });
+  check("inactive identity cannot list tenant choices", (await api("/api/tenants", readerJar)).status === 401);
   const rhJar = await fixtureLogin(rhIdentity.email, highId);
   check("RH can read Pessoas but not financial rows", (await api("/api/pessoas", rhJar)).status === 200 &&
     (await api("/api/lancamentos", rhJar)).status === 403);
+  const rhStart = await api("/inicio", rhJar);
+  const rhStartHtml = await rhStart.text();
+  check("RH start links Pessoas without linking Lançamentos", rhStart.status === 200 &&
+    rhStartHtml.includes('href="/estrutura/dimensao-pessoas"') && !rhStartHtml.includes('href="/lancamentos"'));
+  await db.tenant.update({ where: { id: highId }, data: { ativo: false } });
+  const inactiveTenantStart = await api("/inicio", rhJar);
+  check("inactive tenant cannot open start", [307, 308].includes(inactiveTenantStart.status) &&
+    (inactiveTenantStart.headers.get("location") ?? "").includes("/selecionar-tenant"));
+  await db.tenant.update({ where: { id: highId }, data: { ativo: true } });
   const homeSwitch = await api("/api/tenants/switch", opJar, "POST", { tenantId: homeId }); opJar.add(homeSwitch);
   context = await (await api("/api/access/context", opJar)).json();
   check("same identity has independent THE HOME manager profile", homeSwitch.status === 200 &&

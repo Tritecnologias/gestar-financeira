@@ -121,7 +121,7 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
     if (!res.ok) { window.location.assign("/selecionar-tenant"); return; }
     setActive(choice.grantId ?? choice.id);
     setOpen(false);
-    window.location.assign(choice.kind === "SUPPORT_GRANT" ? "/estrutura/dimensao-empresa" : "/lancamentos");
+    window.location.assign(choice.kind === "SUPPORT_GRANT" ? "/estrutura/dimensao-empresa" : "/inicio");
   };
 
   const resetTenant = async () => {
