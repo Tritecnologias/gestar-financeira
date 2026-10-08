@@ -17,6 +17,8 @@ const labels: Record<string, string> = {
   IDENTITY_CREATED: "Identidade criada", IDENTITY_ACTIVATED: "Identidade ativada",
   IDENTITY_DEACTIVATED: "Identidade desativada", MEMBERSHIP_CREATED: "Vínculo criado",
   MEMBERSHIP_ACTIVATED: "Vínculo ativado", MEMBERSHIP_DEACTIVATED: "Vínculo desativado",
+  INVITE_CREATED: "Convite criado", INVITE_REVOKED: "Convite revogado",
+  INVITE_EXPIRED: "Convite expirado", INVITE_ACCEPTED: "Convite aceito",
   MEMBERSHIP_ROLE_CHANGED: "Papel alterado", ACCESS_PROFILE_CHANGED: "Perfil de acesso alterado",
   OWNER_ASSIGNED: "OWNER designado", OWNER_REMOVED: "OWNER removido", OWNER_REASSIGNED: "OWNER reassociado",
   PERMISSION_PROFILE_CREATED: "Perfil criado", PERMISSION_PROFILE_CHANGED: "Perfil alterado",

@@ -10,24 +10,30 @@ import "./access.css";
 type Profile = { id: string; nome: string; ativo: boolean };
 type Membership = { id: string; role: "OWNER" | "ADMIN" | "MEMBER"; status: "ACTIVE" | "INACTIVE";
   profileId: string | null; identity: { nome: string; email: string; status: string }; profile: Profile | null };
+type Invitation = { id: string; name: string; email: string; role: Membership["role"];
+  status: "PENDING" | "EXPIRED" | "REVOKED" | "ACCEPTED"; expiresAt: string; profile: { nome: string } };
 
 export default function MembershipClient({ role, canManage, canViewProfiles }: { role: string; canManage: boolean; canViewProfiles: boolean }) {
   const router = useRouter();
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ nome: "", email: "", senha: "", role: "MEMBER", profileId: "" });
+  const [form, setForm] = useState({ nome: "", email: "", role: "MEMBER", profileId: "" });
+  const [devLink, setDevLink] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const [a, b] = await Promise.all([fetch("/api/access/memberships", { cache: "no-store" }), fetch("/api/access/profiles", { cache: "no-store" })]);
-      const [am, bp] = await Promise.all([a.json(), b.json()]);
+      const [a, b, c] = await Promise.all([fetch("/api/access/memberships", { cache: "no-store" }),
+        fetch("/api/access/profiles", { cache: "no-store" }), fetch("/api/access/invitations", { cache: "no-store" })]);
+      const [am, bp, ci] = await Promise.all([a.json(), b.json(), c.json()]);
       if (!a.ok) throw new Error(am.error || "Falha ao carregar usuários.");
       if (!b.ok) throw new Error(bp.error || "Falha ao carregar perfis.");
-      setMemberships(am); setProfiles(bp); setError("");
+      if (!c.ok) throw new Error(ci.error || "Falha ao carregar convites.");
+      setMemberships(am); setProfiles(bp); setInvitations(ci); setError("");
     } catch (cause) { setError((cause as Error).message); }
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -47,10 +53,23 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
   async function create() {
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/access/memberships", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const response = await fetch("/api/access/invitations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Não foi possível adicionar acesso.");
-      setModal(false); setForm({ nome: "", email: "", senha: "", role: "MEMBER", profileId: "" }); await load(); router.refresh();
+      if (!response.ok) throw new Error(body.error || "Não foi possível criar convite.");
+      setDevLink(body.devLink || ""); setModal(false);
+      setForm({ nome: "", email: "", role: "MEMBER", profileId: "" }); await load(); router.refresh();
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  }
+  async function invitationAction(id: string, action: "resend" | "revoke") {
+    if (!window.confirm(action === "revoke" ? "Revogar este convite?" : "Gerar novo link e invalidar o anterior?")) return;
+    setBusy(true); setError(""); setDevLink("");
+    try {
+      const response = await fetch(`/api/access/invitations/${id}`, { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Não foi possível alterar o convite.");
+      setDevLink(body.devLink || ""); await load();
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
@@ -62,8 +81,13 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
         {canViewProfiles && <Link className="access-button access-button-secondary" href="/acessos/perfis">Perfis de Acesso</Link>}
       </div></header>
     <div className="access-toolbar"><input placeholder="Buscar usuário ou perfil" aria-label="Buscar usuários" value={query} onChange={e => setQuery(e.target.value)} />
-      {canManage && <button className="access-button access-button-primary" onClick={() => setModal(true)}>+ Adicionar acesso</button>}</div>
+      {canManage && <button className="access-button access-button-primary" onClick={() => { setDevLink(""); setModal(true); }}>+ Convidar usuário</button>}</div>
     {error && <p role="alert" className="access-error">{error}</p>}
+    {devLink && <div className="access-dev-link" role="status"><strong>Link de convite DEV</strong>
+      <p>Envie por canal privado ao destinatário. Este link aparece somente agora; contém um segredo de uso único.</p>
+      <input readOnly aria-label="Link de convite DEV" value={devLink} onFocus={e => e.currentTarget.select()} />
+      <button className="access-button access-button-secondary" onClick={() => void navigator.clipboard.writeText(devLink)}>Copiar link</button>
+      <button className="access-button access-button-secondary" onClick={() => setDevLink("")}>Ocultar</button></div>}
     <div className="access-table-wrap"><table className="access-table"><thead><tr><th>Identidade</th><th>Role estrutural</th><th>Perfil de Acesso</th><th>Status</th><th>Ações</th></tr></thead><tbody>
       {shown.map(m => <tr key={m.id}><td><strong>{m.identity.nome}</strong><small>{m.identity.email}</small></td>
         <td>{canManage && role === "OWNER" ? <select aria-label={`Role de ${m.identity.nome}`} disabled={busy} value={m.role} onChange={e => void patch(m.id, { role: e.target.value })}>
@@ -76,12 +100,24 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
           }}>{m.status === "ACTIVE" ? "Inativar" : "Ativar"}</button>}</td></tr>)}
       {!shown.length && <tr><td className="access-empty" colSpan={5}>Nenhum vínculo encontrado.</td></tr>}
     </tbody></table></div>
+    <h2 className="access-subtitle">Convites</h2>
+    <div className="access-table-wrap"><table className="access-table"><thead><tr><th>Destinatário</th><th>Papel</th><th>Perfil</th><th>Status</th><th>Expira</th><th>Ações</th></tr></thead><tbody>
+      {invitations.filter(i => `${i.name} ${i.email} ${i.profile.nome}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"))).map(i =>
+        <tr key={i.id}><td><strong>{i.name}</strong><small>{i.email}</small></td><td>{i.role}</td><td>{i.profile.nome}</td>
+          <td>{i.status === "PENDING" ? "Convite pendente" : i.status === "EXPIRED" ? "Convite expirado" :
+            i.status === "ACCEPTED" ? "Ativo" : "Revogado"}</td>
+          <td>{new Date(i.expiresAt).toLocaleString("pt-BR")}</td><td className="access-actions">
+            {canManage && (role === "OWNER" || i.role === "MEMBER") && (i.status === "PENDING" || i.status === "EXPIRED") && <>
+              <button disabled={busy} onClick={() => void invitationAction(i.id, "resend")}>Reenviar</button>
+              {i.status === "PENDING" && <button disabled={busy} onClick={() => void invitationAction(i.id, "revoke")}>Revogar</button>}
+            </>}</td></tr>)}
+      {!invitations.length && <tr><td className="access-empty" colSpan={6}>Nenhum convite neste tenant.</td></tr>}
+    </tbody></table></div>
     {role !== "MEMBER" && <TermsStatusPanel />}
     {modal && <div className="access-modal-backdrop"><section className="access-modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
-      <h2 id="member-modal-title">Adicionar acesso</h2><p className="access-hint">Email existente reutiliza a identidade. Para nova identidade, informe nome e senha de pelo menos 12 caracteres.</p>
-      <label>Nome (nova identidade)<input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></label>
+      <h2 id="member-modal-title">Convidar usuário</h2><p className="access-hint">O titular confirmará o convite e definirá a própria senha se ainda não tiver identidade. Nenhum acesso fica ativo antes do aceite.</p>
+      <label>Nome<input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></label>
       <label>Email<input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
-      <label>Senha (nova identidade)<input type="password" autoComplete="new-password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} /></label>
       <label>Role<select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
         {role === "OWNER" && <><option value="OWNER">OWNER</option><option value="ADMIN">ADMIN</option></>}
         <option value="MEMBER">MEMBER</option></select></label>
@@ -89,7 +125,7 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
         onChange={profileId => setForm({ ...form, profileId })} /></label>
       {error && <p role="alert" className="access-error">{error}</p>}
       <div className="access-modal-actions"><button className="access-button access-button-secondary" onClick={() => setModal(false)}>Cancelar</button>
-        <button className="access-button access-button-primary" disabled={busy} onClick={() => void create()}>Adicionar</button></div>
+        <button className="access-button access-button-primary" disabled={busy} onClick={() => void create()}>Criar convite</button></div>
     </section></div>}
   </section>;
 }

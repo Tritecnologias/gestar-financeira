@@ -195,8 +195,8 @@ try {
   ok("F explicit operational request", result.status === 201 && operational.accessLevel === "OPERATIONAL");
   ok("F owner approves operational", (await request(`/api/support-grants/${operational.id}`, ownerJar, "PATCH", { action: "approve" })).status === 200);
   ok("F operational context selected", (await choose(adminJar, high.id, operational.id)).status === 200);
-  result = await request("/api/categorias", adminJar, "POST", { codigo: "X01", nome: "Categoria fixture" });
-  ok("F operational write in approved screen", result.status === 201);
+  result = await request("/api/categorias", adminJar, "POST", { codigo: "01", nome: "Categoria fixture" });
+  ok(`F operational write in approved screen (${result.status}: ${JSON.stringify(result.body)})`, result.status === 201);
   ok("H operational delete not granted", (await request(`/api/categorias/${result.body.id}`, adminJar, "DELETE")).status === 403);
   ok("H operational outside screen denied", (await request("/api/areas-negocio", adminJar, "POST", { codigo: "X", nome: "X" })).status === 403);
   ok("G unapproved page denied", [307, 308, 403].includes((await request("/estrutura/dimensao-empresa", adminJar)).status));

@@ -11,6 +11,7 @@ type Identity = { id: string; nome: string; email: string; status: string;
   platformAdmin: { status: string } | null; memberships: { id: string; role: string; tenant: { nome: string } }[] };
 type Membership = { id: string; role: string; status: string; identity: { nome: string; email: string };
   tenant: { id: string; nome: string }; profile: { nome: string } | null };
+type OwnerInvite = { id: string; name: string; email: string; status: string; expiresAt: string };
 type Tab = "tenants" | "identidades" | "vinculos";
 
 async function read<T>(url: string): Promise<T> {
@@ -31,7 +32,9 @@ export default function PlatformClient() {
   const [mode, setMode] = useState<"" | "create" | "edit" | "owner" | "responsible">("");
   const [selected, setSelected] = useState<Tenant | null>(null);
   const [tenantForm, setTenantForm] = useState({ nome: "", email: "", plano: "trial" });
-  const [ownerForm, setOwnerForm] = useState({ nome: "", email: "", senha: "" });
+  const [ownerForm, setOwnerForm] = useState({ nome: "", email: "" });
+  const [devLink, setDevLink] = useState("");
+  const [ownerInvites, setOwnerInvites] = useState<OwnerInvite[]>([]);
   const [responsibleMembershipId, setResponsibleMembershipId] = useState("");
   useEffect(() => {
     const saved = localStorage.getItem("theme");
@@ -64,10 +67,12 @@ export default function PlatformClient() {
   async function submit() {
     if (mode === "owner" && !window.confirm(`Designar ${ownerForm.email} como OWNER de ${selected?.nome}? Esta ação concede administração essencial do tenant e será registrada.`)) return;
     if (mode === "responsible" && !window.confirm(`Designar o OWNER selecionado como responsável contratual de ${selected?.nome}?`)) return;
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setDevLink("");
     try {
+      const existingOwnerCandidate = mode === "owner" && memberships.some(m =>
+        m.tenant.id === selected?.id && m.identity.email.toLowerCase() === ownerForm.email.trim().toLowerCase());
       const url = mode === "responsible" ? `/api/platform/tenants/${selected!.id}/contractual-responsible`
-        : mode === "owner" ? `/api/platform/tenants/${selected!.id}/owners`
+        : mode === "owner" ? `/api/platform/tenants/${selected!.id}/${existingOwnerCandidate ? "owners" : "owner-invitations"}`
         : mode === "edit" ? `/api/platform/tenants/${selected!.id}` : "/api/tenants";
       const response = await fetch(url, { method: mode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,7 +80,28 @@ export default function PlatformClient() {
           : mode === "owner" ? { ...ownerForm, confirm: true } : tenantForm) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Não foi possível concluir.");
-      setMode(""); setSelected(null); setOwnerForm({ nome: "", email: "", senha: "" }); await load();
+      setDevLink(body.devLink || ""); setMode(""); setSelected(null); setOwnerForm({ nome: "", email: "" }); await load();
+    } catch (cause) { setError((cause as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  async function openOwner(t: Tenant) {
+    setSelected(t); setOwnerForm({ nome: "", email: "" }); setError(""); setMode("owner");
+    try { setOwnerInvites(await read<OwnerInvite[]>(`/api/platform/tenants/${t.id}/owner-invitations`)); }
+    catch (cause) { setError((cause as Error).message); }
+  }
+
+  async function ownerInviteAction(inviteId: string, action: "resend" | "revoke") {
+    if (!selected || !window.confirm(action === "revoke" ? "Revogar convite OWNER?" : "Gerar novo link OWNER e invalidar o anterior?")) return;
+    setBusy(true); setError(""); setDevLink("");
+    try {
+      const url = `/api/platform/tenants/${selected.id}/owner-invitations`;
+      const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteId, action }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Falha ao alterar convite OWNER.");
+      setDevLink(body.devLink || ""); setOwnerInvites(await read<OwnerInvite[]>(url));
+      if (body.devLink) { setMode(""); setSelected(null); }
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
@@ -115,6 +141,11 @@ export default function PlatformClient() {
       }}>+ Novo tenant</button>}
     </div>
     {error && <p className="access-error" role="alert">{error}</p>}
+    {devLink && <div className="access-dev-link" role="status"><strong>Link de convite OWNER · DEV</strong>
+      <p>Compartilhe somente por canal privado. O vínculo ficará ativo após o aceite.</p>
+      <input readOnly aria-label="Link de convite OWNER DEV" value={devLink} onFocus={e => e.currentTarget.select()} />
+      <button className="access-button access-button-secondary" onClick={() => void navigator.clipboard.writeText(devLink)}>Copiar link</button>
+      <button className="access-button access-button-secondary" onClick={() => setDevLink("")}>Ocultar</button></div>}
     <div className="access-table-wrap"><table className="access-table"><thead><tr>
       {tab === "tenants" ? <><th>Tenant</th><th>Email</th><th>Plano</th><th>Status</th><th>Vínculos</th><th>Ações</th></>
         : tab === "identidades" ? <><th>Identidade</th><th>Email</th><th>Status</th><th>PlatformAdmin</th><th>Tenants</th></>
@@ -126,7 +157,7 @@ export default function PlatformClient() {
           {!t.contractualResponsibleReady && <small className="access-warning">Responsável contratual pendente ou inativo</small>}
           {t.lastOwnerDesignationAt && <small>Última designação: {new Date(t.lastOwnerDesignationAt).toLocaleDateString("pt-BR")}</small>}</td><td>{t._count.memberships}</td>
         <td className="access-actions"><button onClick={() => edit(t)}>Editar</button><button disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button>
-          <button onClick={() => { setSelected(t); setOwnerForm({ nome: "", email: "", senha: "" }); setMode("owner"); }}>
+          <button onClick={() => void openOwner(t)}>
             {t.activeOwnerCount ? "Adicionar OWNER" : "Designar OWNER"}
           </button><button onClick={() => { setSelected(t); setResponsibleMembershipId(t.contractualResponsibleMembershipId || ""); setMode("responsible"); }}>Responsável contratual</button></td></tr>)}
       {tab === "identidades" && (shown as Identity[]).map(i => <tr key={i.id}><td><strong>{i.nome}</strong></td><td>{i.email}</td>
@@ -143,18 +174,24 @@ export default function PlatformClient() {
           <option value="">Selecione</option>{memberships.filter(m => m.tenant.id === selected?.id && m.role === "OWNER" && m.status === "ACTIVE").map(m =>
             <option key={m.id} value={m.id}>{m.identity.nome} · {m.identity.email}</option>)}
         </select></label></> : mode === "owner" ? <>
-        <p className="access-hint">Selecione explicitamente o responsável legítimo. Um vínculo existente será promovido; uma identidade nova exige nome e senha. A designação fica registrada.</p>
+        <p className="access-hint">Um vínculo existente será promovido. Para outro email, será criado um convite; o titular definirá a própria senha se necessário.</p>
         <label>Vínculo existente neste tenant
           <select value={memberships.some(m => m.tenant.id === selected?.id && m.identity.email === ownerForm.email) ? ownerForm.email : ""}
-            onChange={e => setOwnerForm({ nome: "", email: e.target.value, senha: "" })}>
+            onChange={e => setOwnerForm({ nome: "", email: e.target.value })}>
             <option value="">Selecionar ou informar email abaixo</option>
             {memberships.filter(m => m.tenant.id === selected?.id && !(m.role === "OWNER" && m.status === "ACTIVE")).map(m =>
               <option key={m.id} value={m.identity.email}>{m.identity.nome} · {m.identity.email} · {m.role} / {m.status}</option>)}
           </select>
         </label>
-        <label>Nome (nova identidade)<input value={ownerForm.nome} onChange={e => setOwnerForm({ ...ownerForm, nome: e.target.value })} /></label>
+        <label>Nome (para convite)<input value={ownerForm.nome} onChange={e => setOwnerForm({ ...ownerForm, nome: e.target.value })} /></label>
         <label>Email<input type="email" required value={ownerForm.email} onChange={e => setOwnerForm({ ...ownerForm, email: e.target.value })} /></label>
-        <label>Senha (nova identidade)<input type="password" autoComplete="new-password" value={ownerForm.senha} onChange={e => setOwnerForm({ ...ownerForm, senha: e.target.value })} /></label>
+        {ownerInvites.length > 0 && <div className="access-owner-invites"><strong>Convites OWNER</strong>
+          {ownerInvites.map(i => <div key={i.id}><span>{i.name} · {i.email} · {i.status === "PENDING" ? "Pendente" :
+            i.status === "EXPIRED" ? "Expirado" : i.status === "ACCEPTED" ? "Aceito" : "Revogado"}</span>
+            {(i.status === "PENDING" || i.status === "EXPIRED") && <span>
+              <button type="button" disabled={busy} onClick={() => void ownerInviteAction(i.id, "resend")}>Reenviar</button>
+              {i.status === "PENDING" && <button type="button" disabled={busy} onClick={() => void ownerInviteAction(i.id, "revoke")}>Revogar</button>}
+            </span>}</div>)}</div>}
       </> : <>
         <label>Nome<input required value={tenantForm.nome} onChange={e => setTenantForm({ ...tenantForm, nome: e.target.value })} /></label>
         <label>Email administrativo<input type="email" required value={tenantForm.email} onChange={e => setTenantForm({ ...tenantForm, email: e.target.value })} /></label>

@@ -45,6 +45,7 @@ try {
     "20261005_access4b_owner_events", "20261005_access4b_permissions",
     "20261005_access5a_versioned_terms", "20261005_access5a_z_integrity",
     "20261005_access5b_support_grants", "20261005_access5c_audit_events",
+    "20261007_access_invitations",
   ];
   const onDisk = (await readdir(migrationDir, { withFileTypes: true }))
     .filter(entry => entry.isDirectory()).map(entry => entry.name);
@@ -96,7 +97,7 @@ try {
     try { await root.query(await readFile(join(migrationDir, name, "migration.sql"), "utf8")); }
     catch (error) { throw new Error(`Migration ${name} failed: ${error.message}`); }
   }
-  check("all migrations applied in chronological order", migrationNames.length === 11);
+  check("all migrations applied in chronological order", migrationNames.length === 12);
   db = new PrismaClient({ adapter: new PrismaPg({ connectionString: isolated.toString() }, { schema }) });
   const loadBusinessPlan = async () => {
     const [users, identities, maps] = await Promise.all([
@@ -291,6 +292,151 @@ try {
   const platformJar = await fixtureLogin(platformIdentity.email);
   check("PlatformAdmin without membership sees platform only", (await api("/api/platform/tenants", platformJar)).status === 200 &&
     (await api("/api/lancamentos", platformJar)).status !== 200);
+  // GO-LIVE-2B: all invite tests stay inside this disposable schema.
+  const platformOwnerEmail = `new-owner-${schema}@localhost.invalid`;
+  const platformOwnerResponse = await api(`/api/platform/tenants/${homeId}/owner-invitations`, platformJar,
+    "POST", { nome: "Owner invited by platform", email: platformOwnerEmail, confirm: true });
+  const platformOwnerInvite = await platformOwnerResponse.json();
+  const platformOwnerToken = new URL(platformOwnerInvite.devLink).hash.slice("#token=".length);
+  check("platform invites first OWNER without password or active membership", platformOwnerResponse.status === 201 &&
+    await db.tenantMembership.count({ where: { tenantId: homeId, identity: { email: platformOwnerEmail } } }) === 0);
+  const platformOwnerList = await api(`/api/platform/tenants/${homeId}/owner-invitations`, platformJar);
+  check("platform lists pending OWNER invitation", platformOwnerList.status === 200 &&
+    (await platformOwnerList.json()).some(item => item.id === platformOwnerInvite.id && item.status === "PENDING"));
+  const platformOwnerResendResponse = await api(`/api/platform/tenants/${homeId}/owner-invitations`, platformJar,
+    "POST", { action: "resend", inviteId: platformOwnerInvite.id });
+  const platformOwnerResent = await platformOwnerResendResponse.json();
+  const platformOwnerResentToken = new URL(platformOwnerResent.devLink).hash.slice("#token=".length);
+  check("platform resend rotates OWNER token", platformOwnerResendResponse.status === 200 &&
+    platformOwnerResent.id !== platformOwnerInvite.id &&
+    (await db.accessInvite.findUnique({ where: { id: platformOwnerInvite.id } })).status === "REVOKED");
+  check("platform old OWNER token rejected", (await fetch(`${base}/api/access/invitations/inspect`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: platformOwnerToken }) })).status === 410);
+  const platformOwnerAccept = await fetch(`${base}/api/access/invitations/accept`, { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: platformOwnerResentToken, password }) });
+  check("platform-invited OWNER activates with own password and owner event", platformOwnerAccept.status === 200 &&
+    await db.tenantMembership.count({ where: { tenantId: homeId, role: "OWNER",
+      identity: { email: platformOwnerEmail } } }) === 1 &&
+    await db.accessOwnerEvent.count({ where: { tenantId: homeId,
+      targetIdentityId: (await db.authIdentity.findUnique({ where: { email: platformOwnerEmail } })).id } }) === 1);
+  const platformOwnerJar = await fixtureLogin(platformOwnerEmail, homeId);
+  check("invited OWNER reaches tenant access administration", (await api("/acessos", platformOwnerJar)).status === 200);
+  const revokedOwnerEmail = `revoked-owner-${schema}@localhost.invalid`;
+  const revokedOwnerResponse = await api(`/api/platform/tenants/${homeId}/owner-invitations`, platformJar,
+    "POST", { nome: "Revoked owner fixture", email: revokedOwnerEmail, confirm: true });
+  const revokedOwnerInvite = await revokedOwnerResponse.json();
+  const ownerRevokeResponse = await api(`/api/platform/tenants/${homeId}/owner-invitations`, platformJar,
+    "POST", { action: "revoke", inviteId: revokedOwnerInvite.id });
+  check("platform revokes pending OWNER invitation", revokedOwnerResponse.status === 201 &&
+    ownerRevokeResponse.status === 200 &&
+    (await db.accessInvite.findUnique({ where: { id: revokedOwnerInvite.id } })).status === "REVOKED");
+  const ownerIdentity = await db.authIdentity.findUnique({ where: { email: legacy[0][3] } });
+  await db.tenantMembership.update({ where: { identityId_tenantId: { identityId: ownerIdentity.id, tenantId: highId } },
+    data: { role: "OWNER" } });
+  const inviteOwnerJar = await fixtureLogin(ownerIdentity.email, highId);
+  check("direct admin password provisioning disabled", (await api("/api/access/memberships", inviteOwnerJar,
+    "POST", { email: `unsafe-${schema}@localhost.invalid`, senha: password })).status === 410);
+  const inviteRequest = (jar, body) => api("/api/access/invitations", jar, "POST", body);
+  const tokenFrom = result => new URL(result.devLink).hash.slice("#token=".length);
+  const newEmail = `invited-${schema}@localhost.invalid`;
+  const newInviteResponse = await inviteRequest(inviteOwnerJar, { nome: "Invited fixture", email: newEmail,
+    role: "MEMBER", profileId: readerProfile.id });
+  const newInvite = await newInviteResponse.json();
+  check("new email receives pending invite and no active identity", newInviteResponse.status === 201 &&
+    !await db.authIdentity.findUnique({ where: { email: newEmail } }) &&
+    await db.tenantMembership.count({ where: { tenantId: highId, identity: { email: newEmail } } }) === 0);
+  const newToken = tokenFrom(newInvite);
+  const storedInvite = await db.accessInvite.findUnique({ where: { id: newInvite.id } });
+  check("only token hash stored and 72h expiry", storedInvite.tokenHash !== newToken &&
+    storedInvite.tokenHash.length === 64 && newInvite.expiresAt &&
+    Math.abs(new Date(newInvite.expiresAt).getTime() - Date.now() - 72 * 3600000) < 60000);
+  const publicApi = (path, body, jar) => fetch(`${base}${path}`, { method: "POST", redirect: "manual",
+    headers: { "Content-Type": "application/json", ...(jar ? { Cookie: jar.header() } : {}) },
+    body: JSON.stringify(body) });
+  check("invalid token denied without authentication", (await publicApi("/api/access/invitations/inspect",
+    { token: "invalid" })).status === 404);
+  const inspectNew = await publicApi("/api/access/invitations/inspect", { token: newToken });
+  check("new identity activation is public only with valid token", inspectNew.status === 200 &&
+    (await inspectNew.json()).mode === "new");
+  check("short password rejected without consuming invite", (await publicApi("/api/access/invitations/accept",
+    { token: newToken, password: "short" })).status === 400 &&
+    (await db.accessInvite.findUnique({ where: { id: newInvite.id } })).status === "PENDING");
+  const activated = await publicApi("/api/access/invitations/accept", { token: newToken, password });
+  check("new identity and membership activate atomically", activated.status === 200 &&
+    (await activated.json()).newlyActivated &&
+    await db.authIdentity.count({ where: { email: newEmail } }) === 1 &&
+    await db.tenantMembership.count({ where: { tenantId: highId, identity: { email: newEmail }, status: "ACTIVE" } }) === 1);
+  check("used token cannot be reused", (await publicApi("/api/access/invitations/accept",
+    { token: newToken, password })).status === 404);
+  const newJar = await fixtureLogin(newEmail, highId);
+  check("activated account enters allowed tenant only", (await api("/inicio", newJar)).status === 200 &&
+    (await api("/api/lancamentos", newJar)).status === 200 &&
+    (await api("/api/tenants/switch", newJar, "POST", { tenantId: homeId })).status === 403);
+  const mismatchProfile = await inviteRequest(inviteOwnerJar, { nome: "Wrong profile", email: `wrong-${schema}@localhost.invalid`,
+    role: "MEMBER", profileId: managerProfile.id });
+  check("cross-tenant profile rejected", mismatchProfile.status === 400);
+  const accessManager = await db.accessProfile.create({ data: { tenantId: highId, nome: "ACCESS MANAGER",
+    permissoes: ["acessos.usuarios.view", "acessos.usuarios.manage"] } });
+  await db.tenantMembership.update({ where: { id: rhMembership.id }, data: { role: "ADMIN", profileId: accessManager.id } });
+  const forbiddenOwnerInvite = await inviteRequest(rhJar, { nome: "Forbidden OWNER",
+    email: `forbidden-${schema}@localhost.invalid`, role: "OWNER", profileId: accessManager.id });
+  check("ADMIN cannot invite OWNER", forbiddenOwnerInvite.status === 403);
+  const revokeResponse = await inviteRequest(inviteOwnerJar, { nome: "Revoked fixture",
+    email: `revoked-${schema}@localhost.invalid`, role: "MEMBER", profileId: readerProfile.id });
+  const revokeInvite = await revokeResponse.json();
+  const revokeToken = tokenFrom(revokeInvite);
+  const revoked = await api(`/api/access/invitations/${revokeInvite.id}`, inviteOwnerJar, "POST", { action: "revoke" });
+  check("revoked invite no longer activates", revoked.status === 200 &&
+    (await publicApi("/api/access/invitations/accept", { token: revokeToken, password })).status === 404);
+  const expiredResponse = await inviteRequest(inviteOwnerJar, { nome: "Expired fixture",
+    email: `expired-${schema}@localhost.invalid`, role: "MEMBER", profileId: readerProfile.id });
+  const expiredInvite = await expiredResponse.json();
+  const expiredToken = tokenFrom(expiredInvite);
+  await db.accessInvite.update({ where: { id: expiredInvite.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+  const expiredInspect = await publicApi("/api/access/invitations/inspect", { token: expiredToken });
+  check("expired invite denied and audited", expiredInspect.status === 410 &&
+    (await db.accessInvite.findUnique({ where: { id: expiredInvite.id } })).status === "EXPIRED" &&
+    await db.auditEvent.count({ where: { resourceId: expiredInvite.id, action: "INVITE_EXPIRED" } }) === 1);
+  const resent = await api(`/api/access/invitations/${expiredInvite.id}`, inviteOwnerJar, "POST", { action: "resend" });
+  const resentBody = await resent.json();
+  check("resend issues different token and leaves one pending", resent.status === 200 &&
+    tokenFrom(resentBody) !== expiredToken &&
+    await db.accessInvite.count({ where: { tenantId: highId, email: `expired-${schema}@localhost.invalid`, status: "PENDING" } }) === 1);
+  await db.tenant.update({ where: { id: highId }, data: { ativo: false } });
+  check("inactive tenant blocks invite acceptance", (await publicApi("/api/access/invitations/accept",
+    { token: tokenFrom(resentBody), password })).status === 409);
+  await db.tenant.update({ where: { id: highId }, data: { ativo: true } });
+  await db.tenantMembership.update({ where: { id: opHome.id }, data: { role: "OWNER" } });
+  const homeOwnerJar = await fixtureLogin(opIdentity.email, homeId);
+  const existingInviteResponse = await inviteRequest(homeOwnerJar, { nome: "Existing fixture", email: rhIdentity.email,
+    role: "MEMBER", profileId: managerProfile.id });
+  const existingInvite = await existingInviteResponse.json();
+  const existingToken = tokenFrom(existingInvite);
+  const oldHash = (await db.authIdentity.findUnique({ where: { id: rhIdentity.id } })).senhaHash;
+  check("existing identity must authenticate before acceptance", existingInviteResponse.status === 201 &&
+    (await publicApi("/api/access/invitations/accept", { token: existingToken })).status === 403);
+  check("different logged-in email denied", (await publicApi("/api/access/invitations/accept",
+    { token: existingToken }, inviteOwnerJar)).status === 403);
+  const existingAccepted = await publicApi("/api/access/invitations/accept", { token: existingToken }, rhJar);
+  check("existing identity gains second tenant without password change", existingAccepted.status === 200 &&
+    !(await existingAccepted.json()).newlyActivated &&
+    await db.authIdentity.count({ where: { email: rhIdentity.email } }) === 1 &&
+    (await db.authIdentity.findUnique({ where: { id: rhIdentity.id } })).senhaHash === oldHash &&
+    await db.tenantMembership.count({ where: { identityId: rhIdentity.id } }) === 2);
+  check("existing identity sees both tenants", (await (await api("/api/tenants", rhJar)).json()).length === 2);
+  const concurrentResponse = await inviteRequest(inviteOwnerJar, { nome: "Concurrent fixture",
+    email: `concurrent-${schema}@localhost.invalid`, role: "MEMBER", profileId: readerProfile.id });
+  const concurrentInvite = await concurrentResponse.json();
+  const concurrentToken = tokenFrom(concurrentInvite);
+  const both = await Promise.all([1, 2].map(() => publicApi("/api/access/invitations/accept",
+    { token: concurrentToken, password })));
+  check("concurrent accepts produce exactly one membership", both.filter(r => r.status === 200).length === 1 &&
+    await db.tenantMembership.count({ where: { tenantId: highId,
+      identity: { email: `concurrent-${schema}@localhost.invalid` } } }) === 1);
+  check("invitation audit excludes token and password", await db.auditEvent.count({ where: { action: "INVITE_ACCEPTED" } }) >= 2 &&
+    !(await db.auditEvent.findMany({ select: { metadata: true, changes: true } })).some(row =>
+      JSON.stringify(row).includes(newToken) || JSON.stringify(row).includes(password)));
   console.log(`ACCESS-FINAL isolated simulation: ${checks.length} checks passed; ${migrationNames.length} ordered migrations; fixtures removed.`);
 } finally {
   if (server && server.exitCode === null) {
