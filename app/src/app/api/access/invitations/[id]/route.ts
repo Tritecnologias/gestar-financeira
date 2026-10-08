@@ -81,6 +81,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       ...("expiresAt" in result ? { expiresAt: result.expiresAt } : {}), ...sent },
       { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
+    if ((error as { code?: string })?.code === "P2021") return NextResponse.json(
+      { error: "A estrutura de convites ainda não foi preparada neste ambiente." }, { status: 503 });
     const e = permissionError(error); return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }

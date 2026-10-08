@@ -19,7 +19,7 @@ const isolated = new URL(source);
 isolated.searchParams.set("schema", schema);
 isolated.searchParams.set("sslmode", "disable");
 const root = new Client({ connectionString: source.toString() });
-let db, server, failureServer, created = false;
+let db, server, failureServer, nonDevServer, created = false;
 const check = (label, condition) => { if (!condition) throw new Error(`FAIL ${label}`); checks.push(label); };
 const checks = [];
 const password = randomBytes(20).toString("hex");
@@ -145,10 +145,13 @@ try {
     inventory.backfill.business.conflict === 2 && inventory.tenants.activeWithoutOwner === 2 &&
     !JSON.stringify(inventory).includes(password));
 
+  // Explicit fixture values override .env.local, even when real SMTP is configured there.
+  const simulatedEnv = { ...process.env, EMAIL_PROVIDER: "mock", APP_PUBLIC_URL: base,
+    SMTP_HOST: "", SMTP_PORT: "", SMTP_SECURE: "", SMTP_USER: "", SMTP_PASSWORD: "",
+    EMAIL_FROM_ADDRESS: "", EMAIL_FROM_NAME: "" };
   server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", "3017"],
-    { cwd: process.cwd(), env: { ...process.env, DATABASE_URL: isolated.toString(),
-      NEXTAUTH_URL: base, AUTH_TRUST_HOST: "true", EMAIL_PROVIDER: "mock",
-      APP_PUBLIC_URL: base }, stdio: ["ignore", "pipe", "pipe"] });
+    { cwd: process.cwd(), env: { ...simulatedEnv, DATABASE_URL: isolated.toString(),
+      NEXTAUTH_URL: base, AUTH_TRUST_HOST: "true" }, stdio: ["ignore", "pipe", "pipe"] });
   for (let i = 0; i < 80; i++) {
     if (server.exitCode !== null) throw new Error("Isolated HTTP server exited.");
     try { if ((await fetch(`${base}/login`)).status === 200) break; } catch { /* starting */ }
@@ -336,6 +339,24 @@ try {
   await db.tenantMembership.update({ where: { identityId_tenantId: { identityId: ownerIdentity.id, tenantId: highId } },
     data: { role: "OWNER" } });
   const inviteOwnerJar = await fixtureLogin(ownerIdentity.email, highId);
+  const nonDevBase = "http://127.0.0.1:3019";
+  const nonDevDatabase = new URL(isolated);
+  nonDevDatabase.hostname = "localhost";
+  nonDevServer = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", "3019"],
+    { cwd: process.cwd(), env: { ...simulatedEnv, DATABASE_URL: nonDevDatabase.toString(),
+      NEXTAUTH_URL: nonDevBase, AUTH_TRUST_HOST: "true", EMAIL_PROVIDER: "disabled",
+      APP_PUBLIC_URL: "https://example.invalid" }, stdio: ["ignore", "pipe", "pipe"] });
+  for (let i = 0; i < 80; i++) {
+    if (nonDevServer.exitCode !== null) throw new Error("Non-DEV fixture server exited.");
+    try { if ((await fetch(`${nonDevBase}/login`)).status === 200) break; } catch { /* starting */ }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  const nonDevOrigin = await fetch(`${nonDevBase}/api/access/invitations`, { method: "POST",
+    headers: { Cookie: inviteOwnerJar.header(), "Content-Type": "application/json" },
+    body: JSON.stringify({ nome: "Blocked fixture", email: `blocked-${schema}@localhost.invalid`,
+      role: "MEMBER", profileId: opProfile.id }) });
+  check("non-DEV without valid provider fails closed", nonDevOrigin.status === 503 &&
+    await db.accessInvite.count({ where: { email: `blocked-${schema}@localhost.invalid` } }) === 0);
   check("direct admin password provisioning disabled", (await api("/api/access/memberships", inviteOwnerJar,
     "POST", { email: `unsafe-${schema}@localhost.invalid`, senha: password })).status === 410);
   const inviteRequest = (jar, body) => api("/api/access/invitations", jar, "POST", body);
@@ -485,6 +506,12 @@ try {
       JSON.stringify(row).includes(newToken) || JSON.stringify(row).includes(password)));
   console.log(`ACCESS-FINAL isolated simulation: ${checks.length} checks passed; ${migrationNames.length} ordered migrations; fixtures removed.`);
 } finally {
+  if (nonDevServer && nonDevServer.exitCode === null) {
+    nonDevServer.kill();
+    await Promise.race([new Promise(resolve => nonDevServer.once("exit", resolve)),
+      new Promise(resolve => setTimeout(resolve, 5000))]);
+    if (nonDevServer.exitCode === null) nonDevServer.kill("SIGKILL");
+  }
   if (failureServer && failureServer.exitCode === null) {
     failureServer.kill();
     await Promise.race([new Promise(resolve => failureServer.once("exit", resolve)),

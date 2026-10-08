@@ -22,6 +22,8 @@ export async function GET() {
       status: item.status === "PENDING" && item.expiresAt <= new Date() ? "EXPIRED" : item.status,
     })), { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
+    if ((error as { code?: string })?.code === "P2021") return NextResponse.json(
+      { error: "A estrutura de convites ainda não foi preparada neste ambiente." }, { status: 503 });
     const e = permissionError(error); return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }
@@ -83,6 +85,8 @@ export async function POST(req: NextRequest) {
       { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch (error: unknown) {
     if ((error as { code?: string })?.code === "P2002") return NextResponse.json({ error: "Já existe convite pendente para este email." }, { status: 409 });
+    if ((error as { code?: string })?.code === "P2021") return NextResponse.json(
+      { error: "A estrutura de convites ainda não foi preparada neste ambiente." }, { status: 503 });
     const e = permissionError(error); return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }

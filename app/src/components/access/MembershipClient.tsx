@@ -59,8 +59,8 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
       if (!response.ok) throw new Error(body.error || "Não foi possível criar convite.");
       setDevLink(body.devLink || "");
       setDeliveryNotice(body.delivery?.status === "SENT" ? "Convite criado e e-mail enviado." :
-        body.delivery?.status === "SIMULATED" ? "Convite criado. Envio simulado no DEV; nenhum e-mail foi enviado." :
-          "Convite criado, mas o e-mail não foi enviado. Use Reenviar convite.");
+        body.delivery?.status === "SIMULATED" ? "Convite criado em modo simulado. Nenhum e-mail real foi enviado." :
+          "Convite criado, mas o e-mail não pôde ser enviado. Você pode tentar reenviar.");
       setModal(false);
       setForm({ nome: "", email: "", role: "MEMBER", profileId: "" }); await load(); router.refresh();
     } catch (cause) { setError((cause as Error).message); }
