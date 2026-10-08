@@ -38,6 +38,7 @@ model Tenant {
   supportGrants     SupportGrant[]
   supportEvents     SupportGrantEvent[]
   auditEvents       AuditEvent[]
+  accessInvites     AccessInvite[]
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
@@ -114,6 +115,9 @@ model AuthIdentity {
   revokedSupportGrants SupportGrant[] @relation("SupportRevoker")
   supportEvents SupportGrantEvent[] @relation("SupportEventActor")
   auditEvents AuditEvent[] @relation("AuditActor")
+  invitedAccess AccessInvite[] @relation("InviteCreator")
+  acceptedAccess AccessInvite[] @relation("InviteAcceptor")
+  revokedAccess AccessInvite[] @relation("InviteRevoker")
 
   @@map("auth_identities")
 }
@@ -156,11 +160,48 @@ model AccessProfile {
 
   tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   memberships  TenantMembership[]
+  accessInvites AccessInvite[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, nome])
   @@index([tenantId, ativo])
   @@map("access_profiles")
+}
+
+enum AccessInviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+// Convite é intenção de acesso; o membership só nasce após aceite.
+model AccessInvite {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  email String
+  name String
+  role MembershipRole
+  profileId String @map("profile_id")
+  status AccessInviteStatus @default(PENDING)
+  tokenHash String @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  invitedByIdentityId String @map("invited_by_identity_id")
+  acceptedByIdentityId String? @map("accepted_by_identity_id")
+  revokedByIdentityId String? @map("revoked_by_identity_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  acceptedAt DateTime? @map("accepted_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  profile AccessProfile @relation(fields: [profileId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  invitedBy AuthIdentity @relation("InviteCreator", fields: [invitedByIdentityId], references: [id], onDelete: Restrict)
+  acceptedBy AuthIdentity? @relation("InviteAcceptor", fields: [acceptedByIdentityId], references: [id], onDelete: Restrict)
+  revokedBy AuthIdentity? @relation("InviteRevoker", fields: [revokedByIdentityId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status, createdAt(sort: Desc)])
+  @@index([tenantId, email, status])
+  @@map("access_invites")
 }
 
 // Registro pontual da designação explícita de OWNER pela plataforma.
