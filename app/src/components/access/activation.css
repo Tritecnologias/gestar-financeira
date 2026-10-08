@@ -1,0 +1,15 @@
+.activation-page { min-height: 100vh; display: grid; place-items: center; padding: 20px; background: var(--background); color: var(--text-primary); }
+.activation-card { width: min(100%, 470px); padding: clamp(22px, 4vw, 36px); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-elevated); }
+.activation-eyebrow { color: var(--action); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.activation-card h1 { font-size: clamp(23px, 5vw, 30px); margin: 8px 0 18px; }
+.activation-card p { line-height: 1.5; color: var(--text-secondary); }
+.activation-card strong { color: var(--text-primary); }
+.activation-card .activation-muted { font-size: 13px; color: var(--text-muted); }
+.activation-fields { display: grid; gap: 12px; margin: 18px 0; }
+.activation-fields label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.activation-fields input { width: 100%; min-height: 42px; padding: 9px 12px; color: var(--text-primary); background: var(--surface-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.activation-card button { width: 100%; min-height: 42px; margin: 10px 0; padding: 8px 12px; border: 1px solid var(--action); border-radius: var(--radius-sm); color: var(--action-contrast); background: var(--action); cursor: pointer; font-weight: 700; }
+.activation-card button:disabled { opacity: .55; cursor: wait; }
+.activation-card a { display: inline-block; color: var(--action); margin-top: 12px; }
+.activation-card button:focus-visible, .activation-card input:focus-visible, .activation-card a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.activation-error { padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); border-radius: var(--radius-sm); color: var(--danger) !important; background: color-mix(in srgb, var(--danger) 9%, var(--surface)); }

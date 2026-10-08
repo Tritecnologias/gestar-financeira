@@ -5,8 +5,10 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isAuthPage = pathname.startsWith("/login");
   const isApiAuth = pathname.startsWith("/api/auth");
+  const isActivation = pathname === "/ativar-acesso" || pathname === "/api/access/invitations/inspect" ||
+    pathname === "/api/access/invitations/accept";
   const isStatic = pathname.startsWith("/_next") || pathname.startsWith("/favicon");
-  const isPublic = isAuthPage || isApiAuth || isStatic;
+  const isPublic = isAuthPage || isApiAuth || isStatic || isActivation;
 
   // Rate limiting na rota de login (proteção contra brute-force).
   // ⚠️ Limitação: o contador vive em memória do processo. Funciona bem em
