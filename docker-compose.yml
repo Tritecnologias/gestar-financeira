@@ -31,6 +31,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-gestar_admin}:${DB_PASSWORD:-gestar@2024_secure}@postgres:5432/${DB_NAME:-gestar_financeira}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://dezsolucoes.com.br}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-TROQUE_ESTE_SECRET_EM_PRODUCAO}
+      ACCESS_AUTH_MODE: ${ACCESS_AUTH_MODE:-legacy}
       AUTH_TRUST_HOST: "true"
       NODE_ENV: production
     expose:
