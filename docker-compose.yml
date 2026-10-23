@@ -54,6 +54,13 @@ services:
       - /var/www/certbot:/var/www/certbot:ro
     depends_on:
       - app
+    networks:
+      - default
+      - coolify
+
+networks:
+  coolify:
+    external: true
 
 volumes:
   postgres_data:
