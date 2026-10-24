@@ -903,13 +903,10 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   };
 
   return (
-    <div className="lanc-page" style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div className="lanc-page">
         {/* Topbar */}
-        <div className="topbar">
+        <div className="topbar lanc-topbar">
           <div><h1 className="page-title">Lançamentos</h1><p className="page-sub">Operação e consulta do fluxo de caixa</p></div>
-        </div>
-
-        <section className="lanc-filters" aria-label="Filtros de lançamentos">
           <div className="lanc-toolbar">
             <label className={`filter-group lanc-search ${buscaInput.trim() ? "filter-active" : ""}`}><span className="filter-label">Busca</span>
               <input className="filter-input" value={buscaInput} placeholder="Cliente, fornecedor, fantasia, descrição, anotação"
@@ -920,6 +917,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             <ExportOnlyButton permission="fluxo.lancamentos.export" importPermission="fluxo.lancamentos.import" url={`/api/lancamentos/exportar?${parametrosFiltros()}`} filename="lancamentos.csv" label="Exportar Lançamentos" />
             </div>
           </div>
+        </div>
+        <section className="lanc-filters" aria-label="Filtros de lançamentos">
           <section className="lanc-summary" aria-label="Resumo financeiro dos filtros" aria-busy={resumoAtualizando}>
             {!canSeeBalances ? <div className="lanc-summary-loading">Saldos indisponíveis para este perfil.</div> : resumoErro ? <div className="lanc-summary-error">{resumoErro}</div> : !resumo ?
               <div className="lanc-summary-loading">Carregando resumo financeiro…</div> : <>
@@ -1038,7 +1037,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         </div>}
 
         {/* Tabela — header fixo + body scrollável com scroll sincronizado */}
-        <div className="lanc-table-shell" aria-busy={loading || updating} style={{ margin: "14px 28px", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg-card)", overflow: "hidden" }}>
+        <div className="lanc-table-shell" aria-busy={loading || updating}>
           {updating && <div className="lanc-list-updating" role="status">Atualizando lançamentos…</div>}
           {/* Header fixo */}
           <div ref={headerScrollRef} style={{ overflowX: "hidden", flexShrink: 0 }}>
@@ -1272,10 +1271,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             </tbody>
             </table>
           </div>
-        </div>
-
         {/* Footer */}
-        <div className="table-footer lanc-totals-footer" style={{ margin: "0 28px 14px" }} aria-busy={loading || updating}>
+        <div className="table-footer lanc-totals-footer" aria-busy={loading || updating}>
           <div className="lanc-footer-totals">
             <span><small>Valor previsto</small><strong>{canSeeBalances ? formatCurrency(Number(totais.valorPrevisto)) : "—"}</strong></span>
             <span><small>Valor realizado</small><strong>{canSeeBalances ? formatCurrency(Number(totais.valorRealizado)) : "—"}</strong></span>
@@ -1288,6 +1285,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} disabled={pagina >= totalPaginas} onClick={() => setPagina(p => p + 1)}>Próx. →</button>
             </div>
           )}
+        </div>
         </div>
 
         {/* Toast */}
