@@ -86,6 +86,16 @@ export async function validateManagementWorkbook(input: ManagementWorkbook, db: 
   const oldAreaCodes = new Map<string, string>(oldAreas.map((row: any) => [row.id, row.codigo]));
   const areasByCode = new Map<string, { id: string; nome: string; ativo: boolean }>(existingAreas.map((row: any) => [row.codigo, row]));
   const centersByCode = new Map<string, { id: string; nome: string; areaId: string | null; ativo: boolean }>(existingCenters.map((row: any) => [row.codigo, row]));
+  const renamedNames = new Set(centros.flatMap(row => {
+    const old = centersByCode.get(row.codigo);
+    return old && old.nome !== row.descricao ? [old.nome.trim()] : [];
+  }));
+  // The caller supplies a tenant-scoped client, including during confirmation.
+  // Match the exporter's trimmed legacy name; include inactive people as well.
+  const departments = renamedNames.size ? await db.pessoa.findMany({
+    where: { departamento: { not: null } }, select: { departamento: true }, distinct: ["departamento"],
+  }) : [];
+  const usedNames = new Set<string>(departments.map((person: { departamento: string | null }) => person.departamento?.trim() || ""));
 
   for (const row of areas) {
     const existing = areasByCode.get(row.codigo);
@@ -94,6 +104,9 @@ export async function validateManagementWorkbook(input: ManagementWorkbook, db: 
   for (const row of centros) {
     const existing = centersByCode.get(row.codigo);
     if (existing && !existing.ativo) issue(CENTRO, row, "CODIGO_CC", "Código já existe inativo; não será reativado.");
+    if (existing && existing.nome !== row.descricao && usedNames.has(existing.nome.trim())) {
+      issue(CENTRO, row, "DESCRICAO_CC", "Este Centro de Custo está usado por Pessoas. A renomeação por importação está bloqueada para preservar o vínculo atual.");
+    }
     if (row.codigoArea) {
       const fromFile = areas.filter(area => area.codigo === row.codigoArea);
       if (fromFile.length) {

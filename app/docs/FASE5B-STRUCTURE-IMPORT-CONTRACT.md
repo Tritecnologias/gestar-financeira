@@ -37,7 +37,7 @@ Retenção segue Fase5A: indefinida, sem limpeza automática. Remover um recibo 
 - Área/CC e Pessoa: códigos do tenant; CC opcional em Pessoa, ativo quando informado. Pessoa não cria identidade, login, membership ou permissão.
 - Clientes e Fornecedores continuam distintos; nomes/documentos similares geram avisos existentes, não fusão automática. Documento é normalizado para comparação de duplicidade; conteúdo original é preservado. Não existe validação matemática de CPF/CNPJ nesta fase. Sua introdução depende de decisão futura de produto.
 - Portfólio: novos códigos automáticos e referências `@N` para pais do mesmo arquivo; Linha opcional conforme contrato existente. Inativos não são reativados; ausência no arquivo não exclui cadastros.
-- Pessoa ainda guarda Centro de Custo como nome em `departamento`, sem FK. Exportação já bloqueia nome ausente/ambíguo, evitando inventar um código. A decisão sobre renomeações vinculadas está pendente durante a validação desta fase; não há migration nem reconstrução silenciosa de vínculo.
+- Pessoa ainda guarda Centro de Custo como nome em `departamento`, sem FK. Exportação bloqueia nome ausente/ambíguo, evitando inventar um código. Por decisão de produto, I3 bloqueia a renomeação de CC cujo nome atual esteja usado por qualquer Pessoa do próprio tenant (inclusive inativa), comparando nomes com trim, como a exportação. A regra vale no preview e é revalidada na transação de confirmação. CC sem Pessoas vinculadas pode ser renomeado; não há alteração de Pessoas, migration ou reconstrução silenciosa de vínculo. A evolução para FK fica para outra fase.
 
 ## Rollout e evidências
 

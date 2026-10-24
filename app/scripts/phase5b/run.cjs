@@ -65,6 +65,25 @@ async function main(){
    ok(k+' resaved reordered headers replay',replay.body.replayed&&replay.body.operationId===receipts[k]);ok(k+' replay zero writes',await snapshot()===before);
   }
   ok('people email did not create identity',await db.authIdentity.count({where:{email:'f5b-person@example.invalid'}})===0);
+  // Approved legacy-name safeguard: preview and confirmation, scoped to this tenant.
+  const peopleBeforeRename=encode(await db.pessoa.findMany({orderBy:{id:'asc'}}));
+  await reject(admin,'EMP',{CENTROS_CUSTO:[{...valid.EMP.CENTROS_CUSTO[0],DESCRICAO_CC:'F5B EMP forbidden rename'}]},'EMP linked rename');
+  ok('EMP linked rename preserves people',encode(await db.pessoa.findMany({orderBy:{id:'asc'}}))===peopleBeforeRename);
+  const center=(codigo,nome)=>({CENTROS_CUSTO:[{CODIGO_CC:codigo,DESCRICAO_CC:nome,CODIGO_AREA:'F5B-001'}]});
+  await commit(admin,'EMP',center('F5B-FREE','F5B EMP Free'),'EMP unlinked setup');
+  await commit(admin,'EMP',center('F5B-FREE','F5B EMP Free renamed'),'EMP unlinked rename');
+  ok('EMP unlinked name persisted',(await db.centroCusto.findFirstOrThrow({where:{tenantId:a,codigo:'F5B-FREE'}})).nome==='F5B EMP Free renamed');
+  await commit(admin,'EMP',center('F5B-LATE','F5B EMP Late'),'EMP late link setup');
+  const lateBytes=file('EMP',center('F5B-LATE','F5B EMP Late renamed')),latePreview=await upload(admin,'EMP',lateBytes);
+  ok('EMP preview before person is ready',latePreview.body.state==='READY');
+  await commit(admin,'PES',{PESSOAS:[{CODIGO_PESSOA:'F5B-LATE',NOME:'F5B PES Late',CODIGO_CC:'F5B-LATE'}]},'PES linked after preview');
+  const beforeLate=await snapshot(),lateConfirm=await upload(admin,'EMP',lateBytes,'confirm',latePreview.body.previewToken);
+  ok('EMP confirmation revalidates linked rename',lateConfirm.status===422&&lateConfirm.body.preview?.errors.some(e=>e.campo==='DESCRICAO_CC'));
+  ok('EMP stale preview no writes or receipt',await snapshot()===beforeLate);
+  const foreignSame={CENTROS_CUSTO:[{...foreign.EMP.CENTROS_CUSTO[0],DESCRICAO_CC:valid.EMP.CENTROS_CUSTO[0].DESCRICAO_CC}]};
+  await commit(owner,'EMP',foreignSame,'EMP foreign same name setup');
+  foreignSame.CENTROS_CUSTO[0].DESCRICAO_CC='F5B EMP Foreign renamed';
+  await commit(owner,'EMP',foreignSame,'EMP other tenant people do not block');
   const duplicateDoc=await upload(admin,'CAD',file('CAD',{CLIENTES:[{NOME:'F5B CAD documento repetido',DOCUMENTO:'00000000000000'}]}));
   ok('CPF CNPJ existing normalization and warning policy',duplicateDoc.body.state==='READY'&&duplicateDoc.body.preview.warnings.length>0);
   const invalids={FIN:[{CONTAS_N2:[{CODIGO_CONTA:'82.01',DESCRICAO_CONTA:'F5B FIN invalid',CODIGO_CATEGORIA:'82',TIPO_CONTA:'RECEITA'}]},{CONTAS_N2:[{CODIGO_CONTA:'89.02',DESCRICAO_CONTA:'F5B FIN foreign',CODIGO_CATEGORIA:'89',TIPO_CONTA:'RECEITA'}]}],EMP:[{CENTROS_CUSTO:[{CODIGO_CC:'F5B-BAD',DESCRICAO_CC:'F5B EMP invalid',CODIGO_AREA:'missing'}]},{CENTROS_CUSTO:[{CODIGO_CC:'F5B-BAD',DESCRICAO_CC:'F5B EMP foreign',CODIGO_AREA:'F5B-X'}]}],PES:[{PESSOAS:[{CODIGO_PESSOA:'F5B-BAD',NOME:'F5B PES invalid',CODIGO_CC:'missing'}]},{PESSOAS:[{CODIGO_PESSOA:'F5B-BAD',NOME:'F5B PES foreign',CODIGO_CC:'F5B-X-CC'}]}],CAD:[{CLIENTES:[{NOME:'F5B CAD mismatch',CODIGO_CATEGORIA:'89',CODIGO_CONTA:'81.01'}]},{FORNECEDORES:[{NOME:'F5B CAD foreign',CODIGO_CATEGORIA:'89',CODIGO_CONTA:'89.01'}]}],PORT:[{...valid.PORT,GRUPOS:[{NOME_GRUPO:'F5B PORT rollback'}],ITENS:[valid.PORT.ITENS[0],{...valid.PORT.ITENS[1],CODIGO_TIPO:'MISSING'}]}]};
@@ -128,7 +147,7 @@ async function main(){
    }
    // Laboratory only: fail the final write after earlier statements have succeeded.
    for(const[k,table]of [['FIN','plano_contas'],['EMP','centros_custo'],['PES','pessoas'],['CAD','fornecedores'],['PORT','produtos']]){
-    const sections=structuredClone(updateSets[k]);for(const[n,rows]of Object.entries(sections))for(const r of rows){const field=headers[k][n].find(h=>/^(NOME|DESCRICAO)/.test(h));r[field]+=' ROLLBACK';}
+    const sections=structuredClone(updateSets[k]);for(const[n,rows]of Object.entries(sections))for(const r of rows){if(k==='EMP'&&n==='CENTROS_CUSTO')continue;const field=headers[k][n].find(h=>/^(NOME|DESCRICAO)/.test(h));r[field]+=' ROLLBACK';}
     const bytes=file(k,sections),p=await upload(admin,k,bytes);ok(k+' forced rollback ready',p.body.state==='READY');
     await db.$executeRawUnsafe("CREATE FUNCTION phase5b_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic rollback'; END $$");
     await db.$executeRawUnsafe(`CREATE TRIGGER phase5b_fail BEFORE UPDATE ON ${table} FOR EACH ROW EXECUTE FUNCTION phase5b_fail()`);
