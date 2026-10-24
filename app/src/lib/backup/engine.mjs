@@ -47,7 +47,7 @@ async function fileManifest(db, tenantId) {
   // Current documents are global. Only references required by this tenant's acceptances.
   return await rows(db, `SELECT DISTINCT v.id,v.version,v.storage_key AS key,v.sha256,v.byte_size AS size
     FROM term_versions v JOIN term_acceptances a ON a.term_version_id=v.id
-    WHERE a.tenant_id=$1 OR a.identity_id IN (SELECT identity_id FROM tenant_memberships WHERE tenant_id=$1)
+    WHERE a.tenant_id=$1 OR (a.tenant_id IS NULL AND a.identity_id IN (SELECT identity_id FROM tenant_memberships WHERE tenant_id=$1))
     ORDER BY v.id`, [tenantId]);
 }
 async function verifyFiles(files, storageDir) {
