@@ -65,3 +65,12 @@
 @media(max-width:600px){.appearance-guided-block{padding:12px}.appearance-block-heading{align-items:flex-start}.appearance-mini-card{margin:8px;padding:10px}.appearance-mini-shell{grid-template-columns:28px minmax(0,1fr)}.appearance-mini-sidebar{padding:12px 7px}}
 @media(min-width:700px){.appearance-guide-controls{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:12px;margin:12px 0}.appearance-guide-controls .appearance-guided-block{margin:0;padding:12px}.appearance-guide-controls .appearance-block-heading{align-items:flex-start}}
 @media(min-width:900px){.appearance-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.appearance-example-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Keep the guided cards unchanged; reclaim surrounding space on notebooks. */
+@media(min-width:900px) and (max-height:900px){
+ .appearance-dialog{max-height:94dvh}
+ .appearance-dialog header,.appearance-dialog footer{padding:12px 20px}
+ .appearance-dialog header p{margin:4px 0 0}
+ .appearance-preview-grid{margin:12px 0;gap:16px}
+ .appearance-mini-header{padding:6px 12px}
+ .appearance-mini-card{margin:10px;padding:10px}
+}
