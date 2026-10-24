@@ -27,7 +27,13 @@ export default function AppearanceProvider({children}:{children:React.ReactNode}
  const result=draft?derivePalette(draft.palette):null,invalid=draft?.mode==='custom'?result?.error:null;
  function choose(mode:ThemeMode){setDraft(p=>p?{...p,mode}:p);setNotice("");}
  function color(field:keyof Palette,value:string){setDraft(p=>p?{...p,palette:{...p.palette,[field]:value.toUpperCase()}}:p);setNotice("");}
- function save(){if(!key||!draft||invalid)return;try{localStorage.setItem(key,JSON.stringify(draft));setSaved(draft);setDraft(null);setNotice("");}catch{setNotice('Não foi possível salvar neste navegador. Verifique se o armazenamento local está permitido.');}}
+ function save(){
+  if(!key||!draft||invalid)return;
+  // Switching to an official preset must not persist an unfinished custom palette.
+  const next=result?.error?{...draft,palette:{...saved.palette}}:draft;
+  try{localStorage.setItem(key,JSON.stringify(next));setSaved(next);setDraft(null);setNotice("");}
+  catch{setNotice('Não foi possível salvar neste navegador. Verifique se o armazenamento local está permitido.');}
+ }
  return <Context.Provider value={{open:()=>{setDraft(structuredClone(saved));setNotice("");},ready:!!key}}>{children}
   <dialog ref={dialog} className="appearance-dialog" aria-labelledby="appearance-title" onCancel={e=>{e.preventDefault();cancel();}}>
    {draft&&<><header><div><h2 id="appearance-title">Conta / Aparência</h2><p>Preferência pessoal neste navegador, independente da empresa selecionada.</p></div><button type="button" aria-label="Fechar aparência" onClick={cancel}>×</button></header>
