@@ -67,7 +67,9 @@ async function snapshot(db, tenantId, config) {
   if (!tenant) fail('TENANT_NOT_FOUND');
   const migrations = await rows(db, 'SELECT migration_name,checksum FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name');
   const [pending] = await rows(db, 'SELECT count(*)::int n FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL');
-  if (pending.n || migrations.length !== 16 || !migrations.some(m => m.migration_name === '20261024_z_tenant_restore_lock')) fail('MIGRATIONS', 'Schema fora do contrato de backup v1. Atualize o mecanismo antes de prosseguir.', 409);
+  if (pending.n || migrations.length !== 17 ||
+      !migrations.some(m => m.migration_name === '20261024_z_tenant_restore_lock') ||
+      !migrations.some(m => m.migration_name === '20261024_lancamento_optional_fields')) fail('MIGRATIONS', 'Schema fora do contrato de backup v1. Atualize o mecanismo antes de prosseguir.', 409);
   const sections = {};
   for (const t of TABLES) {
     // JSON-safe bigint representation; numeric money remains PostgreSQL numeric on reinsert.

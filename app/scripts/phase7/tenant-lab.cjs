@@ -29,6 +29,9 @@ async function main(){
   const entry=id(),isolated=id();
   await q("INSERT INTO lancamentos(id,tenant_id,seq,data_lanc,descricao,valor,valor_previsto,tipo,cont,conta_id,fornecedor_id,criado_por) VALUES($1,$2,1,CURRENT_DATE,'ESTADO A',0,10,'ENTRADA','1',$3,$4,$5)",[entry,tenant,account,supplier,user]);
   await q("INSERT INTO lancamentos(id,tenant_id,seq,data_lanc,descricao,valor,valor_previsto,tipo) VALUES($1,$2,1,CURRENT_DATE,'ISOLADO',0,20,'ENTRADA')",[isolated,other]);
+  const partial=id(),zero=id();
+  await q("INSERT INTO lancamentos(id,tenant_id,seq,descricao,cont) VALUES($1,$2,2,'SOMENTE DESCRICAO','1')",[partial,tenant]);
+  await q("INSERT INTO lancamentos(id,tenant_id,seq,valor_previsto,cont) VALUES($1,$2,3,0,'1')",[zero,tenant]);
   await q("INSERT INTO import_operations(id,tenant_id,contract_type,contract_version,payload_digest,file_digest,actor_identity_id,created,updated,unchanged,warnings) VALUES($1,$2,'LAB',1,$3,$3,$4,1,0,0,0)",[id(),tenant,'a'.repeat(64),identity]);
   const doc=id(),version=id(),pdfKey=id()+'.pdf',pdf=Buffer.from('%PDF-LAB-IMMUTABLE');await fs.writeFile(cfg.termDir+'/'+pdfKey,pdf);
   await q("INSERT INTO term_documents(id,code,audience) VALUES($1,'LAB','USUARIO')",[doc]);
@@ -42,19 +45,48 @@ async function main(){
   let checks=0; const ok=(v)=>{assert.ok(v);checks++};
   const scopedTables=(await q("SELECT table_name FROM information_schema.columns WHERE table_schema='public' AND column_name='tenant_id' ORDER BY table_name")).map(r=>r.table_name);
   const preserved=async()=>{const result={global:await q("SELECT 'identity' t,to_jsonb(x) v FROM auth_identities x UNION ALL SELECT 'pa',to_jsonb(x) FROM platform_admins x ORDER BY t")};for(const t of scopedTables){assert.match(t,/^[a-z_]+$/);result[t]=await q(`SELECT to_jsonb(x) v FROM "${t}" x WHERE tenant_id=$1 ORDER BY to_jsonb(x)::text`,[other])}return result};
-  const baseline=await preserved();const a=await createBackup(pool,ctx,cfg);ok(a.sections.lancamentos.count===1);ok(!JSON.stringify(a).includes('non-login'));ok(a.files.length===1);
+  // The current schema is supported explicitly; pending/future/missing required migrations fail closed.
+  const migrationFixture=id();
+  try {
+    await q("INSERT INTO _prisma_migrations(id,checksum,migration_name,started_at,applied_steps_count) VALUES($1,$2,'lab_pending',now(),0)",[migrationFixture,'a'.repeat(64)]);
+    await assert.rejects(createBackup(pool,ctx,cfg),{code:'MIGRATIONS'});checks++;
+    await q("UPDATE _prisma_migrations SET finished_at=now(),applied_steps_count=1 WHERE id=$1",[migrationFixture]);
+    await assert.rejects(createBackup(pool,ctx,cfg),{code:'MIGRATIONS'});checks++;
+  } finally { await q("DELETE FROM _prisma_migrations WHERE id=$1",[migrationFixture]); }
+  for(const required of ['20261024_lancamento_optional_fields','20261024_z_tenant_restore_lock']) {
+    try {
+      await q("UPDATE _prisma_migrations SET migration_name='lab_missing_required' WHERE migration_name=$1",[required]);
+      await assert.rejects(createBackup(pool,ctx,cfg),{code:'MIGRATIONS'});checks++;
+    } finally { await q("UPDATE _prisma_migrations SET migration_name=$1 WHERE migration_name='lab_missing_required'",[required]); }
+  }
+  const baseline=await preserved();const a=await createBackup(pool,ctx,cfg);ok(a.sections.lancamentos.count===3);ok(!JSON.stringify(a).includes('non-login'));ok(a.files.length===1);
+  const assertPartial=(backup)=>{
+    const p=backup.sections.lancamentos.rows.find(r=>r.id===partial),z=backup.sections.lancamentos.rows.find(r=>r.id===zero);
+    assert.deepEqual([p.data_lanc,p.valor,p.valor_previsto,p.tipo],[null,null,null,null]);
+    assert.equal(p.descricao,'SOMENTE DESCRICAO');
+    assert.deepEqual([z.data_lanc,z.descricao,z.valor,z.tipo],[null,null,null,null]);
+    assert.equal(z.valor_previsto,0);assert.equal(p.status,'realizado');assert.equal(z.status,'realizado');
+    assert.equal(p.cont,'1');assert.equal(z.cont,'1');checks++;
+  };
+  assertPartial(a);
   await q("UPDATE lancamentos SET descricao='ESTADO B',valor_previsto=99 WHERE id=$1",[entry]);
+  await q("UPDATE lancamentos SET data_lanc=CURRENT_DATE,valor=8,valor_previsto=9,tipo='SAIDA',descricao='ALTERADO' WHERE id=ANY($1::text[])",[[partial,zero]]);
   await q("DELETE FROM pessoas WHERE tenant_id=$1",[tenant]);
   await q("INSERT INTO categorias(id,tenant_id,codigo,nome) VALUES($1,$2,'02','Extra B')",[id(),tenant]);
   let preview=await previewRestore(pool,ctx,a,cfg); const attempt=id();
   const receipt=await restoreBackup(pool,ctx,a,cfg,preview.currentDigest,attempt);ok(receipt.checksum===a.checksum);
   const after=await createBackup(pool,ctx,cfg);
+  assertPartial(after);
   for(const t of Object.keys(a.sections)){const strip=x=>x.map(r=>{const v={...r};delete v.revisao;return v});assert.deepEqual(strip(after.sections[t].rows),strip(a.sections[t].rows));checks++}
   assert.deepEqual(await preserved(),baseline);checks++;
   ok(BigInt(after.sections.lancamentos.rows[0].revisao)>0n);ok(!!await restoreReceipt(pool,ctx,attempt));
   await restoreBackup(pool,ctx,a,cfg,preview.currentDigest,attempt);ok((await q("SELECT count(*)::int n FROM audit_events WHERE id=$1",[attempt]))[0].n===1);
   const resign=b=>{delete b.checksum;for(const s of Object.values(b.sections)){s.count=s.rows.length;s.checksum=digest(s.rows)}return seal(b)};
   const badcases=[];
+  let incompatible=structuredClone(a);incompatible.migrations=incompatible.migrations.filter(m=>m.migration_name!=='20261024_lancamento_optional_fields');
+  await assert.rejects(previewRestore(pool,ctx,resign(incompatible),cfg),{code:'SCHEMA_VERSION'});checks++;
+  incompatible=structuredClone(a);incompatible.migrations[0].checksum='f'.repeat(64);
+  await assert.rejects(previewRestore(pool,ctx,resign(incompatible),cfg),{code:'SCHEMA_VERSION'});checks++;
   let bad=structuredClone(a);bad.checksum='0'.repeat(64);badcases.push(bad);
   bad=structuredClone(a);bad.format='future';badcases.push(resign(bad));
   bad=structuredClone(a);bad.tenant.id=other;badcases.push(resign(bad));

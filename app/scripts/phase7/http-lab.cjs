@@ -15,9 +15,15 @@ async function main(){
  const jar=new Map(),anon=new Map();let r=await req(jar,'/api/auth/csrf');
  await req(jar,'/api/auth/callback/credentials','POST',new URLSearchParams({csrfToken:r.body.csrfToken,email:'owner@example.invalid',password,callbackUrl:base+'/inicio'}));
  ok((await req(jar,'/api/auth/session')).body.user?.id,'login');
+  ok((await req(jar,'/api/tenants/switch','POST',{tenantId:owner.tenant_id})).status===200,'select tenant explicitly');
  ok((await req(anon,'/api/backups')).status===401,'anonymous');
  ok((await req(jar,'/backups')).status===200,'page');
  r=await req(jar,'/api/backups');ok(r.status===200,'download');const backup=r.body;
+  ok(backup.migrations.length===17,'schema 17');
+  const partial=backup.sections.lancamentos.rows.find(r=>r.descricao==='SOMENTE DESCRICAO');
+  const zero=backup.sections.lancamentos.rows.find(r=>r.descricao===null&&r.valor_previsto===0);
+  ok(partial?.valor===null&&partial?.tipo===null&&partial?.data_lanc===null,'partial NULLs');
+  ok(zero?.valor===null&&zero?.status==='realizado','explicit zero remains distinct from NULL');
  ok(r.headers.get('cache-control')==='no-store','private download');ok(r.headers.get('content-disposition').includes('.json'),'filename');
  ok((await req(jar,'/api/backups','POST',backup,{Origin:'https://other.invalid'})).status===403,'cross-origin');
  const [entry]=await q('SELECT id FROM lancamentos WHERE tenant_id=$1',[owner.tenant_id]);
@@ -25,7 +31,7 @@ async function main(){
  r=await req(jar,'/api/backups','POST',backup);ok(r.status===200,'preview');const preview=r.body.preview;
  ok((await req(jar,'/api/backups?action=restore','POST',backup)).status===400,'explicit confirmation');
  const attempt=crypto.randomUUID();r=await req(jar,'/api/backups?action=restore','POST',backup,{'x-backup-confirm':owner.tenant_id,'x-backup-preview':preview.currentDigest,'x-backup-attempt':attempt});ok(r.status===200,'restore');
- ok((await q('SELECT descricao FROM lancamentos WHERE id=$1',[entry.id]))[0].descricao===backup.sections.lancamentos.rows[0].descricao,'persisted A');
+  ok((await q('SELECT descricao FROM lancamentos WHERE id=$1',[entry.id]))[0].descricao===backup.sections.lancamentos.rows.find(r=>r.id===entry.id).descricao,'persisted A');
  ok((await req(jar,'/api/backups?attempt='+attempt)).body.receipt?.id===attempt,'receipt');
  const [count]=await q("SELECT count(*)::int n FROM audit_events WHERE action='TENANT_RESTORE_COMPLETED' AND id=$1",[attempt]);ok(count.n===1,'audit');
  await q("UPDATE tenant_memberships SET role='MEMBER' WHERE id=$1",[owner.id]);
