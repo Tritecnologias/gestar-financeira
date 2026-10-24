@@ -28,10 +28,10 @@ export const ACCESS_CATALOG = [
   { id: "acessos", label: "Acessos", screens: [
     { id: "usuarios", label: "Usuários", href: "/acessos", actions: [["view", "Visualizar"], ["manage", "Administrar"]] },
     { id: "perfis", label: "Perfis de Acesso", href: "/acessos/perfis", actions: [["view", "Visualizar"], ["manage", "Administrar"]] },
-    { id: "auditoria", label: "Auditoria", href: "/acessos/auditoria", actions: [["view", "Visualizar"]] },
+    { id: "auditoria", label: "Auditoria do Sistema", href: "/acessos/auditoria", actions: [["view", "Visualizar"]] },
   ] },
   { id: "sistema", label: "Sistema", screens: [
-    { id: "backup", label: "Backup da empresa", href: "/backups", actions: [["view", "Visualizar"], ["create", "Gerar backup"], ["restore", "Restaurar (somente OWNER)"]] },
+    { id: "backup", label: "Backup e Restauração", href: "/backups", actions: [["view", "Visualizar"], ["create", "Gerar backup"], ["restore", "Restaurar (somente OWNER)"]] },
     { id: "configuracoes", label: "Configurações", href: "/configuracoes", actions: [["view", "Visualizar"], ["manage", "Alterar logo"]] },
   ] },
 ] as const;

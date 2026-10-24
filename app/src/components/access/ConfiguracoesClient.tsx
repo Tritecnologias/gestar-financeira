@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
 
 export default function ConfiguracoesClient({ canManage }: { canManage: boolean }) {
@@ -13,13 +13,16 @@ export default function ConfiguracoesClient({ canManage }: { canManage: boolean 
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Carrega o logo atual ao montar
-  useState(() => {
-    fetch("/api/config/logo")
-      .then((r) => r.json())
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/config/logo", { signal: controller.signal })
+      .then((r) => { if (!r.ok) throw new Error("Falha ao carregar o logo da empresa."); return r.json(); })
       .then(({ logoUrl }) => {
         if (logoUrl) { setLogoUrl(logoUrl); setPreview(logoUrl); }
-      });
-  });
+      })
+      .catch(() => { if (!controller.signal.aborted) setMsg({ text: "Não foi possível carregar o logo da empresa.", ok: false }); });
+    return () => controller.abort();
+  }, []);
 
   function showMsg(text: string, ok: boolean) {
     setMsg({ text, ok });
