@@ -3,7 +3,7 @@ const { emailFor } = require('./provision.cjs');
 
 async function smoke(db, setup, { base, labPlatformPasswords = null, expectBanner = true }) {
   const passed = [], observations = [];
-  const ok = (label, condition) => { if (!condition) throw new Error('CHECK_FAILED: ' + label); passed.push(label); };
+  const ok = (label, condition) => { if (!condition) throw new Error('CHECK_FAILED: ' + label); passed.push(label); global.phase3aLastCheck=label; };
   async function request(jar, path, method = 'GET', data, raw = false) {
     const response = await fetch(base + path, { method, redirect: 'manual',
       signal: AbortSignal.timeout(60000), headers: { Cookie: [...jar].map(([k,v]) => `${k}=${v}`).join('; '),
@@ -75,8 +75,8 @@ async function smoke(db, setup, { base, labPlatformPasswords = null, expectBanne
     ok('leitura isolada ' + route, got.status === 200 && Array.isArray(got.body) && got.body.every(row => row.tenantId === a));
   }
   ok('ID de categoria cruzado', (await request(sessions.admin.jar, `/api/categorias/${fb.category.id}`, 'PUT', { nome:'Não alterar' })).status === 404);
-  ok('ID de centro cruzado', (await request(sessions.admin.jar, `/api/centros-custo/${fb.center.id}`, 'PUT', { nome:'Não alterar' })).status === 404);
-  ok('área de outro tenant', (await request(sessions.admin.jar, '/api/centros-custo', 'POST', { codigo:'XX', nome:'Negado', areaId:fb.area.id })).status === 400);
+  ok('ID de centro cruzado', (await request(sessions.admin.jar, `/api/centros-custo/${fb.center.id}`, 'PUT', { nome:'Não alterar', areaId:fa.area.id })).status === 404);
+  ok('área de outro tenant', (await request(sessions.admin.jar, '/api/centros-custo', 'POST', { codigo:'XX', nome:'Negado', areaId:fb.area.id })).status === 422);
   ok('categoria de outro tenant em conta', (await request(sessions.admin.jar, '/api/plano-contas', 'POST', { descricao:'Negado', tipo:'RECEITA', categoriaId:fb.category.id })).status === 400);
   for (const [field,id] of [['contaId',fb.account.id], ['clienteId',fb.client.id], ['fornecedorId',fb.supplier.id]]) {
     const result = await request(sessions.admin.jar, '/api/lancamentos', 'POST',
@@ -84,7 +84,7 @@ async function smoke(db, setup, { base, labPlatformPasswords = null, expectBanne
     ok('referência cross-tenant ' + field, result.status === 400);
   }
   // Foreign identifiers are 400 in the existing financial validation contract.
-  observations.push('Referências Conta/Cliente/Fornecedor/Área/Categoria inválidas retornam 400; IDs de recurso estrangeiro retornam 404. Nenhuma escrita cruzada.');
+  observations.push('Referências Conta/Cliente/Fornecedor/Categoria inválidas retornam 400; Área estrangeira retorna 422; IDs de recurso estrangeiro retornam 404. Nenhuma escrita cruzada.');
   const forged = { jar:new Map(sessions.admin.jar), user:sessions.admin.user };
   forged.jar.set('tenant_context', `${forged.user.id}:${forged.user.loginNonce}:${b}`);
   ok('cookie com outro tenant negado', (await context(forged)).status === 409);
@@ -104,7 +104,7 @@ async function smoke(db, setup, { base, labPlatformPasswords = null, expectBanne
   async function fixtureChange(model, id, data, action, tenantId) {
     await db.$transaction(async tx => {
       await tx[model].update({ where:{id}, data });
-      await tx.auditEvent.create({ data:{ tenantId, accessMode:'SYSTEM', action, resourceType:model,
+      await tx.auditEvent.create({ data:{ tenantId, accessMode:'SYSTEM', result:'SUCCESS', action, resourceType:model,
         resourceId:id, reason:'FASE 3A fixture sintética de revogação', metadata:{ fixture:true } } });
     });
   }
@@ -167,7 +167,7 @@ async function supportChecks(db,setup,pa,owner,request,choose,ok,fixtureChange) 
     ok('support escrita negada '+finish,(await request(pa.jar,'/api/categorias','POST',{})).status===403);
     ok('support fora do escopo negado '+finish,(await request(pa.jar,'/api/lancamentos')).status===403);
     if(finish==='revoke') ok('support revogado',(await request(owner.jar,`/api/support-grants/${grant.body.id}`,'PATCH',{action:'revoke',reason:'Teste sintético concluído'})).status===200);
-    else await fixtureChange('supportGrant',grant.body.id,{expiresAt:new Date(Date.now()-1000)},'TEST_EXPIRY_ADVANCED',tenantId);
+    else await fixtureChange('supportGrant',grant.body.id,{startsAt:new Date(Date.now()-60000),expiresAt:new Date(Date.now()-1000)},'TEST_EXPIRY_ADVANCED',tenantId);
     ok('support cookie bloqueado após '+finish,(await request(pa.jar,'/api/categorias')).status===409);
   }
   ok('SupportGrant não criou membership',await db.tenantMembership.count()===n);

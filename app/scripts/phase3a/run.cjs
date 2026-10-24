@@ -13,7 +13,7 @@ async function main() {
   const metadata = JSON.parse(fs.readFileSync('/app/build-metadata.json','utf8'));
   assert.match(process.env.PHASE3A_EXPECTED_SHA || '', /^[a-f0-9]{40}$/);
   assert.equal(metadata.sourceCommit,process.env.PHASE3A_EXPECTED_SHA);
-  const allPermissions = JSON.parse(fs.readFileSync('/app/phase3a/permissions.json','utf8'));
+  const allPermissions = JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'permissions.json'),'utf8'));
   const db = new PrismaClient({adapter:new PrismaPg({connectionString:url.href})});
   let labPlatformPasswords = null;
   try {
@@ -43,4 +43,8 @@ async function main() {
   } finally { await db.$disconnect(); }
 }
 main().catch(error=>{ console.error(error.message?.startsWith('CHECK_FAILED:') ? error.message :
-  `PHASE3A_ABORTED:${error.code || error.name || 'UNKNOWN'}`);process.exitCode=1; });
+  `PHASE3A_ABORTED:${error.code || error.name || 'UNKNOWN'}`);
+  if(global.phase3aLastCheck)console.error('LAST_CHECK:'+global.phase3aLastCheck);
+  const field=error.message?.match(/Unknown argument `([a-zA-Z_]+)`/);if(field)console.error('UNKNOWN_FIELD:'+field[1]);
+  console.error((error.stack||'').split('\n').filter(line=>/^\s+at /.test(line) && line.includes('/phase3a/')).join('\n'));
+  process.exitCode=1; });
