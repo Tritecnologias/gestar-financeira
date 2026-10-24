@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Preserve the complete multipart envelope before the route enforces its
+  // 10 MiB file / bounded-body limits. This is a buffer cap, not upload consent.
+  experimental: { middlewareClientMaxBodySize: "11mb" },
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg", "bcryptjs"],
   // PDFs jurídicos são lidos de um volume privado em runtime, nunca do build.
   outputFileTracingExcludes: {
