@@ -1,3 +1,4 @@
+import { optimisticWhere, concurrencyConflict } from "@/lib/lancamento-version.mjs";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
       // Every read and write inside this transaction includes the authenticated tenantId.
       const plan = await planOfficialImport(tx, session.tenantId, rows);
       if (plan.errors.length) throw Object.assign(new Error("A base mudou ou contém erros. Nenhum lançamento foi gravado."), { preview: plan });
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`lancamento-seq:${session.tenantId}`}, 0))`;
       const max = await tx.lancamento.findFirst({ where: { tenantId: session.tenantId }, orderBy: { seq: "desc" }, select: { seq: true } });
       let nextSeq = (max?.seq || 0) + 1;
       let created = 0, updated = 0;
@@ -61,8 +63,8 @@ export async function POST(req: NextRequest) {
             importado: true, importadoEm: new Date() } as Prisma.LancamentoUncheckedCreateInput });
           created++;
         } else {
-          const written = await tx.lancamento.updateMany({ where: { id: change.id, tenantId: session.tenantId, atualizadoEm: new Date(change.version) }, data: change.data as Prisma.LancamentoUncheckedUpdateManyInput });
-          if (written.count !== 1) throw new Error("CONFLITO — REGISTRO ALTERADO APÓS A EXPORTAÇÃO. Nenhum lançamento foi gravado.");
+          const written = await tx.lancamento.updateMany({ where: optimisticWhere(change.id, session.tenantId, change.version), data: change.data as Prisma.LancamentoUncheckedUpdateManyInput });
+          if (written.count !== 1) concurrencyConflict();
           updated++;
         }
       }
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ result });
   } catch (error: any) {
     const plan = error?.preview as OfficialPlan | undefined;
-    return NextResponse.json({ error: error?.message || "Falha ao confirmar. A transação foi revertida.",
-      ...(plan ? { preview: { rows: plan.rows, resumo: plan.resumo, errors: plan.errors } } : {}) }, { status: 409 });
+    return NextResponse.json({ error: plan ? "A base mudou ou contém erros. Nenhum lançamento foi gravado." : error?.status === 409 || error?.code === "P2034" ? "Conflito de edição. Gere a prévia novamente; nenhuma alteração foi gravada." : "Falha ao confirmar. A transação foi revertida.",
+      ...(plan ? { preview: { rows: plan.rows, resumo: plan.resumo, errors: plan.errors } } : {}) }, { status: plan || error?.status === 409 || error?.code === "P2034" ? 409 : 500 });
   }
 }

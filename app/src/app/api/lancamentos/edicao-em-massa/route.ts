@@ -1,11 +1,12 @@
+import { optimisticWhere, versionToken, concurrencyConflict } from "@/lib/lancamento-version.mjs";
+import { validateLancamentoLinks } from "@/lib/lancamento-validation";
+import { normalizeLancamento } from "@/lib/lancamento-input.mjs";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
-import { resolveAccountSelection } from "@/lib/lancamento-counterparty";
 
 const FIELDS = new Set(["dataPagamento", "dataVencOriginal", "dataVencPlano", "categoria", "contaId", "statusManual", "centroCusto", "banco"]);
-const DATES = new Set(["dataPagamento", "dataVencOriginal", "dataVencPlano"]);
 type Changes = Record<string, string | null>;
 
 function fail(message: string, status = 400): never {
@@ -16,21 +17,7 @@ function parseChanges(value: unknown): Record<string, string | Date | null> {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail("Selecione os campos a alterar.");
   const entries = Object.entries(value as Changes);
   if (!entries.length || entries.some(([key]) => !FIELDS.has(key))) fail("Campo não permitido para edição em massa.");
-  const result: Record<string, string | Date | null> = {};
-  for (const [key, raw] of entries) {
-    if (raw !== null && typeof raw !== "string") fail(`Valor inválido para ${key}.`);
-    const text = raw?.trim() || null;
-    if (DATES.has(key)) {
-      if (text && !/^\d{4}-\d{2}-\d{2}$/.test(text)) fail(`Data inválida em ${key}.`);
-      const date = text ? new Date(`${text}T00:00:00.000Z`) : null;
-      if (text && (!date || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== text)) fail(`Data inválida em ${key}.`);
-      result[key] = date;
-    } else {
-      if (text && text.length > 255) fail(`Texto longo demais em ${key}.`);
-      result[key] = text;
-    }
-  }
-  return result;
+  return normalizeLancamento(value);
 }
 
 function printable(value: unknown): string | null {
@@ -58,39 +45,15 @@ export async function POST(req: NextRequest) {
     const execute = async (tx: Prisma.TransactionClient) => {
       const rows = await tx.lancamento.findMany({ where: { tenantId, id: { in: ids } }, orderBy: { seq: "asc" },
         include: { conta: { select: { tenantId: true, categoria: { select: { tenantId: true, codigo: true } } } } } });
-      if (rows.length !== ids.length) fail("Um ou mais lançamentos não existem neste tenant. Nenhuma alteração foi feita.", 409);
-
-      let categoryCode: string | null | undefined;
-      if (Object.hasOwn(changes, "categoria")) {
-        categoryCode = changes.categoria as string | null;
-        if (categoryCode) {
-          const category = await tx.categoria.findFirst({ where: { tenantId, codigo: categoryCode, ativo: true } });
-          if (!category) fail("Categoria N1 inexistente, inativa ou de outro tenant.");
-        }
-      }
-      if (Object.hasOwn(changes, "statusManual") && changes.statusManual) {
-        const status = await tx.statusManualTipo.findFirst({ where: { tenantId, codigo: changes.statusManual as string, ativo: true } });
-        if (!status) fail("Status Manual inexistente ou inativo neste tenant.");
-      }
+      if (rows.length !== ids.length) fail("Um ou mais lançamentos não existem neste tenant. Nenhuma alteração foi feita.", 404);
 
       const prepared = [];
       for (const row of rows) {
-        const data: Record<string, string | Date | null> = { ...changes };
-        const accountId = Object.hasOwn(changes, "contaId") ? changes.contaId as string | null : row.contaId;
-        if (accountId) {
-          const resolved = await resolveAccountSelection(tx, tenantId, accountId, null, row.tipo, categoryCode);
-          if (Object.hasOwn(changes, "contaId")) {
-            data.contaId = accountId;
-            data.categoria = resolved.categoria as string;
-          } else if (categoryCode !== undefined) {
-            data.categoria = resolved.categoria as string;
-          }
-        } else if (Object.hasOwn(changes, "contaId")) {
-          data.contaId = null;
-        }
-        if (categoryCode === null && accountId) fail(`Lançamento #${row.seq}: Conta N2 exige Categoria N1.`);
+        if (mode === "apply" && optimisticWhere(row.id, tenantId, body.versions?.[row.id]).revisao !== row.revisao) concurrencyConflict();
+        const data = await validateLancamentoLinks(tx, tenantId, { ...changes }, row);
         prepared.push({ row, data });
       }
+      const versions = Object.fromEntries(rows.map(row => [row.id, versionToken(row.revisao)]));
 
       const before = Object.fromEntries(Object.keys(changes).map(key => {
         const values = new Set(rows.map(row => printable(key === "categoria" && row.conta?.tenantId === tenantId && row.conta.categoria?.tenantId === tenantId
@@ -100,10 +63,10 @@ export async function POST(req: NextRequest) {
       const after = Object.fromEntries(Object.keys(changes).map(key => [key, printable(changes[key])]));
       const implicitCategory = Object.hasOwn(changes, "contaId") && !Object.hasOwn(changes, "categoria") && changes.contaId
         ? printable(prepared[0].data.categoria) : null;
-      if (mode === "preview") return { count: rows.length, before, after, implicitCategory, applied: false };
+      if (mode === "preview") return { count: rows.length, versions, before, after, implicitCategory, applied: false };
 
       for (const { row, data } of prepared) {
-        const result = await tx.lancamento.updateMany({ where: { id: row.id, tenantId, atualizadoEm: row.atualizadoEm }, data });
+        const result = await tx.lancamento.updateMany({ where: optimisticWhere(row.id, tenantId, body.versions?.[row.id]), data });
         if (result.count !== 1) fail(`Lançamento #${row.seq} mudou durante a operação. Nenhuma alteração foi gravada.`, 409);
       }
       return { count: rows.length, before, after, implicitCategory, applied: true };

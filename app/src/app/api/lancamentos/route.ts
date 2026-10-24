@@ -1,8 +1,9 @@
+import { prepareLancamento, lancamentoError } from "@/lib/lancamento-validation";
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
-import { parseDateOnly, toLancamentoDTO } from "@/lib/lancamento";
-import { counterpartInclude, resolveAccountSelection, resolveCounterpartyLink } from "@/lib/lancamento-counterparty";
+import { toLancamentoDTO } from "@/lib/lancamento";
+import { counterpartInclude } from "@/lib/lancamento-counterparty";
 import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamentos } from "@/lib/lancamento-filters";
 import { CARDS_LANCAMENTO, type CardLancamento } from "@/lib/lancamento-card-filter";
 import { consultarIdsDoCard } from "@/lib/lancamento-card-query";
@@ -109,86 +110,20 @@ export async function GET(req: NextRequest) {
   } satisfies PaginatedResponse<LancamentoDTO> & { totais: { valorPrevisto?: string; valorRealizado?: string; cont: number } });
 }
 
-// ── POST /api/lancamentos ─────────────────────────────────────
+// Single creation and batch creation share the same validation and sequence lock.
 export async function POST(req: NextRequest) {
-  let db: any, session: any;
+  let session: any;
+  try { ({ session } = await requirePermission("fluxo.lancamentos.create")); }
+  catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 401 }); }
   try {
-    ({ db, session } = await requirePermission("fluxo.lancamentos.create"));
-  } catch (e: any) {
-    const status = e?.status ?? 401;
-    return NextResponse.json({ error: e?.message ?? "Não autenticado" }, { status });
-  }
-
-  const body = await req.json();
-  const {
-    dataLanc, descricao, valor, tipo, status,
-    fornecedor, fornecedorId, clienteId, centroCusto, referencia, contaId,
-    dataEmissao, dataVencOriginal, dataVencPlano, dataEvento, dataPagamento,
-    statusManual, statusExtrato, valorPrevisto, banco,
-    fantasiaPadrao, categoria, dre, cont, anotacao,
-  } = body;
-
-  // valor === 0 é válido; só rejeita ausente/inválido
-  const valorNum = parseFloat(valor);
-  if (!dataLanc || !descricao || valor === undefined || valor === null || Number.isNaN(valorNum) || !tipo) {
-    return NextResponse.json({ error: "Campos obrigatórios: dataLanc, descricao, valor, tipo" }, { status: 400 });
-  }
-
-  let counterpart: Record<string, unknown>, account: Record<string, unknown>;
-  try {
-    counterpart = await resolveCounterpartyLink(db, session.tenantId, { clienteId, fornecedorId });
-    account = await resolveAccountSelection(db, session.tenantId, contaId, undefined, tipo, categoria);
-  }
-  catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 400 }); }
-
-
-  // ⚡ seq calculado por tenant dentro de uma transação para garantir unicidade.
-  // MAX(seq) + 1 filtrado pelo tenantId — cada tenant tem sua própria sequência.
-  const lancamento = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`lancamento-seq:${session.tenantId}`}, 0))`;
-    const resultado = await tx.$queryRaw<{ nextseq: number }[]>`
-      SELECT COALESCE(MAX(seq), 0) + 1 AS nextseq
-      FROM lancamentos
-      WHERE tenant_id = ${session.tenantId}
-    `;
-    const nextSeq = Number(resultado[0].nextseq);
-
-    return tx.lancamento.create({
-      data: {
-        seq:              nextSeq,
-        tenantId:         session.tenantId,
-        dataLanc:         parseDateOnly(dataLanc) ?? new Date(),
-        dataEmissao:      parseDateOnly(dataEmissao),
-        dataVencOriginal: parseDateOnly(dataVencOriginal),
-        dataVencPlano:    parseDateOnly(dataVencPlano || dataVencOriginal),
-        dataEvento:       parseDateOnly(dataEvento),
-        dataPagamento:    parseDateOnly(dataPagamento),
-        descricao:        descricao.trim(),
-        valor:            valorNum,
-        valorPrevisto:    valorPrevisto ? parseFloat(valorPrevisto) : null,
-        tipo,
-        status:           status || "realizado",
-        statusManual:     statusManual  || null,
-        statusExtrato:    statusExtrato || null,
-        banco:            banco         || null,
-        fornecedor:       fornecedor    || null,
-        fornecedorId:     fornecedorId  || null,
-        clienteId:        clienteId || null,
-        fantasiaPadrao:   fantasiaPadrao|| null,
-        ...counterpart,
-        centroCusto:      centroCusto   || null,
-        referencia:       referencia    || null,
-        contaId:          contaId       || null,
-        categoria:        categoria     || null,
-        ...account,
-        dre:              dre           || null,
-        cont:             cont          || null,
-        anotacao:         anotacao      || null,
-        criadoPor:        session.id,
-      },
-      include: counterpartInclude,
+    const body = await req.json();
+    const row = await prisma.$transaction(async tx => {
+      const data = await prepareLancamento(tx, session.tenantId, body);
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`lancamento-seq:${session.tenantId}`}, 0))`;
+      const last = await tx.lancamento.findFirst({ where: { tenantId: session.tenantId }, orderBy: { seq: "desc" }, select: { seq: true } });
+      return tx.lancamento.create({ data: { ...data, tenantId: session.tenantId, seq: (last?.seq ?? 0) + 1,
+        criadoPor: session.id } as Prisma.LancamentoUncheckedCreateInput, include: counterpartInclude });
     });
-  });
-
-  return NextResponse.json(toLancamentoDTO(lancamento, lancamento.seq), { status: 201 });
+    return NextResponse.json(toLancamentoDTO(row), { status: 201 });
+  } catch (error) { const result = lancamentoError(error); return NextResponse.json({ error: result.error }, { status: result.status }); }
 }

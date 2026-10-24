@@ -1,3 +1,5 @@
+import { versionToken, parseVersion } from "./lancamento-version.mjs";
+import { amountInput, dateInput } from "./lancamento-input.mjs";
 import * as XLSX from "xlsx";
 import { LANCAMENTO_FIELD_ORDER } from "./lancamento-field-order.mjs";
 
@@ -35,7 +37,7 @@ export type OfficialPlan = {
 const dateHeaders = ["DATA_LANCAMENTO", "DATA_REALIZACAO", "DATA_EMISSAO", "VENCIMENTO_ORIGINAL", "VENCIMENTO_PLANO", "DATA_EVENTO"] as const;
 const optionalText: [Header, string][] = [
   ["EXTRATO", "statusExtrato"], ["EMPRESA", "fornecedor"], ["BANCO", "banco"],
-  ["CENTRO_CUSTO", "centroCusto"], ["DRE", "dre"], ["ANOTACAO", "anotacao"],
+  ["CENTRO_CUSTO", "centroCusto"], ["ANOTACAO", "anotacao"],
 ];
 const dateFields: [Header, string][] = [
   ["DATA_LANCAMENTO", "dataLanc"], ["DATA_REALIZACAO", "dataPagamento"],
@@ -50,7 +52,7 @@ const moneyText = (value: unknown) => value === null || value === undefined || v
 export function recordCells(row: any): Record<Header, string> {
   const cells = Object.fromEntries(OFFICIAL_HEADERS.map(header => [header, ""])) as Record<Header, string>;
   cells.REGISTRO_ID = row.id;
-  cells.REGISTRO_VERSAO = row.atualizadoEm.toISOString();
+  cells.REGISTRO_VERSAO = versionToken(row.revisao);
   cells.DATA_LANCAMENTO = dateText(row.dataLanc);
   cells.DESCRICAO = row.descricao || "";
   cells.DIRECAO = row.tipo || "";
@@ -82,7 +84,8 @@ export function createOfficialWorkbook(records: any[]): ArrayBuffer {
     ["REGRA", "ORIENTAÇÃO"],
     ["Base", "Este arquivo contém todos os lançamentos do filtro atual, sem limite da paginação. Sem registros, preencha a aba LANCAMENTOS."],
     ["Cabeçalhos", "Não renomeie a aba LANCAMENTOS nem os cabeçalhos. A importação identifica cada coluna pelo cabeçalho."],
-    ["Existentes", "Mantenha REGISTRO_ID e REGISTRO_VERSAO. Edite somente as demais colunas."],
+    ["Existentes", "Mantenha REGISTRO_ID e REGISTRO_VERSAO. Edite somente colunas operacionais; DRE permanece somente leitura."],
+    ["Versão", "REGISTRO_VERSAO é um token opaco. Arquivos com versão antiga em timestamp precisam ser exportados novamente."],
     ["Novos", "Deixe REGISTRO_ID e REGISTRO_VERSAO vazios. O sistema criará ID e sequência."],
     ["Códigos", "Trate Categoria, Conta, Cliente e Fornecedor como códigos de texto; preserve zeros à esquerda."],
     ["Classificação", "Conta N2 deve pertencer à Categoria N1 e ter tipo compatível com a Direção."],
@@ -133,36 +136,16 @@ export function parseOfficialWorkbook(bytes: Uint8Array): OfficialFileRow[] {
 
 function dateCell(value: string): string | null {
   if (!value) return "";
-  let iso = "";
   if (/^\d{4,6}(\.\d+)?$/.test(value)) {
     const excel = XLSX.SSF.parse_date_code(Number(value));
     if (!excel) return null;
-    iso = `${excel.y}-${String(excel.m).padStart(2, "0")}-${String(excel.d).padStart(2, "0")}`;
-  } else {
-    const br = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (br) iso = `${br[3]}-${br[2].padStart(2, "0")}-${br[1].padStart(2, "0")}`;
-    else if (/^\d{4}-\d{2}-\d{2}$/.test(value)) iso = value;
-    else return null;
+    value = `${excel.y}-${String(excel.m).padStart(2, "0")}-${String(excel.d).padStart(2, "0")}`;
   }
-  const date = new Date(`${iso}T12:00:00.000Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== iso) return null;
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (match && iso !== value) return null;
-  const br = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (br && iso !== `${br[3]}-${br[2].padStart(2, "0")}-${br[1].padStart(2, "0")}`) return null;
-  return iso;
+  try { return dateInput(value)?.toISOString().slice(0, 10) ?? ""; } catch { return null; }
 }
-
-const asDbDate = (iso: string) => new Date(`${iso}T12:00:00.000Z`);
-
+const asDbDate = (iso: string) => dateInput(iso)!;
 function amountCell(value: string): string | null {
-  if (!value) return "";
-  let normalized = value.replace(/\s/g, "");
-  if (/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(normalized)) normalized = normalized.replace(/\./g, "").replace(",", ".");
-  else normalized = normalized.replace(",", ".");
-  if (!/^\d{1,13}(\.\d{1,2})?$/.test(normalized)) return null;
-  const [integer, fraction = ""] = normalized.split(".");
-  return `${integer}.${fraction.padEnd(2, "0")}`;
+  try { return amountInput(value) ?? ""; } catch { return null; }
 }
 
 export function canonicalCells(input: Record<Header, string>): { cells: Record<Header, string>; errors: string[] } {
@@ -199,6 +182,7 @@ export async function planOfficialImport(db: any, tenantId: string, fileRows: Of
   const accounts = await db.planoContas.findMany({ where: { tenantId, ativo: true }, include: { categoria: true } });
   const clients = await db.cliente.findMany({ where: { tenantId, ativo: true } });
   const suppliers = await db.fornecedor.findMany({ where: { tenantId, ativo: true } });
+  const centers = await db.centroCusto.findMany({ where: { tenantId, ativo: true } });
   const statuses = await db.statusManualTipo.findMany({ where: { tenantId, ativo: true } });
   const byId = new Map<string, any>(existing.map((row: any) => [row.id, row]));
   const categoryByCode = new Map<string, any>(categories.map((row: any) => [row.codigo, row]));
@@ -218,7 +202,7 @@ export async function planOfficialImport(db: any, tenantId: string, fileRows: Of
       if (seenIds.has(id)) errors.push("REGISTRO_ID: duplicado dentro do arquivo");
       seenIds.add(id);
       if (!current) errors.push("REGISTRO_ID: inexistente ou fora deste tenant");
-      if (!cells.REGISTRO_VERSAO || Number.isNaN(new Date(cells.REGISTRO_VERSAO).getTime())) errors.push("REGISTRO_VERSAO: ausente ou inválida");
+      try { parseVersion(cells.REGISTRO_VERSAO); } catch { errors.push("REGISTRO_VERSAO: ausente ou incompatível; baixe um novo XLSX."); }
     } else if (cells.REGISTRO_VERSAO) errors.push("REGISTRO_VERSAO: linha nova deve deixar ID e versão vazios");
     const before = current ? recordCells(current) : null;
     const conflict = !!(current && cells.REGISTRO_VERSAO && cells.REGISTRO_VERSAO !== before?.REGISTRO_VERSAO);
@@ -239,6 +223,10 @@ export async function planOfficialImport(db: any, tenantId: string, fileRows: Of
     if (cells.CLIENTE_CODIGO && !client) errors.push("CLIENTE_CODIGO: inexistente ou inativo neste tenant");
     if (cells.FORNECEDOR_CODIGO && !supplier) errors.push("FORNECEDOR_CODIGO: inexistente ou inativo neste tenant");
     if (cells.STATUS_MANUAL && !activeStatus.has(cells.STATUS_MANUAL) && before?.STATUS_MANUAL !== cells.STATUS_MANUAL) errors.push("STATUS_MANUAL: código inexistente ou inativo");
+    if (cells.DRE !== (before?.DRE ?? "")) errors.push("DRE: somente leitura; preserve o valor exportado.");
+    if (cells.CENTRO_CUSTO && cells.CENTRO_CUSTO !== before?.CENTRO_CUSTO && !centers.some((item: any) => item.codigo === cells.CENTRO_CUSTO)) errors.push("CENTRO_CUSTO: código inexistente ou inativo neste tenant");
+    if (cells.DESCRICAO.length > 10000 || cells.ANOTACAO.length > 10000) errors.push("Texto excede 10000 caracteres");
+    if (optionalText.some(([header]) => header !== "ANOTACAO" && cells[header].length > 255)) errors.push("Texto excede 255 caracteres");
     const differences = before ? OFFICIAL_HEADERS.filter(header => !technicalHeaders.has(header)).filter(header => {
       const prior = canonicalCells(before).cells[header];
       return prior !== cells[header];
@@ -262,6 +250,7 @@ export async function planOfficialImport(db: any, tenantId: string, fileRows: Of
       tipo: cells.DIRECAO, status: cells.STATUS, valor: cells.VALOR_REALIZADO,
       valorPrevisto: cells.VALOR_PREVISTO || null,
       statusManual: cells.STATUS_MANUAL || null,
+      ...(!current ? { cont: "1" } : {}),
     };
     for (const [header, field] of dateFields.slice(1)) data[field] = cells[header] ? asDbDate(cells[header]) : null;
     for (const [header, field] of optionalText) data[field] = cells[header] || null;

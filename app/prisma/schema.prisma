@@ -913,6 +913,7 @@ model Lancamento {
   anotacao       String?  // anotações livres
 
   // ── Metadados ─────────────────────────────────────────────
+  revisao     BigInt   @default(0) // Incremented by database trigger on every UPDATE.
   metadados    Json     @default("{}")
   importado    Boolean  @default(false)
   importadoEm DateTime? @map("importado_em")

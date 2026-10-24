@@ -328,7 +328,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
     const { dataLanc, descricao, valor, valorPrevisto, tipo } = inlineNewValues;
     if (!dataLanc) { showToast("❌ Preencha a Data Lanç."); return; }
     if (!descricao?.trim()) { showToast("❌ Preencha a Descrição"); return; }
-    if (!valor && !valorPrevisto) { showToast("❌ Preencha o Vl. Realizado ou Vl. Previsto"); return; }
+    const empty = (value: unknown) => value === undefined || value === null || value === "";
+    if (empty(valor) && empty(valorPrevisto)) { showToast("❌ Preencha o Vl. Realizado ou Vl. Previsto"); return; }
     setInlineNewSaving(true);
     try {
       // Campos legados de sistema não participam da inclusão rápida, mesmo se
@@ -341,8 +342,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...submitted,
-          valor: valor ? parseFloat(String(valor).replace(",", ".")) : (valorPrevisto ? parseFloat(String(valorPrevisto).replace(",", ".")) : 0),
-          valorPrevisto: inlineNewValues.valorPrevisto ? parseFloat(String(inlineNewValues.valorPrevisto).replace(",", ".")) : null,
+          valor: empty(valor) ? valorPrevisto : valor,
+          valorPrevisto: empty(valorPrevisto) ? null : valorPrevisto,
           tipo: tipo || "SAIDA",
           status: "realizado",
           statusManual: inlineNewValues.statusManual || null,
@@ -494,7 +495,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         setSaveState({ kind: "saving", message: "Salvando…" });
         try {
           const response = await fetch(`/api/lancamentos/${id}`, {
-            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
+            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...patch, versao: savedEditValuesRef.current.versao }),
           });
           if (!response.ok) {
             const error = await response.json().catch(() => ({}));

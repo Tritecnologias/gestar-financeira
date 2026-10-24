@@ -9,6 +9,7 @@ export type Plano           = "trial" | "mensal" | "anual";
 
 // ── Lançamento (forma completa serializada para o frontend) ───
 export interface LancamentoDTO {
+  versao: string;
   id:       string;
   seq:      number;         // imutável, gerado pelo banco
   tenantId: string;

@@ -23,7 +23,7 @@ const foreignId = "22222222-2222-4222-8222-222222222222";
 const categoria = { id: "cat-a", tenantId: tenant, codigo: "01", ativo: true };
 const conta = { id: "conta-a", tenantId: tenant, codigo: "001", ativo: true,
   categoriaId: categoria.id, categoria, tipo: "RECEITA" };
-const existing = { id, tenantId: tenant, atualizadoEm: new Date("2026-10-04T12:34:56.789Z"),
+const existing = { id, tenantId: tenant, revisao: 0n, atualizadoEm: new Date("2026-10-04T12:34:56.789Z"),
   dataLanc: new Date("2026-10-04T12:00:00.000Z"), descricao: "Teste", tipo: "ENTRADA",
   status: "realizado", valor: "9750.00", valorPrevisto: "10000.00",
   dataPagamento: new Date("2026-10-04T12:00:00.000Z"), contaId: conta.id, conta,
@@ -38,6 +38,7 @@ function mockDb() {
     categoria: { findMany: async ({ where }) => where.tenantId === tenant ? [categoria] : [] },
     planoContas: { findMany: async ({ where }) => where.tenantId === tenant ? [conta] : [] },
     cliente: { findMany: async () => [] }, fornecedor: { findMany: async () => [] },
+    centroCusto: { findMany: async () => [] },
     statusManualTipo: { findMany: async () => [] },
   };
 }
@@ -47,7 +48,7 @@ test("XLSX oficial mantém ID, versão, códigos com zeros e dia civil", () => {
   const parsed = parseOfficialWorkbook(new Uint8Array(createOfficialWorkbook([existing])));
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].cells.REGISTRO_ID, id);
-  assert.equal(parsed[0].cells.REGISTRO_VERSAO, existing.atualizadoEm.toISOString());
+  assert.equal(parsed[0].cells.REGISTRO_VERSAO, "v1:0");
   assert.equal(parsed[0].cells.CONTA_N2, "001");
   assert.equal(parsed[0].cells.DATA_LANCAMENTO, "2026-10-04");
   assert.equal(parsed[0].cells.VALOR_PREVISTO, "10000.00");

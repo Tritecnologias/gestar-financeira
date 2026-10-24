@@ -11,7 +11,7 @@ const LABELS: Record<Field, string> = {
   categoria: "Categoria N1", contaId: "Conta N2", statusManual: "Status Manual", centroCusto: "Centro de Custo", banco: "Local Financeiro",
 };
 const FIELDS = Object.keys(LABELS) as Field[];
-type Preview = { count: number; before: Record<string, string | null>; after: Record<string, string | null>; implicitCategory?: string | null };
+type Preview = { count: number; versions: Record<string, string>; before: Record<string, string | null>; after: Record<string, string | null>; implicitCategory?: string | null };
 
 export default function BulkEditModal({ ids, categories, accounts, statuses, onClose, onApplied }: {
   ids: string[]; categories: Category[]; accounts: Account[]; statuses: Status[];
@@ -41,7 +41,7 @@ export default function BulkEditModal({ ids, categories, accounts, statuses, onC
   const request = async (mode: "preview" | "apply") => {
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/lancamentos/edicao-em-massa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode, ids, changes: changes() }) });
+      const response = await fetch("/api/lancamentos/edicao-em-massa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode, ids, changes: changes(), versions: mode === "apply" ? preview?.versions : undefined }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Não foi possível validar os lançamentos.");
       if (mode === "preview") setPreview(result);

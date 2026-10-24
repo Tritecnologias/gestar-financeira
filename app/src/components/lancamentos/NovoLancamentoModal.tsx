@@ -5,6 +5,7 @@ import { counterpartyDisplay, counterpartyIds, defaultAccount, type Counterparty
 import CounterpartyPicker from "./CounterpartyPicker";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { useCan } from "@/components/access/PermissionContext";
+import { amountInput } from "@/lib/lancamento-input.mjs";
 import "./novo-lancamento.css";
 
 interface Props {
@@ -139,8 +140,8 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
         setErrorRow(index + 1);
         return;
       }
-      if (!Number.isFinite(Number(data.valor.replace(",", "."))) ||
-          (data.valorPrevisto && !Number.isFinite(Number(data.valorPrevisto.replace(",", "."))))) {
+      try { amountInput(data.valor, "Valor Realizado", true); amountInput(data.valorPrevisto, "Valor Previsto"); }
+      catch {
         setError(`Lançamento ${index + 1}: confira os valores informados.`);
         setErrorRow(index + 1);
         return;
@@ -152,9 +153,9 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
       const response = await fetch("/api/lancamentos/lote", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lancamentos: rows.map(row => ({
-          ...row.data,
-          valor: Number(row.data.valor.replace(",", ".")),
-          valorPrevisto: row.data.valorPrevisto ? Number(row.data.valorPrevisto.replace(",", ".")) : null,
+          ...Object.fromEntries(Object.entries(row.data).filter(([key]) => !["dre", "cont"].includes(key))),
+          valor: row.data.valor,
+          valorPrevisto: row.data.valorPrevisto || null,
           fornecedorId: row.data.fornecedorId || null,
           clienteId: row.data.clienteId || null,
           contaId: row.data.contaId || null,
@@ -301,14 +302,14 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                       onChange={field("banco")} />
                     <Field id={`lanc-${row.key}-cc`} label="Centro de Custo" value={data.centroCusto}
                       onChange={field("centroCusto")} />
-                    <Field id={`lanc-${row.key}-dre`} label="DRE" value={data.dre} onChange={field("dre")} />
+                    <label className="lanc-new-field"><span>DRE</span><input aria-label="DRE (automático)" value="—" readOnly /></label>
                     </div></div>
                     <div className="lanc-new-group"><h4>Conferência e observações</h4><div className="lanc-new-group-fields lanc-new-complements">
                     <Field id={`lanc-${row.key}-extrato`} label="Extrato" value={data.statusExtrato}
                       onChange={field("statusExtrato")} />
                     <Field id={`lanc-${row.key}-ref`} label="Referência" value={data.referencia}
                       onChange={field("referencia")} />
-                    <Field id={`lanc-${row.key}-cont`} label="Cont." value={data.cont} onChange={field("cont")} />
+                    <label className="lanc-new-field"><span>Cont.</span><input aria-label="Cont. (automático)" value="1" readOnly /></label>
                     <Field id={`lanc-${row.key}-anotacao`} label="Anotação" value={data.anotacao}
                       onChange={field("anotacao")} />
                     </div></div>

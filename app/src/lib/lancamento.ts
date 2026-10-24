@@ -2,6 +2,7 @@ import { toNumber } from "@/lib/formatters";
 import type { LancamentoDTO, StatusAuto } from "@/types";
 import { counterpartyDisplay, counterpartyName } from "@/lib/counterparty";
 import { classificarLancamento } from "@/lib/cash-flow";
+import { versionToken } from "./lancamento-version.mjs";
 
 /**
  * Converte qualquer representação de data (ISO 'YYYY-MM-DD', BR 'DD/MM/YYYY',
@@ -119,6 +120,7 @@ export function toLancamentoDTO(l: any, seq?: number): LancamentoDTO {
 
   return {
     id:               l.id,
+    versao:           versionToken(l.revisao),
     seq:              l.seq ?? seq ?? 0,
     tenantId:         "", // Não expor internamente
     dataLanc:         fmt(l.dataLanc)!,
