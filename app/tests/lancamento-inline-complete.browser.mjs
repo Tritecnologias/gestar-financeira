@@ -32,9 +32,12 @@ test("inline completion: native pointer lifecycle, autosave and keyboard", {
     });
     await page.goto(base + "/lancamentos");
     await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Limpar filtros", exact: true }).click();
+    await page.waitForLoadState("networkidle");
     const data = await page.evaluate(async () => (await (await fetch("/api/lancamentos?porPagina=100")).json()).data);
     assert(data.length > 0, "lab must contain a synthetic row");
-    const original = data[0], row = page.locator(`tr[data-row-id="${original.id}"]`);
+    const visibleId = await page.locator("tr[data-row-id]").first().getAttribute("data-row-id");
+    const original = data.find(item => item.id === visibleId), row = page.locator(`tr[data-row-id="${original.id}"]`);
     const pencil = () => row.getByRole("button", { name: "Editar lançamento", exact: true });
     const done = () => row.getByRole("button", { name: "Concluir edição", exact: true });
     const activate = locator => touch ? locator.tap() : locator.click();
@@ -132,7 +135,7 @@ test("inline completion: native pointer lifecycle, autosave and keyboard", {
       const description = s.row.locator('[data-col-key="descricao"] textarea');
       await description.fill("DISCARD LAB DRAFT");
       await description.press("Escape");
-      assert.equal(await description.inputValue(), s.original.descricao);
+      assert.equal(await description.inputValue(), s.original.descricao ?? "");
       await s.activate(s.done());
       await s.closed();
       const cell = s.row.locator('[data-col-key="descricao"]');

@@ -895,7 +895,7 @@ model Lancamento {
   seq          Int
 
   // ── Datas ────────────────────────────────────────────────
-  dataLanc          DateTime  @map("data_lanc") @db.Date
+  dataLanc          DateTime? @map("data_lanc") @db.Date
   dataEmissao       DateTime? @map("data_emissao") @db.Date
   dataVencOriginal  DateTime? @map("data_venc_original") @db.Date
   dataVencPlano     DateTime? @map("data_venc_plano") @db.Date
@@ -903,16 +903,16 @@ model Lancamento {
   dataPagamento     DateTime? @map("data_pagamento") @db.Date
 
   // ── Descrição ─────────────────────────────────────────────
-  descricao    String
+  descricao    String?
 
   // ── Financeiro ────────────────────────────────────────────
-  valor          Decimal  @db.Decimal(15, 2)
+  valor          Decimal? @db.Decimal(15, 2)
   valorPrevisto  Decimal? @map("valor_previsto") @db.Decimal(15, 2)
   banco          String?
 
   // ── Classificação ─────────────────────────────────────────
   // tipo:   'ENTRADA' | 'SAIDA'
-  tipo         String
+  tipo         String?
   // status: 'realizado' | 'previsto' | 'cancelado'  (Status Auto base)
   status       String   @default("realizado")
   // statusManual: código de status_manual_tipos (ex: PAGO, PENDENTE)

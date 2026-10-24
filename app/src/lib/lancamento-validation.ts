@@ -1,4 +1,4 @@
-import { normalizeLancamento, invalid } from "./lancamento-input.mjs";
+import { normalizeLancamento, invalid, assertMeaningfulLancamento } from "./lancamento-input.mjs";
 import { resolveAccountSelection, resolveCounterpartyLink } from "./lancamento-counterparty";
 
 /** Validate changed controlled references only; never invent links for legacy text. */
@@ -15,8 +15,9 @@ export async function validateLancamentoLinks(db: any, tenantId: string, data: R
     const accountId = Object.hasOwn(data, "contaId") ? data.contaId : existing?.contaId;
     if (accountId && Object.hasOwn(data, "categoria") && !data.categoria) invalid("Conta N2 exige Categoria N1.", 422);
     Object.assign(data, await resolveAccountSelection(db, tenantId, accountId ?? null, undefined,
-      data.tipo ?? existing?.tipo, data.categoria ?? (Object.hasOwn(data, "contaId") ? undefined : existing?.categoria)));
+      Object.hasOwn(data, "tipo") ? data.tipo : existing?.tipo, data.categoria ?? (Object.hasOwn(data, "contaId") ? undefined : existing?.categoria)));
   }
+  assertMeaningfulLancamento({ ...existing, ...data }, !!existing);
   return data;
 }
 

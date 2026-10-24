@@ -20,7 +20,7 @@ test("contrato compartilhado: create, patch, leitura DRE/CONT e whitelist", () =
   const result=normalizeLancamento({...base,tenantId:"estrangeiro",revisao:9,seq:90},true);
   assert.equal(result.cont,"1");assert.equal(result.valorPrevisto,"0.00");assert.equal(result.descricao,"Fixture");
   assert.equal(result.tenantId,undefined);assert.equal(result.revisao,undefined);assert.equal(result.seq,undefined);
-  for(const patch of [{dre:null},{cont:"1"},{tipo:"SAÍDA"},{status:"pago"},{descricao:" "},{valor:null}]) assert.throws(()=>normalizeLancamento(patch),{status:400});
+  for(const patch of [{dre:null},{cont:"1"},{tipo:"SAÍDA"},{status:"pago"}]) assert.throws(()=>normalizeLancamento(patch),{status:400});
   assert.deepEqual(normalizeLancamento({anotacao:"",valorPrevisto:""}),{anotacao:null,valorPrevisto:null});
 });
 test("token opaco com precisão integral; timestamps antigos falham de forma explícita", () => {

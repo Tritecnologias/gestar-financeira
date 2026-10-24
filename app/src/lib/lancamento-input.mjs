@@ -18,7 +18,7 @@ export function amountInput(value, label = "Valor", required = false) {
 }
 
 export function dateInput(value, label = "Data", required = false) {
-  if (value == null || value === "") {
+  if (value == null || value === "" || (typeof value === "string" && !value.trim())) {
     if (required) invalid(`${label} é obrigatória.`);
     return null;
   }
@@ -50,19 +50,33 @@ export function normalizeLancamento(input, create = false) {
   if (Object.hasOwn(input, "dre") || Object.hasOwn(input, "cont")) invalid("DRE e CONT. são campos de somente leitura.");
   /** @type {Record<string, any>} */
   const data = {};
-  for (const key of dates) if (Object.hasOwn(input, key) || (create && key === "dataLanc")) data[key] = dateInput(input[key], key, key === "dataLanc");
-  for (const key of ["valor", "valorPrevisto"]) if (Object.hasOwn(input, key) || (create && key === "valor")) data[key] = amountInput(input[key], key, key === "valor");
-  for (const key of texts) if (Object.hasOwn(input, key) || (create && key === "descricao")) data[key] = textInput(input[key], key, key === "descricao", ["descricao", "anotacao"].includes(key) ? 10000 : 255);
+  for (const key of dates) if (Object.hasOwn(input, key) || (create && key === "dataLanc")) data[key] = dateInput(input[key], key);
+  for (const key of ["valor", "valorPrevisto"]) if (Object.hasOwn(input, key) || (create && key === "valor")) data[key] = amountInput(input[key], key);
+  for (const key of texts) if (Object.hasOwn(input, key) || (create && key === "descricao")) data[key] = textInput(input[key], key, false, ["descricao", "anotacao"].includes(key) ? 10000 : 255);
   if (Object.hasOwn(input, "tipo") || create) {
-    if (!["ENTRADA", "SAIDA"].includes(input.tipo)) invalid("Direção inválida.");
-    data.tipo = input.tipo;
+    const direction = textInput(input.tipo, "Direção");
+    if (direction !== null && !["ENTRADA", "SAIDA"].includes(direction)) invalid("Direção inválida.");
+    data.tipo = direction;
   }
   if (Object.hasOwn(input, "status") || create) {
     const status = input.status === undefined && create ? "realizado" : input.status;
     if (!["realizado", "previsto", "cancelado"].includes(status)) invalid("Status Base inválido.");
     data.status = status;
   }
-  if (create && !Object.hasOwn(input, "dataVencPlano")) data.dataVencPlano = data.dataVencOriginal ?? null;
+
   if (create) data.cont = "1";
   return data;
+}
+
+/** Automatic Status Base, DRE/CONT and metadata cannot make an empty draft meaningful. */
+export function hasMeaningfulBusinessValue(input) {
+  return [...dates, ...texts, "tipo", "valor", "valorPrevisto"].some(key => {
+    const value = input?.[key];
+    return value !== null && value !== undefined && (typeof value !== "string" || value.trim() !== "");
+  });
+}
+export function assertMeaningfulLancamento(input, editing = false) {
+  if (!hasMeaningfulBusinessValue(input)) invalid(editing
+    ? "Um lançamento precisa manter ao menos um campo preenchido."
+    : "Preencha ao menos um campo para criar o lançamento.");
 }

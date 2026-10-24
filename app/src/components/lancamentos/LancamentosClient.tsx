@@ -1,4 +1,5 @@
 "use client";
+import { hasMeaningfulBusinessValue } from "@/lib/lancamento-input.mjs";
 import Link from "next/link";
 import { useCan } from "@/components/access/PermissionContext";
 import ExportOnlyButton from "@/components/access/ExportOnlyButton";
@@ -43,14 +44,15 @@ const filtrosIniciais = (hoje: string): Filtros => ({ busca: "", status: "", tip
   centroCusto: "", banco: "", fornecedor: "" });
 
 // ── Chip helpers ─────────────────────────────────────────────
-function ChipTipo({ tipo }: { tipo: string }) {
+function ChipTipo({ tipo }: { tipo: string | null }) {
+  if (!tipo) return <span>—</span>;
   return <span className={`chip chip-${tipo.toLowerCase()}`}>{tipo === "ENTRADA" ? "ENTRADA" : "SAÍDA"}</span>;
 }
-function ChipStatus({ status, tipo }: { status: string; tipo: string }) {
+function ChipStatus({ status, tipo }: { status: string; tipo: string | null }) {
   const cls: Record<string, string> = { realizado: "chip-realizado", previsto: "chip-previsto", cancelado: "chip-cancelado" };
   return <span className={`chip ${status === "realizado" && tipo === "SAIDA" ? "lanc-chip-real-out" : cls[status] ?? "chip-cancelado"}`}>{status}</span>;
 }
-function ChipStatusAuto({ s, tipo }: { s: string; tipo: string }) {
+function ChipStatusAuto({ s, tipo }: { s: string; tipo: string | null }) {
   const map: Record<string, { cls: string; label: string }> = {
     "PAGO":     { cls: tipo === "SAIDA" ? "lanc-chip-real-out" : "chip-realizado", label: "PAGO" },
     "ATRASADO": { cls: tipo === "ENTRADA" ? "lanc-chip-receivable" : "lanc-chip-payable", label: "ATRASADO" },
@@ -126,8 +128,8 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
     case "status":      return <ChipStatus status={val} tipo={row.tipo} />;
     case "statusAuto":  return <><ChipStatusAuto s={val} tipo={row.tipo} />{row.problemasFinanceiros?.length ?
       <span className="lanc-review" title={row.problemasFinanceiros.map(problema => PROBLEMAS[problema] || problema).join("; ")}>Revisar</span> : null}</>;
-    case "valorPrevisto": return <span className={Number(val) === 0 ? "lanc-value-neutral" : row.tipo === "ENTRADA" ? "val-entrada" : "val-saida"}>{formatCurrency(val)}</span>;
-    case "valor": return <span className={Number(val) === 0 ? "lanc-value-neutral" : row.tipo === "ENTRADA" ? "val-entrada" : "val-saida"}>{formatCurrency(val)}</span>;
+    case "valorPrevisto": return <span className={!row.tipo || Number(val) === 0 ? "lanc-value-neutral" : row.tipo === "ENTRADA" ? "val-entrada" : "val-saida"}>{formatCurrency(val)}</span>;
+    case "valor": return <span className={!row.tipo || Number(val) === 0 ? "lanc-value-neutral" : row.tipo === "ENTRADA" ? "val-entrada" : "val-saida"}>{formatCurrency(val)}</span>;
     case "statusManual": {
       const tipo = statusTipos?.find(st => st.codigo === val);
       const label = tipo ? tipo.nome : val;
@@ -247,14 +249,9 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
 
   // Inserção rápida (linha no final da tabela)
   const [inlineNewOpen, setInlineNewOpen] = useState(true);
-  const [inlineNewValues, setInlineNewValues] = useState<Record<string, string>>({ tipo: "SAIDA" });
+  const [inlineNewValues, setInlineNewValues] = useState<Record<string, string>>({});
   const [inlineNewSaving, setInlineNewSaving] = useState(false);
   const inlineNewFirstRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
-
-  // Setar data de hoje no cliente (evita hydration mismatch)
-  useEffect(() => {
-    setInlineNewValues(v => ({ ...v, dataLanc: new Date().toISOString().split("T")[0] }));
-  }, []);
 
   // Toast
   const [toast, setToast] = useState({ msg: "", show: false });
@@ -316,7 +313,6 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
       if (canCreate && e.altKey && e.key.toLowerCase() === "n") {
         e.preventDefault();
         setInlineNewOpen(true);
-        setInlineNewValues({ dataLanc: new Date().toISOString().split("T")[0], tipo: "SAIDA" });
         setTimeout(() => inlineNewFirstRef.current?.focus(), 50);
       }
     };
@@ -325,11 +321,10 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   }, [canCreate]);
 
   const saveInlineNew = async () => {
-    const { dataLanc, descricao, valor, valorPrevisto, tipo } = inlineNewValues;
-    if (!dataLanc) { showToast("❌ Preencha a Data Lanç."); return; }
-    if (!descricao?.trim()) { showToast("❌ Preencha a Descrição"); return; }
+    if (inlineNewSaving) return;
+    const { valor, valorPrevisto, tipo } = inlineNewValues;
+    if (!hasMeaningfulBusinessValue(inlineNewValues)) { showToast("Preencha ao menos um campo para criar o lançamento."); return; }
     const empty = (value: unknown) => value === undefined || value === null || value === "";
-    if (empty(valor) && empty(valorPrevisto)) { showToast("❌ Preencha o Vl. Realizado ou Vl. Previsto"); return; }
     setInlineNewSaving(true);
     try {
       // Campos legados de sistema não participam da inclusão rápida, mesmo se
@@ -342,15 +337,15 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...submitted,
-          valor: empty(valor) ? valorPrevisto : valor,
+          valor: empty(valor) ? null : valor,
           valorPrevisto: empty(valorPrevisto) ? null : valorPrevisto,
-          tipo: tipo || "SAIDA",
+          tipo: tipo || null,
           status: "realizado",
           statusManual: inlineNewValues.statusManual || null,
           fornecedorId: inlineNewValues.fornecedorId || null,
           clienteId: inlineNewValues.clienteId || null,
           contaId: inlineNewValues.contaId || null,
-          dataLanc: inlineNewValues.dataLanc || new Date().toISOString().split("T")[0],
+          dataLanc: inlineNewValues.dataLanc || null,
           dataEmissao: inlineNewValues.dataEmissao || null,
           dataVencOriginal: inlineNewValues.dataVencOriginal || null,
           dataVencPlano: inlineNewValues.dataVencPlano || null,
@@ -360,7 +355,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
       });
       if (res.ok) {
         showToast("✅ Lançamento criado");
-        setInlineNewValues({ dataLanc: new Date().toISOString().split("T")[0], tipo: "SAIDA" });
+        setInlineNewValues({});
         refreshData();
         setTimeout(() => inlineNewFirstRef.current?.focus(), 50);
       } else {
@@ -784,9 +779,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
           value={dateStr}
           onChange={e => {
             const next = e.target.value || null;
-            changeEdit(rowId, def.key === "dataVencOriginal" && !editValuesRef.current.dataVencPlano
-              ? { dataVencOriginal: next, dataVencPlano: next }
-              : { [def.key]: next });
+            changeEdit(rowId, { [def.key]: next });
           }}
           onBlur={() => commitCell(rowId, def.key as keyof LancamentoDTO)}
         />
@@ -815,12 +808,12 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
             if (def.key === "tipo") {
               const account = accounts.find(item => item.id === editValuesRef.current.contaId);
               const incompatible = account && ((account.tipo === "RECEITA" && next === "SAIDA") || (account.tipo === "DESPESA" && next === "ENTRADA") || account.tipo === "TRANSFERENCIA");
-              changeEdit(rowId, incompatible ? { tipo: next as LancamentoDTO["tipo"], contaId: null, categoria: editValuesRef.current.categoria || null } : { tipo: next as LancamentoDTO["tipo"] }, true);
+              changeEdit(rowId, incompatible ? { tipo: (next || null) as LancamentoDTO["tipo"], contaId: null, categoria: editValuesRef.current.categoria || null } : { tipo: (next || null) as LancamentoDTO["tipo"] }, true);
             } else changeEdit(rowId, { [def.key]: next }, true);
           }}
           className="cell-input"
         >
-          {def.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {def.key === "tipo" && <option value="">—</option>}{def.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       );
     }
@@ -912,6 +905,10 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <input className="filter-input" value={buscaInput} placeholder="Cliente, fornecedor, fantasia, descrição, anotação"
                 onChange={event => atualizarFiltro("busca", event.target.value)} /></label>
             <div className="lanc-toolbar-actions">
+            {canCreate && !inlineNewOpen && <button className="btn btn-outline" onClick={() => {
+              setInlineNewValues({}); setInlineNewOpen(true);
+              setTimeout(() => inlineNewFirstRef.current?.focus(), 50);
+            }}>+ Nova Linha</button>}
             {canCreate && <button ref={novoButtonRef} className="btn btn-outline lanc-new-button" onClick={() => setNovoModalOpen(true)}>+ Novo Lançamento</button>}
             {can("fluxo.lancamentos.import") && <button className="btn btn-primary" onClick={() => setImportModalOpen(true)}>Importar Lançamentos</button>}
             <ExportOnlyButton permission="fluxo.lancamentos.export" importPermission="fluxo.lancamentos.import" url={`/api/lancamentos/exportar?${parametrosFiltros()}`} filename="lancamentos.csv" label="Exportar Lançamentos" />
@@ -975,12 +972,12 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                   <path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M5.8 9A7 7 0 0 1 18 7l2 5M4 12l2 5a7 7 0 0 0 12.2-2" />
                 </svg>
                 Limpar filtros</button>
-              <button className="accordion-trigger lanc-settings-trigger" type="button" aria-expanded={atalhosOpen} onClick={() => setAtalhosOpen(open => !open)}>
+              <button className="accordion-trigger lanc-settings-trigger" type="button" title="Configurações e Atalhos" aria-label="Configurações e Atalhos" style={{ minWidth: 44, minHeight: 44, justifyContent: "center" }} aria-expanded={atalhosOpen} onClick={() => setAtalhosOpen(open => !open)}>
                 <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10 2h4l.5 2.3a8 8 0 0 1 1.7.7l2-1.3 2.8 2.8-1.3 2a8 8 0 0 1 .7 1.7L22 10v4l-2.3.5a8 8 0 0 1-.7 1.7l1.3 2-2.8 2.8-2-1.3a8 8 0 0 1-1.7.7L14 22h-4l-.5-2.3a8 8 0 0 1-1.7-.7l-2 1.3L3 17.5l1.3-2a8 8 0 0 1-.7-1.7L2 14v-4l2.3-.5a8 8 0 0 1 1.7-.7l-1.3-2L6.5 3l2 1.3a8 8 0 0 1 1.7-.7L10 2Z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
-                <span className="accordion-title">Configurações e Atalhos</span><span className={`accordion-chevron ${atalhosOpen ? "open" : ""}`}>›</span></button>
+                </button>
             </div>
           </div>
           {avancadosOpen && <div className="lanc-advanced" aria-label="Filtros avançados">
@@ -1169,7 +1166,7 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                         {canDelete && <button type="button" className="action-btn lanc-inline-delete" aria-label="Excluir lançamento" title="Excluir lançamento" disabled={completingEditId === row.id} onClick={() => setPendingDelete(row.id)}>🗑️</button>}
                         {saveState.kind !== "idle" && <span className={`lanc-save-indicator lanc-save-${saveState.kind}`} role="status" title={saveState.message}>{saveState.kind === "saving" ? "…" : saveState.kind === "saved" ? "✓" : "!"}</span>}
                         {saveState.kind === "error" && <button type="button" className="lanc-save-retry" title={saveState.message} onClick={() => void flushEdits(row.id)}>Tentar novamente</button>}
-                      </span> : canEdit ? <button type="button" className="action-btn lanc-edit-trigger" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => void startEdit(row)}>✏️</button> : null}
+                      </span> : canEdit ? <button type="button" className="action-btn lanc-edit-trigger" aria-label="Editar lançamento" title="Editar lançamento" onClick={() => void startEdit(row)}><span aria-hidden="true" style={{ fontSize: 12 }}>✏️</span></button> : null}
                       {isEditing && <span className="lanc-row-state-label lanc-row-state-label--editing" aria-hidden="true">{saveState.kind === "error" ? "Erro" : "Editando"}</span>}
                     </td>
                     {visibleCols.map(def => (
@@ -1211,14 +1208,13 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                           const newVal = e.target.value;
                           setInlineNewValues(p => {
                             const updated = { ...p, [def.key]: newVal };
-                            if (def.key === "dataVencOriginal" && !p.dataVencPlano) updated.dataVencPlano = newVal;
                             return updated;
                           });
                         }} />;
                         if (def.tipo === "number") return <input {...commonProps} type="number" step="0.01" className="cell-input num" />;
                         if (def.tipo === "select" && def.options) return (
                           <select {...commonProps}>
-                            {def.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            {def.key === "tipo" && <option value="">—</option>}{def.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </select>
                         );
                         if (def.tipo === "select-api") {

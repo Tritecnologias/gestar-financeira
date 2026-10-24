@@ -5,7 +5,7 @@ import { counterpartyDisplay, counterpartyIds, defaultAccount, type Counterparty
 import CounterpartyPicker from "./CounterpartyPicker";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { useCan } from "@/components/access/PermissionContext";
-import { amountInput } from "@/lib/lancamento-input.mjs";
+import { amountInput, hasMeaningfulBusinessValue } from "@/lib/lancamento-input.mjs";
 import "./novo-lancamento.css";
 
 interface Props {
@@ -17,9 +17,9 @@ interface Props {
 }
 
 const emptyForm = () => ({
-  dataLanc: new Date().toISOString().split("T")[0],
+  dataLanc: "",
   descricao: "", valor: "", valorPrevisto: "",
-  tipo: "SAIDA" as "ENTRADA" | "SAIDA",
+  tipo: "" as "" | "ENTRADA" | "SAIDA",
   status: "realizado", statusManual: "",
   dataEmissao: "", dataVencOriginal: "", dataVencPlano: "", dataEvento: "", dataPagamento: "",
   banco: "", fornecedor: "", fornecedorId: "", clienteId: "", contaId: "", fantasiaPadrao: "",
@@ -135,12 +135,12 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
     setErrorRow(null);
     for (const [index, row] of rows.entries()) {
       const data = row.data;
-      if (!data.dataLanc || !data.descricao.trim() || !data.valor.trim()) {
-        setError(`Lançamento ${index + 1}: data, descrição e Valor Realizado são obrigatórios.`);
+      if (!hasMeaningfulBusinessValue(data)) {
+        setError(`Lançamento ${index + 1}: preencha ao menos um campo para criar o lançamento.`);
         setErrorRow(index + 1);
         return;
       }
-      try { amountInput(data.valor, "Valor Realizado", true); amountInput(data.valorPrevisto, "Valor Previsto"); }
+      try { amountInput(data.valor, "Valor Realizado"); amountInput(data.valorPrevisto, "Valor Previsto"); }
       catch {
         setError(`Lançamento ${index + 1}: confira os valores informados.`);
         setErrorRow(index + 1);
@@ -202,7 +202,7 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
             <div className="lanc-new-default-grid" id="lanc-new-defaults-fields" hidden={!showDefaults}>
               <label className="lanc-new-field"><span>Direção</span><select value={defaults.tipo}
                 onChange={event => updateDefault({ tipo: event.target.value as Defaults["tipo"] })}>
-                <option value="SAIDA">SAÍDA</option><option value="ENTRADA">ENTRADA</option></select></label>
+                <option value="">—</option><option value="SAIDA">SAÍDA</option><option value="ENTRADA">ENTRADA</option></select></label>
               <Field id="lanc-default-date" label="Data Lanç." type="date" value={defaults.dataLanc}
                 onChange={value => updateDefault({ dataLanc: value })} />
               <label className="lanc-new-field"><span>Status Base</span><select value={defaults.status}
@@ -246,7 +246,7 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                   <div className="lanc-new-row-fields">
                     <div className="lanc-new-group"><h4>Identificação</h4><div className="lanc-new-group-fields lanc-new-identity">
                     <Field id={`lanc-${row.key}-desc`} label="Descrição Objetiva" value={data.descricao}
-                      onChange={field("descricao")} required inputRef={index === 0 ? firstField : undefined}
+                      onChange={field("descricao")} inputRef={index === 0 ? firstField : undefined}
                       placeholder="Descreva este lançamento" />
                     <div className="lanc-new-field"><span>Fantasia / Contraparte</span>
                       <CounterpartyPicker options={counterparties}
@@ -254,9 +254,9 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                         onSelect={option => chooseCounterparty(row.key, option)} /></div>
                     </div></div>
                     <div className="lanc-new-group"><h4>Financeiro</h4><div className="lanc-new-group-fields lanc-new-financial">
-                    <label className="lanc-new-field"><span>Direção *</span><select value={data.tipo}
+                    <label className="lanc-new-field"><span>Direção</span><select value={data.tipo}
                       onChange={event => set({ tipo: event.target.value as LancamentoForm["tipo"] })}>
-                      <option value="SAIDA">SAÍDA</option><option value="ENTRADA">ENTRADA</option></select></label>
+                      <option value="">—</option><option value="SAIDA">SAÍDA</option><option value="ENTRADA">ENTRADA</option></select></label>
                     <div className="lanc-new-field"><span>Categoria N1</span><SearchableSelect label={`Categoria N1 do lançamento ${index + 1}`} value={data.categoria}
                       options={categories.map(item => ({ value: item.codigo, label: `${item.codigo} – ${item.nome}` }))}
                       createActions={can("estrutura.financeiras.create") ? [{ label: "+ Cadastrar nova categoria", href: "/estrutura/dimensoes-financeiras" }] : []}
@@ -268,11 +268,11 @@ export default function NovoLancamentoModal({ open, onClose, onCreated, counterp
                     <Field id={`lanc-${row.key}-previsto`} label="Valor Previsto" value={data.valorPrevisto}
                       onChange={field("valorPrevisto")} inputMode="decimal" placeholder="0,00" />
                     <Field id={`lanc-${row.key}-valor`} label="Valor Realizado" value={data.valor}
-                      onChange={field("valor")} inputMode="decimal" required placeholder="0,00" />
+                      onChange={field("valor")} inputMode="decimal" placeholder="0,00" />
                     </div></div>
                     <div className="lanc-new-group"><h4>Datas</h4><div className="lanc-new-group-fields lanc-new-dates">
                     <Field id={`lanc-${row.key}-data`} label="Data Lanç." type="date" value={data.dataLanc}
-                      onChange={field("dataLanc")} required />
+                      onChange={field("dataLanc")} />
                     <Field id={`lanc-${row.key}-emissao`} label="Data Emissão" type="date"
                       value={data.dataEmissao} onChange={field("dataEmissao")} />
                     <Field id={`lanc-${row.key}-venc-original`} label="Venc. Original" type="date"

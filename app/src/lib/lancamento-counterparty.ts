@@ -63,7 +63,8 @@ export async function resolveAccountSelection(db: any, tenantId: string, value: 
     categoryCode !== account.categoria.codigo) {
     badRequest("Conta N2 não pertence à Categoria N1 informada.");
   }
-  if (direction !== undefined) {
+  if (account.tipo === "TRANSFERENCIA") badRequest("Conta N2 de transferência requer fluxo próprio; não use como receita ou despesa.");
+  if (direction !== undefined && direction !== null && direction !== "") {
     if (direction !== "ENTRADA" && direction !== "SAIDA") badRequest("Direção financeira inválida.");
     const problema = problemaTipoConta(account.tipo, String(direction));
     if (problema === "TRANSFERENCIA_SEM_PAREAMENTO") badRequest("Conta N2 de transferência requer fluxo próprio; não use como receita ou despesa.");

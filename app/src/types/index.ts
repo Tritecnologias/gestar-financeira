@@ -15,7 +15,7 @@ export interface LancamentoDTO {
   tenantId: string;
 
   // Datas
-  dataLanc:          string;        // YYYY-MM-DD obrigatório
+  dataLanc:          string | null; // YYYY-MM-DD quando informado
   dataEmissao:       string | null;
   dataVencOriginal:  string | null;
   dataVencPlano:     string | null;
@@ -23,12 +23,12 @@ export interface LancamentoDTO {
   dataPagamento:     string | null;
 
   // Financeiro
-  valor:         number;
+  valor:         number | null;
   valorPrevisto: number | null;
   banco:         string | null;
 
   // Classificação
-  tipo:          TipoLancamento;
+  tipo:          TipoLancamento | null;
   status:        StatusLancamento;
   statusManual:  string | null;   // ex: PAGO, PENDENTE
   statusExtrato: string | null;   // ex: A
@@ -36,7 +36,7 @@ export interface LancamentoDTO {
   problemasFinanceiros?: string[]; // sinais do motor financeiro para revisão
 
   // Campos de texto
-  descricao:      string;
+  descricao:      string | null;
   fornecedor:     string | null;
   fornecedorId:   string | null;
   clienteId:      string | null;

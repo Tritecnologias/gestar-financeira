@@ -1,5 +1,5 @@
 import { versionToken, parseVersion } from "./lancamento-version.mjs";
-import { amountInput, dateInput } from "./lancamento-input.mjs";
+import { amountInput, dateInput, hasMeaningfulBusinessValue } from "./lancamento-input.mjs";
 import * as XLSX from "xlsx";
 import { LANCAMENTO_FIELD_ORDER } from "./lancamento-field-order.mjs";
 import { inspectXlsxEnvelope } from "./xlsx-envelope.mjs";
@@ -88,7 +88,8 @@ export function createOfficialWorkbook(records: any[]): ArrayBuffer {
     ["Cabeçalhos", "Não renomeie a aba LANCAMENTOS nem os cabeçalhos. A importação identifica cada coluna pelo cabeçalho."],
     ["Existentes", "Mantenha REGISTRO_ID e REGISTRO_VERSAO. Edite somente colunas operacionais; DRE permanece somente leitura."],
     ["Versão", "REGISTRO_VERSAO é um token opaco. Arquivos com versão antiga em timestamp precisam ser exportados novamente."],
-    ["Novos", "Deixe REGISTRO_ID e REGISTRO_VERSAO vazios. O sistema criará ID e sequência."],
+    ["Novos", "Deixe REGISTRO_ID e REGISTRO_VERSAO vazios. Preencha ao menos um campo de negócio; datas, descrição, direção e valores podem ficar vazios. Status Base vazio usa realizado. DRE é somente leitura."],
+    ["Valores", "Célula vazia significa não informado; zero explícito permanece zero. Linhas totalmente vazias são ignoradas."],
     ["Códigos", "Trate Categoria, Conta, Cliente e Fornecedor como códigos de texto; preserve zeros à esquerda."],
     ["Classificação", "Conta N2 deve pertencer à Categoria N1 e ter tipo compatível com a Direção."],
     ["Datas", "Use AAAA-MM-DD ou DD/MM/AAAA. DATA_REALIZACAO é a data financeira."],
@@ -189,11 +190,11 @@ export function canonicalCells(input: Record<Header, string>): { cells: Record<H
     else cells[header] = parsed;
   }
   cells.DIRECAO = cells.DIRECAO.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  cells.STATUS = cells.STATUS.toLowerCase();
-  if (!cells.DATA_LANCAMENTO) errors.push("DATA_LANCAMENTO: obrigatória");
-  if (!cells.DESCRICAO) errors.push("DESCRICAO: obrigatória");
-  if (!cells.VALOR_REALIZADO) errors.push("VALOR_REALIZADO: obrigatório (zero é permitido)");
-  if (!["ENTRADA", "SAIDA"].includes(cells.DIRECAO)) errors.push("DIRECAO: use ENTRADA ou SAIDA");
+  cells.STATUS = cells.STATUS.toLowerCase() || "realizado";
+
+
+
+  if (cells.DIRECAO && !["ENTRADA", "SAIDA"].includes(cells.DIRECAO)) errors.push("DIRECAO: use ENTRADA ou SAIDA");
   if (!["realizado", "previsto", "cancelado"].includes(cells.STATUS)) errors.push("STATUS: use realizado, previsto ou cancelado");
   return { cells, errors };
 }
@@ -234,15 +235,16 @@ export async function planOfficialImport(db: any, tenantId: string, fileRows: Of
     const before = current ? recordCells(current) : null;
     const conflict = !!(current && cells.REGISTRO_VERSAO && cells.REGISTRO_VERSAO !== before?.REGISTRO_VERSAO);
     if (conflict) errors.push("CONFLITO — REGISTRO ALTERADO APÓS A EXPORTAÇÃO");
-    const category = cells.CATEGORIA_N1 ? categoryByCode.get(cells.CATEGORIA_N1) : null;
-    const accountMatches = cells.CONTA_N2 ? accounts.filter((row: any) => row.codigo === cells.CONTA_N2 && row.categoriaId === category?.id && row.categoria?.tenantId === tenantId && row.categoria?.ativo) : [];
+    let category = cells.CATEGORIA_N1 ? categoryByCode.get(cells.CATEGORIA_N1) : null;
+    const accountMatches = cells.CONTA_N2 ? accounts.filter((row: any) => row.codigo === cells.CONTA_N2 && (!cells.CATEGORIA_N1 || row.categoriaId === category?.id) && row.categoria?.tenantId === tenantId && row.categoria?.ativo) : [];
     const account = accountMatches.length === 1 ? accountMatches[0] : null;
+    if (account && !cells.CATEGORIA_N1) { category = account.categoria; cells.CATEGORIA_N1 = account.categoria.codigo; }
     const legacyCategoryUnchanged = !!(current && !cells.CONTA_N2 && before?.CATEGORIA_N1 === cells.CATEGORIA_N1 && !current.contaId);
     if (cells.CATEGORIA_N1 && !category && !legacyCategoryUnchanged) errors.push("CATEGORIA_N1: inexistente ou inativa no tenant");
     if (cells.CONTA_N2 && !category) errors.push("CONTA_N2: informe uma Categoria N1 ativa");
     else if (cells.CONTA_N2 && !account) errors.push("CONTA_N2: inexistente, inativa, ambígua ou fora da Categoria N1");
-    if (account?.tipo === "RECEITA" && cells.DIRECAO !== "ENTRADA") errors.push("DIRECAO: Conta de Receita exige ENTRADA");
-    if (account?.tipo === "DESPESA" && cells.DIRECAO !== "SAIDA") errors.push("DIRECAO: Conta de Despesa exige SAIDA");
+    if (cells.DIRECAO && account?.tipo === "RECEITA" && cells.DIRECAO !== "ENTRADA") errors.push("DIRECAO: Conta de Receita exige ENTRADA");
+    if (cells.DIRECAO && account?.tipo === "DESPESA" && cells.DIRECAO !== "SAIDA") errors.push("DIRECAO: Conta de Despesa exige SAIDA");
     if (account?.tipo === "TRANSFERENCIA") errors.push("CONTA_N2: Transferência requer fluxo próprio");
     if (cells.CLIENTE_CODIGO && cells.FORNECEDOR_CODIGO) errors.push("CLIENTE_CODIGO/FORNECEDOR_CODIGO: informe somente um");
     const client = cells.CLIENTE_CODIGO ? clientByCode.get(cells.CLIENTE_CODIGO) : null;
@@ -254,6 +256,16 @@ export async function planOfficialImport(db: any, tenantId: string, fileRows: Of
     if (cells.CENTRO_CUSTO && cells.CENTRO_CUSTO !== before?.CENTRO_CUSTO && !centers.some((item: any) => item.codigo === cells.CENTRO_CUSTO)) errors.push("CENTRO_CUSTO: código inexistente ou inativo neste tenant");
     if (cells.DESCRICAO.length > 10000 || cells.ANOTACAO.length > 10000) errors.push("Texto excede 10000 caracteres");
     if (optionalText.some(([header]) => header !== "ANOTACAO" && cells[header].length > 255)) errors.push("Texto excede 255 caracteres");
+    const meaningful = {
+      descricao: cells.DESCRICAO, tipo: cells.DIRECAO, valor: cells.VALOR_REALIZADO,
+      valorPrevisto: cells.VALOR_PREVISTO, categoria: cells.CATEGORIA_N1, contaId: cells.CONTA_N2,
+      clienteId: cells.CLIENTE_CODIGO, fornecedorId: cells.FORNECEDOR_CODIGO,
+      statusManual: cells.STATUS_MANUAL,
+      ...Object.fromEntries(dateFields.map(([header, field]) => [field, cells[header]])),
+      ...Object.fromEntries(optionalText.map(([header, field]) => [field, cells[header]])),
+      referencia: current?.referencia,
+    };
+    if (!hasMeaningfulBusinessValue(meaningful)) errors.push("LANCAMENTO: preencha ao menos um campo de negócio");
     const differences = before ? OFFICIAL_HEADERS.filter(header => !technicalHeaders.has(header)).filter(header => {
       const prior = canonicalCells(before).cells[header];
       return prior !== cells[header];
@@ -273,8 +285,8 @@ export async function planOfficialImport(db: any, tenantId: string, fileRows: Of
     for (const reason of errors) result.errors.push({ linha, campo: reason.split(":")[0], motivo: reason });
     if (errors.length || action === "INALTERADO") continue;
     const data: Record<string, unknown> = {
-      dataLanc: asDbDate(cells.DATA_LANCAMENTO), descricao: cells.DESCRICAO,
-      tipo: cells.DIRECAO, status: cells.STATUS, valor: cells.VALOR_REALIZADO,
+      dataLanc: cells.DATA_LANCAMENTO ? asDbDate(cells.DATA_LANCAMENTO) : null, descricao: cells.DESCRICAO || null,
+      tipo: cells.DIRECAO || null, status: cells.STATUS, valor: cells.VALOR_REALIZADO || null,
       valorPrevisto: cells.VALOR_PREVISTO || null,
       statusManual: cells.STATUS_MANUAL || null,
       ...(!current ? { cont: "1" } : {}),
