@@ -1,10 +1,12 @@
+import { emptyStructureTemplate } from "@/lib/structure-empty-template";
 import { guardApi } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { createProductStructureWorkbook, PRODUCT_STRUCTURE_FILENAME } from "@/lib/product-import-template";
 
-export async function GET() {
+export async function GET(request: Request) {
   const access = await guardApi("estrutura.portfolio.export"); if (access) return access;
+  const template = emptyStructureTemplate(request,"product"); if (template) return template;
   try {
     const { db, session } = await requireSession();
     const [groups, allTypes, lines, items] = await Promise.all([
