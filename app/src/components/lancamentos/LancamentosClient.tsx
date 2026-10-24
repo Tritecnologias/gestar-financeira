@@ -1161,8 +1161,10 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
                         <button type="button" className="action-btn" aria-label="Cancelar exclusão" title="Cancelar exclusão" onClick={() => setPendingDelete(null)}>✕</button>
                       </span> : canEdit && isEditing ? <span className="lanc-row-controls">
                         <button type="button" className="action-btn lanc-inline-complete" aria-label="Concluir edição" title="Concluir edição" aria-busy={completingEditId === row.id} disabled={completingEditId === row.id || saveState.kind === "error"}
-                          onPointerDown={event => { if (event.button === 0) { event.preventDefault(); void completeEdit(row.id); } }}
-                          onClick={event => { if (event.detail === 0) void completeEdit(row.id); }}
+                          // Preserve cell focus until click; replacing this button on pointerdown
+                          // lets the same touch gesture click the newly rendered edit pencil.
+                          onPointerDown={event => { if (event.button === 0) event.preventDefault(); }}
+                          onClick={() => void completeEdit(row.id)}
                         >{completingEditId === row.id ? "…" : "✓"}</button>
                         {canDelete && <button type="button" className="action-btn lanc-inline-delete" aria-label="Excluir lançamento" title="Excluir lançamento" disabled={completingEditId === row.id} onClick={() => setPendingDelete(row.id)}>🗑️</button>}
                         {saveState.kind !== "idle" && <span className={`lanc-save-indicator lanc-save-${saveState.kind}`} role="status" title={saveState.message}>{saveState.kind === "saving" ? "…" : saveState.kind === "saved" ? "✓" : "!"}</span>}
