@@ -42,6 +42,7 @@ export default function AppearanceProvider({children}:{children:React.ReactNode}
     <div className="appearance-modes" role="group" aria-label="Modo de aparência">{([['light','Claro'],['dark','Escuro'],['custom','Personalizado']] as const).map(([mode,label])=><button key={mode} type="button" aria-pressed={draft.mode===mode} onClick={()=>choose(mode)}>{label}</button>)}</div>
     {draft.mode!=='custom'?<p>Preset oficial preservado. Para editar cores, escolha Personalizado.</p>:<>
      {draft.guide.advanced&&<p className="appearance-manual-notice" role="status">Cores manuais preservadas. Alterar intensidade ou cor geral substituirá os ajustes manuais pelas cores da base selecionada.</p>}
+     <div className="appearance-guide-controls">
      <section className="appearance-guided-block" aria-labelledby="appearance-intensity-title">
       <div className="appearance-block-heading"><h3 id="appearance-intensity-title">Intensidade da paleta</h3><output htmlFor="appearance-intensity">{draft.guide.intensity}%</output></div>
       <p id="appearance-intensity-help">Ajuste o clima do Personalizado. O centro mantém o equilíbrio original.</p>
@@ -58,6 +59,7 @@ export default function AppearanceProvider({children}:{children:React.ReactNode}
       <div className="appearance-range-labels" aria-hidden="true"><span>Vermelho</span><span>Verde</span><span>Azul</span><span>Rosa</span></div>
       <button type="button" className="appearance-text-action" onClick={()=>guide({})}>Usar cores da base</button>
      </section>
+     </div>
      {invalid?<p className="appearance-error" role="alert">{invalid} A aplicação mantém uma aparência segura até a correção.</p>:result?.adjusted&&<p role="status">Textos e ações foram ajustados automaticamente para preservar o contraste.</p>}
     </>}
     <section className="appearance-miniature" aria-label="Prévia da interface">
