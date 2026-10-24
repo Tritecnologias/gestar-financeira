@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useStructureImportRequest } from "./useStructureImportRequest";
 import { useCan } from "@/components/access/PermissionContext";
 import type { RegistrationIssue, RegistrationPreview, RegistrationRow } from "@/lib/registration-import";
 import { REGISTRATION_FILENAME } from "@/lib/registration-import-template";
@@ -19,10 +20,10 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
   const [result, setResult] = useState<RegistrationPreview["resumo"] | null>(null);
   const [created, setCreated] = useState<CreatedCodes | null>(null);
 
-  async function download() {
+  async function download(template = false) {
     setDownloading(true); setError("");
     try {
-      const response = await fetch("/api/dimensoes-cadastrais/exportar", { cache: "no-store" });
+      const response = await fetch("/api/dimensoes-cadastrais/exportar" + (template ? "?template=1" : ""), { cache: "no-store" });
       if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || "Não foi possível baixar cadastros."); }
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
@@ -33,14 +34,9 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
     finally { setDownloading(false); }
   }
 
-  async function request(selected: File, mode: "preview" | "confirm") {
-    const form = new FormData(); form.append("file", selected); form.append("mode", mode);
-    const response = await fetch("/api/dimensoes-cadastrais/importar", { method: "POST", body: form });
-    const body = await response.json().catch(() => ({}));
-    if (body.preview) setPreview(body.preview);
-    if (!response.ok) throw new Error(body.error || "Não foi possível processar a planilha.");
-    return body;
-  }
+  const request = useStructureImportRequest("/api/dimensoes-cadastrais/importar", setPreview, body => {
+    setResult(body.resumo); setCreated(body.criados || null); onImported();
+  });
 
   async function selectFile(selected: File | null) {
     setFile(selected); setPreview(null); setResult(null); setCreated(null); setError("");
@@ -55,7 +51,7 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
   async function confirm() {
     if (!file || !preview || preview.errors.length || !preview.resumo.totalLido || busy || result) return;
     setBusy(true); setError("");
-    try { const body = await request(file, "confirm"); setResult(body.resumo); setCreated(body.criados); onImported(); }
+    try { await request(file, "confirm"); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Importação não concluída."); }
     finally { setBusy(false); }
   }
@@ -91,7 +87,7 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
       <div className="modal-header"><h2 id="registration-import-title">Importar Cadastros</h2><button type="button" className="modal-close" aria-label="Fechar" disabled={busy} onClick={onClose}>✕</button></div>
       <div className="registration-import-body">
         <ol className="registration-import-steps">
-          {can("estrutura.cadastrais.export") && <li><button type="button" className="btn btn-secondary" onClick={() => void download()} disabled={busy || downloading}>{downloading ? "Baixando..." : "Baixar Cadastros"}</button><p>Baixe Clientes e Fornecedores ativos para editar ou incluir registros. Sem dados, o mesmo arquivo virá vazio.</p></li>}
+          {can("estrutura.cadastrais.export") && <li><button type="button" className="btn btn-secondary" onClick={() => void download(true)} disabled={downloading}>Baixar modelo vazio</button> <button type="button" className="btn btn-secondary" onClick={() => void download()} disabled={busy || downloading}>{downloading ? "Baixando..." : "Baixar Cadastros"}</button><p>Baixe Clientes e Fornecedores ativos para editar ou incluir registros. Sem dados, o mesmo arquivo virá vazio.</p></li>}
           <li>Edite ou preencha as abas CLIENTES e FORNECEDORES. Mantenha os códigos como texto.</li>
           <li><label className="registration-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onClick={event => { event.currentTarget.value = ""; setFile(null); setPreview(null); setResult(null); setCreated(null); setError(""); }} onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira a prévia, os avisos e os erros.</li>
