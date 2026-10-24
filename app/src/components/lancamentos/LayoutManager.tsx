@@ -123,7 +123,7 @@ export default function LayoutManager({ colConfig, onLayoutChange }: Props) {
         title="Selecionar colunas visíveis"
         style={{ gap: 5 }}
       >
-        <span>⊞</span> Colunas <span style={{ fontSize: 11, background: "var(--accent-blue)", color: "#fff", borderRadius: 10, padding: "1px 6px" }}>{visibleCount}</span>
+        <span>⊞</span> Colunas <span style={{ fontSize: 11, background: "var(--accent-blue)", color: "var(--primary-contrast)", borderRadius: 10, padding: "1px 6px" }}>{visibleCount}</span>
       </button>
 
       {/* Botão layouts salvos */}
@@ -171,7 +171,7 @@ export default function LayoutManager({ colConfig, onLayoutChange }: Props) {
                     padding: "6px 16px",
                     cursor: obrigatorio ? "default" : "grab",
                     opacity: 1,
-                    background: isDragOver ? "rgba(37,99,235,0.07)" : "transparent",
+                    background: isDragOver ? "var(--legacy-blue-drag)" : "transparent",
                     borderTop: isDragOver ? "2px solid var(--accent-blue)" : "2px solid transparent",
                     transition: "background 0.1s, border-top 0.1s",
                     userSelect: "none",

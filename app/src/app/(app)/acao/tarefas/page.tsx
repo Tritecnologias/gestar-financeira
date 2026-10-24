@@ -155,17 +155,17 @@ export default function TarefasPage() {
             <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
                 <tr>
-                  <th style={{ width: 40, position: "sticky", top: 0, background: "#1e3a5f", color: "#fff", zIndex: 2 }}>#</th>
+                  <th style={{ width: 40, position: "sticky", top: 0, background: "var(--task-header-bg)", color: "var(--task-header-text)", zIndex: 2 }}>#</th>
                   {openTarefa.colunas.map((c, i) => (
-                    <th key={i} style={{ position: "sticky", top: 0, background: "#1e3a5f", color: "#fff", zIndex: 2, minWidth: 120 }}>
+                    <th key={i} style={{ position: "sticky", top: 0, background: "var(--task-header-bg)", color: "var(--task-header-text)", zIndex: 2, minWidth: 120 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <div><div style={{ fontSize: 9, opacity: 0.7 }}>{c.tipo}</div>{c.nome}</div>
-                        {can("acao.tarefas.edit") && <button onClick={() => excluirColuna(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 12 }}>✕</button>}
+                        {can("acao.tarefas.edit") && <button onClick={() => excluirColuna(i)} style={{ background: "none", border: "none", color: "var(--task-header-muted)", cursor: "pointer", fontSize: 12 }}>✕</button>}
                       </div>
                     </th>
                   ))}
-                  <th style={{ width: 40, position: "sticky", top: 0, background: "#1e3a5f", color: "#fff", zIndex: 2 }}>OK</th>
-                  <th style={{ width: 50, position: "sticky", top: 0, background: "#1e3a5f", color: "#fff", zIndex: 2 }}>CONT</th>
+                  <th style={{ width: 40, position: "sticky", top: 0, background: "var(--task-header-bg)", color: "var(--task-header-text)", zIndex: 2 }}>OK</th>
+                  <th style={{ width: 50, position: "sticky", top: 0, background: "var(--task-header-bg)", color: "var(--task-header-text)", zIndex: 2 }}>CONT</th>
                 </tr>
               </thead>
               <tbody>
@@ -232,10 +232,10 @@ export default function TarefasPage() {
           <table className="data-table" style={{ fontSize: 13, borderCollapse: "separate", borderSpacing: 0 }}>
             <thead>
               <tr>
-                <th style={{ width: 40, background: "#1e3a5f", color: "#fff" }}>#</th>
-                <th style={{ background: "#1e3a5f", color: "#fff" }}>NOME DA TAREFA</th>
-                <th style={{ width: 160, background: "#1e3a5f", color: "#fff" }}>STATUS</th>
-                <th style={{ width: 140, background: "#1e3a5f", color: "#fff", textAlign: "center" }}>AÇÃO</th>
+                <th style={{ width: 40, background: "var(--task-header-bg)", color: "var(--task-header-text)" }}>#</th>
+                <th style={{ background: "var(--task-header-bg)", color: "var(--task-header-text)" }}>NOME DA TAREFA</th>
+                <th style={{ width: 160, background: "var(--task-header-bg)", color: "var(--task-header-text)" }}>STATUS</th>
+                <th style={{ width: 140, background: "var(--task-header-bg)", color: "var(--task-header-text)", textAlign: "center" }}>AÇÃO</th>
               </tr>
             </thead>
             <tbody>

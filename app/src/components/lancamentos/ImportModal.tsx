@@ -362,8 +362,8 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
             style={{
               padding: "10px 14px",
               borderRadius: 8,
-              background: "rgba(37,99,235,0.06)",
-              border: "1px solid rgba(37,99,235,0.2)",
+              background: "var(--legacy-blue-soft)",
+              border: "1px solid var(--legacy-blue-border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",

@@ -1,4 +1,5 @@
 "use client";
+import { AppearanceButton } from "@/components/appearance/AppearanceProvider";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -34,15 +35,6 @@ export default function SupportClient({ mode }: { mode: "platform" | "tenant" })
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  useEffect(() => {
-    const theme = localStorage.getItem("theme");
-    if (theme === "dark" || theme === "light") document.documentElement.setAttribute("data-theme", theme);
-  }, []);
-  function toggleTheme() {
-    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("theme", next);
-  }
 
   const load = useCallback(async () => {
     try {
@@ -102,7 +94,7 @@ export default function SupportClient({ mode }: { mode: "platform" | "tenant" })
     <header className="access-header"><div><h1>{mode === "platform" ? "Administração da Plataforma / Suporte" : "Acessos / Suporte"}</h1>
       <p>{mode === "platform" ? "Solicite acesso temporário. A plataforma não concede acesso empresarial por si só." :
         "O responsável contratual decide solicitações externas para este tenant."}</p></div>
-      <div className="access-header-actions">{mode === "platform" && <button className="access-button access-button-secondary" onClick={toggleTheme}>Alternar tema</button>}
+      <div className="access-header-actions">{mode === "platform" && <AppearanceButton />}
         <Link className="access-button access-button-secondary" href={mode === "platform" ? "/plataforma" : "/acessos"}>Voltar</Link></div></header>
 
     {mode === "platform" && <div className="access-terms-form support-request">

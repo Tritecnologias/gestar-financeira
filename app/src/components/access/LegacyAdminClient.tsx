@@ -111,12 +111,12 @@ export default function LegacyAdminClient() {
             <table className="data-table" style={{ fontSize: 12, borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
                 <tr>
-                  <th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Nome</th>
-                  <th style={{ position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Email</th>
-                  <th style={{ width: 130, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Papel</th>
-                  <th style={{ width: 70, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2, textAlign: "center" }}>Status</th>
-                  <th style={{ width: 120, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2 }}>Tenant</th>
-                  <th style={{ width: 150, position: "sticky", top: 0, background: "#F8FAFC", zIndex: 2, textAlign: "center" }}>Ações</th>
+                  <th style={{ position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2 }}>Nome</th>
+                  <th style={{ position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2 }}>Email</th>
+                  <th style={{ width: 130, position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2 }}>Papel</th>
+                  <th style={{ width: 70, position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2, textAlign: "center" }}>Status</th>
+                  <th style={{ width: 120, position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2 }}>Tenant</th>
+                  <th style={{ width: 150, position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2, textAlign: "center" }}>Ações</th>
                 </tr>
               </thead>
               <tbody>

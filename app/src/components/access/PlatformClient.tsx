@@ -1,4 +1,5 @@
 "use client";
+import { AppearanceButton } from "@/components/appearance/AppearanceProvider";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -37,15 +38,6 @@ export default function PlatformClient() {
   const [deliveryNotice, setDeliveryNotice] = useState("");
   const [ownerInvites, setOwnerInvites] = useState<OwnerInvite[]>([]);
   const [responsibleMembershipId, setResponsibleMembershipId] = useState("");
-  useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
-  }, []);
-  function toggleTheme() {
-    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("theme", next);
-  }
 
   const load = useCallback(async () => {
     try {
@@ -134,7 +126,7 @@ export default function PlatformClient() {
   return <main className="access-page access-platform">
     <header className="access-header"><div><h1>Administração da Plataforma</h1>
       <p>Tenants, identidades e vínculos da plataforma. Dados financeiros ficam no contexto de cada tenant.</p></div>
-      <div className="access-header-actions"><button type="button" className="access-button access-button-secondary" onClick={toggleTheme}>Alternar tema</button>
+      <div className="access-header-actions"><AppearanceButton />
         <Link href="/plataforma/suporte" className="access-button access-button-secondary">Suporte</Link>
         <Link href="/plataforma/auditoria" className="access-button access-button-secondary">Auditoria da Plataforma</Link>
         <Link href="/plataforma/termos" className="access-button access-button-secondary">Termos e Políticas</Link>

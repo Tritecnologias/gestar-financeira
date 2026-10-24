@@ -1,4 +1,5 @@
 "use client";
+import { AppearanceButton } from "@/components/appearance/AppearanceProvider";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -251,9 +252,6 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
     setMounted(true);
     const saved = localStorage.getItem("sidebar-collapsed");
     if (saved === "true") setCollapsed(true);
-    // Carregar tema salvo
-    const theme = localStorage.getItem("theme");
-    if (theme === "dark") document.documentElement.setAttribute("data-theme", "dark");
   }, []);
 
   // Persiste mudanças (só após mount para não rodar no SSR)
@@ -522,22 +520,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
             <div className="user-name">{userNome}</div>
             <div className="user-role">{tenantNome}</div>
           </div>
-          <button
-            onClick={() => {
-              const html = document.documentElement;
-              const current = html.getAttribute("data-theme");
-              const next = current === "dark" ? "light" : "dark";
-              html.setAttribute("data-theme", next);
-              localStorage.setItem("theme", next);
-            }}
-            title="Alternar tema claro/escuro"
-            aria-label="Alternar tema claro/escuro"
-            className="logout-btn theme-toggle"
-            style={{ marginRight: 2 }}
-          >
-            <span className="theme-icon--clean" aria-hidden="true">☀️</span>
-            <span className="theme-icon--dark" aria-hidden="true">🌙</span>
-          </button>
+          <AppearanceButton compact />
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             title="Sair"

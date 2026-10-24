@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AppearanceProvider from "@/components/appearance/AppearanceProvider";
 
 export const metadata: Metadata = {
   title: "Dez Soluções – SaaS Financeiro",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning><AppearanceProvider>{children}</AppearanceProvider></body>
     </html>
   );
 }

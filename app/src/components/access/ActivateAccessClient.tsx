@@ -16,10 +16,6 @@ export default function ActivateAccessClient() {
   const [email, setEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
-  useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved === "dark" || saved === "light") document.documentElement.setAttribute("data-theme", saved);
-  }, []);
 
   async function inspect(token: string) {
     const response = await fetch("/api/access/invitations/inspect", { method: "POST",

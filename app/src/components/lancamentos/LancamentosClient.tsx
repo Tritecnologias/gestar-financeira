@@ -132,7 +132,7 @@ function renderCell(key: string, row: LancamentoDTO, statusTipos?: StatusManualT
       const tipo = statusTipos?.find(st => st.codigo === val);
       const label = tipo ? tipo.nome : val;
       const cor = tipo?.cor;
-      return <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: cor ? `${cor}22` : "rgba(37,99,235,0.1)", color: cor || "var(--accent-blue)" }}>{label}</span>;
+      return <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 20, background: cor ? `${cor}22` : "var(--legacy-blue-badge)", color: cor || "var(--accent-blue)" }}>{label}</span>;
     }
     case "rangeAtraso":
       const rangeColor = val === "Pago" || val === "No prazo" ? "var(--accent-green)" : val === "Sem venc." ? "var(--text-muted)" : "var(--accent-red)";
@@ -748,8 +748,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const getThStyle = (def: (typeof COLUNAS_DEF)[0]): React.CSSProperties => {
     const w = effectiveWidth(def);
     const style: React.CSSProperties = { width: w, minWidth: w, maxWidth: w };
-    if (def.stickyLeft)  { style.position = "sticky"; style.left  = leftOffsets[def.key] ?? 0; style.zIndex = 2; style.background = "#F8FAFC"; }
-    if (def.stickyRight) { style.position = "sticky"; style.right = rightOffsets[def.key] ?? 0; style.zIndex = 2; style.background = "#F8FAFC"; }
+    if (def.stickyLeft)  { style.position = "sticky"; style.left  = leftOffsets[def.key] ?? 0; style.zIndex = 2; style.background = "var(--table-sticky-bg)"; }
+    if (def.stickyRight) { style.position = "sticky"; style.right = rightOffsets[def.key] ?? 0; style.zIndex = 2; style.background = "var(--table-sticky-bg)"; }
     if (def.align) style.textAlign = def.align;
     return style;
   };

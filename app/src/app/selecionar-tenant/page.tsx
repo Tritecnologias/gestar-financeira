@@ -16,10 +16,6 @@ export default function SelecionarTenant() {
   const [busy, setBusy] = useState(false);
   const [platformAdmin, setPlatformAdmin] = useState(false);
 
-  useEffect(() => {
-    const theme = localStorage.getItem("theme");
-    if (theme === "dark") document.documentElement.setAttribute("data-theme", "dark");
-  }, []);
 
   useEffect(() => {
     fetch("/api/tenants", { cache: "no-store" })

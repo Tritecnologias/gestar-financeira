@@ -23,10 +23,6 @@ export default function TermsPlatformClient() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const theme = localStorage.getItem("theme");
-    if (theme === "dark" || theme === "light") document.documentElement.setAttribute("data-theme", theme);
-  }, []);
   const load = useCallback(async () => {
     const response = await fetch("/api/platform/terms", { cache: "no-store" });
     const body = await response.json();

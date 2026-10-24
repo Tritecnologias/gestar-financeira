@@ -56,7 +56,7 @@ export default function BackupClient({ tenantId, tenantName, canCreate, canResto
       h1 {font-size:24px;} h2 {font-size:18px;} p {margin:12px 0;line-height:1.6;}
       section {margin:20px 0;padding:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
       button {padding:10px 16px;margin:12px 12px 12px 0;border:1px solid var(--action);border-radius:6px;color:var(--text-primary);background:var(--surface-elevated);cursor:pointer;}
-      button:disabled {opacity:.45;cursor:not-allowed;} button:focus-visible,input:focus-visible {outline:2px solid #06b6d4;outline-offset:3px;}
+      button:disabled {opacity:.45;cursor:not-allowed;} button:focus-visible,input:focus-visible {outline:2px solid var(--backup-focus);outline-offset:3px;}
       label {display:block;margin:14px 0;} input[type=file] {display:block;max-width:100%;margin-top:10px;}
       code {overflow-wrap:anywhere;} .backup-table {overflow:auto;max-height:340px;} table {width:100%;border-collapse:collapse;} th,td {padding:6px;text-align:left;border-bottom:1px solid var(--border);}
       @media(max-width:600px){.backup-page{padding:12px}section{padding:12px}button{width:100%;margin-right:0}}

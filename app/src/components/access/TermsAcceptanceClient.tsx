@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { signOut } from "next-auth/react";
 import type { PendingTerm } from "@/lib/terms";
 
@@ -11,10 +11,6 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
   const [error, setError] = useState("");
   const current = pending.find(item => item.actionable) ?? pending[0];
 
-  useEffect(() => {
-    const theme = localStorage.getItem("theme");
-    if (theme === "dark" || theme === "light") document.documentElement.setAttribute("data-theme", theme);
-  }, []);
 
   async function accept() {
     if (!current?.actionable || !agreed || busy) return;
