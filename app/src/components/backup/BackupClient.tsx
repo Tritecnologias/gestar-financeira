@@ -52,7 +52,7 @@ export default function BackupClient({ tenantId, tenantName, canCreate, canResto
     </section>}
     <p role="status" aria-live="polite">{busy ? "Processando…" : message}</p>
     <style jsx>{`
-      .backup-page {max-width:1100px;padding:24px;color:var(--text-primary);}
+      .backup-page {flex:1;min-height:0;min-width:0;width:100%;max-width:1100px;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:24px;color:var(--text-primary);}
       h1 {font-size:24px;} h2 {font-size:18px;} p {margin:12px 0;line-height:1.6;}
       section {margin:20px 0;padding:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
       button {padding:10px 16px;margin:12px 12px 12px 0;border:1px solid var(--action);border-radius:6px;color:var(--text-primary);background:var(--surface-elevated);cursor:pointer;}
