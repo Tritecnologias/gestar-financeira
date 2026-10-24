@@ -38,6 +38,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         authMode={session.authMode}
         platformAdmin={session.platformAdmin}
         permissions={permissions}
+        hasMembership={session.accessSource === "MEMBERSHIP" && Boolean(session.membershipId)}
+        membershipRole={session.membershipRole}
       />
       <main className="main" style={{ overflow: "hidden" }}>
         {testLabel && <div className="test-tenant-banner" role="status">

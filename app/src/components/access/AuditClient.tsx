@@ -78,8 +78,8 @@ export default function AuditClient({ mode }: { mode: "platform" | "tenant" }) {
     document.documentElement.setAttribute("data-theme", next); localStorage.setItem("theme", next);
   }
   return <main className={`access-page ${mode === "platform" ? "access-platform" : ""}`}>
-    <header className="access-header"><div><h1>{mode === "platform" ? "Auditoria da Plataforma" : "Auditoria do Tenant"}</h1>
-      <p>Eventos críticos de acesso e administração. Histórico somente leitura.</p></div>
+    <header className="access-header"><div><h1>{mode === "platform" ? "Auditoria da Plataforma" : "Auditoria do Sistema"}</h1>
+      <p>{mode === "platform" ? "Eventos globais, administração da plataforma e suporte autorizado." : "Eventos da empresa selecionada, conforme seu acesso neste tenant."} Histórico somente leitura.</p></div>
       <div className="access-header-actions">{mode === "platform" && <button type="button" className="access-button access-button-secondary" onClick={toggleTheme}>Alternar tema</button>}
         <Link className="access-button access-button-secondary" href={mode === "platform" ? "/plataforma" : "/acessos"}>Voltar</Link></div></header>
     <form className="audit-filters" onSubmit={event => { event.preventDefault(); apply(); }}>

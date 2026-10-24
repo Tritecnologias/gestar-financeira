@@ -283,6 +283,14 @@ body {
    ════════════════════════════════════════════════════════════ */
 .sb-row-wrap { width: 100%; }
 
+/* Administration stays readable in the existing scrollable navigation. */
+.sb-admin { flex-shrink: 0; min-width: 0; }
+.sb-admin .sb-label, .sb-admin .sb-sub-label { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; line-height: 1.4; }
+.sb-admin-items { padding-left: 22px; }
+.sb-admin-items[hidden] { display: none; }
+.sb-admin .sb-sub-item { white-space: normal; min-width: 0; }
+.sidebar--collapsed .sb-admin .sb-label { overflow: hidden; }
+
 .sb-row {
   display: flex;
   align-items: center;

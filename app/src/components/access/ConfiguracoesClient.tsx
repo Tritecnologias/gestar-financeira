@@ -104,8 +104,8 @@ export default function ConfiguracoesClient({ canManage }: { canManage: boolean 
     <div>
       <header className="topbar">
         <div>
-          <h1 className="page-title">Configurações</h1>
-          <p className="page-sub">Personalize a aparência do sistema</p>
+          <h1 className="page-title">Configurações da Empresa</h1>
+          <p className="page-sub">Administração do Sistema · Empresa selecionada</p>
         </div>
       </header>
 

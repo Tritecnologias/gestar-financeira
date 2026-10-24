@@ -38,7 +38,7 @@ export default function BackupClient({ tenantId, tenantName, canCreate, canResto
     } catch(e) { setMessage((e as Error).message); } finally { setBusy(false); }
   }
   return <div className="backup-page">
-    <h1>Backup da empresa</h1><p>Empresa selecionada: <strong>{tenantName}</strong></p>
+    <h1>Backup e Restauração</h1><p>Administração do Sistema · Empresa selecionada: <strong>{tenantName}</strong></p>
     <section><h2>Gerar backup</h2><p>Cadastros, lançamentos e configurações empresariais. Credenciais e acessos globais ficam preservados.</p>
       <button disabled={busy || !canCreate} onClick={download}>Baixar backup</button></section>
     {canRestore && <section><h2>Restaurar nesta empresa</h2><p>Substitui os dados empresariais pelo estado do arquivo. Uma cópia de segurança é criada antes da operação. Apenas backups desta mesma empresa, até 8 MB.</p>

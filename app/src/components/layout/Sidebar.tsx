@@ -7,6 +7,7 @@ import { signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import type { Papel } from "@/types";
 import { viewPermissionForPath } from "@/lib/access-catalog";
+import { adminNavigation } from "@/lib/admin-navigation";
 
 interface SidebarProps {
   userNome: string;
@@ -16,6 +17,8 @@ interface SidebarProps {
   authMode?: "identity" | "legacy";
   platformAdmin?: boolean;
   permissions?: string[];
+  hasMembership?: boolean;
+  membershipRole?: "OWNER" | "ADMIN" | "MEMBER";
 }
 
 interface SubItem {
@@ -210,9 +213,13 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
   );
 }
 
-export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl, authMode, platformAdmin, permissions = [] }: SidebarProps) {
+export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl, authMode, platformAdmin, permissions = [], hasMembership, membershipRole }: SidebarProps) {
   const pathname = usePathname();
   const allowed = new Set(permissions);
+  const administration = adminNavigation({ authMode, platformAdmin, hasMembership, membershipRole, legacyRole: userPapel, permissions });
+  const systemActive = administration.items.some(item => pathname === item.href || (item.href !== "/acessos" && pathname.startsWith(`${item.href}/`)));
+  const [systemOpen, setSystemOpen] = useState(systemActive);
+  useEffect(() => { if (systemActive) setSystemOpen(true); }, [pathname, systemActive]);
   const menu = MENU.map(group => ({ ...group,
     sub: group.sub?.filter(item => {
       const key = viewPermissionForPath(item.href);
@@ -479,62 +486,27 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
             );
           })}
 
-          {/* Administração de acesso, separada do contexto empresarial */}
-          {(platformAdmin || userPapel === "admin_global" || allowed.has("acessos.usuarios.view") || allowed.has("acessos.perfis.view") || allowed.has("acessos.auditoria.view")) && (
-            <>
-              <div className="sb-divider" />
-              {platformAdmin && <div
-                className="sb-row-wrap"
-                onMouseEnter={(e) => handleMouseEnterGroup(-1, e)}
-                onMouseLeave={handleMouseLeaveGroup}
-              >
-                <Link
-                  href="/plataforma"
-                  className={`sb-row ${pathname.startsWith("/plataforma") ? "sb-row--active" : ""}`}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  <span className="sb-icon">🛡️</span>
-                  <span className="sb-label">Administração da Plataforma</span>
-                </Link>
-              </div>}
-              {allowed.has("acessos.usuarios.view") && <div className="sb-row-wrap">
-                <Link href="/acessos" className={`sb-row ${pathname === "/acessos" ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
-                  <span className="sb-icon">🛡️</span><span className="sb-label">Acessos / Usuários</span>
-                </Link>
-              </div>}
-              {allowed.has("acessos.perfis.view") && <div className="sb-row-wrap">
-                <Link href="/acessos/perfis" className={`sb-row ${pathname.startsWith("/acessos/perfis") ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
-                  <span className="sb-icon">🔑</span><span className="sb-label">Perfis de Acesso</span>
-                </Link>
-              </div>}
-              {allowed.has("acessos.auditoria.view") && <div className="sb-row-wrap">
-                <Link href="/acessos/auditoria" className={`sb-row ${pathname.startsWith("/acessos/auditoria") ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
-                  <span className="sb-icon">📋</span><span className="sb-label">Auditoria</span>
-                </Link>
-              </div>}
-            </>
-          )}
-
-          {/* Configurações */}
-          {allowed.has("sistema.backup.view") && <div className="sb-row-wrap">
-            <Link href="/backups" className={`sb-row ${pathname === "/backups" ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
-              <span className="sb-icon">↺</span><span className="sb-label">Backup da empresa</span>
+          {(administration.platform || administration.items.length > 0) && <div className="sb-divider" />}
+          {administration.platform && <div className="sb-row-wrap sb-admin">
+            <Link href="/plataforma" className="sb-row" title="Administração da Plataforma" aria-label="Administração da Plataforma" onClick={() => setMobileOpen(false)}>
+              <span className="sb-icon" aria-hidden="true">🛡️</span><span className="sb-label">Administração da Plataforma</span>
             </Link>
           </div>}
-          {allowed.has("sistema.configuracoes.view") && <div className="sb-divider" />}
-          {allowed.has("sistema.configuracoes.view") && <div
-            className="sb-row-wrap"
-            onMouseEnter={(e) => handleMouseEnterGroup(-2, e)}
-            onMouseLeave={handleMouseLeaveGroup}
-          >
-            <Link
-              href="/configuracoes"
-              className={`sb-row ${pathname.startsWith("/configuracoes") ? "sb-row--active" : ""}`}
-              onClick={() => setMobileOpen(false)}
-            >
-              <span className="sb-icon">⚙️</span>
-              <span className="sb-label">Configurações</span>
-            </Link>
+          {administration.items.length > 0 && <div className="sb-admin">
+            <button type="button" className={`sb-row ${systemActive ? "sb-row--has-active" : ""}`}
+              title="Administração do Sistema" aria-label="Administração do Sistema"
+              aria-expanded={!compact && systemOpen} aria-controls="system-administration-menu"
+              onClick={() => { if (compact) { setCollapsed(false); setSystemOpen(true); } else setSystemOpen(open => !open); }}>
+              <span className="sb-icon" aria-hidden="true">⚙️</span><span className="sb-label">Administração do Sistema</span>
+              <span className="sb-chevron" aria-hidden="true">{systemOpen && !compact ? "⌄" : "›"}</span>
+            </button>
+            <div id="system-administration-menu" className="sb-admin-items" hidden={compact || !systemOpen}>
+              {administration.items.map(item => <Link key={item.href} href={item.href}
+                className={`sb-sub-item ${pathname === item.href ? "sb-sub-item--active" : ""}`}
+                aria-current={pathname === item.href ? "page" : undefined} onClick={() => setMobileOpen(false)}>
+                <span className="sb-sub-label">{item.label}</span>
+              </Link>)}
+            </div>
           </div>}
         </nav>
 
