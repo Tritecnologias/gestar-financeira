@@ -39,6 +39,7 @@ model Tenant {
   supportEvents     SupportGrantEvent[]
   auditEvents       AuditEvent[]
   accessInvites     AccessInvite[]
+  importOperations  ImportOperation[]
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
@@ -118,6 +119,7 @@ model AuthIdentity {
   invitedAccess AccessInvite[] @relation("InviteCreator")
   acceptedAccess AccessInvite[] @relation("InviteAcceptor")
   revokedAccess AccessInvite[] @relation("InviteRevoker")
+  importOperations ImportOperation[]
 
   @@map("auth_identities")
 }
@@ -863,6 +865,27 @@ model LayoutColunas {
 }
 
 // ── Lançamento ────────────────────────────────────────────────
+// Completed receipts only. Never store workbook rows, tokens or financial detail here.
+model ImportOperation {
+  id String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  contractType String @map("contract_type")
+  contractVersion Int @map("contract_version")
+  payloadDigest String @map("payload_digest") @db.VarChar(64)
+  fileDigest String @map("file_digest") @db.VarChar(64)
+  actorIdentityId String? @map("actor_identity_id")
+  created Int
+  updated Int
+  unchanged Int
+  warnings Int
+  completedAt DateTime @default(now()) @map("completed_at")
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actor AuthIdentity? @relation(fields: [actorIdentityId], references: [id], onDelete: Restrict)
+  @@unique([tenantId, contractType, contractVersion, payloadDigest], map: "import_operations_idempotency_key")
+  @@index([tenantId, completedAt])
+  @@map("import_operations")
+}
+
 model Lancamento {
   id           String   @id @default(uuid())
   tenantId     String   @map("tenant_id")

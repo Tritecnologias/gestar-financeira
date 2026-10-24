@@ -1,79 +1,101 @@
 import { optimisticWhere, concurrencyConflict } from "@/lib/lancamento-version.mjs";
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/permissions";
 import { parseOfficialWorkbook, planOfficialImport, type OfficialPlan } from "@/lib/lancamento-official-import";
+import { officialFingerprint, operationReceipt, operationWhere } from "@/lib/import-operation";
+import { boundedImportForm, MAX_FILE_BYTES, IMPORT_CONTRACT, IMPORT_CONTRACT_VERSION, importError } from "@/lib/official-import-policy.mjs";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+export const runtime = "nodejs";
 const TOKEN_LIFETIME_MS = 10 * 60 * 1000;
 function signature(digest: string, tenantId: string, userId: string, expires: number): string {
   const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
-  if (!secret) throw new Error("Segredo de autenticação indisponível.");
-  return createHmac("sha256", secret).update(`${digest}:${tenantId}:${userId}:${expires}`).digest("hex");
+  if (!secret) throw new Error("AUTH_CONFIGURATION");
+  return createHmac("sha256", secret).update(`${IMPORT_CONTRACT}:${IMPORT_CONTRACT_VERSION}:${digest}:${tenantId}:${userId}:${expires}`).digest("hex");
 }
 function checkToken(token: string, digest: string, tenantId: string, userId: string): boolean {
-  const [expiration, sent] = token.split(".");
+  const parts = token.split(".");
+  const [expiration, sent] = parts;
   const expires = Number(expiration);
-  if (!Number.isSafeInteger(expires) || expires < Date.now() || !/^[0-9a-f]{64}$/.test(sent || "")) return false;
-  const expected = signature(digest, tenantId, userId, expires);
-  return timingSafeEqual(Buffer.from(sent, "hex"), Buffer.from(expected, "hex"));
+  if (parts.length !== 2 || !Number.isSafeInteger(expires) || expires < Date.now() || !/^[0-9a-f]{64}$/.test(sent || "")) return false;
+  return timingSafeEqual(Buffer.from(sent, "hex"), Buffer.from(signature(digest, tenantId, userId, expires), "hex"));
 }
+const view = (plan: OfficialPlan) => ({ rows: plan.rows, resumo: plan.resumo, errors: plan.errors });
 
 export async function POST(req: NextRequest) {
-  let db: any, session: any;
-  try { ({ db, session } = await requirePermission("fluxo.lancamentos.import")); }
-  catch (error: any) { return NextResponse.json({ error: error?.message || "Não autorizado" }, { status: error?.status || 401 }); }
-  let form: FormData;
-  try { form = await req.formData(); }
-  catch { return NextResponse.json({ error: "Envie um arquivo XLSX válido." }, { status: 400 }); }
-  const file = form.get("file");
-  const mode = form.get("mode");
-  if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".xlsx") || file.size > MAX_FILE_SIZE || !file.size) {
-    return NextResponse.json({ error: "Selecione um XLSX de até 10 MB." }, { status: 400 });
-  }
-  if (mode !== "preview" && mode !== "confirm") return NextResponse.json({ error: "Modo inválido." }, { status: 400 });
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const digest = createHash("sha256").update(bytes).digest("hex");
-  let rows: ReturnType<typeof parseOfficialWorkbook>;
-  try { rows = parseOfficialWorkbook(bytes); }
-  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível ler o XLSX." }, { status: 400 }); }
-  if (mode === "preview") {
-    const preview = await planOfficialImport(db, session.tenantId, rows);
-    const expires = Date.now() + TOKEN_LIFETIME_MS;
-    return NextResponse.json({ preview: { rows: preview.rows, resumo: preview.resumo, errors: preview.errors },
-      previewToken: `${expires}.${signature(digest, session.tenantId, session.id, expires)}` });
-  }
-  if (!checkToken(String(form.get("previewToken") || ""), digest, session.tenantId, session.id)) {
-    return NextResponse.json({ error: "Prévia expirada ou arquivo alterado. Gere a prévia novamente." }, { status: 409 });
-  }
+  const requestId = randomUUID(), started = Date.now();
+  let session: any, db: any, mode = "upload", rowCount = 0, payloadDigest: string | null = null;
+  const reply = (body: Record<string, unknown>, status = 200, category = "SUCCESS") => {
+    // Deliberately exclude filenames, digests, tokens, row content, values and exception messages.
+    console.info(JSON.stringify({ requestId, flow: IMPORT_CONTRACT, tenantId: session?.tenantId ?? null,
+      phase: mode, rows: rowCount, status, category, durationMs: Date.now() - started }));
+    return NextResponse.json({ protocol: "10s-import-v1", requestId, ...body }, { status, headers: { "X-Request-Id": requestId, "Cache-Control": "no-store" } });
+  };
   try {
-    const result = await prisma.$transaction(async tx => {
-      // Every read and write inside this transaction includes the authenticated tenantId.
+    try { ({ db, session } = await requirePermission("fluxo.lancamentos.import")); }
+    catch (e: any) { return reply({ safeMessage: e?.status === 403 ? "Sem permissão para importar neste tenant." : "Entre novamente para continuar." }, e?.status === 403 ? 403 : 401, "ACCESS"); }
+    const form = await boundedImportForm(req);
+    const file = form.get("file"); mode = String(form.get("mode") || "");
+    if (!["preview", "confirm", "status"].includes(mode)) throw importError("Modo de importação inválido.");
+    if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".xlsx") || !file.size) throw importError("Selecione um arquivo .xlsx válido e não vazio.");
+    if (file.size > MAX_FILE_BYTES) throw importError("O XLSX deve ter no máximo 10 MiB.", 413, "SIZE");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const fileDigest = createHash("sha256").update(bytes).digest("hex");
+    const rows = parseOfficialWorkbook(bytes); rowCount = rows.length;
+    if (!rows.length) throw importError("A aba LANCAMENTOS não contém linhas de dados.");
+    try { payloadDigest = officialFingerprint(rows); } catch (e) { if (mode !== "preview") throw e; }
+    const receipt = payloadDigest ? await prisma.importOperation.findUnique({ where: operationWhere(session.tenantId, payloadDigest) }) : null;
+    if (receipt) return reply({ ...operationReceipt(receipt), replayed: true }, 200, "REPLAY");
+    if (mode === "status") return reply({ state: "UNCONFIRMED", safeMessage: "Resultado ainda não confirmado. A operação pode estar em andamento; reenvie somente o mesmo arquivo." }, 202, "UNCONFIRMED");
+    if (mode === "preview") {
+      const preview = await planOfficialImport(db, session.tenantId, rows);
+      const expires = Date.now() + TOKEN_LIFETIME_MS;
+      return reply({ preview: view(preview), state: preview.errors.length ? "INVALID" : "READY",
+        ...(!preview.errors.length && payloadDigest ? { previewToken: `${expires}.${signature(payloadDigest, session.tenantId, session.id, expires)}` } : {}) });
+    }
+    if (!payloadDigest || !checkToken(String(form.get("previewToken") || ""), payloadDigest, session.tenantId, session.id)) {
+      throw importError("Prévia expirada ou conteúdo alterado. Gere a prévia novamente.", 409, "PREVIEW");
+    }
+    const digest = payloadDigest;
+    const completed = await prisma.$transaction(async tx => {
+      const [lock] = await tx.$queryRaw<{ acquired: boolean }[]>`SELECT pg_try_advisory_xact_lock(hashtextextended(${`import:${session.tenantId}:${IMPORT_CONTRACT}:${IMPORT_CONTRACT_VERSION}:${digest}`}, 0)) AS acquired`;
+      if (!lock.acquired) throw importError("Operação em andamento. Consulte o resultado antes de repetir.", 202, "PROCESSING");
+      const previous = await tx.importOperation.findUnique({ where: operationWhere(session.tenantId, digest) });
+      if (previous) return { receipt: previous, replayed: true };
       const plan = await planOfficialImport(tx, session.tenantId, rows);
-      if (plan.errors.length) throw Object.assign(new Error("A base mudou ou contém erros. Nenhum lançamento foi gravado."), { preview: plan });
+      if (plan.errors.length) throw Object.assign(importError("A base mudou ou contém erros. Nenhum lançamento deste lote foi gravado.", plan.resumo.conflitos ? 409 : 422, "PLAN"), { preview: plan });
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`lancamento-seq:${session.tenantId}`}, 0))`;
       const max = await tx.lancamento.findFirst({ where: { tenantId: session.tenantId }, orderBy: { seq: "desc" }, select: { seq: true } });
-      let nextSeq = (max?.seq || 0) + 1;
-      let created = 0, updated = 0;
+      let nextSeq = (max?.seq || 0) + 1, created = 0, updated = 0;
       for (const change of plan.changes) {
         if (!change.id) {
           await tx.lancamento.create({ data: { ...change.data, tenantId: session.tenantId, seq: nextSeq++, criadoPor: session.id,
-            importado: true, importadoEm: new Date() } as Prisma.LancamentoUncheckedCreateInput });
-          created++;
+            importado: true, importadoEm: new Date() } as Prisma.LancamentoUncheckedCreateInput }); created++;
         } else {
           const written = await tx.lancamento.updateMany({ where: optimisticWhere(change.id, session.tenantId, change.version), data: change.data as Prisma.LancamentoUncheckedUpdateManyInput });
-          if (written.count !== 1) concurrencyConflict();
-          updated++;
+          if (written.count !== 1) concurrencyConflict(); updated++;
         }
       }
-      return { criados: created, atualizados: updated, inalterados: plan.resumo.inalterados, avisos: plan.resumo.avisos };
+      const receipt = await tx.importOperation.create({ data: { tenantId: session.tenantId, contractType: IMPORT_CONTRACT,
+        contractVersion: IMPORT_CONTRACT_VERSION, payloadDigest: digest, fileDigest, actorIdentityId: session.identityId ?? null,
+        created, updated, unchanged: plan.resumo.inalterados, warnings: plan.resumo.avisos } });
+      return { receipt, replayed: false };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 120000, maxWait: 10000 });
-    return NextResponse.json({ result });
-  } catch (error: any) {
-    const plan = error?.preview as OfficialPlan | undefined;
-    return NextResponse.json({ error: plan ? "A base mudou ou contém erros. Nenhum lançamento foi gravado." : error?.status === 409 || error?.code === "P2034" ? "Conflito de edição. Gere a prévia novamente; nenhuma alteração foi gravada." : "Falha ao confirmar. A transação foi revertida.",
-      ...(plan ? { preview: { rows: plan.rows, resumo: plan.resumo, errors: plan.errors } } : {}) }, { status: plan || error?.status === 409 || error?.code === "P2034" ? 409 : 500 });
+    return reply({ ...operationReceipt(completed.receipt), replayed: completed.replayed });
+  } catch (e: any) {
+    if (payloadDigest && session && mode === "confirm") {
+      // Fresh snapshot after rollback/commit ambiguity; never retry the write blindly.
+      try {
+        const previous = await prisma.importOperation.findUnique({ where: operationWhere(session.tenantId, payloadDigest) });
+        if (previous) return reply({ ...operationReceipt(previous), replayed: true }, 200, "RECOVERED");
+      } catch { /* keep uncertain below */ }
+    }
+    if (e?.safeImportError) return reply({ safeMessage: e.message, ...(e.preview ? { preview: view(e.preview) } : {}),
+      ...(e.status === 202 ? { state: "PROCESSING" } : {}) }, e.status, e.category);
+    if (e?.status === 409 || e?.code === "P2034") return reply({ safeMessage: "Conflito de edição. Gere uma prévia atualizada; esta tentativa foi revertida." }, 409, "CONFLICT");
+    if (mode === "confirm") return reply({ state: "UNCONFIRMED", safeMessage: "Resultado ainda não confirmado. Consulte a operação ou reenvie o mesmo arquivo." }, 503, "UNCONFIRMED");
+    return reply({ safeMessage: "Não foi possível processar o arquivo. Tente novamente e informe o código de atendimento." }, 500, "INTERNAL");
   }
 }

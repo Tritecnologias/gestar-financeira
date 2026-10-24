@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useCan } from "@/components/access/PermissionContext";
 import type { OfficialPreviewRow } from "@/lib/lancamento-official-import";
 import "./official-import.css";
+import { readImportResponse } from "@/lib/import-http.mjs";
+import { MAX_FILE_BYTES } from "@/lib/official-import-policy.mjs";
 
 type Preview = {
   rows: OfficialPreviewRow[];
@@ -19,11 +21,14 @@ export default function OfficialImportModal({ open, onClose, onImported, filters
   const [previewToken, setPreviewToken] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
+  const [receipt, setReceipt] = useState<{ operationId: string; completedAt: string; replayed: boolean } | null>(null);
+  const [requestId, setRequestId] = useState("");
   const [result, setResult] = useState<{ criados: number; atualizados: number; inalterados: number; avisos: number } | null>(null);
   if (!open) return null;
 
   function close() {
-    setFile(null); setPreview(null); setPreviewToken(""); setError(""); setResult(null);
+    setFile(null); setPreview(null); setPreviewToken(""); setError(""); setResult(null); setUncertain(false); setReceipt(null); setRequestId("");
     onClose();
   }
 
@@ -31,7 +36,7 @@ export default function OfficialImportModal({ open, onClose, onImported, filters
     setBusy(true); setError("");
     try {
       const response = await fetch(`/api/lancamentos/importacao-oficial/base?${filters}`, { cache: "no-store" });
-      if (!response.ok) { const body = await response.json(); throw new Error(body.error || "Falha ao baixar a base."); }
+      if (!response.ok) await readImportResponse(response);
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url; link.download = "lancamentos_10s.xlsx";
@@ -41,23 +46,38 @@ export default function OfficialImportModal({ open, onClose, onImported, filters
     finally { setBusy(false); }
   }
 
-  async function send(selected: File, mode: "preview" | "confirm", token = "") {
+  async function send(selected: File, mode: "preview" | "confirm" | "status", token = "") {
     const form = new FormData();
     form.append("file", selected); form.append("mode", mode);
     if (token) form.append("previewToken", token);
-    const response = await fetch("/api/lancamentos/importacao-oficial", { method: "POST", body: form });
-    const body = await response.json();
-    if (body.preview) setPreview(body.preview);
-    if (!response.ok) throw new Error(body.error || "Não foi possível processar o XLSX.");
-    return body;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 180000);
+    try {
+      const response = await fetch("/api/lancamentos/importacao-oficial", { method: "POST", body: form, signal: controller.signal });
+      setRequestId(response.headers.get("X-Request-Id") || "");
+      const body = await readImportResponse(response, mode === "confirm");
+      if (body.preview) setPreview(body.preview);
+      if (body.state === "COMPLETED") {
+        setResult(body.result); setReceipt(body); setUncertain(false); setPreviewToken(""); onImported();
+      } else if (["PROCESSING", "UNCONFIRMED"].includes(body.state)) {
+        setUncertain(true); setError(body.safeMessage || "Resultado ainda não confirmado. Consulte novamente.");
+      }
+      return body;
+    } catch (cause: any) {
+      if (cause.body?.preview) setPreview(cause.body.preview);
+      if (cause.uncertain || mode === "confirm" && !cause.body) setUncertain(true);
+      if (cause.body || cause.uncertain !== undefined) throw cause;
+      throw new Error(mode === "confirm" ? "Resultado ainda não confirmado. Consulte a operação ou reenvie o mesmo arquivo." : "Não foi possível conectar ou a consulta demorou demais. Tente novamente.");
+    } finally { clearTimeout(timer); }
   }
 
   async function selectFile(selected: File | null) {
-    setFile(selected); setPreview(null); setPreviewToken(""); setResult(null); setError("");
+    setFile(selected); setPreview(null); setPreviewToken(""); setResult(null); setError(""); setUncertain(false); setReceipt(null); setRequestId("");
     if (!selected) return;
     if (!selected.name.toLowerCase().endsWith(".xlsx")) { setError("Use o XLSX oficial. Arquivos CSV legados não atualizam lançamentos."); return; }
+    if (selected.size > MAX_FILE_BYTES) { setError("O XLSX deve ter no máximo 10 MiB."); return; }
     setBusy(true);
-    try { const body = await send(selected, "preview"); setPreviewToken(body.previewToken); }
+    try { const body = await send(selected, "preview"); setPreviewToken(body.previewToken || ""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao gerar prévia."); }
     finally { setBusy(false); }
   }
@@ -65,8 +85,15 @@ export default function OfficialImportModal({ open, onClose, onImported, filters
   async function confirm() {
     if (!file || !previewToken || !preview || preview.errors.length || busy) return;
     setBusy(true); setError("");
-    try { const body = await send(file, "confirm", previewToken); setResult(body.result); onImported(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Falha na confirmação. Nenhuma gravação parcial foi mantida."); setPreviewToken(""); }
+    try { await send(file, "confirm", previewToken); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Resultado ainda não confirmado. Consulte a operação."); }
+    finally { setBusy(false); }
+  }
+  async function checkResult() {
+    if (!file || busy) return;
+    setBusy(true); setError("");
+    try { await send(file, "status"); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível consultar o resultado."); }
     finally { setBusy(false); }
   }
 
@@ -82,8 +109,9 @@ export default function OfficialImportModal({ open, onClose, onImported, filters
           <li>Confirme somente após revisar. A aplicação é atômica e revalida o arquivo.</li>
         </ol>
         {busy && <p role="status">{preview ? "Revalidando e processando..." : "Lendo e validando todo o arquivo..."}</p>}
-        {error && <div className="alert alert-error" role="alert">{error}</div>}
-        {result && <div className="lanc-official-success" role="status">Concluído: {result.criados} criados, {result.atualizados} atualizados, {result.inalterados} inalterados e {result.avisos} avisos. Nenhum registro foi excluído.</div>}
+        {error && <div className="alert alert-error" role="alert">{error}{requestId && <small> Atendimento: {requestId}</small>}</div>}
+        {uncertain && <button className="btn btn-secondary" disabled={busy} onClick={() => void checkResult()}>Consultar resultado</button>}
+        {result && <div className="lanc-official-success" role="status">{receipt?.replayed ? "Este lote já foi processado. Não foi executado novamente." : "Importação concluída."} Resultado original: {result.criados} criados, {result.atualizados} atualizados, {result.inalterados} inalterados e {result.avisos} avisos. {receipt && <small>Operação {receipt.operationId} · {new Date(receipt.completedAt).toLocaleString("pt-BR")}</small>}</div>}
         {preview && <>
           <div className="lanc-official-summary">{Object.entries(preview.resumo).map(([key, value]) => <div key={key}><strong>{key}</strong><span>{value}</span></div>)}</div>
           {preview.errors.length > 0 && <div className="lanc-official-errors"><strong>Erros bloqueantes — nenhuma escrita será realizada</strong>{preview.errors.map((issue, index) => <p key={index}>Linha {issue.linha}: {issue.motivo}</p>)}</div>}

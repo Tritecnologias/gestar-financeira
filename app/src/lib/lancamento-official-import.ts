@@ -2,6 +2,8 @@ import { versionToken, parseVersion } from "./lancamento-version.mjs";
 import { amountInput, dateInput } from "./lancamento-input.mjs";
 import * as XLSX from "xlsx";
 import { LANCAMENTO_FIELD_ORDER } from "./lancamento-field-order.mjs";
+import { inspectXlsxEnvelope } from "./xlsx-envelope.mjs";
+import { importError, MAX_DATA_ROWS } from "./official-import-policy.mjs";
 
 const headersByField = {
   descricao: ["DESCRICAO"], fantasiaPadrao: ["CLIENTE_CODIGO", "FORNECEDOR_CODIGO"],
@@ -115,18 +117,46 @@ export function createOfficialWorkbook(records: any[]): ArrayBuffer {
 }
 
 export function parseOfficialWorkbook(bytes: Uint8Array): OfficialFileRow[] {
-  const book = XLSX.read(bytes, { type: "array", cellDates: false });
+  inspectXlsxEnvelope(bytes);
+  let book: XLSX.WorkBook;
+  try { book = XLSX.read(bytes, { type: "array", cellDates: false, cellFormula: true }); }
+  catch { throw importError("Não foi possível ler o XLSX. Baixe a base oficial e tente novamente."); }
+  if (book.SheetNames.length > 2 || new Set(book.SheetNames).size !== book.SheetNames.length ||
+      book.SheetNames.some(name => !["INSTRUCOES", "LANCAMENTOS"].includes(name))) throw importError("Abas incompatíveis. Use LANCAMENTOS e, opcionalmente, INSTRUCOES.");
   const sheet = book.Sheets.LANCAMENTOS;
-  if (!sheet) throw new Error("A aba LANCAMENTOS é obrigatória. Baixe o XLSX oficial.");
+  if (!sheet) throw importError("A aba LANCAMENTOS é obrigatória. Baixe o XLSX oficial.");
+  const range = XLSX.utils.decode_range(sheet["!ref"] || "A1");
+  if (range.e.r > MAX_DATA_ROWS || range.e.c >= 64) throw importError("O arquivo excede 10.000 linhas de dados ou 64 colunas.");
   const matrix = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, { header: 1, raw: true, defval: "", blankrows: true });
   const headers = matrix[0] || [];
   const expected = new Set(OFFICIAL_HEADERS);
   const positions = new Map(headers.map((header, index) => [header, index]));
   if (headers.length !== expected.size || positions.size !== expected.size ||
       headers.some(header => !expected.has(header as Header))) {
-    throw new Error("Cabeçalhos incompatíveis. Não renomeie, remova nem duplique as colunas do XLSX oficial.");
+    throw importError("Cabeçalhos incompatíveis. Não adicione, remova nem duplique colunas do XLSX oficial.");
   }
-  if (matrix.length > 10002) throw new Error("O arquivo excede 10.000 linhas de dados.");
+  if (matrix.length > MAX_DATA_ROWS + 1) throw importError("O arquivo excede 10.000 linhas de dados.");
+  const codeHeaders = new Set(["CLIENTE_CODIGO", "FORNECEDOR_CODIGO", "CATEGORIA_N1", "CONTA_N2", "CENTRO_CUSTO", "STATUS_MANUAL", "REGISTRO_ID", "REGISTRO_VERSAO", "DRE"]);
+  for (const [address, cell] of Object.entries(sheet)) {
+    if (address.startsWith("!")) continue;
+    const pos = XLSX.utils.decode_cell(address);
+    const header = String(headers[pos.c] || "cabeçalho");
+    if (cell.f !== undefined) throw importError(`LANCAMENTOS!${address} (${header}): fórmulas não são permitidas. Cole somente valores.`);
+    if (cell.t === "e") throw importError(`LANCAMENTOS!${address} (${header}): célula contém erro do Excel.`);
+    if (pos.r > 0 && codeHeaders.has(header) && cell.v !== "" && cell.v != null && cell.t !== "s") {
+      throw importError(`LANCAMENTOS!${address} (${header}): use código como texto, preservando zeros à esquerda.`);
+    }
+    if (pos.r > 0 && dateHeaders.includes(header as typeof dateHeaders[number]) && cell.t === "n") {
+      const serial = Number(cell.v);
+      const date1904 = !!book.Workbook?.WBProps?.date1904;
+      if (!Number.isInteger(serial) || serial < (date1904 ? 0 : 1) || serial > 2958465 || (!date1904 && serial === 60)) throw importError(`LANCAMENTOS!${address} (${header}): data serial inválida.`);
+      const epoch = date1904 ? Date.UTC(1904, 0, 1) : Date.UTC(1899, 11, 31);
+      const days = date1904 ? serial : serial > 60 ? serial - 1 : serial;
+      const iso = new Date(epoch + days * 86400000).toISOString().slice(0, 10);
+      try { dateInput(iso, header, true); } catch { throw importError(`LANCAMENTOS!${address} (${header}): data inválida.`); }
+      matrix[pos.r][pos.c] = iso;
+    }
+  }
   return matrix.slice(1).flatMap((values, index) => {
     if (!values?.some(value => text(value))) return [];
     const cells = Object.fromEntries(OFFICIAL_HEADERS.map(header => [header, text(values[positions.get(header)!])])) as Record<Header, string>;
@@ -136,11 +166,8 @@ export function parseOfficialWorkbook(bytes: Uint8Array): OfficialFileRow[] {
 
 function dateCell(value: string): string | null {
   if (!value) return "";
-  if (/^\d{4,6}(\.\d+)?$/.test(value)) {
-    const excel = XLSX.SSF.parse_date_code(Number(value));
-    if (!excel) return null;
-    value = `${excel.y}-${String(excel.m).padStart(2, "0")}-${String(excel.d).padStart(2, "0")}`;
-  }
+  // Numeric Excel cells have already been decoded with the workbook calendar.
+  // Text dates must be explicit ISO/BR, never a silently assumed serial calendar.
   try { return dateInput(value)?.toISOString().slice(0, 10) ?? ""; } catch { return null; }
 }
 const asDbDate = (iso: string) => dateInput(iso)!;
@@ -231,7 +258,7 @@ export async function planOfficialImport(db: any, tenantId: string, fileRows: Of
       const prior = canonicalCells(before).cells[header];
       return prior !== cells[header];
     }).map(header => ({ campo: header, antes: before[header], depois: cells[header] })) : [];
-    if (!id && cells.DATA_LANCAMENTO && cells.DESCRICAO && cells.VALOR_REALIZADO) {
+    if (!id && !errors.length && cells.DATA_LANCAMENTO && cells.DESCRICAO && cells.VALOR_REALIZADO) {
       const duplicate = await db.lancamento.findFirst({ where: { tenantId, dataLanc: asDbDate(cells.DATA_LANCAMENTO), descricao: cells.DESCRICAO, valor: cells.VALOR_REALIZADO, tipo: cells.DIRECAO }, select: { id: true } });
       if (duplicate) warnings.push("Possível duplicidade: será criado novo registro, nunca atualizado automaticamente.");
     }
