@@ -99,8 +99,16 @@ async function smoke(db, base) {
       ok('filter '+filter,result.status===200&&result.body.data.length>0&&result.body.data.every(r=>ids.includes(r.id)));
     }
     ok('foreign filter empty',(await request(admin,'/api/lancamentos?clienteId='+fb.client.id)).body.total===0);
+    for(const query of ['pagina=0','pagina=abc','porPagina=NaN','sortDir=bad'])ok('invalid pagination '+query,(await request(admin,'/api/lancamentos?'+query)).status===400);
+    const totals=await request(admin,'/api/lancamentos?porPagina=all');
+    ok('exact totals and tenant isolation',totals.body.total===8&&totals.body.totais.valorPrevisto==='9876.48'&&totals.body.totais.valorRealizado==='0.00');
+    for(const card of ['saldoAnterior','entradas','saidas','aReceber','aPagar','saldoPeriodo','saldoFinal']) {
+      const result=await request(admin,'/api/lancamentos?card='+card+'&inicio=2026-10-23&fim=2026-10-31&dataBase=DATA_LANCAMENTO');
+      ok('card isolation '+card,result.status===200&&result.body.data.every(r=>ids.includes(r.id)));
+    }
     const summary=await request(admin,'/api/fluxo-caixa/resumo?inicio=2026-10-23&fim=2026-10-23');
     ok('summary available',summary.status===200);
+    ok('CONSULTA summary denied',(await request(member,'/api/fluxo-caixa/resumo?inicio=2026-10-23&fim=2026-10-23')).status===403);
     for(const patch of [{descricao:'FASE4A edited'},{valor:'12,34'},{dataEvento:'24/10/2026'},{clienteId:null,fornecedorId:fa.supplier.id},{anotacao:null},{valorPrevisto:0}]) {
       const saved=await request(admin,`/api/lancamentos/${current.id}`,'PUT',{...patch,versao:current.versao});
       ok('inline patch '+Object.keys(patch).join(','),saved.status===200&&saved.body.versao!==current.versao);current=saved.body;
@@ -108,7 +116,8 @@ async function smoke(db, base) {
     // Legacy microseconds are deliberately inserted ONLY into this synthetic fixture.
     await db.$executeRaw`UPDATE lancamentos SET atualizado_em=TIMESTAMP '2026-10-23 12:34:56.123456',dre='LEGADO SINTETICO',cont='9' WHERE id=${current.id} AND tenant_id=${a}`;
     const micro=await db.$queryRaw`SELECT to_char(atualizado_em,'YYYY-MM-DD HH24:MI:SS.US') AS value FROM lancamentos WHERE id=${current.id} AND tenant_id=${a}`;
-    ok('microsecond fixture retains six digits',micro[0].value.endsWith('123456'));
+    ok(process.env.PHASE4A_LAB==='1' ? 'legacy microsecond fixture retains six digits' : 'HOMO millisecond precision preserved',
+      micro[0].value.endsWith(process.env.PHASE4A_LAB==='1' ? '123456' : '123000'));
     current=(await request(admin,'/api/lancamentos?porPagina=all')).body.data.find(r=>r.id===current.id);
     const token=current.versao;
     const concurrent=await Promise.all(['A','B'].map(label=>request(admin,`/api/lancamentos/${current.id}`,'PUT',{descricao:'FASE4A concurrent '+label,versao:token})));

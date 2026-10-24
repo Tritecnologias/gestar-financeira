@@ -78,6 +78,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ error: error?.code === "P2034" ? "Conflito de edição simultânea. Nenhuma alteração foi gravada; revise a prévia e tente novamente."
-      : error?.status ? error.message : "Falha na edição em massa. Nenhuma alteração foi gravada." }, { status: error?.status || (error?.code === "P2034" ? 409 : 500) });
+      : error?.status ? error.message : error instanceof SyntaxError ? "Envie um JSON válido." : "Falha na edição em massa. Nenhuma alteração foi gravada." }, { status: error?.status || (error?.code === "P2034" ? 409 : error instanceof SyntaxError ? 400 : 500) });
   }
 }

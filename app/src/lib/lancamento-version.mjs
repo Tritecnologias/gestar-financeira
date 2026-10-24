@@ -6,7 +6,7 @@ export function versionToken(revisao) {
 export function parseVersion(value) {
   if (typeof value !== "string" || !/^v1:(0|[1-9]\d{0,18})$/.test(value) ||
       BigInt(value.slice(3)) > BigInt("9223372036854775807")) {
-    throw Object.assign(new Error("VersÃ£o ausente ou incompatÃ­vel. Recarregue o lanÃ§amento ou baixe um novo XLSX."), { status: 409 });
+    throw Object.assign(new Error("Versão ausente ou incompatível. Recarregue o lançamento ou baixe um novo XLSX."), { status: 409 });
   }
   return BigInt(value.slice(3));
 }
@@ -16,5 +16,5 @@ export function optimisticWhere(id, tenantId, version) {
 }
 
 export function concurrencyConflict() {
-  throw Object.assign(new Error("Este lanÃ§amento foi alterado por outra operaÃ§Ã£o. Recarregue a base e revise sua alteraÃ§Ã£o; nenhum dado foi sobrescrito."), { status: 409 });
+  throw Object.assign(new Error("Este lançamento foi alterado por outra operação. Recarregue a base e revise sua alteração; nenhum dado foi sobrescrito."), { status: 409 });
 }

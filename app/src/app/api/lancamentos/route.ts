@@ -25,9 +25,14 @@ export async function GET(req: NextRequest) {
   let filtros: ReturnType<typeof lerFiltrosLancamentos>;
   try { filtros = lerFiltrosLancamentos(searchParams); }
   catch (error: any) { return NextResponse.json({ error: error.message }, { status: 400 }); }
-  const pagina      = parseInt(searchParams.get("pagina") || "1");
+  const pagina      = Number(searchParams.get("pagina") || "1");
   const tudo        = searchParams.get("porPagina") === "all";
-  const porPagina   = tudo ? 500 : Math.min(500, Math.max(1, parseInt(searchParams.get("porPagina") || "50")));
+  const pageSize = tudo ? 500 : Number(searchParams.get("porPagina") || "50");
+  if (!Number.isSafeInteger(pagina) || pagina < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1 ||
+      (searchParams.has("sortDir") && !["asc", "desc"].includes(searchParams.get("sortDir")!))) {
+    return NextResponse.json({ error: "Paginação ou ordenação inválida." }, { status: 400 });
+  }
+  const porPagina = Math.min(500, pageSize);
   const sortKey     = searchParams.get("sortKey") || "";
   const sortDir     = (searchParams.get("sortDir") || "desc") as "asc" | "desc";
   const card = searchParams.get("card");

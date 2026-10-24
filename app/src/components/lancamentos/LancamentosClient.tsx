@@ -597,7 +597,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
   const startEdit = async (row: LancamentoDTO, focusKey = "descricao") => {
     if (editingId && editingId !== row.id) {
       for (const key of Object.keys(editValuesRef.current) as (keyof LancamentoDTO)[]) {
-        if (editValueChanged(key)) pendingEditKeysRef.current.add(key);
+        if ((COLUNAS_DEF.some(column => column.key === key && column.editavel !== false) ||
+            key === "clienteId" || key === "fornecedorId") && editValueChanged(key)) pendingEditKeysRef.current.add(key);
       }
       if (pendingEditKeysRef.current.size && !await flushEdits(editingId)) return;
       if (flushRef.current && !await flushRef.current) return;
