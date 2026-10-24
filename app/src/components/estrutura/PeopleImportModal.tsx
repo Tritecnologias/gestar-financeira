@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useStructureImportRequest } from "./useStructureImportRequest";
 import { useCan } from "@/components/access/PermissionContext";
 import type { PeopleImportPreview } from "@/lib/people-import";
 
 type Props = { onClose: () => void; onImported: () => void };
 
-async function downloadPeople() {
-  const response = await fetch("/api/pessoas/exportar", { cache: "no-store" });
+async function downloadPeople(template = false) {
+  const response = await fetch("/api/pessoas/exportar" + (template ? "?template=1" : ""), { cache: "no-store" });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error || "Não foi possível baixar Pessoas.");
@@ -31,23 +32,16 @@ export default function PeopleImportModal({ onClose, onImported }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<PeopleImportPreview["resumo"] | null>(null);
 
-  async function download() {
+  async function download(template = false) {
     setDownloading(true); setError("");
-    try { await downloadPeople(); }
+    try { await downloadPeople(template); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível baixar Pessoas."); }
     finally { setDownloading(false); }
   }
 
-  async function request(selected: File, mode: "preview" | "confirm") {
-    const form = new FormData();
-    form.append("file", selected);
-    form.append("mode", mode);
-    const response = await fetch("/api/pessoas/importar", { method: "POST", body: form });
-    const body = await response.json();
-    if (body.preview) setPreview(body.preview);
-    if (!response.ok) throw new Error(body.error || "Não foi possível processar o arquivo.");
-    return body;
-  }
+  const request = useStructureImportRequest("/api/pessoas/importar", setPreview, body => {
+    setResult(body.resumo); onImported();
+  });
 
   async function selectFile(selected: File | null) {
     setFile(selected); setPreview(null); setResult(null); setError("");
@@ -63,9 +57,7 @@ export default function PeopleImportModal({ onClose, onImported }: Props) {
     if (!file || !preview || preview.errors.length || busy) return;
     setBusy(true); setError("");
     try {
-      const body = await request(file, "confirm");
-      setResult(body.resumo);
-      onImported();
+      await request(file, "confirm");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Importação não concluída."); }
     finally { setBusy(false); }
   }
@@ -75,7 +67,7 @@ export default function PeopleImportModal({ onClose, onImported }: Props) {
       <div className="modal-header"><h2 id="people-import-title">Importar Pessoas</h2><button type="button" className="modal-close" aria-label="Fechar" onClick={onClose}>✕</button></div>
       <div className="people-import-body">
         <ol className="people-import-steps">
-          {can("estrutura.pessoas.export") && <li><button type="button" className="btn btn-secondary" onClick={() => void download()} disabled={downloading}>Baixar Pessoas</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Sem dados, o arquivo virá vazio para preenchimento.</p></li>}
+          {can("estrutura.pessoas.export") && <li><button type="button" className="btn btn-secondary" onClick={() => void download(true)} disabled={downloading}>Baixar modelo vazio</button> <button type="button" className="btn btn-secondary" onClick={() => void download()} disabled={downloading}>Baixar Pessoas</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Sem dados, o arquivo virá vazio para preenchimento.</p></li>}
           <li>Edite ou acrescente linhas no Excel. Mantenha os códigos como texto.</li>
           <li><label className="people-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira a prévia e os erros.</li>

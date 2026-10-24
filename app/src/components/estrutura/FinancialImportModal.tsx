@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useStructureImportRequest } from "./useStructureImportRequest";
 import { useCan } from "@/components/access/PermissionContext";
 import type { FinancialIssue, FinancialPreview, FinancialRow } from "@/lib/financial-import";
 
@@ -16,11 +17,11 @@ export default function FinancialImportModal({ onClose, onImported }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<FinancialPreview["resumo"] | null>(null);
 
-  async function downloadStructure() {
+  async function downloadStructure(template = false) {
     setDownloading(true); setError("");
     try {
-      const response = await fetch("/api/estrutura-financeira/exportar", { cache: "no-store" });
-      if (!response.ok) { const body = await response.json(); throw new Error(body.error || "Não foi possível baixar a estrutura."); }
+      const response = await fetch("/api/estrutura-financeira/exportar" + (template ? "?template=1" : ""), { cache: "no-store" });
+      if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || "Não foi possível baixar a estrutura."); }
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url; link.download = "estrutura_financeira_10s.xlsx";
@@ -30,14 +31,9 @@ export default function FinancialImportModal({ onClose, onImported }: Props) {
     finally { setDownloading(false); }
   }
 
-  async function request(selected: File, mode: "preview" | "confirm") {
-    const form = new FormData(); form.append("file", selected); form.append("mode", mode);
-    const response = await fetch("/api/estrutura-financeira/importar", { method: "POST", body: form });
-    const body = await response.json();
-    if (body.preview) setPreview(body.preview);
-    if (!response.ok) throw new Error(body.error || "Não foi possível processar o arquivo.");
-    return body;
-  }
+  const request = useStructureImportRequest("/api/estrutura-financeira/importar", setPreview, body => {
+    setResult(body.resumo); onImported();
+  });
 
   async function selectFile(selected: File | null) {
     setFile(selected); setPreview(null); setResult(null); setError(""); setLocalErrors([]);
@@ -45,9 +41,6 @@ export default function FinancialImportModal({ onClose, onImported }: Props) {
     if (!selected.name.toLowerCase().endsWith(".xlsx")) { setError("Selecione um arquivo .xlsx."); return; }
     setBusy(true);
     try {
-      const { parseFinancialWorkbook, validateFinancialWorkbookInput } = await import("@/lib/financial-import");
-      const parsed = parseFinancialWorkbook(new Uint8Array(await selected.arrayBuffer()));
-      setLocalErrors(validateFinancialWorkbookInput(parsed));
       await request(selected, "preview");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Erro ao ler o Excel."); }
     finally { setBusy(false); }
@@ -56,7 +49,7 @@ export default function FinancialImportModal({ onClose, onImported }: Props) {
   async function confirm() {
     if (!file || !preview || preview.errors.length || busy) return;
     setBusy(true); setError("");
-    try { const body = await request(file, "confirm"); setResult(body.resumo); onImported(); }
+    try { await request(file, "confirm"); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Importação não concluída."); }
     finally { setBusy(false); }
   }
@@ -77,7 +70,7 @@ export default function FinancialImportModal({ onClose, onImported }: Props) {
       <div className="modal-header"><h2 id="financial-import-title">Importar Estrutura Financeira</h2><button className="modal-close" aria-label="Fechar" onClick={onClose}>✕</button></div>
       <div className="management-import-body">
         <ol className="management-import-steps">
-          {can("estrutura.financeiras.export") && <li><button className="btn btn-secondary" onClick={downloadStructure} disabled={downloading}>Baixar Estrutura Financeira</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Sem dados, o arquivo virá vazio para preenchimento.</p></li>}
+          {can("estrutura.financeiras.export") && <li><button type="button" className="btn btn-secondary" onClick={() => void downloadStructure(true)} disabled={downloading}>Baixar modelo vazio</button> <button className="btn btn-secondary" onClick={() => void downloadStructure()} disabled={downloading}>Baixar Estrutura Financeira</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Sem dados, o arquivo virá vazio para preenchimento.</p></li>}
           <li>Preencha as abas da planilha. Mantenha os códigos como texto e informe o tipo da Conta.</li>
           <li><label className="management-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onChange={event => selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira a prévia e os erros abaixo.</li>

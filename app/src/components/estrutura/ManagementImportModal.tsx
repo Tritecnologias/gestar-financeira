@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useStructureImportRequest } from "./useStructureImportRequest";
 import { useCan } from "@/components/access/PermissionContext";
 import type { ImportIssue, ImportPreview, ImportRow } from "@/lib/management-import";
 
@@ -16,12 +17,12 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<ImportPreview["resumo"] | null>(null);
 
-  async function downloadStructure() {
+  async function downloadStructure(template = false) {
     setDownloading(true); setError("");
     try {
-      const response = await fetch("/api/estrutura-gerencial/exportar", { cache: "no-store" });
+      const response = await fetch("/api/estrutura-gerencial/exportar" + (template ? "?template=1" : ""), { cache: "no-store" });
       if (!response.ok) {
-        const body = await response.json();
+        const body = await response.json().catch(() => ({}));
         throw new Error(body.error || "Não foi possível baixar a estrutura.");
       }
       const url = URL.createObjectURL(await response.blob());
@@ -36,16 +37,9 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
     finally { setDownloading(false); }
   }
 
-  async function request(selected: File, mode: "preview" | "confirm") {
-    const form = new FormData();
-    form.append("file", selected);
-    form.append("mode", mode);
-    const response = await fetch("/api/estrutura-gerencial/importar", { method: "POST", body: form });
-    const body = await response.json();
-    if (body.preview) setPreview(body.preview);
-    if (!response.ok) throw new Error(body.error || "Não foi possível processar o arquivo.");
-    return body;
-  }
+  const request = useStructureImportRequest("/api/estrutura-gerencial/importar", setPreview, body => {
+    setResult(body.resumo); onImported();
+  });
 
   async function selectFile(selected: File | null) {
     setFile(selected); setPreview(null); setResult(null); setError(""); setLocalErrors([]);
@@ -53,9 +47,6 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
     if (!selected.name.toLowerCase().endsWith(".xlsx")) { setError("Selecione um arquivo .xlsx."); return; }
     setBusy(true);
     try {
-      const { parseManagementWorkbook, validateManagementWorkbookInput } = await import("@/lib/management-import");
-      const parsed = parseManagementWorkbook(new Uint8Array(await selected.arrayBuffer()));
-      setLocalErrors(validateManagementWorkbookInput(parsed));
       await request(selected, "preview");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Erro ao ler o Excel."); }
     finally { setBusy(false); }
@@ -65,9 +56,7 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
     if (!file || !preview || preview.errors.length || busy) return;
     setBusy(true); setError("");
     try {
-      const body = await request(file, "confirm");
-      setResult(body.resumo);
-      onImported();
+      await request(file, "confirm");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Importação não concluída."); }
     finally { setBusy(false); }
   }
@@ -87,7 +76,7 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
       <div className="modal-header"><h2 id="management-import-title">Importar Estrutura Gerencial</h2><button className="modal-close" aria-label="Fechar" onClick={onClose}>✕</button></div>
       <div className="management-import-body">
         <ol className="management-import-steps">
-          {can("estrutura.empresa.export") && <li><button className="btn btn-secondary" onClick={downloadStructure} disabled={downloading}>Baixar Estrutura</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Se ainda não houver dados, o arquivo será gerado vazio para preenchimento.</p></li>}
+          {can("estrutura.empresa.export") && <li><button type="button" className="btn btn-secondary" onClick={() => void downloadStructure(true)} disabled={downloading}>Baixar modelo vazio</button> <button className="btn btn-secondary" onClick={() => void downloadStructure()} disabled={downloading}>Baixar Estrutura</button><p>Baixe os cadastros atuais para editar ou acrescentar novos registros. Se ainda não houver dados, o arquivo será gerado vazio para preenchimento.</p></li>}
           <li>Preencha as abas da planilha. Mantenha os códigos como texto.</li>
           <li><label className="management-import-file">Selecione o arquivo .xlsx <input type="file" accept=".xlsx" onChange={event => selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li>
           <li>Confira a prévia e os erros abaixo.</li>

@@ -1,41 +1,12 @@
-import { guardApi } from "@/lib/permissions";
-import { NextRequest, NextResponse } from "next/server";
-import { requireEscrita } from "@/lib/tenant";
+import { structureImportRoute } from "@/lib/structure-import-route";
 import { parseManagementWorkbook, validateManagementWorkbook, type ImportPreview } from "@/lib/management-import";
 
-class InvalidImport extends Error {
-  constructor(readonly preview: ImportPreview) { super("A estrutura contém erros bloqueantes."); }
-}
-
-export async function POST(req: NextRequest) {
-  const access = await guardApi("estrutura.empresa.import"); if (access) return access;
-  let db: any;
-  try { ({ db } = await requireEscrita()); }
-  catch (error: any) { return NextResponse.json({ error: error?.message || "Não autorizado" }, { status: error?.status || 401 }); }
-
-  const form = await req.formData();
-  const file = form.get("file");
-  const mode = form.get("mode");
-  if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".xlsx")) {
-    return NextResponse.json({ error: "Selecione um arquivo .xlsx válido." }, { status: 400 });
-  }
-  if (file.size > 10_000_000) return NextResponse.json({ error: "O arquivo deve ter até 10 MB." }, { status: 413 });
-  if (mode !== "preview" && mode !== "confirm") return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
-
-  let parsed;
-  try { parsed = parseManagementWorkbook(new Uint8Array(await file.arrayBuffer())); }
-  catch { return NextResponse.json({ error: "Não foi possível ler o arquivo XLSX." }, { status: 400 }); }
-
-  if (mode === "preview") {
-    return NextResponse.json({ preview: await validateManagementWorkbook(parsed, db) });
-  }
-
-  try {
-    // O client estendido conserva o filtro de tenant dentro da transação.
-    // Revalidar e gravar no mesmo snapshot impede confirmação com preview obsoleto.
-    const result = await db.$transaction(async (tx: any) => {
-      const preview = await validateManagementWorkbook(parsed, tx);
-      if (preview.errors.length) throw new InvalidImport(preview);
+export const runtime = "nodejs";
+export const POST = structureImportRoute({
+  contract: "MANAGEMENT", permission: "estrutura.empresa.import",
+  parse: parseManagementWorkbook, validate: validateManagementWorkbook,
+  locks: tenantId => [`management-import:${tenantId}`],
+  async apply(tx: any, preview: ImportPreview, tenantId: string) {
 
       const areaCodes = preview.areas.map(row => row.codigo);
       const centerCodes = preview.centros.map(row => row.codigo);
@@ -65,15 +36,6 @@ export async function POST(req: NextRequest) {
         if (id) await tx.centroCusto.update({ where: { id }, data: { nome: row.descricao, areaId } });
         else await tx.centroCusto.create({ data: { codigo: row.codigo, nome: row.descricao, areaId } });
       }
-      return preview.resumo;
-    }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 60_000 });
-    return NextResponse.json({ ok: true, resumo: result });
-  } catch (error: any) {
-    if (error instanceof InvalidImport) return NextResponse.json({ error: error.message, preview: error.preview }, { status: 422 });
-    if (error?.code === "P2002" || error?.code === "P2034") {
-      return NextResponse.json({ error: "Os dados mudaram durante a importação. Revise a prévia e tente novamente." }, { status: 409 });
-    }
-    console.error("Falha na importação da estrutura gerencial", error);
-    return NextResponse.json({ error: "Falha ao gravar a estrutura gerencial. Nenhum registro foi importado." }, { status: 500 });
-  }
-}
+      return { resumo: preview.resumo };
+  },
+});
