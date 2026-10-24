@@ -6,6 +6,7 @@ import { permissionsFor } from "@/lib/permissions";
 import { PermissionProvider } from "@/components/access/PermissionContext";
 import { SUPPORT_MODULES } from "@/lib/support-policy";
 import Link from "next/link";
+import { testTenantLabel } from "@/lib/test-tenant";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   let ctx: any;
@@ -22,8 +23,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Busca o logo do tenant ativo
   const tenant = await prisma.tenant.findUnique({
     where: { id: session.tenantId },
-    select: { logoUrl: true },
+    select: { logoUrl: true, slug: true },
   });
+  const testLabel = testTenantLabel(tenant?.slug);
 
   return (
     <PermissionProvider permissions={permissions}>
@@ -38,6 +40,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         permissions={permissions}
       />
       <main className="main" style={{ overflow: "hidden" }}>
+        {testLabel && <div className="test-tenant-banner" role="status">
+          <strong>{testLabel}</strong><span>Use somente dados sintéticos.</span>
+        </div>}
         {session.accessSource === "SUPPORT_GRANT" ? <>
           <div className="support-mode-banner" role="status">
             <strong>MODO SUPORTE</strong><span>Tenant: {session.tenantNome}</span>
