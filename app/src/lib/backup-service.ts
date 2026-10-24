@@ -2,6 +2,7 @@ import { Pool } from "pg";
 import { requirePermission } from "@/lib/permissions";
 import { databaseConfig } from "@/lib/database-config.mjs";
 import { isAbsolute, resolve, relative } from "node:path";
+import { signingConfig } from "@/lib/backup/provenance.mjs";
 
 const globalPool = globalThis as unknown as { backupPool?: Pool };
 export function backupPool() {
@@ -25,5 +26,6 @@ export function backupConfig() {
       if (!isAbsolute(directory) || (!child.startsWith("..") && !isAbsolute(child))) throw Object.assign(new Error("Volume privado de backup inválido."), { status: 409 });
     }
   }
-  return { sourceCommit: process.env.SOURCE_COMMIT ?? "local", termDir: process.env.TERM_STORAGE_DIR, backupDir: process.env.TENANT_BACKUP_DIR };
+  return { sourceCommit: process.env.SOURCE_COMMIT ?? "local", termDir: process.env.TERM_STORAGE_DIR, backupDir: process.env.TENANT_BACKUP_DIR,
+    signing: signingConfig(process.env) };
 }

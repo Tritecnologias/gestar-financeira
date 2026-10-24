@@ -2,7 +2,8 @@ import { randomUUID, createHash } from 'node:crypto';
 import { mkdir, writeFile, readFile, lstat } from 'node:fs/promises';
 import { join, isAbsolute } from 'node:path';
 import { TABLES, REFERENCE_TABLES, COLUMNS, FOREIGN_KEYS } from './catalog.mjs';
-import { VERSION, MAX_BYTES, canonical, digest, fail, seal, validate } from './format.mjs';
+import { VERSION, MAX_BYTES, canonical, digest, fail, validate } from './format.mjs';
+import { authenticateBackup, verifyProvenance, HISTORICAL_RELATIONS } from './provenance.mjs';
 
 const qi = name => '"' + name.replaceAll('"', '""') + '"';
 async function rows(db, sql, args = []) { return (await db.query(sql, args)).rows; }
@@ -69,7 +70,7 @@ async function snapshot(db, tenantId, config) {
   const [pending] = await rows(db, 'SELECT count(*)::int n FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL');
   if (pending.n || migrations.length !== 17 ||
       !migrations.some(m => m.migration_name === '20261024_z_tenant_restore_lock') ||
-      !migrations.some(m => m.migration_name === '20261024_lancamento_optional_fields')) fail('MIGRATIONS', 'Schema fora do contrato de backup v1. Atualize o mecanismo antes de prosseguir.', 409);
+      !migrations.some(m => m.migration_name === '20261024_lancamento_optional_fields')) fail('MIGRATIONS', 'Schema fora do contrato de backup (17 migrations). Atualize o mecanismo antes de prosseguir.', 409);
   const sections = {};
   for (const t of TABLES) {
     // JSON-safe bigint representation; numeric money remains PostgreSQL numeric on reinsert.
@@ -78,19 +79,21 @@ async function snapshot(db, tenantId, config) {
   }
   const files = await fileManifest(db, tenantId);
   await verifyFiles(files, config.termDir);
-  return seal({ format: VERSION, createdAt: new Date().toISOString(), sourceCommit: config.sourceCommit,
+  return authenticateBackup({ format: VERSION, createdAt: new Date().toISOString(), sourceCommit: config.sourceCommit,
     applicationVersion: '0.1.0', tenant, migrations, sections, references: await references(db, tenantId), files,
     exclusions: ['global credentials/identities/PlatformAdmin', 'access grants/invitations', 'immutable audit/acceptances', 'infrastructure secrets'],
-    policy: 'same-tenant-replace-business-preserve-access' });
+    policy: 'same-tenant-replace-business-preserve-access' }, config.signing);
 }
 function stateDigest(b) { return digest({ tenant: b.tenant, sections: b.sections, references: b.references, files: b.files, migrations: b.migrations }); }
-async function compatible(db, backup, current) {
+async function compatible(db, backup, current, proof, hold = false) {
   if (digest(backup.migrations) !== digest(current.migrations)) fail('SCHEMA_VERSION', 'Migrations incompatíveis com este backup.', 409);
   if (digest(backup.references) !== digest(current.references)) fail('RECONCILIATION', 'Perfis, vínculos ou referências de identidade divergiram. Reconciliação administrativa necessária; nenhum acesso será recriado.', 409);
   // Validate immutable file metadata against DB; uploaded names/hashes cannot redirect file reads.
   const manifest = new Map(current.files.map(f => [f.id, f]));
   for (const f of backup.files) if (digest(manifest.get(f.id) ?? null) !== digest(f)) fail('FILE_VERSION', 'Versão documental exige reconciliação.', 409);
-  // Every business FK must stay inside the selected tenant, even legacy single-column FKs.
+  // Only exact historical user bindings have an exception; every other FK remains tenant-bound.
+  const historical = new Set((proof ?? []).map(b => canonical(b)));
+  const historicalUserIds = new Set();
   for (const fk of FOREIGN_KEYS) {
     let targets;
     if (TABLES.includes(fk.target)) targets = backup.sections[fk.target].rows;
@@ -101,7 +104,19 @@ async function compatible(db, backup, current) {
     const keys = new Set(targets.map(t => canonical(fk.targetColumns.map(c => t[c]))));
     for (const row of backup.sections[fk.table].rows) {
       const key = fk.columns.map(c => row[c]);
-      if (key.every(v => v !== null) && !keys.has(canonical(key))) fail('FK', 'Referência inválida ou de outra empresa no backup.', 409);
+      if (key.every(v => v !== null) && !keys.has(canonical(key))) {
+        const relation = HISTORICAL_RELATIONS.find(r => fk.target === 'usuarios' && fk.table === r.table && fk.columns.length === 1 && fk.columns[0] === r.column);
+        if (!relation) fail('FK', 'Referência inválida ou de outra empresa no backup.', 409);
+        const binding = { table: relation.table, column: relation.column, recordId: row.id, userId: key[0] };
+        if (proof === null) {
+          // A v1 checksum is not provenance. Only the exact live relationship is trustworthy.
+          const live = current.sections[relation.table].rows.find(r => r.id === row.id && r.tenant_id === current.tenant.id);
+          if (!live || live[relation.column] !== key[0]) fail('HISTORY_UNPROVEN', 'Backup antigo sem prova suficiente da referência histórica. Reconciliação administrativa necessária; nenhum vínculo será inventado.', 409);
+        } else if (!historical.has(canonical(binding))) {
+          fail('HISTORY_PROOF', 'Referência histórica não autorizada pelo manifesto.', 409);
+        }
+        historicalUserIds.add(key[0]);
+      }
     }
     // A malformed historical cross-tenant FK could cause SET NULL/CASCADE outside the target on delete.
     if (TABLES.includes(fk.target)) {
@@ -110,6 +125,12 @@ async function compatible(db, backup, current) {
         WHERE d.tenant_id=$1 AND s.tenant_id<>$1) bad`, [current.tenant.id]);
       if (cross.bad) fail('CROSS_TENANT_LEGACY', 'Vínculo legado entre empresas exige reconciliação antes do restore.', 409);
     }
+  }
+  // Global IDs are checked, not exported or restored. Key locks prevent deletion during replace.
+  const ids = [...historicalUserIds].sort();
+  if (ids.length) {
+    const existing = await rows(db, `SELECT id FROM public.usuarios WHERE id=ANY($1::text[]) ORDER BY id${hold ? ' FOR KEY SHARE' : ''}`, [ids]);
+    if (existing.length !== ids.length) fail('HISTORY_TARGET_MISSING', 'Usuário histórico referenciado não está disponível. Reconciliação administrativa necessária; nenhum usuário será criado.', 409);
   }
 }
 async function transaction(pool, mode, fn) {
@@ -132,8 +153,9 @@ export async function createBackup(pool, ctx, config) {
 export async function previewRestore(pool, ctx, backup, config) {
   validate(backup, ctx.tenantId);
   return transaction(pool, 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY', async db => {
-    await permissions(db, ctx, 'restore'); const current = await snapshot(db, ctx.tenantId, config);
-    await compatible(db, backup, current);
+    await permissions(db, ctx, 'restore'); const proof = verifyProvenance(backup, config.signing);
+    const current = await snapshot(db, ctx.tenantId, config);
+    await compatible(db, backup, current, proof);
     return { checksum: backup.checksum, currentDigest: stateDigest(current), tenant: current.tenant.nome,
       counts: TABLES.map(t => ({ table: t, before: current.sections[t].count, after: backup.sections[t].count })),
       preserved: 'Identidades, memberships, perfis, convites, auditoria e aceites preservados; revisões técnicas avançam.' };
@@ -156,11 +178,12 @@ export async function restoreBackup(pool, ctx, backup, config, expectedDigest, a
     // all writes on this tenant participate via database triggers.
     return await transaction(pool, 'BEGIN', async db => {
       await lock(db, ctx.tenantId); await permissions(db, ctx, 'restore', true);
+      const proof = verifyProvenance(backup, config.signing);
       const [done] = await rows(db, "SELECT metadata FROM audit_events WHERE id=$1 AND tenant_id=$2 AND actor_identity_id=$3 AND action='TENANT_RESTORE_COMPLETED'", [attempt, ctx.tenantId, ctx.identityId]);
       if (done) { if (done.metadata.checksum !== backup.checksum) fail('ATTEMPT_REUSE'); return done.metadata; }
       const current = await snapshot(db, ctx.tenantId, config);
       if (stateDigest(current) !== expectedDigest) fail('STALE_PREVIEW', 'A empresa mudou após a prévia. Gere nova prévia antes de confirmar.', 409);
-      await compatible(db, backup, current);
+      await compatible(db, backup, current, proof, true);
       // Durable pre-replace snapshot; retained even after a transaction rollback.
       await mkdir(config.backupDir, { recursive: true, mode: 0o700 });
       const safety = join(config.backupDir, `${attempt}.json`);
@@ -176,7 +199,7 @@ export async function restoreBackup(pool, ctx, backup, config, expectedDigest, a
           SELECT ${COLUMNS[t].map(qi).join(',')} FROM jsonb_populate_recordset(NULL::public.${qi(t)},$1::jsonb)`, [JSON.stringify(data)]);
       }
       await db.query('UPDATE tenants SET logo_url=$2,titulo_tabela_status=$3 WHERE id=$1', [ctx.tenantId, backup.tenant.logo_url, backup.tenant.titulo_tabela_status]);
-      const receipt = { checksum: backup.checksum, safetyChecksum: current.checksum, version: VERSION, records: TABLES.reduce((n,t) => n + backup.sections[t].count, 0), attempt };
+      const receipt = { checksum: backup.checksum, safetyChecksum: current.checksum, version: backup.format, records: TABLES.reduce((n,t) => n + backup.sections[t].count, 0), attempt };
       await audit(db, ctx, 'TENANT_RESTORE_COMPLETED', receipt, attempt);
       return receipt;
     });

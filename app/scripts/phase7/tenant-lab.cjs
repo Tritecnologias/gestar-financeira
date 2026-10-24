@@ -5,12 +5,14 @@ async function main(){
   if(process.env.PHASE7_LAB!=='1'||new URL(process.env.DATABASE_URL).pathname!=='/phase7_lab')throw Error('LAB_ONLY');
   const {createBackup,previewRestore,restoreBackup,restoreReceipt}=await import('/app/backup/engine.mjs');
   const {seal,digest}=await import('/app/backup/format.mjs');
+  const {authenticateBackup}=await import('/app/backup/provenance.mjs');
   const pool=new Pool({connectionString:process.env.DATABASE_URL});
   const q=async(s,p=[])=>(await pool.query(s,p)).rows;
   if((await q('SELECT count(*)::int n FROM tenants'))[0].n)throw Error('FRESH_ONLY');
   const id=()=>crypto.randomUUID(); const tenant=id(),other=id(),identity=id(),member=id(),profile=id(),user=id();
   const ctx={tenantId:tenant,identityId:identity,membershipId:member};
-  const cfg={sourceCommit:'laboratory',termDir:'/tmp/phase7-terms',backupDir:'/tmp/phase7-safety'};
+  const cfg={sourceCommit:'laboratory',termDir:'/tmp/phase7-terms',backupDir:'/tmp/phase7-safety',
+    signing:{instanceId:'phase7-laboratory',activeKeyId:'lab',keys:{lab:crypto.randomBytes(32).toString('hex')}}};
   await fs.mkdir(cfg.termDir,{recursive:true});
   await q("INSERT INTO tenants(id,nome,slug,email) VALUES($1,'Laboratório A','lab-a','a@example.invalid'),($2,'Laboratório B','lab-b','b@example.invalid')",[tenant,other]);
   await q("INSERT INTO auth_identities(id,email,nome,senha_hash) VALUES($1,'owner@example.invalid','Fixture','non-login-test-hash')",[identity]);
@@ -81,7 +83,8 @@ async function main(){
   assert.deepEqual(await preserved(),baseline);checks++;
   ok(BigInt(after.sections.lancamentos.rows[0].revisao)>0n);ok(!!await restoreReceipt(pool,ctx,attempt));
   await restoreBackup(pool,ctx,a,cfg,preview.currentDigest,attempt);ok((await q("SELECT count(*)::int n FROM audit_events WHERE id=$1",[attempt]))[0].n===1);
-  const resign=b=>{delete b.checksum;for(const s of Object.values(b.sections)){s.count=s.rows.length;s.checksum=digest(s.rows)}return seal(b)};
+  // This harness is the trusted issuer; adversarial checksum-only changes are tested separately.
+  const resign=b=>{delete b.checksum;delete b.historicalReferences;for(const s of Object.values(b.sections)){s.count=s.rows.length;s.checksum=digest(s.rows)}return b.format==='10s-tenant-backup/2'?authenticateBackup(b,cfg.signing):seal(b)};
   const badcases=[];
   let incompatible=structuredClone(a);incompatible.migrations=incompatible.migrations.filter(m=>m.migration_name!=='20261024_lancamento_optional_fields');
   await assert.rejects(previewRestore(pool,ctx,resign(incompatible),cfg),{code:'SCHEMA_VERSION'});checks++;
