@@ -39,7 +39,9 @@ export default function AppearanceProvider({children}:{children:React.ReactNode}
   <dialog ref={dialog} className="appearance-dialog" aria-labelledby="appearance-title" onCancel={e=>{e.preventDefault();cancel();}}>
    {draft&&<><header><div><h2 id="appearance-title">Conta / Aparência</h2><p>Preferência pessoal neste navegador, independente da empresa selecionada.</p></div><button type="button" aria-label="Fechar aparência" onClick={cancel}>×</button></header>
    <div className="appearance-content">
-    <div className="appearance-modes" role="group" aria-label="Modo de aparência">{([['light','Claro'],['dark','Escuro'],['custom','Personalizado']] as const).map(([mode,label])=><button key={mode} type="button" aria-pressed={draft.mode===mode} onClick={()=>choose(mode)}>{label}</button>)}</div>
+    <div className="appearance-toolbar"><div className="appearance-modes" role="group" aria-label="Modo de aparência">{([['light','Claro'],['dark','Escuro'],['custom','Personalizado']] as const).map(([mode,label])=><button key={mode} type="button" aria-pressed={draft.mode===mode} onClick={()=>choose(mode)}>{label}</button>)}</div>
+     {draft.mode==='custom'&&<button type="button" className="appearance-reset" title="Restaura a base Claro da DEZ, intensidade 50%, sem refinamentos manuais." onClick={()=>setDraft(resetGuided(draft))}>Restaurar Personalizado</button>}
+    </div>
     {draft.mode!=='custom'?<p>Preset oficial preservado. Para editar cores, escolha Personalizado.</p>:<>
      {draft.guide.advanced&&<p className="appearance-manual-notice" role="status">Cores manuais preservadas. Alterar intensidade ou cor geral substituirá os ajustes manuais pelas cores da base selecionada.</p>}
      <div className="appearance-guide-controls">
@@ -62,15 +64,15 @@ export default function AppearanceProvider({children}:{children:React.ReactNode}
      </div>
      {invalid?<p className="appearance-error" role="alert">{invalid} A aplicação mantém uma aparência segura até a correção.</p>:result?.adjusted&&<p role="status">Textos e ações foram ajustados automaticamente para preservar o contraste.</p>}
     </>}
+    <div className="appearance-preview-grid">
     <section className="appearance-miniature" aria-label="Prévia da interface">
      <h3>Prévia da interface</h3><div className="appearance-mini-shell"><div className="appearance-mini-sidebar" aria-hidden="true"><i/><i/><i/></div><div className="appearance-mini-workspace"><div className="appearance-mini-header">Área de trabalho</div><div className="appearance-mini-card"><small>VISÃO GERAL</small><h4>Seu espaço de trabalho</h4><p>Veja como textos, superfícies e ações combinam.</p><div className="appearance-mini-actions"><button type="button" className="appearance-mini-highlight">Destaque</button><button type="button" className="appearance-save">Ação principal</button></div></div></div></div>
-     <div className="appearance-semantics" aria-label="Cores semânticas protegidas"><span>Sucesso</span><span>Alerta</span><span>Erro</span><span>Informação</span></div>
     </section>
+    <section className="appearance-examples" aria-labelledby="appearance-examples-title"><h3 id="appearance-examples-title">Exemplos de componentes</h3><div className="appearance-preview"><div className="appearance-example-fields"><label>Campo de exemplo<input placeholder="Digite para conferir a leitura" /></label><label>Lista de exemplo<select defaultValue="Opção selecionada"><option>Opção selecionada</option><option>Outra opção</option></select></label></div><table><thead><tr><th>Descrição</th><th>Estado</th></tr></thead><tbody><tr><td>Exemplo de linha</td><td>Selecionada</td></tr></tbody></table><div className="appearance-semantics" aria-label="Cores semânticas protegidas"><span>Sucesso</span><span>Alerta</span><span>Erro</span><span>Informação</span></div></div></section>
+    </div>
     {draft.mode==='custom'&&<>
      <details className="appearance-disclosure"><summary>Ajustes avançados</summary><p>Refine cores individualmente. Ao usar novamente intensidade ou cor geral, a paleta será recalculada.</p><div className="appearance-colors">{PALETTE_KEYS.map(field=><label key={field}><span>{labels[field]}</span><div><input type="color" aria-label={`${labels[field]} — seletor`} value={/^#[0-9a-f]{6}$/i.test(draft.palette[field])?draft.palette[field]:'#000000'} onChange={e=>color(field,e.target.value)}/><input aria-label={`${labels[field]} — HEX`} value={draft.palette[field]} maxLength={7} spellCheck={false} onChange={e=>color(field,e.target.value)}/></div></label>)}</div></details>
-     <button type="button" className="appearance-reset" onClick={()=>setDraft(resetGuided(draft))}>Restaurar Personalizado</button><p>Restaura a base Claro da DEZ, intensidade 50%, sem refinamentos manuais.</p>
     </>}
-    <details className="appearance-disclosure"><summary>Ver exemplos de componentes</summary><section className="appearance-preview" aria-label="Prévia de aparência"><label>Campo de exemplo<input placeholder="Digite para conferir a leitura" /></label><label>Lista de exemplo<select defaultValue="Opção selecionada"><option>Opção selecionada</option><option>Outra opção</option></select></label><table><thead><tr><th>Descrição</th><th>Estado</th></tr></thead><tbody><tr><td>Exemplo de linha</td><td>Selecionada</td></tr></tbody></table></section></details>
     {notice&&<p role="alert" className="appearance-error">{notice}</p>}
    </div><footer><button type="button" onClick={cancel}>Cancelar</button><button type="button" className="appearance-save" disabled={!!invalid||!key} onClick={save}>Salvar aparência</button></footer></>}
   </dialog>
