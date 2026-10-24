@@ -34,8 +34,14 @@ async function main(){
   await q("INSERT INTO term_documents(id,code,audience) VALUES($1,'LAB','USUARIO')",[doc]);
   await q("INSERT INTO term_versions(id,document_id,version,storage_key,title,mime_type,byte_size,sha256) VALUES($1,$2,'1',$3,'Laboratório','application/pdf',$4,$5)",[version,doc,pdfKey,pdf.length,crypto.createHash('sha256').update(pdf).digest('hex')]);
   await q("INSERT INTO term_acceptances(id,identity_id,term_version_id,scope_key,document_hash) VALUES($1,$2,$3,'GLOBAL',$4)",[id(),identity,version,crypto.createHash('sha256').update(pdf).digest('hex')]);
+  const foreignDoc=id(),foreignVersion=id(),foreignKey=id()+'.pdf';await fs.writeFile(cfg.termDir+'/'+foreignKey,pdf);
+  await q("INSERT INTO term_documents(id,code,audience) VALUES($1,'OTHER_CONTRACT','CONTRATANTE')",[foreignDoc]);
+  await q("INSERT INTO term_versions(id,document_id,version,storage_key,title,mime_type,byte_size,sha256) VALUES($1,$2,'1',$3,'Outro contrato','application/pdf',$4,$5)",[foreignVersion,foreignDoc,foreignKey,pdf.length,crypto.createHash('sha256').update(pdf).digest('hex')]);
+  const foreignMember=id();await q("INSERT INTO tenant_memberships(id,identity_id,tenant_id,role) VALUES($1,$2,$3,'OWNER')",[foreignMember,identity,other]);
+  await q("INSERT INTO term_acceptances(id,identity_id,term_version_id,tenant_id,membership_id,scope_key,role_at_acceptance,document_hash) VALUES($1,$2,$3,$4,$5,$4,'OWNER',$6)",[id(),identity,foreignVersion,other,foreignMember,crypto.createHash('sha256').update(pdf).digest('hex')]);
   let checks=0; const ok=(v)=>{assert.ok(v);checks++};
-  const preserved=async()=>q(`SELECT 'identity' t,to_jsonb(x) v FROM auth_identities x UNION ALL SELECT 'pa',to_jsonb(x) FROM platform_admins x UNION ALL SELECT 'isolation',to_jsonb(x) FROM lancamentos x WHERE tenant_id='${other}' ORDER BY t`);
+  const scopedTables=(await q("SELECT table_name FROM information_schema.columns WHERE table_schema='public' AND column_name='tenant_id' ORDER BY table_name")).map(r=>r.table_name);
+  const preserved=async()=>{const result={global:await q("SELECT 'identity' t,to_jsonb(x) v FROM auth_identities x UNION ALL SELECT 'pa',to_jsonb(x) FROM platform_admins x ORDER BY t")};for(const t of scopedTables){assert.match(t,/^[a-z_]+$/);result[t]=await q(`SELECT to_jsonb(x) v FROM "${t}" x WHERE tenant_id=$1 ORDER BY to_jsonb(x)::text`,[other])}return result};
   const baseline=await preserved();const a=await createBackup(pool,ctx,cfg);ok(a.sections.lancamentos.count===1);ok(!JSON.stringify(a).includes('non-login'));ok(a.files.length===1);
   await q("UPDATE lancamentos SET descricao='ESTADO B',valor_previsto=99 WHERE id=$1",[entry]);
   await q("DELETE FROM pessoas WHERE tenant_id=$1",[tenant]);
@@ -76,7 +82,7 @@ async function main(){
   await writer.query('ROLLBACK');writer.release();
   // Restore final A; restore never increments/deletes immutable evidences.
   preview=await previewRestore(pool,ctx,a,cfg);await restoreBackup(pool,ctx,a,cfg,preview.currentDigest,id());
-  ok((await q('SELECT count(*)::int n FROM term_acceptances'))[0].n===1);
+  ok((await q('SELECT count(*)::int n FROM term_acceptances'))[0].n===2);
   console.log(JSON.stringify({state:'PASSED',checks,tenant,other,masterReady:true}));await pool.end();
 }
 main().catch(e=>{console.error('LAB_FAILED',e.code||e.name,e.message?.replace(/postgres(?:ql)?:\/\/\S+/g,'[REDACTED]'));process.exitCode=1});
