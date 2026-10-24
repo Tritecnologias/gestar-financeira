@@ -516,6 +516,11 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
           )}
 
           {/* Configurações */}
+          {allowed.has("sistema.backup.view") && <div className="sb-row-wrap">
+            <Link href="/backups" className={`sb-row ${pathname === "/backups" ? "sb-row--active" : ""}`} onClick={() => setMobileOpen(false)}>
+              <span className="sb-icon">↺</span><span className="sb-label">Backup da empresa</span>
+            </Link>
+          </div>}
           {allowed.has("sistema.configuracoes.view") && <div className="sb-divider" />}
           {allowed.has("sistema.configuracoes.view") && <div
             className="sb-row-wrap"

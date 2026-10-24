@@ -11,6 +11,7 @@ const OWNER_ESSENTIAL = [
   "acessos.usuarios.view", "acessos.usuarios.manage",
   "acessos.perfis.view", "acessos.perfis.manage",
   "acessos.auditoria.view",
+  "sistema.backup.view", "sistema.backup.create", "sistema.backup.restore",
 ];
 
 /** Re-read the current profile: changes and revocations affect existing sessions. */

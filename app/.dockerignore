@@ -38,6 +38,17 @@
 **/*.p12
 **/*credentials*
 **/*backup*
+# Recovery implementation is source code, never backup payload. Exact code-only exceptions.
+!src/lib/backup/
+!src/lib/backup/*.mjs
+!src/lib/backup-service.ts
+!src/components/backup/
+!src/components/backup/BackupClient.tsx
+!src/app/api/backups/
+!src/app/api/backups/route.ts
+!src/app/(app)/backups/
+!src/app/(app)/backups/page.tsx
+!tests/backup-format.test.mjs
 **/*audit-macro*
 **/*.tmp
 **/*.tsbuildinfo
