@@ -34,6 +34,7 @@ export function inspectXlsxEnvelope(bytes) {
     catch { fail(); }
     if (data.length !== actual) fail();
     expanded += data.length;
+    if (/\.(?:xml|rels)$/i.test(name) && /<!DOCTYPE|<!ENTITY/i.test(data.toString('utf8'))) fail();
     if (/vbaProject|externalLinks/i.test(name)) fail();
     if (name === '[Content_Types].xml' && !data.toString().includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml')) fail();
     // Prevent huge sparse ranges BEFORE conversion into a SheetJS matrix.
@@ -41,11 +42,11 @@ export function inspectXlsxEnvelope(bytes) {
       if (++worksheets > 2) throw importError('Use somente LANCAMENTOS e, opcionalmente, INSTRUCOES.');
       const xml = data.toString('utf8');
       if (/<!DOCTYPE|<!ENTITY/i.test(xml)) fail();
-      const refs = xml.matchAll(/\b(?:r|ref)="([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?"/g);
+      const refs = xml.matchAll(/\b(?:r|ref)\s*=\s*["']([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?["']/gi);
       let cells = 0;
       for (const m of refs) {
         for (const [letters, row] of [[m[1], m[2]], [m[3], m[4]]]) if (letters) {
-          const col = [...letters].reduce((a, c) => a * 26 + c.charCodeAt(0) - 64, 0);
+          const col = [...letters.toUpperCase()].reduce((a, c) => a * 26 + c.charCodeAt(0) - 64, 0);
           if (col > 64 || Number(row) > 10001) throw importError('Planilha excede 10.000 linhas de dados ou 64 colunas.');
         }
         if (++cells > 650000) fail();
