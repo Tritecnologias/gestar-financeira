@@ -11,6 +11,7 @@
 .lanc-filter-main .filter-group { min-width: 108px; }
 .lanc-filter-main .lanc-filter-action { min-width: 0; }
 .lanc-filter-actions { display: flex; flex-wrap: wrap; align-items: end; justify-content: flex-end; gap: 8px; margin-left: auto; max-width: 100%; }
+.lanc-page .lanc-filter-actions > button { height: 44px; min-height: 44px; }
 .lanc-filter-main .filter-input { width: 100%; min-width: 0; min-height: 34px; }
 .lanc-page select.filter-input { color-scheme: light; }
 [data-theme="dark"] .lanc-page select.filter-input { color-scheme: dark; }

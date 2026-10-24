@@ -905,7 +905,8 @@ export default function LancamentosClient({ hoje }: { hoje: string }) {
               <input className="filter-input" value={buscaInput} placeholder="Cliente, fornecedor, fantasia, descrição, anotação"
                 onChange={event => atualizarFiltro("busca", event.target.value)} /></label>
             <div className="lanc-toolbar-actions">
-            {canCreate && !inlineNewOpen && <button className="btn btn-outline" onClick={() => {
+            {canCreate && <button className="btn btn-outline" type="button" disabled={inlineNewOpen}
+              title={inlineNewOpen ? "Já existe uma linha NOVO aberta na tabela" : "Abrir uma nova linha na tabela"} onClick={() => {
               setInlineNewValues({}); setInlineNewOpen(true);
               setTimeout(() => inlineNewFirstRef.current?.focus(), 50);
             }}>+ Nova Linha</button>}
