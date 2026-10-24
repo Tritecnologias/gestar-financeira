@@ -1,3 +1,4 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -27,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
   }
 }
 
-export async function POST(req: NextRequest, { params }: Params) {
+async function handlePOST(req: NextRequest, { params }: Params) {
   try {
     const actor = await requirePlatformAdmin();
     const { id: tenantId } = await params;
@@ -140,3 +141,5 @@ export async function POST(req: NextRequest, { params }: Params) {
       { status: failure?.status ?? (failure?.code === "P2002" ? 409 : 500) });
   }
 }
+
+export const POST = withAccessRequest("OWNER_INVITE", handlePOST);

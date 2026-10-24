@@ -1,3 +1,4 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { trustedClientIp } from "@/lib/trusted-proxy";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -5,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/tenant";
 import { auditContext, writeAudit } from "@/lib/audit";
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const { session } = await requireSession({ allowPendingTerms: true });
     if (session.authMode !== "identity" || !session.identityId ||
@@ -62,3 +63,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: status === 500 ? "Falha ao registrar aceite." : (error as Error).message }, { status });
   }
 }
+
+export const POST = withAccessRequest("TERM_ACCEPT", handlePOST);

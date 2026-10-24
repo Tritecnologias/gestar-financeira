@@ -1,9 +1,10 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { expireInvite, hashInviteToken, INVITE_UNAVAILABLE, validInviteToken } from "@/lib/access-invites";
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
   try {
     const { token } = await req.json();
@@ -32,3 +33,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: INVITE_UNAVAILABLE }, { status: 404, headers });
   }
 }
+
+export const POST = withAccessRequest("INVITE_INSPECT", handlePOST);

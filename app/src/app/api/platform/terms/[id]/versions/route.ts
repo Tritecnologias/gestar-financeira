@@ -1,3 +1,4 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
@@ -6,7 +7,7 @@ import { writeAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function POST(req: NextRequest, { params }: Params) {
+async function handlePOST(req: NextRequest, { params }: Params) {
   let storageKey: string | null = null;
   try {
     const actor = await requirePlatformAdmin();
@@ -42,3 +43,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: status === 409 ? "Versão já cadastrada." : status === 500 ? "Falha ao criar versão." : (error as Error).message }, { status });
   }
 }
+
+export const POST = withAccessRequest("TERM_UPLOAD", handlePOST);

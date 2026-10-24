@@ -1,3 +1,4 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -7,7 +8,7 @@ import { writeAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function POST(_req: NextRequest, { params }: Params) {
+async function handlePOST(_req: NextRequest, { params }: Params) {
   try {
     const actor = await requirePlatformAdmin();
     if (!actor.identityId) return NextResponse.json({ error: "Publicação exige PlatformAdmin com identidade atual." }, { status: 403 });
@@ -38,3 +39,5 @@ export async function POST(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: status === 500 ? "Falha ao publicar versão." : (error as Error).message }, { status });
   }
 }
+
+export const POST = withAccessRequest("TERM_PUBLISH", handlePOST);

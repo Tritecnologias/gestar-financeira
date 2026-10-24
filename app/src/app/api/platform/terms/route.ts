@@ -1,3 +1,4 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
@@ -13,7 +14,7 @@ export async function GET() {
   return NextResponse.json(documents, { headers: { "Cache-Control": "private, no-store" } });
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const actor = await requirePlatformAdmin();
     const body = await req.json();
@@ -34,3 +35,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: status === 409 ? "Código já cadastrado." : status === 500 ? "Falha ao criar documento." : (error as Error).message }, { status });
   }
 }
+
+export const POST = withAccessRequest("TERM_CREATE", handlePOST);

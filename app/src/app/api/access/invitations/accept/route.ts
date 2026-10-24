@@ -1,3 +1,4 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -6,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { expireInvite, hashInviteToken, INVITE_UNAVAILABLE, validInviteToken } from "@/lib/access-invites";
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
   if (legacyAuthEnabled) return NextResponse.json({ error: "Ativação indisponível neste modo de autenticação." }, { status: 503, headers });
   try {
@@ -62,8 +63,9 @@ export async function POST(req: NextRequest) {
           actorIdentityId: pending.invitedByIdentityId, targetIdentityId: identity.id,
           targetMembershipId: membership.id, previousRole: null, previousStatus: null } });
         await writeAudit(tx, { tenantId: pending.tenantId, actorIdentityId: pending.invitedByIdentityId,
-          accessMode: "MEMBERSHIP", action: "OWNER_ASSIGNED", resourceType: "TenantMembership",
-          resourceId: membership.id });
+          accessMode: "SYSTEM", action: "OWNER_ASSIGNED", resourceType: "TenantMembership",
+          resourceId: membership.id, reason: "Ativação de convite OWNER autorizado",
+          metadata: { invitationId: pending.id } });
       }
       await tx.accessInvite.update({ where: { id: pending.id }, data: { acceptedByIdentityId: identity.id } });
       await writeAudit(tx, { tenantId: pending.tenantId, actorIdentityId: identity.id,
@@ -82,3 +84,5 @@ export async function POST(req: NextRequest) {
       { status: failure?.status ?? 500, headers });
   }
 }
+
+export const POST = withAccessRequest("INVITE_ACCEPT", handlePOST);

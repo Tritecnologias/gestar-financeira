@@ -1,5 +1,6 @@
 import { Prisma, type AuditAccessMode, type AuditResult } from "@prisma/client";
 import type { UserSession } from "@/types";
+import { accessRequestContext } from "@/lib/access-request-context";
 
 type Writer = Pick<Prisma.TransactionClient, "auditEvent" | "platformAdmin">;
 type SafeObject = Record<string, string | number | boolean | null | string[]>;
@@ -38,6 +39,7 @@ function safeObject(value?: SafeObject): Prisma.InputJsonValue | undefined {
 }
 
 export async function writeAudit(tx: Writer, input: AuditInput) {
+  const trace = accessRequestContext(input.tenantId);
   const before = safeObject(input.changes?.before);
   const after = safeObject(input.changes?.after);
   const platformAdminId = input.platformAdminId ??
@@ -58,7 +60,7 @@ export async function writeAudit(tx: Writer, input: AuditInput) {
     reason: input.reason?.slice(0, 200) ?? null,
     metadata: safeObject(input.metadata),
     changes: before || after ? { before: before ?? {}, after: after ?? {} } : undefined,
-    requestId: input.requestId?.slice(0, 100) ?? null,
+    requestId: input.requestId?.slice(0, 100) ?? trace?.requestId ?? null,
   } });
 }
 

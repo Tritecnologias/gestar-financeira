@@ -1,3 +1,4 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
@@ -5,7 +6,7 @@ import { writeAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function POST(req: NextRequest, { params }: Params) {
+async function handlePOST(req: NextRequest, { params }: Params) {
   try {
     const actor = await requirePlatformAdmin();
     if (!actor.identityId) return NextResponse.json({ error: "Designação exige identidade PlatformAdmin." }, { status: 403 });
@@ -34,3 +35,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: (error as {status?: number}).status ? (error as Error).message : "Falha ao designar responsável contratual." }, { status: (error as {status?: number}).status ?? 500 });
   }
 }
+
+export const POST = withAccessRequest("CONTRACT_RESPONSIBLE", handlePOST);

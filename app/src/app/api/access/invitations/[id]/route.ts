@@ -1,3 +1,4 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -9,7 +10,7 @@ import { deliverAndAuditInvitation } from "@/lib/invite-delivery";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function POST(req: NextRequest, { params }: Params) {
+async function handlePOST(req: NextRequest, { params }: Params) {
   try {
     const { session } = await requireTenantPermission("acessos.usuarios.manage");
     const { id } = await params;
@@ -86,3 +87,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     const e = permissionError(error); return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }
+
+export const POST = withAccessRequest("INVITE_ACTION", handlePOST);

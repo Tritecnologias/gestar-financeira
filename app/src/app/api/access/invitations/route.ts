@@ -1,3 +1,4 @@
+import { withAccessRequest } from "@/lib/access-request-context";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -28,7 +29,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const { session } = await requireTenantPermission("acessos.usuarios.manage");
     const emailConfig = getEmailServiceConfig(req.nextUrl);
@@ -90,3 +91,5 @@ export async function POST(req: NextRequest) {
     const e = permissionError(error); return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }
+
+export const POST = withAccessRequest("INVITE_CREATE", handlePOST);
