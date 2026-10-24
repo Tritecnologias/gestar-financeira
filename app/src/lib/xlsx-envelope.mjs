@@ -5,7 +5,8 @@ const MAX_ENTRIES = 512;
 function fail() { throw importError('XLSX inválido ou estrutura excede os limites de segurança.'); }
 
 /** Inspect every ZIP entry and bound actual expansion before SheetJS. ZIP64/encryption are unsupported. */
-export function inspectXlsxEnvelope(bytes) {
+export function inspectXlsxEnvelope(bytes, { maxSheets = 2 } = {}) {
+  if (!Number.isInteger(maxSheets) || maxSheets < 1 || maxSheets > 5) fail();
   if (!bytes.length) throw importError('Arquivo vazio.');
   if (bytes.length > MAX_FILE_BYTES) throw importError('O XLSX deve ter no máximo 10 MiB.', 413, 'SIZE');
   const b = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -39,7 +40,7 @@ export function inspectXlsxEnvelope(bytes) {
     if (name === '[Content_Types].xml' && !data.toString().includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml')) fail();
     // Prevent huge sparse ranges BEFORE conversion into a SheetJS matrix.
     if (/^xl\/worksheets\/[^/]+\.xml$/.test(name)) {
-      if (++worksheets > 2) throw importError('Use somente LANCAMENTOS e, opcionalmente, INSTRUCOES.');
+      if (++worksheets > maxSheets) throw importError(maxSheets === 2 ? 'Use somente LANCAMENTOS e, opcionalmente, INSTRUCOES.' : 'Quantidade de abas excede o contrato deste importador.');
       const xml = data.toString('utf8');
       if (/<!DOCTYPE|<!ENTITY/i.test(xml)) fail();
       const refs = xml.matchAll(/\b(?:r|ref)\s*=\s*["']([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?["']/gi);
