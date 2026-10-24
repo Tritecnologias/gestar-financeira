@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { databaseConfig } from "./database-config.mjs";
 
 // ── Singleton do Prisma Client (Prisma v7 com adapter pg) ─────
 // Prisma v7 requer um adapter para conexão direta ao PostgreSQL
@@ -9,10 +10,9 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL!;
+  const { connectionString, schema } = databaseConfig();
   // Keep the adapter in the same PostgreSQL schema selected by Prisma Migrate.
   // The production URL has no schema override; isolated DEV tests use one.
-  const schema = new URL(connectionString).searchParams.get("schema") || undefined;
   const adapter = new PrismaPg({ connectionString }, schema ? { schema } : undefined);
   return new PrismaClient({
     adapter,

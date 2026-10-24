@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-gestar_admin}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-gestar@2024_secure}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required; configure a private secret}
       POSTGRES_DB: ${DB_NAME:-gestar_financeira}
     ports:
       - "127.0.0.1:5433:5432"
@@ -25,12 +25,15 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile
+      args:
+        SOURCE_COMMIT: ${SOURCE_COMMIT:?SOURCE_COMMIT must be the exact clean checkout SHA}
+        SOURCE_BRANCH: ${SOURCE_BRANCH:-homologacao}
     container_name: gestar_app
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-gestar_admin}:${DB_PASSWORD:-gestar@2024_secure}@postgres:5432/${DB_NAME:-gestar_financeira}
+      DATABASE_URL: postgresql://${DB_USER:-gestar_admin}:${DB_PASSWORD:?DB_PASSWORD is required; configure a private secret}@postgres:5432/${DB_NAME:-gestar_financeira}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://dezsolucoes.com.br}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-TROQUE_ESTE_SECRET_EM_PRODUCAO}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required; configure a private secret}
       ACCESS_AUTH_MODE: ${ACCESS_AUTH_MODE:-legacy}
       AUTH_TRUST_HOST: "true"
       NODE_ENV: production

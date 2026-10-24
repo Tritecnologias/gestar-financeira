@@ -8,6 +8,9 @@ const intentional = new Set([
   "tenants/route.ts",            // own memberships or PlatformAdmin; POST platform only
   "tenants/switch/route.ts",     // choose an already-authorized membership
   "usuarios/[id]/route.ts",      // 410 in identity mode; legacy admin only
+  "access/invitations/inspect/route.ts", // public token inspection; existing ACCESS invitation protocol
+  "access/invitations/accept/route.ts",  // public token/password activation; existing ACCESS protocol
+  "lancamentos/importar/route.ts", // permanently retired 410; no payload/DB access (security-phase1a test)
 ]);
 function* walk(dir) {
   for (const item of readdirSync(dir, { withFileTypes: true })) {

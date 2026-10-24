@@ -1,3 +1,4 @@
+import { trustedClientIp } from "@/lib/trusted-proxy";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
     const version = await prisma.termVersion.findUnique({ where: { id: body.versionId }, include: { document: true } });
     if (!version || version.status !== "PUBLISHED") return NextResponse.json({ error: "Versão fora de vigência." }, { status: 409 });
-    const ip = (req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",")[0] || "").trim().slice(0, 64) || null;
+    const ip = await trustedClientIp(req.headers);
     const userAgent = req.headers.get("user-agent")?.slice(0, 512) || null;
     const contract = version.document.audience === "CONTRATANTE";
     const result = await prisma.$transaction(async tx => {

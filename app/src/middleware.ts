@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { trustedClientIp } from "@/lib/trusted-proxy";
+import { allowLoginAttempt } from "@/lib/login-rate-limit";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -17,33 +19,9 @@ export async function middleware(req: NextRequest) {
   //    cold starts/deploys. Para produção multi-instância, migrar para um
   //    store externo (Redis/Upstash).
   if (pathname === "/api/auth/callback/credentials" && req.method === "POST") {
-    // x-forwarded-for pode ser uma lista "ip1, ip2, ..." — usar o primeiro (cliente)
-    const fwd = req.headers.get("x-forwarded-for");
-    const ip = (fwd ? fwd.split(",")[0] : req.headers.get("x-real-ip"))?.trim() || "unknown";
-    const key = `login:${ip}`;
-
-    const WINDOW = 15 * 60 * 1000;
-    const MAX = 10;
-    const now = Date.now();
-    const stored: Map<string, { count: number; resetAt: number }> =
-      (globalThis as any).__rateLimit ?? new Map();
-    (globalThis as any).__rateLimit = stored;
-
-    const entry = stored.get(key);
-    const janelaAtiva = entry && now < entry.resetAt;
-
-    if (janelaAtiva && entry.count >= MAX) {
+    const ip = await trustedClientIp(req.headers);
+    if (!allowLoginAttempt(ip)) {
       return NextResponse.json({ error: "Muitas tentativas. Aguarde 15 minutos." }, { status: 429 });
-    }
-
-    if (janelaAtiva) {
-      entry.count++;
-    } else {
-      stored.set(key, { count: 1, resetAt: now + WINDOW });
-      // Limpeza oportunista de entradas expiradas para o Map não crescer sem limite
-      for (const [k, v] of stored) {
-        if (now > v.resetAt) stored.delete(k);
-      }
     }
   }
 
