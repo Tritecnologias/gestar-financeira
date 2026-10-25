@@ -4,6 +4,7 @@ import { join, isAbsolute } from 'node:path';
 import { TABLES, REFERENCE_TABLES, COLUMNS, FOREIGN_KEYS } from './catalog.mjs';
 import { VERSION, MAX_BYTES, canonical, digest, fail, validate } from './format.mjs';
 import { authenticateBackup, verifyProvenance, HISTORICAL_RELATIONS } from './provenance.mjs';
+import { assertBackupMigrations } from './schema-contract.mjs';
 
 const qi = name => '"' + name.replaceAll('"', '""') + '"';
 async function rows(db, sql, args = []) { return (await db.query(sql, args)).rows; }
@@ -68,9 +69,7 @@ async function snapshot(db, tenantId, config) {
   if (!tenant) fail('TENANT_NOT_FOUND');
   const migrations = await rows(db, 'SELECT migration_name,checksum FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name');
   const [pending] = await rows(db, 'SELECT count(*)::int n FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL');
-  if (pending.n || migrations.length !== 17 ||
-      !migrations.some(m => m.migration_name === '20261024_z_tenant_restore_lock') ||
-      !migrations.some(m => m.migration_name === '20261024_lancamento_optional_fields')) fail('MIGRATIONS', 'Schema fora do contrato de backup (17 migrations). Atualize o mecanismo antes de prosseguir.', 409);
+  assertBackupMigrations(migrations, pending.n);
   const sections = {};
   for (const t of TABLES) {
     // JSON-safe bigint representation; numeric money remains PostgreSQL numeric on reinsert.

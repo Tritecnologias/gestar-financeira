@@ -17,6 +17,10 @@ async function main(){
  async function login(email,password){const jar=new Map();const csrf=await(await request(jar,'/api/auth/csrf')).json();const r=await fetch(base+'/api/auth/callback/credentials',{method:'POST',redirect:'manual',headers:{Cookie:[...jar].map(([k,v])=>`${k}=${v}`).join('; '),'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrfToken:csrf.csrfToken,email,password,callbackUrl:base+'/inicio',json:'true'})});for(const h of r.headers.getSetCookie()){const [p]=h.split(';'),i=p.indexOf('=');jar.set(p.slice(0,i),p.slice(i+1))}assert((await(await request(jar,'/api/auth/session')).json())?.user);return jar}
  try{
   const tenants=(await query('SELECT id FROM tenants ORDER BY id')).map(r=>r.id);assert.equal(tenants.length,8);
+  const history=(await query(`SELECT
+   (SELECT count(*)::int FROM lancamentos l JOIN usuarios u ON u.id=l.criado_por WHERE u.tenant_id<>l.tenant_id) authors,
+   (SELECT count(*)::int FROM layouts_colunas l JOIN usuarios u ON u.id=l.usuario_id WHERE u.tenant_id<>l.tenant_id) layouts`))[0];
+  ok(history.authors===31&&history.layouts===2,'historical-31-authors-2-layout-owners-counted');
   const contexts=[];for(const tenantId of tenants){const [m]=await query("SELECT id,identity_id FROM tenant_memberships WHERE tenant_id=$1 AND role='OWNER' AND status='ACTIVE'",[tenantId]);assert(m);contexts.push({tenantId,membershipId:m.id,identityId:m.identity_id})}
   const password=crypto.randomBytes(32).toString('base64url');
   // Only this disposable DB: replace one credential with a random synthetic test credential.
@@ -96,12 +100,13 @@ async function main(){
   await query('UPDATE lancamentos SET anotacao=anotacao WHERE tenant_id=$1 AND id=$2',[ctx.tenantId,b.sections.lancamentos.rows[0].id]);
   await assert.rejects(restoreBackup(pool,ctx,b,cfg,stale.currentDigest,id()),{code:'STALE_PREVIEW'});ok(true,'stale-preview-rejected');
   // Synthetic business fixtures on an existing laboratory tenant; no access provisioning.
-  const synctx=contexts[6],synthetics=[id(),id()];let seq=(await query('SELECT coalesce(max(seq),0)::int n FROM lancamentos WHERE tenant_id=$1',[synctx.tenantId]))[0].n;
+  const synctx=contexts[6],synthetics=[id(),id(),id(),id()];let seq=(await query('SELECT coalesce(max(seq),0)::int n FROM lancamentos WHERE tenant_id=$1',[synctx.tenantId]))[0].n;
   await query("INSERT INTO lancamentos(id,tenant_id,seq,descricao,valor_previsto) VALUES($1,$2,$3,'PHASE91 SYNTHETIC NULL',NULL),($4,$2,$5,NULL,0)",[synthetics[0],synctx.tenantId,++seq,synthetics[1],++seq]);
+  await query("INSERT INTO lancamentos(id,tenant_id,seq,valor) VALUES($1,$2,$3,0),($4,$2,$5,0.01)",[synthetics[2],synctx.tenantId,++seq,synthetics[3],++seq]);
   const synthetic=await createBackup(pool,synctx,cfg);await query('DELETE FROM lancamentos WHERE tenant_id=$1 AND id=ANY($2::text[])',[synctx.tenantId,synthetics]);
   const sp=await previewRestore(pool,synctx,synthetic,cfg);await restoreBackup(pool,synctx,synthetic,cfg,sp.currentDigest,id());
   const sr=await query('SELECT id,data_lanc,tipo,valor,valor_previsto,status FROM lancamentos WHERE id=ANY($1::text[])',[synthetics]);
-  ok(sr.length===2&&sr.every(r=>r.data_lanc===null&&r.tipo===null&&r.valor===null&&r.status==='realizado')&&sr.some(r=>r.valor_previsto===null)&&sr.some(r=>r.valor_previsto==='0.00'),'synthetic-null-zero-restore');
+  ok(sr.length===4&&sr.every(r=>r.data_lanc===null&&r.tipo===null&&r.status==='realizado')&&sr.filter(r=>r.valor===null).length===2&&sr.some(r=>r.valor==='0.00')&&sr.some(r=>r.valor==='0.01')&&sr.some(r=>r.valor_previsto==='0.00'),'synthetic-null-zero-cent-restore');
   // Current database guards: no OWNER, revoked membership, inactive identity and PA alone remain denied.
   const member=(await query("SELECT id,identity_id,tenant_id FROM tenant_memberships WHERE role='MEMBER' LIMIT 1"))[0];
   await assert.rejects(previewRestore(pool,{tenantId:member.tenant_id,membershipId:member.id,identityId:member.identity_id},originals[tenants.indexOf(member.tenant_id)],cfg),{code:'PERMISSION'});ok(true,'member-cannot-restore');
