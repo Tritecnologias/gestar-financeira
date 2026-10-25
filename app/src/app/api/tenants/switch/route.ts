@@ -4,6 +4,7 @@ import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { tenantContextCookieOptions, tenantOverrideCookieOptions } from "@/lib/access-policy";
 import { writeAudit } from "@/lib/audit";
+import { authorizedSupportGrant, lockSupportOperator } from "@/lib/support-authorization";
 
 // POST /api/tenants/switch — trocar tenant ativo (admin_global apenas)
 export async function POST(req: NextRequest) {
@@ -19,16 +20,13 @@ export async function POST(req: NextRequest) {
       const identity = await getIdentityAccess();
       const membership = identity.memberships.find(m => m.tenantId === tenantId);
       if (grantId !== undefined) {
-        if (typeof grantId !== "string" || !grantId || membership || identity.platformAdmin?.status !== "ACTIVE") {
+        if (typeof grantId !== "string" || !grantId || membership || identity.supportOperator?.status !== "ACTIVE") {
           return NextResponse.json({ error: "Contexto de suporte inválido" }, { status: 403 });
         }
-        const grant = await prisma.supportGrant.findFirst({ where: {
-          id: grantId, tenantId, platformAdminIdentityId: identity.id, status: "ACTIVE",
-          startsAt: { lte: new Date() }, expiresAt: { gt: new Date() }, tenant: { ativo: true },
-        }, select: { id: true, tenantId: true } });
-        if (!grant) return NextResponse.json({ error: "Acesso de suporte ausente, revogado ou expirado" }, { status: 403 });
         const previous = req.cookies.get("tenant_context")?.value || req.cookies.get("support_context")?.value;
         await prisma.$transaction(async tx => {
+          await lockSupportOperator(tx, identity.id);
+          const grant = await authorizedSupportGrant(tx, identity.id, grantId, tenantId);
           await tx.supportGrantEvent.create({ data: { grantId: grant.id, tenantId: grant.tenantId,
             type: "USED", actorIdentityId: identity.id, detail: "Entrada no contexto de suporte." } });
           await writeAudit(tx, { tenantId, actorIdentityId: identity.id, accessMode: "SUPPORT_GRANT",
@@ -39,7 +37,7 @@ export async function POST(req: NextRequest) {
             resourceType: "Tenant", resourceId: tenantId, supportGrantId: grant.id });
         });
         const res = NextResponse.json({ active: tenantId, kind: "SUPPORT_GRANT" });
-        res.cookies.set("support_context", `${identity.id}:${identity.loginNonce}:${grant.id}`, tenantContextCookieOptions());
+        res.cookies.set("support_context", `${identity.id}:${identity.loginNonce}:${grantId}`, tenantContextCookieOptions());
         res.cookies.set("tenant_context", "", { ...tenantContextCookieOptions(), maxAge: 0 });
         return res;
       }

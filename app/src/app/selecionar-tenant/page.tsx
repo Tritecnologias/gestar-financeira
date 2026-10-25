@@ -7,7 +7,7 @@ import Link from "next/link";
 
 type Choice = { id: string; nome: string; role?: "OWNER" | "ADMIN" | "MEMBER";
   kind?: "MEMBERSHIP" | "SUPPORT_GRANT"; grantId?: string; accessLevel?: string;
-  expiresAt?: string; isActive: boolean };
+  expiresAt?: string; entryPath?: string; isActive: boolean };
 
 export default function SelecionarTenant() {
   const router = useRouter();
@@ -15,6 +15,7 @@ export default function SelecionarTenant() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [platformAdmin, setPlatformAdmin] = useState(false);
+  const [supportOperator, setSupportOperator] = useState(false);
 
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export default function SelecionarTenant() {
         if (res.status === 401) { router.replace("/login"); return null; }
         if (!res.ok) throw new Error("Não foi possível carregar os vínculos ativos.");
         setPlatformAdmin(res.headers.get("X-Platform-Admin") === "true");
+        setSupportOperator(res.headers.get("X-Support-Operator") === "true");
         return res.json();
       })
       .then(data => { if (Array.isArray(data)) setChoices(data); })
@@ -39,7 +41,7 @@ export default function SelecionarTenant() {
         body: JSON.stringify({ tenantId: choice.id, ...(choice.grantId ? { grantId: choice.grantId } : {}) }),
       });
       if (!res.ok) throw new Error("Este vínculo não está mais disponível.");
-      window.location.assign(choice.grantId ? "/estrutura/dimensao-empresa" : "/inicio");
+      window.location.assign(choice.grantId ? choice.entryPath ?? "/suporte" : "/inicio");
     } catch (cause) {
       setError((cause as Error).message);
       setBusy(false);
@@ -54,6 +56,7 @@ export default function SelecionarTenant() {
     {choices === null && !error && <p>Carregando...</p>}
     {choices?.length === 0 && <p>Esta identidade não possui acesso empresarial ativo.</p>}
     {platformAdmin && <Link className="btn" href="/plataforma" style={{ display: "inline-flex", marginBottom: 12 }}>Administração da Plataforma</Link>}
+    {supportOperator && <Link className="btn" href="/suporte" style={{ display: "inline-flex", marginBottom: 12 }}>Área de Suporte</Link>}
     {choices?.map((choice, index) => <div key={choice.grantId ?? choice.id}>
       {(index === 0 || choices[index - 1].kind !== choice.kind) && <p style={{ fontSize: 11, fontWeight: 700, margin: "10px 0 5px", color: "var(--text-secondary)" }}>
         {choice.kind === "SUPPORT_GRANT" ? "SUPORTE AUTORIZADO" : "MEUS TENANTS"}</p>}

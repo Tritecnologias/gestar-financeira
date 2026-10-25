@@ -150,6 +150,7 @@ export interface UserSession {
   membershipId?: string;
   membershipRole?: "OWNER" | "ADMIN" | "MEMBER";
     platformAdmin?: boolean;
+    supportOperator?: boolean;
     accessSource?: "MEMBERSHIP" | "SUPPORT_GRANT";
     supportGrantId?: string;
     supportLevel?: "READ_ONLY" | "OPERATIONAL";

@@ -22,7 +22,7 @@ async function read<T>(url: string): Promise<T> {
   return body;
 }
 
-export default function PlatformClient() {
+export default function PlatformClient({ supportOperator = false }: { supportOperator?: boolean }) {
   const [tab, setTab] = useState<Tab>("tenants");
   const [query, setQuery] = useState("");
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -127,7 +127,7 @@ export default function PlatformClient() {
     <header className="access-header"><div><h1>Administração da Plataforma</h1>
       <p>Tenants, identidades e vínculos da plataforma. Dados financeiros ficam no contexto de cada tenant.</p></div>
       <div className="access-header-actions"><AppearanceButton />
-        <Link href="/plataforma/suporte" className="access-button access-button-secondary">Suporte</Link>
+        {supportOperator && <Link href="/suporte" className="access-button access-button-secondary">Área de Suporte</Link>}
         <Link href="/plataforma/auditoria" className="access-button access-button-secondary">Auditoria da Plataforma</Link>
         <Link href="/plataforma/termos" className="access-button access-button-secondary">Termos e Políticas</Link>
         <Link href="/selecionar-tenant" className="access-button access-button-secondary">Selecionar tenant</Link></div>

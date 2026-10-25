@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requirePlatformAdmin } from "@/lib/tenant";
+import { getIdentityAccess, requireSupportOperator } from "@/lib/tenant";
 import { requireSupportApprover } from "@/lib/support-approval";
 import { expireSupportGrant } from "@/lib/support-grants";
 import { writeAudit } from "@/lib/audit";
+import { lockSupportOperator } from "@/lib/support-authorization";
 
 const noStore = { "Cache-Control": "private, no-store" };
 function failure(error: unknown) {
@@ -22,14 +23,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const action = body.action;
     const note = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : null;
     if (!["approve", "reject", "revoke"].includes(action)) throw Object.assign(new Error("Ação inválida."), { status: 400 });
-    const grant = await prisma.supportGrant.findUnique({ where: { id }, select: {
-      id: true, tenantId: true, platformAdminIdentityId: true, status: true, requestedMinutes: true, expiresAt: true,
+    const identity = await getIdentityAccess();
+    const grant = await prisma.supportGrant.findFirst({ where: { id, OR: [
+      ...(identity.supportOperator?.status === "ACTIVE" ? [{ requesterIdentityId: identity.id }] : []),
+      { tenantId: { in: identity.memberships.filter(m => m.role === "OWNER").map(m => m.tenantId) } },
+    ] }, select: {
+      id: true, tenantId: true, requesterIdentityId: true, status: true, requestedMinutes: true, expiresAt: true,
     } });
     if (!grant) throw Object.assign(new Error("Solicitação inexistente."), { status: 404 });
-    if (grant.status === "ACTIVE" && grant.expiresAt && grant.expiresAt <= new Date()) {
-      await expireSupportGrant(grant.id, grant.tenantId, grant.expiresAt);
-      throw Object.assign(new Error("Acesso já expirado."), { status: 409 });
-    }
 
     let actorIdentityId: string;
     let approverMembershipId: string | null = null;
@@ -37,25 +38,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (action === "revoke") {
       // The requester may end their own grant. The responsible may revoke any grant of this tenant.
       try {
-        const actor = await requirePlatformAdmin();
-        if (!actor.identityId || actor.identityId !== grant.platformAdminIdentityId) throw new Error("Not requester");
-        actorIdentityId = actor.identityId;
+        const actor = await requireSupportOperator();
+        if (actor.id !== grant.requesterIdentityId) throw new Error("Not requester");
+        actorIdentityId = actor.id;
         requesterRevoked = true;
       } catch {
         const { session } = await requireSupportApprover();
         if (session.tenantId !== grant.tenantId) throw Object.assign(new Error("Tenant incorreto."), { status: 403 });
         actorIdentityId = session.identityId!;
+        approverMembershipId = session.membershipId!;
       }
     } else {
       const { session } = await requireSupportApprover();
-      if (session.tenantId !== grant.tenantId || session.identityId === grant.platformAdminIdentityId) {
+      if (session.tenantId !== grant.tenantId || session.identityId === grant.requesterIdentityId) {
         throw Object.assign(new Error("Aprovação própria ou de outro tenant proibida."), { status: 403 });
       }
       actorIdentityId = session.identityId!;
       approverMembershipId = session.membershipId!;
     }
 
+    if (grant.status === "ACTIVE" && grant.expiresAt && grant.expiresAt <= new Date()) {
+      await expireSupportGrant(grant.id, grant.tenantId, grant.expiresAt);
+      throw Object.assign(new Error("Acesso já expirado."), { status: 409 });
+    }
     const result = await prisma.$transaction(async tx => {
+      if (action === "approve" || requesterRevoked) await lockSupportOperator(tx, grant.requesterIdentityId);
       // Recheck responsible, identity and target inside the same transaction.
       if (approverMembershipId) {
         const responsible = await tx.tenantContractualResponsible.findUnique({
@@ -68,22 +75,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         }
       }
       if (action === "approve") {
-        const requester = await tx.authIdentity.findUnique({ where: { id: grant.platformAdminIdentityId },
-          select: { status: true, platformAdmin: { select: { status: true } } } });
-        if (requester?.status !== "ACTIVE" || requester.platformAdmin?.status !== "ACTIVE") {
-          throw Object.assign(new Error("PlatformAdmin solicitante não está mais ativo."), { status: 409 });
-        }
+        const tenant = await tx.tenant.findUnique({ where: { id: grant.tenantId }, select: { ativo: true } });
+        if (!tenant?.ativo) throw Object.assign(new Error("Tenant indisponível."), { status: 409 });
         const normalMembership = await tx.tenantMembership.findFirst({ where: {
-          identityId: grant.platformAdminIdentityId, tenantId: grant.tenantId, status: "ACTIVE",
+          identityId: grant.requesterIdentityId, tenantId: grant.tenantId, status: "ACTIVE",
         }, select: { id: true } });
         if (normalMembership) throw Object.assign(new Error("Solicitante já possui membership normal neste tenant."), { status: 409 });
       }
       const now = new Date();
       const targetStatus = action === "approve" ? "ACTIVE" : action === "reject" ? "REJECTED" : "REVOKED";
-      const previousStatus = action === "revoke" ? "ACTIVE" : "PENDING";
+      const previousStatus = grant.status;
       const changed = await tx.supportGrant.updateMany({
-        where: { id, tenantId: grant.tenantId, status: previousStatus,
-          ...(action === "revoke" ? { expiresAt: { gt: now } } : {}) },
+        where: { id, tenantId: grant.tenantId,
+          status: action === "revoke" ? { in: ["ACTIVE", "PENDING"] } : "PENDING" },
         data: action === "approve" ? {
           status: "ACTIVE", approvedAt: now, approvedByMembershipId: approverMembershipId,
           startsAt: now, expiresAt: new Date(now.getTime() + grant.requestedMinutes * 60_000),
@@ -99,9 +103,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         detail: `Válido por ${grant.requestedMinutes} minutos.` } });
       await writeAudit(tx, { tenantId: grant.tenantId, actorIdentityId,
         actorMembershipId: approverMembershipId,
-        accessMode: requesterRevoked ? "PLATFORM_ADMIN" : "MEMBERSHIP",
+        accessMode: requesterRevoked ? "SUPPORT_GRANT" : "MEMBERSHIP",
         action: action === "approve" ? "SUPPORT_APPROVED" : action === "reject" ? "SUPPORT_REJECTED" :
-          requesterRevoked ? "SUPPORT_ENDED_BY_PLATFORM_ADMIN" : "SUPPORT_REVOKED",
+          requesterRevoked ? "SUPPORT_ENDED_BY_OPERATOR" : "SUPPORT_REVOKED",
         resourceType: "SupportGrant", resourceId: id, supportGrantId: id,
         changes: { before: { status: previousStatus }, after: { status: targetStatus } } });
       if (action === "approve") await writeAudit(tx, { tenantId: grant.tenantId, actorIdentityId,

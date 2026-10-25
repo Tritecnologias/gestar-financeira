@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
 import { expireListedSupportGrants } from "@/lib/support-grants";
 import { writeAudit } from "@/lib/audit";
+import { authorizedSupportGrant } from "@/lib/support-authorization";
+import { SUPPORT_MODULES } from "@/lib/support-policy";
 
 // GET /api/tenants — lista memberships e grants; legado vê apenas o tenant de origem.
 export async function GET() {
@@ -22,21 +24,25 @@ export async function GET() {
       const cookiePrefix = `${identity.id}:${identity.loginNonce}:`;
       const activeId = selectedSupport?.startsWith(cookiePrefix) ? null : tenants.length === 1 ? tenants[0].id
         : selected?.startsWith(cookiePrefix) ? selected.slice(cookiePrefix.length) : null;
-      const grants = identity.platformAdmin?.status === "ACTIVE" ? await prisma.supportGrant.findMany({
-        where: { platformAdminIdentityId: identity.id, status: "ACTIVE", tenant: { ativo: true } },
+      const grants = identity.supportOperator?.status === "ACTIVE" ? await prisma.supportGrant.findMany({
+        where: { requesterIdentityId: identity.id, status: "ACTIVE", tenant: { ativo: true } },
         select: { id: true, tenantId: true, status: true, expiresAt: true, accessLevel: true,
           modules: true, tenant: { select: { nome: true } } },
       }) : [];
       await expireListedSupportGrants(grants);
-      const supportChoices = grants.filter(g => g.expiresAt && g.expiresAt > new Date() &&
+      const authorized = [];
+      for (const g of grants) { try { await authorizedSupportGrant(prisma, identity.id, g.id); authorized.push(g); } catch { /* fail closed */ } }
+      const supportChoices = authorized.filter(g => g.expiresAt && g.expiresAt > new Date() &&
           !tenants.some(m => m.id === g.tenantId)).map(g => ({
         id: g.tenantId, nome: g.tenant.nome, grantId: g.id, kind: "SUPPORT_GRANT" as const,
         accessLevel: g.accessLevel, modules: g.modules, expiresAt: g.expiresAt,
+        entryPath: SUPPORT_MODULES[g.modules[0]].page,
         isActive: selectedSupport === `${cookiePrefix}${g.id}`,
       }));
       return NextResponse.json([...tenants.map(t => ({ ...t, isActive: t.id === activeId })), ...supportChoices],
         { headers: { "Cache-Control": "private, no-store",
-          "X-Platform-Admin": identity.platformAdmin?.status === "ACTIVE" ? "true" : "false" } });
+          "X-Platform-Admin": identity.platformAdmin?.status === "ACTIVE" ? "true" : "false",
+          "X-Support-Operator": identity.supportOperator?.status === "ACTIVE" ? "true" : "false" } });
     } catch (error) {
       return NextResponse.json({ error: "Não autenticado" }, { status: (error as {status?: number}).status ?? 401 });
     }

@@ -5,9 +5,9 @@ import type { UserSession, Papel } from "@/types";
 import { isActiveLegacySession } from "@/lib/access-policy";
 import { emailEqualsNormalized } from "@/lib/email";
 import { requireAcceptedTerms } from "@/lib/terms";
-import { expireSupportGrant } from "@/lib/support-grants";
 import { supportRequestAllowed } from "@/lib/support-policy";
 import { writeAudit } from "@/lib/audit";
+import { authorizedSupportGrant } from "@/lib/support-authorization";
 
 function accessError(message: string, status: number) {
   return Object.assign(new Error(message), { status });
@@ -24,6 +24,7 @@ export async function getIdentityAccess(authenticatedUser?: { id?: string; authM
     select: {
       id: true, nome: true, email: true, status: true,
       platformAdmin: { select: { status: true } },
+      supportOperator: { select: { status: true } },
       memberships: {
         where: { status: "ACTIVE", tenant: { ativo: true } },
         select: { id: true, tenantId: true, role: true, tenant: { select: { nome: true } } },
@@ -47,8 +48,15 @@ export async function requirePlatformAdmin() {
     return { identityId: null, legacySession: context.session };
   }
   const identity = await getIdentityAccess();
+  if ((await cookies()).get("support_context")?.value) throw accessError("Saia do contexto de suporte antes de administrar a plataforma.", 403);
   if (identity.platformAdmin?.status !== "ACTIVE") throw accessError("Acesso negado", 403);
   return { identityId: identity.id, legacySession: null };
+}
+
+export async function requireSupportOperator() {
+  const identity = await getIdentityAccess();
+  if (identity.supportOperator?.status !== "ACTIVE") throw accessError("Capacidade de suporte ativa necessária.", 403);
+  return identity;
 }
 
 /**
@@ -70,29 +78,19 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
     const cookieStore = await cookies();
     const supportCookie = cookieStore.get("support_context")?.value;
     const supportPrefix = `${identity.id}:${identity.loginNonce}:`;
-    if (supportCookie?.startsWith(supportPrefix)) {
-      if (identity.platformAdmin?.status !== "ACTIVE") throw accessError("Acesso de suporte revogado", 403);
+    if (supportCookie) {
+      if (!supportCookie.startsWith(supportPrefix)) throw accessError("Contexto de suporte inválido; selecione explicitamente outro contexto.", 409);
       const grantId = supportCookie.slice(supportPrefix.length);
-      const grant = await prisma.supportGrant.findUnique({
-        where: { id: grantId },
-        select: { id: true, tenantId: true, platformAdminIdentityId: true, status: true,
-          modules: true, accessLevel: true, startsAt: true, expiresAt: true,
-          tenant: { select: { nome: true, ativo: true } } },
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(grantId)) {
+        throw accessError("Contexto de suporte inválido.", 409);
+      }
+      const grant = await authorizedSupportGrant(prisma, identity.id, grantId).catch(async error => {
+        await writeAudit(prisma, { actorIdentityId: identity.id, accessMode: "SYSTEM", action: "SUPPORT_CONTEXT_DENIED",
+          resourceType: "SupportGrant", resourceId: grantId.slice(0, 100), result: "DENIED" }).catch(() => {});
+        throw error;
       });
-      if (!grant || grant.platformAdminIdentityId !== identity.id || !grant.tenant.ativo ||
-          memberships.some(m => m.tenantId === grant.tenantId)) {
+      if (memberships.some(m => m.tenantId === grant.tenantId)) {
         throw accessError("Contexto de suporte indisponível; selecione um vínculo normal ou outro grant", 409);
-      }
-      if (grant.status === "ACTIVE" && grant.expiresAt && grant.expiresAt <= new Date()) {
-        await expireSupportGrant(grant.id, grant.tenantId, grant.expiresAt);
-        throw accessError("Acesso de suporte expirado", 409);
-      }
-      if (grant.status !== "ACTIVE" || !grant.startsAt || grant.startsAt > new Date() || !grant.expiresAt) {
-        await writeAudit(prisma, { tenantId: grant.tenantId, actorIdentityId: identity.id,
-          supportGrantId: grant.id, accessMode: "SUPPORT_GRANT", action: "SESSION_BLOCKED",
-          resourceType: "SupportGrant", resourceId: grant.id, result: "DENIED",
-          metadata: { status: grant.status } }).catch(() => {});
-        throw accessError("Acesso de suporte revogado ou ainda não autorizado", 409);
       }
       const requestHeaders = await headers();
       const path = requestHeaders.get("x-10s-request-path") ?? "";
@@ -108,7 +106,8 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
         db: getTenantPrisma(grant.tenantId), baseTenantId: grant.tenantId,
         session: {
           id: `support:${identity.id}`, identityId: identity.id, authMode: "identity",
-          platformAdmin: true, accessSource: "SUPPORT_GRANT", supportGrantId: grant.id,
+          platformAdmin: identity.platformAdmin?.status === "ACTIVE", supportOperator: true,
+          accessSource: "SUPPORT_GRANT", supportGrantId: grant.id,
           supportLevel: grant.accessLevel, supportModules: grant.modules,
           supportExpiresAt: grant.expiresAt.toISOString(), nome: identity.nome, email: identity.email,
           papel: "membro" as Papel, tenantId: grant.tenantId, tenantNome: grant.tenant.nome,
@@ -164,6 +163,7 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
         membershipId: membership.id,
         membershipRole: membership.role,
         platformAdmin: identity.platformAdmin?.status === "ACTIVE",
+        supportOperator: identity.supportOperator?.status === "ACTIVE",
         accessSource: "MEMBERSHIP",
         authMode: "identity",
         nome: identity.nome,

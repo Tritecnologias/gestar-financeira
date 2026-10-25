@@ -4,7 +4,9 @@ import { useState } from "react";
 import { signOut } from "next-auth/react";
 import type { PendingTerm } from "@/lib/terms";
 
-export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio" }: { initialPending: PendingTerm[]; returnPath?: string }) {
+export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio", personalSupport = false }: { initialPending: PendingTerm[]; returnPath?: string; personalSupport?: boolean }) {
+  const acceptUrl = personalSupport ? "/api/support/terms" : "/api/terms/accept";
+  const pendingUrl = personalSupport ? "/api/support/terms" : "/api/terms/pending";
   const [pending, setPending] = useState(initialPending);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -16,11 +18,11 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
     if (!current?.actionable || !agreed || busy) return;
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/terms/accept", { method: "POST", headers: { "Content-Type": "application/json" },
+      const response = await fetch(acceptUrl, { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ versionId: current.versionId, agreed: true }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Não foi possível registrar o aceite.");
-      const next = await fetch("/api/terms/pending", { cache: "no-store" });
+      const next = await fetch(pendingUrl, { cache: "no-store" });
       if (!next.ok) throw new Error("Não foi possível conferir os aceites pendentes.");
       const body = await next.json();
       setPending(body.pending); setAgreed(false);
@@ -34,7 +36,7 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
       <p>Consulte a versão publicada antes de registrar sua concordância.</p></header>
     {current && <div className="terms-document"><span className="terms-audience">{current.audience === "CONTRATANTE" ? "Responsável do tenant" : "Usuário da plataforma"}</span>
       <h2>{current.title}</h2><p>Versão {current.version} · publicada em {current.publishedAt ? new Date(current.publishedAt).toLocaleDateString("pt-BR") : "data indisponível"}</p>
-      <a className="terms-file-link" href={`/api/terms/versions/${current.versionId}/file`} target="_blank" rel="noopener noreferrer">Visualizar ou baixar PDF</a>
+      <a className="terms-file-link" href={personalSupport ? `/api/support/terms/${current.versionId}` : `/api/terms/versions/${current.versionId}/file`} target="_blank" rel="noopener noreferrer">Visualizar ou baixar PDF</a>
       {current.actionable ? <><label className="terms-agreement"><input type="checkbox" checked={agreed} onChange={event => setAgreed(event.target.checked)} />
         <span>Li e concordo com os termos apresentados.</span></label>
         <button type="button" className="btn btn-primary" disabled={!agreed || busy} onClick={() => void accept()}>{busy ? "Registrando…" : "Aceitar documento"}</button></>

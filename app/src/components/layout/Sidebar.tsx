@@ -17,6 +17,7 @@ interface SidebarProps {
   tenantLogoUrl?: string | null;
   authMode?: "identity" | "legacy";
   platformAdmin?: boolean;
+  supportOperator?: boolean;
   permissions?: string[];
   hasMembership?: boolean;
   membershipRole?: "OWNER" | "ADMIN" | "MEMBER";
@@ -101,7 +102,7 @@ const DISABLED_HREFS = new Set([
 // ── Tenant Selector: memberships (ou compatibilidade admin_global legado) ──
 function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome: string; legacyGlobal: boolean }) {
   type Choice = { id: string; nome: string; kind?: "MEMBERSHIP" | "SUPPORT_GRANT";
-    grantId?: string; accessLevel?: string; expiresAt?: string; isActive?: boolean };
+    grantId?: string; accessLevel?: string; expiresAt?: string; entryPath?: string; isActive?: boolean };
   const [tenants, setTenants] = useState<Choice[]>([]);
   const [active, setActive] = useState("");
   const [open, setOpen] = useState(false);
@@ -125,7 +126,7 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
     if (!res.ok) { window.location.assign("/selecionar-tenant"); return; }
     setActive(choice.grantId ?? choice.id);
     setOpen(false);
-    window.location.assign(choice.kind === "SUPPORT_GRANT" ? "/estrutura/dimensao-empresa" : "/inicio");
+    window.location.assign(choice.kind === "SUPPORT_GRANT" ? choice.entryPath ?? "/suporte" : "/inicio");
   };
 
   const resetTenant = async () => {
@@ -214,7 +215,7 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
   );
 }
 
-export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl, authMode, platformAdmin, permissions = [], hasMembership, membershipRole }: SidebarProps) {
+export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl, authMode, platformAdmin, supportOperator, permissions = [], hasMembership, membershipRole }: SidebarProps) {
   const pathname = usePathname();
   const allowed = new Set(permissions);
   const administration = adminNavigation({ authMode, platformAdmin, hasMembership, membershipRole, legacyRole: userPapel, permissions });
@@ -484,7 +485,9 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
             );
           })}
 
-          {(administration.platform || administration.items.length > 0) && <div className="sb-divider" />}
+          {(administration.platform || administration.items.length > 0 || supportOperator) && <div className="sb-divider" />}
+          {supportOperator && <Link href="/suporte" className="sb-row" title="Área de Suporte" onClick={() => setMobileOpen(false)}>
+            <span className="sb-icon" aria-hidden="true">🛠️</span><span className="sb-label">Área de Suporte</span></Link>}
           {administration.platform && <div className="sb-row-wrap sb-admin">
             <Link href="/plataforma" className="sb-row" title="Administração da Plataforma" aria-label="Administração da Plataforma" onClick={() => setMobileOpen(false)}>
               <span className="sb-icon" aria-hidden="true">🛡️</span><span className="sb-label">Administração da Plataforma</span>

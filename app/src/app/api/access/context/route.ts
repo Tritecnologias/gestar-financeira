@@ -22,6 +22,9 @@ export async function GET() {
       membershipId: session.membershipId ?? null,
       role: session.membershipRole ?? session.papel,
       platformAdmin: session.platformAdmin ?? false,
+      supportOperator: session.supportOperator ?? false,
+      accessSource: session.accessSource,
+      supportGrantId: session.supportGrantId ?? null,
       profile: membership?.profile ?? null,
       permissions: [...permissions],
     });

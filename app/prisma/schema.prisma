@@ -108,6 +108,7 @@ model AuthIdentity {
 
   memberships TenantMembership[]
   platformAdmin PlatformAdmin?
+  supportOperator SupportOperator?
   legacyMaps LegacyUserAccessMap[]
   publishedTermVersions TermVersion[] @relation("TermPublisher")
   termAcceptances TermAcceptance[]
@@ -305,10 +306,24 @@ enum SupportGrantEventType {
   EXPIRED
 }
 
+model SupportOperator {
+  id         String @id @default(uuid())
+  identityId String @unique @map("identity_id")
+  status     AccessStatus @default(ACTIVE)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  identity AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
+
+  @@map("support_operators")
+}
+
 model SupportGrant {
   id                      String @id @default(uuid())
   tenantId                String @map("tenant_id")
-  platformAdminIdentityId String @map("platform_admin_identity_id")
+  // Physical legacy name retained; the relation is to the requesting AuthIdentity,
+  // never to PlatformAdmin. Runtime authorization also requires SupportOperator.
+  requesterIdentityId String @map("platform_admin_identity_id")
   status                  SupportGrantStatus @default(PENDING)
   reason                  String
   modules                 SupportModule[]
@@ -328,14 +343,14 @@ model SupportGrant {
   updatedAt               DateTime @default(now()) @updatedAt @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  requester AuthIdentity @relation("SupportRequester", fields: [platformAdminIdentityId], references: [id], onDelete: Restrict)
+  requester AuthIdentity @relation("SupportRequester", fields: [requesterIdentityId], references: [id], onDelete: Restrict)
   approver TenantMembership? @relation(fields: [approvedByMembershipId, tenantId], references: [id, tenantId], onDelete: Restrict)
   revoker AuthIdentity? @relation("SupportRevoker", fields: [revokedByIdentityId], references: [id], onDelete: Restrict)
   events SupportGrantEvent[]
   auditEvents AuditEvent[] @relation("AuditSupportGrant")
 
   @@index([tenantId, status, expiresAt])
-  @@index([platformAdminIdentityId, status, expiresAt])
+  @@index([requesterIdentityId, status, expiresAt], map: "support_grants_platform_admin_identity_id_status_expires_at_idx")
   @@unique([id, tenantId])
   @@map("support_grants")
 }

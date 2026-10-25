@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { getIdentityAccess, requirePlatformAdmin } from "@/lib/tenant";
+import { requireSupportOperator } from "@/lib/tenant";
 import { requireSupportApprover } from "@/lib/support-approval";
 import { expireListedSupportGrants } from "@/lib/support-grants";
 import { SUPPORT_MINUTES, validSupportModules } from "@/lib/support-policy";
 import { writeAudit } from "@/lib/audit";
+import { lockSupportOperator } from "@/lib/support-authorization";
 
 const noStore = { "Cache-Control": "private, no-store" };
 const withDetails = {
@@ -25,10 +26,9 @@ export async function GET(req: NextRequest) {
   try {
     const view = req.nextUrl.searchParams.get("view");
     let where: Prisma.SupportGrantWhereInput;
-    if (view === "platform") {
-      const actor = await requirePlatformAdmin();
-      if (!actor.identityId) throw Object.assign(new Error("Modo de identidade necessário."), { status: 403 });
-      where = { platformAdminIdentityId: actor.identityId };
+    if (view === "operator") {
+      const actor = await requireSupportOperator();
+      where = { requesterIdentityId: actor.id };
     } else if (view === "tenant") {
       const { session } = await requireSupportApprover();
       where = { tenantId: session.tenantId };
@@ -46,13 +46,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const actor = await requirePlatformAdmin();
-    if (!actor.identityId) throw Object.assign(new Error("Modo de identidade necessário."), { status: 403 });
+    const actor = await requireSupportOperator();
     const body = await req.json().catch(() => { throw Object.assign(new Error("JSON inválido."), { status: 400 }); });
     if (!body || typeof body !== "object" || Array.isArray(body)) throw Object.assign(new Error("Solicitação inválida."), { status: 400 });
     const tenantId = typeof body.tenantId === "string" ? body.tenantId : "";
     const reason = typeof body.reason === "string" ? body.reason.trim() : "";
-    const minutes = Number(body.requestedMinutes);
+    const minutes = Number(body.requestedMinutes ?? SUPPORT_MINUTES.default);
     const accessLevel = body.accessLevel ?? "READ_ONLY";
     const genericReason = ["suporte", "suporte tecnico", "investigacao de erro", "homologacao assistida", "correcao autorizada", "teste"];
     const normalizedReason = reason.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -62,8 +61,7 @@ export async function POST(req: NextRequest) {
         !["READ_ONLY", "OPERATIONAL"].includes(accessLevel)) {
       throw Object.assign(new Error("Informe tenant, motivo específico (15–500 caracteres), escopo, nível e duração de 15 a 1440 minutos."), { status: 400 });
     }
-    const identity = await getIdentityAccess();
-    if (identity.memberships.some(m => m.tenantId === tenantId)) {
+    if (actor.memberships.some(m => m.tenantId === tenantId)) {
       throw Object.assign(new Error("Use o membership normal neste tenant."), { status: 409 });
     }
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { ativo: true } });
@@ -76,17 +74,17 @@ export async function POST(req: NextRequest) {
       throw Object.assign(new Error("Tenant sem responsável contratual OWNER ativo para decidir suporte."), { status: 409 });
     }
     const result = await prisma.$transaction(async tx => {
-      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`support:${actor.identityId}:${tenantId}`}, 0))`;
-      const existing = await tx.supportGrant.findFirst({ where: { tenantId, platformAdminIdentityId: actor.identityId!,
+      await lockSupportOperator(tx, actor.id);
+      const existing = await tx.supportGrant.findFirst({ where: { tenantId, requesterIdentityId: actor.id,
         OR: [{ status: "PENDING" }, { status: "ACTIVE", expiresAt: { gt: new Date() } }] }, select: { id: true } });
       if (existing) throw Object.assign(new Error("Já existe solicitação pendente ou acesso ativo para este tenant."), { status: 409 });
       const grant = await tx.supportGrant.create({ data: {
-        tenantId, platformAdminIdentityId: actor.identityId!, reason, modules: body.modules,
+        tenantId, requesterIdentityId: actor.id, reason, modules: body.modules,
         accessLevel, requestedMinutes: minutes,
       } });
       await tx.supportGrantEvent.create({ data: { grantId: grant.id, tenantId, type: "REQUESTED",
-        actorIdentityId: actor.identityId, detail: `${accessLevel}; ${body.modules.join(",")}; ${minutes} min` } });
-      await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+        actorIdentityId: actor.id, detail: `${accessLevel}; ${body.modules.join(",")}; ${minutes} min` } });
+      await writeAudit(tx, { tenantId, actorIdentityId: actor.id, accessMode: "SUPPORT_GRANT",
         action: "SUPPORT_REQUESTED", resourceType: "SupportGrant", resourceId: grant.id,
         supportGrantId: grant.id, metadata: { accessLevel, modules: body.modules, requestedMinutes: minutes } });
       return grant;

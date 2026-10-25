@@ -14,7 +14,6 @@ type Grant = {
   requester: { nome: string; email: string };
   events: { type: string; createdAt: string; detail: string | null }[];
 };
-type TenantChoice = { id: string; nome: string; ativo: boolean };
 
 const statusLabel: Record<string, string> = {
   PENDING: "Pendente", ACTIVE: "Ativo", REJECTED: "Rejeitado",
@@ -26,9 +25,8 @@ const eventLabel: Record<string, string> = {
 };
 function when(value: string | null) { return value ? new Date(value).toLocaleString("pt-BR") : "—"; }
 
-export default function SupportClient({ mode }: { mode: "platform" | "tenant" }) {
+export default function SupportClient({ mode, platformAdmin = false }: { mode: "operator" | "tenant"; platformAdmin?: boolean }) {
   const [grants, setGrants] = useState<Grant[]>([]);
-  const [tenants, setTenants] = useState<TenantChoice[]>([]);
   const [form, setForm] = useState({ tenantId: "", reason: "", requestedMinutes: 60,
     accessLevel: "READ_ONLY" as "READ_ONLY" | "OPERATIONAL", modules: ["ESTRUTURA_EMPRESA"] as (keyof typeof SUPPORT_MODULES)[] });
   const [loading, setLoading] = useState(true);
@@ -46,12 +44,11 @@ export default function SupportClient({ mode }: { mode: "platform" | "tenant" })
     finally { setLoading(false); }
   }, [mode]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => {
-    if (mode !== "platform") return;
-    fetch("/api/platform/tenants", { cache: "no-store" }).then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setTenants(data.filter((t: TenantChoice) => t.ativo)); })
-      .catch(() => setError("Falha ao carregar tenants da plataforma."));
-  }, [mode]);
+  async function leave() {
+    const r = await fetch("/api/support/context", { method: "POST" });
+    if (r.ok) window.location.assign(platformAdmin ? "/plataforma" : "/selecionar-tenant");
+    else setError("Não foi possível sair do contexto. Tente novamente.");
+  }
 
   async function submit() {
     if (!form.tenantId || form.reason.trim().length < 15 || !form.modules.length) {
@@ -90,18 +87,18 @@ export default function SupportClient({ mode }: { mode: "platform" | "tenant" })
     setForm(f => ({ ...f, modules: f.modules.includes(module) ? f.modules.filter(x => x !== module) : [...f.modules, module] }));
   }
 
-  return <section className={`access-page ${mode === "platform" ? "access-platform" : ""}`}>
-    <header className="access-header"><div><h1>{mode === "platform" ? "Administração da Plataforma / Suporte" : "Acessos / Suporte"}</h1>
-      <p>{mode === "platform" ? "Solicite acesso temporário. A plataforma não concede acesso empresarial por si só." :
+  return <section className={`access-page ${mode === "operator" ? "access-platform" : ""}`}>
+    <header className="access-header"><div><h1>{mode === "operator" ? "Área de Suporte" : "Acessos / Suporte"}</h1>
+      <p>{mode === "operator" ? "Acesso técnico depende de autorização temporária do responsável da empresa." :
         "O responsável contratual decide solicitações externas para este tenant."}</p></div>
-      <div className="access-header-actions">{mode === "platform" && <AppearanceButton />}
-        <Link className="access-button access-button-secondary" href={mode === "platform" ? "/plataforma" : "/acessos"}>Voltar</Link></div></header>
+      <div className="access-header-actions">{mode === "operator" && <><AppearanceButton />
+        <button className="access-button access-button-secondary" onClick={() => void leave()}>Sair do contexto de suporte</button></>}
+        <Link className="access-button access-button-secondary" href={mode === "operator" ? "/selecionar-tenant" : "/acessos"}>Selecionar contexto</Link></div></header>
 
-    {mode === "platform" && <div className="access-terms-form support-request">
+    {mode === "operator" && <div className="access-terms-form support-request">
       <h2>Solicitar acesso</h2>
-      <label>Tenant<select value={form.tenantId} onChange={e => setForm(f => ({ ...f, tenantId: e.target.value }))}>
-        <option value="">Selecione o tenant</option>{tenants.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-      </select></label>
+      <label>Identificador da empresa<input value={form.tenantId} placeholder="Identificador informado pelo responsável no chamado"
+        onChange={e => setForm(f => ({ ...f, tenantId: e.target.value.trim() }))} /></label>
       <label>Motivo específico<textarea value={form.reason} maxLength={500} rows={2}
         placeholder="Descreva o chamado, erro ou atividade autorizada" onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} /></label>
       <label>Duração<select value={form.requestedMinutes} onChange={e => setForm(f => ({ ...f, requestedMinutes: Number(e.target.value) }))}>
@@ -132,9 +129,15 @@ export default function SupportClient({ mode }: { mode: "platform" | "tenant" })
         {g.rejectionReason && <p><strong>Rejeição:</strong> {g.rejectionReason}</p>}
         {g.revocationReason && <p><strong>Revogação:</strong> {g.revocationReason}</p>}
         <div className="support-actions">
+          {mode === "operator" && g.status === "ACTIVE" && <button className="access-button access-button-primary" disabled={busy}
+            onClick={async () => {
+              const r = await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenantId: g.tenant.id, grantId: g.id }) });
+              if (r.ok) window.location.assign(SUPPORT_MODULES[g.modules[0]].page);
+              else setError("A autorização não está mais disponível. Atualize a lista.");
+            }}>Entrar no suporte autorizado</button>}
           {mode === "tenant" && g.status === "PENDING" && <><button className="access-button access-button-primary" disabled={busy} onClick={() => void decide(g, "approve")}>Aprovar</button>
             <button className="access-button access-button-secondary" disabled={busy} onClick={() => void decide(g, "reject")}>Rejeitar</button></>}
-          {g.status === "ACTIVE" && <button className="access-button access-button-secondary" disabled={busy} onClick={() => void decide(g, "revoke")}>Revogar acesso</button>}
+          {["ACTIVE", "PENDING"].includes(g.status) && <button className="access-button access-button-secondary" disabled={busy} onClick={() => void decide(g, "revoke")}>Revogar acesso</button>}
         </div>
         <details><summary>Eventos ({g.events.length})</summary><ul>{g.events.map((event, i) =>
           <li key={i}>{when(event.createdAt)} · {eventLabel[event.type] ?? event.type}{event.detail ? ` · ${event.detail}` : ""}</li>)}</ul></details>

@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
-import { requirePlatformAdmin } from "@/lib/tenant";
+import { getIdentityAccess, requirePlatformAdmin } from "@/lib/tenant";
 import PlatformClient from "@/components/access/PlatformClient";
 
 /** Administração sem contexto empresarial; APIs continuam aplicando seus guards. */
 export default async function PlataformaPage() {
-  try { await requirePlatformAdmin(); }
+  let operator = false;
+  try { const actor = await requirePlatformAdmin();
+    operator = actor.identityId ? (await getIdentityAccess()).supportOperator?.status === "ACTIVE" : false; }
   catch { redirect("/login"); }
-  return <PlatformClient />;
+  return <PlatformClient supportOperator={operator} />;
 }

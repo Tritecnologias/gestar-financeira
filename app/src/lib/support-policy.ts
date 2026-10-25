@@ -12,40 +12,42 @@ export const SUPPORT_MODULES = {
 } as const;
 
 export const SUPPORT_MINUTES = { default: 60, min: 15, max: 1440 } as const;
-export const SUPPORT_ACTIONS = ["view", "create", "edit", "import", "export"] as const;
+export const SUPPORT_ACTIONS = ["view", "create", "edit", "import"] as const;
 
 export function validSupportModules(value: unknown): value is SupportModule[] {
   return Array.isArray(value) && value.length > 0 && value.length <= Object.keys(SUPPORT_MODULES).length &&
-    value.every((item: unknown) => typeof item === "string" && item in SUPPORT_MODULES) &&
+    value.every((item: unknown) => typeof item === "string" && Object.hasOwn(SUPPORT_MODULES, item)) &&
     new Set(value).size === value.length;
 }
 
 export function supportPermissions(modules: readonly SupportModule[], level: SupportAccessLevel): Set<string> {
   const permissions = new Set<string>();
+  if (!validSupportModules(modules) || !["READ_ONLY", "OPERATIONAL"].includes(level)) return permissions;
   for (const module of modules) {
     const prefix = SUPPORT_MODULES[module].permission;
     permissions.add(`${prefix}.view`);
-    permissions.add(`${prefix}.export`); // export is a read of the approved screen
     if (level === "OPERATIONAL") for (const action of ["create", "edit", "import"]) permissions.add(`${prefix}.${action}`);
   }
   return permissions;
 }
 
-function matches(path: string, base: string) { return path === base || path.startsWith(`${base}/`); }
-
 export function supportRequestAllowed(path: string, method: string, modules: readonly SupportModule[], level: SupportAccessLevel) {
-  if (path === "/api/access/context" || path === "/api/terms/pending" || path === "/api/terms/accept" ||
-      path.startsWith("/api/terms/versions/") || path === "/termos/aceite") return true;
+  if (!validSupportModules(modules) || !["READ_ONLY", "OPERATIONAL"].includes(level)) return false;
+  if (path === "/api/access/context" && method === "GET") return true;
   if (method !== "GET" && level !== "OPERATIONAL") return false;
+  const uuid = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
   for (const module of modules) {
     const surface = SUPPORT_MODULES[module];
-    if (method === "GET" && matches(path, surface.page)) return true;
-    if (surface.api.some(api => matches(path, api))) {
-      if (method === "GET") return true;
-      // Explicitly reviewed operational APIs; deletion stays outside ACCESS-5B.
-      if (method === "POST" && !path.includes("/exportar")) return true;
-      if ((method === "PATCH" || method === "PUT") &&
-        (module === "ESTRUTURA_EMPRESA" || module === "ESTRUTURA_FINANCEIRA")) return true;
+    if (method === "GET" && path === surface.page) return true;
+    for (const api of surface.api) {
+      if (api === "/api/estrutura-gerencial" || api === "/api/estrutura-financeira") {
+        if (method === "POST" && level === "OPERATIONAL" && path === `${api}/importar`) return true;
+        continue; // Export, new descendants and unreviewed actions stay closed.
+      }
+      if (path === api && (method === "GET" || method === "POST" && level === "OPERATIONAL")) return true;
+      if (new RegExp(`^${api}/${uuid}$`).test(path) &&
+          (method === "GET" || ["PUT", "PATCH"].includes(method) && level === "OPERATIONAL")) return true;
+      if (method === "GET" && api === "/api/plano-contas" && path === `${api}/proximo-codigo`) return true;
     }
   }
   return false;

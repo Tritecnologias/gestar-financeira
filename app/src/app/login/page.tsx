@@ -32,9 +32,9 @@ function LoginForm() {
         const choices = res.ok ? await res.json() : null;
         if (Array.isArray(choices) && choices.length === 0) {
           const platform = await fetch("/api/platform/tenants", { cache: "no-store" });
-          router.push(platform.ok ? "/plataforma" : "/selecionar-tenant");
+          router.push(platform.ok ? "/plataforma" : res.headers.get("X-Support-Operator") === "true" ? "/suporte" : "/selecionar-tenant");
         } else {
-          router.push(Array.isArray(choices) && choices.length !== 1 ? "/selecionar-tenant" : callbackUrl);
+          router.push(Array.isArray(choices) && (choices.length !== 1 || choices[0]?.kind === "SUPPORT_GRANT") ? "/selecionar-tenant" : callbackUrl);
         }
       }
     });

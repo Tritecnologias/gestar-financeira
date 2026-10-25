@@ -30,7 +30,7 @@ async function main(){
   ok((await request(jar,'/api/tenants/switch','POST',{tenantId:tenants[0]})).status===200,'controlled-owner-session-before-restore');
   const tables=(await query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")).map(r=>r.tablename);
   const scoped=new Set((await query("SELECT table_name FROM information_schema.columns WHERE table_schema='public' AND column_name='tenant_id'")).map(r=>r.table_name));
-  const accessTables=['auth_identities','platform_admins','usuarios','tenant_memberships','access_profiles','legacy_user_access_maps','tenant_contractual_responsibles','support_grants','support_grant_events','access_invites','term_acceptances','access_owner_events'];
+  const accessTables=['auth_identities','platform_admins','support_operators','usuarios','tenant_memberships','access_profiles','legacy_user_access_maps','tenant_contractual_responsibles','support_grants','support_grant_events','access_invites','term_acceptances','access_owner_events'];
   async function hashTable(t,where='',args=[]){return(await query(`SELECT md5(coalesce(string_agg(to_jsonb(x)::text,E'\\n' ORDER BY to_jsonb(x)::text),'')) d FROM public.${qi(t)} x ${where}`,args))[0].d}
   async function access(){const a={};for(const t of accessTables)a[t]=await hashTable(t);return a}
   async function neighbors(tenant){const a={};for(const t of tables)if(scoped.has(t))a[t]=await hashTable(t,'WHERE tenant_id<>$1',[tenant]);return a}

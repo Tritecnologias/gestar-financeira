@@ -4,6 +4,10 @@ export const VALUE_MIGRATION = {
   name: '20261025_lancamento_valor_nonnegative',
   sha256: '4a1b93478e9afcb4e4c4fd97656122e3e7a98d94473cc2366a02af47907c121f',
 };
+export const SUPPORT_OPERATOR_MIGRATION = {
+  name: '20261025_support_operators',
+  sha256: 'f4d3b0a7619a07779da0557a650d906b726b3f0e89939f1ef5b31efd106eca5b',
+};
 export const BACKUP_MIGRATIONS = [
   '0_legacy_baseline',
   '20261004_legacy_schema_reconciliation',
@@ -23,6 +27,7 @@ export const BACKUP_MIGRATIONS = [
   '20261024_lancamento_revision',
   '20261024_z_tenant_restore_lock',
   VALUE_MIGRATION.name,
+  SUPPORT_OPERATOR_MIGRATION.name,
 ];
 
 /** A count alone cannot prove the required migrations or the new SQL's checksum. */
@@ -31,7 +36,8 @@ export function assertBackupMigrations(migrations, pending) {
   if (pending || migrations.length !== BACKUP_MIGRATIONS.length ||
       names.size !== BACKUP_MIGRATIONS.length || BACKUP_MIGRATIONS.some(name => !names.has(name)) ||
       migrations.some(m => !/^[0-9a-f]{64}$/.test(m.checksum)) ||
-      migrations.find(m => m.migration_name === VALUE_MIGRATION.name)?.checksum !== VALUE_MIGRATION.sha256) {
-    fail('MIGRATIONS', 'Schema fora do contrato de backup (18 migrations). Atualize o mecanismo antes de prosseguir.', 409);
+      [VALUE_MIGRATION, SUPPORT_OPERATOR_MIGRATION].some(required =>
+        migrations.find(m => m.migration_name === required.name)?.checksum !== required.sha256)) {
+    fail('MIGRATIONS', 'Schema fora do contrato de backup (19 migrations). Atualize o mecanismo antes de prosseguir.', 409);
   }
 }
