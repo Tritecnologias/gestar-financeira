@@ -18,7 +18,7 @@ function reseal(b) {
   for (const s of Object.values(copy.sections)) { s.count=s.rows.length; s.checksum=digest(s.rows); }
   return seal(copy);
 }
-test('v2 binds only exact external history; both sources, no external user data', () => {
+test('v3 binds only exact external history; both sources, no external user data', () => {
   const c=config(), b=authenticateBackup(body(),c); validate(b,'tenant-a');
   const bindings=verifyProvenance(b,c);
   assert.equal(bindings.length,2);
@@ -27,7 +27,7 @@ test('v2 binds only exact external history; both sources, no external user data'
   assert(!JSON.stringify(b).includes(c.keys.first));
   assert.equal(b.historicalReferences.instanceId,c.instanceId);
 });
-test('v2 authenticates empty/synthetic backups too; local/null references need no exception', () => {
+test('v3 authenticates empty/synthetic backups too; local/null references need no exception', () => {
   const c=config(), b=body(); b.sections.lancamentos.rows[0].criado_por=null;
   b.sections.layouts_colunas.rows[0].usuario_id='local-user';
   assert.deepEqual(verifyProvenance(authenticateBackup(b,c),c),[]);
@@ -61,11 +61,17 @@ test('unknown key, wrong key and different installation fail closed; retained ke
   assert.equal(authenticateBackup(body(),rotated).historicalReferences.keyId,'second');
   delete rotated.keys.first;assert.throws(()=>verifyProvenance(b,rotated),{code:'HISTORY_PROOF'});
 });
-test('v1 stays distinguishable and unsigned; version downgrade never retains a proof', () => {
+test('old v1/v2 are rejected even with recomputed checksum; no conversion or signing fallback', () => {
   const c=config(), b=body();b.format=LEGACY_VERSION;const legacy=seal(b);
-  validate(legacy,'tenant-a');assert.equal(verifyProvenance(legacy,c),null);
+  assert.throws(()=>validate(legacy,'tenant-a'),{code:'VERSION'});
+  assert.throws(()=>verifyProvenance(legacy,c),{code:'VERSION'});
   const signed=authenticateBackup(body(),c);
-  assert.throws(()=>validate(reseal({...signed,format:LEGACY_VERSION}),'tenant-a'),{code:'HISTORY_PROOF'});
+  for (const format of [LEGACY_VERSION,'10s-tenant-backup/2']) {
+    const old=reseal({...signed,format});
+    assert.throws(()=>validate(old,'tenant-a'),{code:'VERSION'});
+    assert.throws(()=>verifyProvenance(old,c),{code:'VERSION'});
+    assert.throws(()=>authenticateBackup({...body(),format},c),{code:'FORMAT'});
+  }
   const {historicalReferences,...stripped}=signed;
   assert.throws(()=>validate(reseal(stripped),'tenant-a'),{code:'HISTORY_PROOF'});
   assert.throws(()=>validate(reseal({...signed,format:'10s-tenant-backup/99'}),'tenant-a'),{code:'VERSION'});

@@ -1,5 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { VERSION, LEGACY_VERSION, canonical, digest, fail, seal } from './format.mjs';
+import { VERSION, canonical, digest, fail, seal } from './format.mjs';
 
 // These references preserve history/ownership, never current access. No other FK is exempted.
 export const HISTORICAL_RELATIONS = Object.freeze([
@@ -55,10 +55,7 @@ export function authenticateBackup(body, config) {
   return seal(backup);
 }
 export function verifyProvenance(backup, config) {
-  if (backup.format === LEGACY_VERSION) {
-    if (Object.hasOwn(backup, 'historicalReferences')) fail('HISTORY_PROOF', 'Backup antigo contém manifesto incompatível. Não converta a versão manualmente.', 409);
-    return null;
-  }
+  if (backup.format !== VERSION) fail('VERSION', 'Backup de outra geração não é compatível com esta instalação PG18.', 409);
   configuration(config);
   const manifest = backup.historicalReferences;
   const invalid = () => fail('HISTORY_PROOF', 'A autenticidade do backup não foi confirmada. Use o arquivo original e a configuração de origem correta.', 409);

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TABLES } from '../src/lib/backup/catalog.mjs';
-import { LEGACY_VERSION, MAX_BYTES, canonical, digest, seal, validate, parse } from '../src/lib/backup/format.mjs';
-const fixture = () => seal({ format: LEGACY_VERSION, tenant: { id: 'a' }, sections: Object.fromEntries(TABLES.map(t => [t, { rows: [], count: 0, checksum: digest([]) }])), files: [], migrations: [], references: {} });
+import { VERSION, MAX_BYTES, canonical, digest, seal, validate, parse } from '../src/lib/backup/format.mjs';
+const fixture = () => seal({ format: VERSION, tenant: { id: 'a' }, sections: Object.fromEntries(TABLES.map(t => [t, { rows: [], count: 0, checksum: digest([]) }])), files: [], migrations: [], references: {}, historicalReferences: {} });
 test('deterministic object canonicalization preserves array order and duplicates', () => {
   assert.equal(digest({ b: 2, a: 1 }), digest({ a: 1, b: 2 }));
   assert.notEqual(digest([1,1]), digest([1])); assert.notEqual(digest([1,2]), digest([2,1]));

@@ -1,0 +1,5723 @@
+{
+  "enums": [
+    {
+      "name": "AccessInviteStatus",
+      "label": "PENDING",
+      "position": 1
+    },
+    {
+      "name": "AccessInviteStatus",
+      "label": "ACCEPTED",
+      "position": 2
+    },
+    {
+      "name": "AccessInviteStatus",
+      "label": "EXPIRED",
+      "position": 3
+    },
+    {
+      "name": "AccessInviteStatus",
+      "label": "REVOKED",
+      "position": 4
+    },
+    {
+      "name": "AccessStatus",
+      "label": "ACTIVE",
+      "position": 1
+    },
+    {
+      "name": "AccessStatus",
+      "label": "INACTIVE",
+      "position": 2
+    },
+    {
+      "name": "AuditAccessMode",
+      "label": "MEMBERSHIP",
+      "position": 1
+    },
+    {
+      "name": "AuditAccessMode",
+      "label": "PLATFORM_ADMIN",
+      "position": 2
+    },
+    {
+      "name": "AuditAccessMode",
+      "label": "SUPPORT_GRANT",
+      "position": 3
+    },
+    {
+      "name": "AuditAccessMode",
+      "label": "SYSTEM",
+      "position": 4
+    },
+    {
+      "name": "AuditResult",
+      "label": "SUCCESS",
+      "position": 1
+    },
+    {
+      "name": "AuditResult",
+      "label": "DENIED",
+      "position": 2
+    },
+    {
+      "name": "AuditResult",
+      "label": "FAILURE",
+      "position": 3
+    },
+    {
+      "name": "MembershipRole",
+      "label": "OWNER",
+      "position": 1
+    },
+    {
+      "name": "MembershipRole",
+      "label": "ADMIN",
+      "position": 2
+    },
+    {
+      "name": "MembershipRole",
+      "label": "MEMBER",
+      "position": 3
+    },
+    {
+      "name": "SupportAccessLevel",
+      "label": "READ_ONLY",
+      "position": 1
+    },
+    {
+      "name": "SupportAccessLevel",
+      "label": "OPERATIONAL",
+      "position": 2
+    },
+    {
+      "name": "SupportGrantEventType",
+      "label": "REQUESTED",
+      "position": 1
+    },
+    {
+      "name": "SupportGrantEventType",
+      "label": "APPROVED",
+      "position": 2
+    },
+    {
+      "name": "SupportGrantEventType",
+      "label": "REJECTED",
+      "position": 3
+    },
+    {
+      "name": "SupportGrantEventType",
+      "label": "ACTIVATED",
+      "position": 4
+    },
+    {
+      "name": "SupportGrantEventType",
+      "label": "USED",
+      "position": 5
+    },
+    {
+      "name": "SupportGrantEventType",
+      "label": "REVOKED",
+      "position": 6
+    },
+    {
+      "name": "SupportGrantEventType",
+      "label": "EXPIRED",
+      "position": 7
+    },
+    {
+      "name": "SupportGrantStatus",
+      "label": "PENDING",
+      "position": 1
+    },
+    {
+      "name": "SupportGrantStatus",
+      "label": "ACTIVE",
+      "position": 2
+    },
+    {
+      "name": "SupportGrantStatus",
+      "label": "REJECTED",
+      "position": 3
+    },
+    {
+      "name": "SupportGrantStatus",
+      "label": "REVOKED",
+      "position": 4
+    },
+    {
+      "name": "SupportGrantStatus",
+      "label": "EXPIRED",
+      "position": 5
+    },
+    {
+      "name": "SupportModule",
+      "label": "ESTRUTURA_EMPRESA",
+      "position": 1
+    },
+    {
+      "name": "SupportModule",
+      "label": "ESTRUTURA_FINANCEIRA",
+      "position": 2
+    },
+    {
+      "name": "TermAudience",
+      "label": "CONTRATANTE",
+      "position": 1
+    },
+    {
+      "name": "TermAudience",
+      "label": "USUARIO",
+      "position": 2
+    },
+    {
+      "name": "TermVersionStatus",
+      "label": "DRAFT",
+      "position": 1
+    },
+    {
+      "name": "TermVersionStatus",
+      "label": "PUBLISHED",
+      "position": 2
+    },
+    {
+      "name": "TermVersionStatus",
+      "label": "RETIRED",
+      "position": 3
+    }
+  ],
+  "views": [],
+  "columns": [
+    {
+      "col": "accepted_at",
+      "tab": "access_invites",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "accepted_by_identity_id",
+      "tab": "access_invites",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "created_at",
+      "tab": "access_invites",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "email",
+      "tab": "access_invites",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "expires_at",
+      "tab": "access_invites",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "access_invites",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "invited_by_identity_id",
+      "tab": "access_invites",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "name",
+      "tab": "access_invites",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "profile_id",
+      "tab": "access_invites",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "revoked_at",
+      "tab": "access_invites",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "revoked_by_identity_id",
+      "tab": "access_invites",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "role",
+      "tab": "access_invites",
+      "type": "\"MembershipRole\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "status",
+      "tab": "access_invites",
+      "type": "\"AccessInviteStatus\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'PENDING'::\"AccessInviteStatus\""
+    },
+    {
+      "col": "tenant_id",
+      "tab": "access_invites",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "token_hash",
+      "tab": "access_invites",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "actor_identity_id",
+      "tab": "access_owner_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "actor_legacy_user_id",
+      "tab": "access_owner_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "created_at",
+      "tab": "access_owner_events",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "access_owner_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "previous_role",
+      "tab": "access_owner_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "previous_status",
+      "tab": "access_owner_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "target_identity_id",
+      "tab": "access_owner_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "target_membership_id",
+      "tab": "access_owner_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "access_owner_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "access_profiles",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "atualizado_em",
+      "tab": "access_profiles",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "criado_em",
+      "tab": "access_profiles",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "descricao",
+      "tab": "access_profiles",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "access_profiles",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "access_profiles",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "permissoes",
+      "tab": "access_profiles",
+      "type": "text[]",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "ARRAY[]::text[]"
+    },
+    {
+      "col": "tenant_id",
+      "tab": "access_profiles",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "areas_negocio",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "areas_negocio",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "areas_negocio",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "areas_negocio",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "areas_negocio",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "areas_negocio",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "access_mode",
+      "tab": "audit_events",
+      "type": "\"AuditAccessMode\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "action",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "actor_identity_id",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "actor_membership_id",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "changes",
+      "tab": "audit_events",
+      "type": "jsonb",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "metadata",
+      "tab": "audit_events",
+      "type": "jsonb",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "occurred_at",
+      "tab": "audit_events",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "platform_admin_id",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "reason",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "request_id",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "resource_id",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "resource_type",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "result",
+      "tab": "audit_events",
+      "type": "\"AuditResult\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "support_grant_id",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "audit_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "atualizado_em",
+      "tab": "auth_identities",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "criado_em",
+      "tab": "auth_identities",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "email",
+      "tab": "auth_identities",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "auth_identities",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "auth_identities",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "senha_hash",
+      "tab": "auth_identities",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "status",
+      "tab": "auth_identities",
+      "type": "\"AccessStatus\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'ACTIVE'::\"AccessStatus\""
+    },
+    {
+      "col": "ativo",
+      "tab": "categorias",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "categorias",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "categorias",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "categorias",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "categorias",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "categorias",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tipo",
+      "tab": "categorias",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "area_id",
+      "tab": "centros_custo",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "centros_custo",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "centros_custo",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "centros_custo",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "centros_custo",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "centros_custo",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "centros_custo",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "clientes",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "clientes",
+      "type": "character varying(20)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "conta_padrao_id",
+      "tab": "clientes",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "clientes",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "documento",
+      "tab": "clientes",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "email",
+      "tab": "clientes",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "endereco",
+      "tab": "clientes",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "clientes",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "clientes",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome_fantasia",
+      "tab": "clientes",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "telefone",
+      "tab": "clientes",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "clientes",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tipo_pessoa",
+      "tab": "clientes",
+      "type": "character varying(2)",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "agencia",
+      "tab": "dados_bancarios",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "dados_bancarios",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "banco",
+      "tab": "dados_bancarios",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "conta",
+      "tab": "dados_bancarios",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "dados_bancarios",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "dados_bancarios",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "dados_bancarios",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tipo",
+      "tab": "dados_bancarios",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "titular",
+      "tab": "dados_bancarios",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "dre",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "dre",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "dre",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "dre",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "dre",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ordem",
+      "tab": "dre",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "0"
+    },
+    {
+      "col": "tenant_id",
+      "tab": "dre",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "cep",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "cidade",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "cnpj",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "empresas",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "data_fundacao",
+      "tab": "empresas",
+      "type": "date",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "email",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "endereco",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "estado",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "insc_estadual",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome_fantasia",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "porte",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "razao_social",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "segmento",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "telefone",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "empresas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "fornecedores",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "fornecedores",
+      "type": "character varying(20)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "conta_padrao_id",
+      "tab": "fornecedores",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "fornecedores",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "documento",
+      "tab": "fornecedores",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "email",
+      "tab": "fornecedores",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "endereco",
+      "tab": "fornecedores",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "fornecedores",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "fornecedores",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome_fantasia",
+      "tab": "fornecedores",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "telefone",
+      "tab": "fornecedores",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "fornecedores",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tipo_pessoa",
+      "tab": "fornecedores",
+      "type": "character varying(2)",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "actor_identity_id",
+      "tab": "import_operations",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "completed_at",
+      "tab": "import_operations",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "contract_type",
+      "tab": "import_operations",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "contract_version",
+      "tab": "import_operations",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "created",
+      "tab": "import_operations",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "file_digest",
+      "tab": "import_operations",
+      "type": "character varying(64)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "import_operations",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "payload_digest",
+      "tab": "import_operations",
+      "type": "character varying(64)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "import_operations",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "unchanged",
+      "tab": "import_operations",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "updated",
+      "tab": "import_operations",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "warnings",
+      "tab": "import_operations",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "anotacao",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "atualizado_em",
+      "tab": "lancamentos",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "banco",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "categoria",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "centro_custo",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "cliente_id",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "cont",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "conta_id",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "lancamentos",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "criado_por",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "data_emissao",
+      "tab": "lancamentos",
+      "type": "date",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "data_evento",
+      "tab": "lancamentos",
+      "type": "date",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "data_lanc",
+      "tab": "lancamentos",
+      "type": "date",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "data_pagamento",
+      "tab": "lancamentos",
+      "type": "date",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "data_venc_original",
+      "tab": "lancamentos",
+      "type": "date",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "data_venc_plano",
+      "tab": "lancamentos",
+      "type": "date",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "descricao",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "dre",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "fantasia_padrao",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "fornecedor",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "fornecedor_id",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "importado",
+      "tab": "lancamentos",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "false"
+    },
+    {
+      "col": "importado_em",
+      "tab": "lancamentos",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "metadados",
+      "tab": "lancamentos",
+      "type": "jsonb",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'{}'::jsonb"
+    },
+    {
+      "col": "referencia",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "revisao",
+      "tab": "lancamentos",
+      "type": "bigint",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "0"
+    },
+    {
+      "col": "seq",
+      "tab": "lancamentos",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "status",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'realizado'::text"
+    },
+    {
+      "col": "status_extrato",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "status_manual",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tipo",
+      "tab": "lancamentos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "valor",
+      "tab": "lancamentos",
+      "type": "numeric(15,2)",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "valor_previsto",
+      "tab": "lancamentos",
+      "type": "numeric(15,2)",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "atualizado_em",
+      "tab": "layouts_colunas",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "colunas",
+      "tab": "layouts_colunas",
+      "type": "jsonb",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "layouts_colunas",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "layouts_colunas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "is_default",
+      "tab": "layouts_colunas",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "false"
+    },
+    {
+      "col": "nome",
+      "tab": "layouts_colunas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "layouts_colunas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "usuario_id",
+      "tab": "layouts_colunas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "legacy_user_access_maps",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "legacy_user_access_maps",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "identity_id",
+      "tab": "legacy_user_access_maps",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "legacy_usuario_id",
+      "tab": "legacy_user_access_maps",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "membership_id",
+      "tab": "legacy_user_access_maps",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "platform_admin_id",
+      "tab": "legacy_user_access_maps",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "legacy_user_access_maps",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "pessoas",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "cargo",
+      "tab": "pessoas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "codigo",
+      "tab": "pessoas",
+      "type": "character varying(20)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "pessoas",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "data_admissao",
+      "tab": "pessoas",
+      "type": "date",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "departamento",
+      "tab": "pessoas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "documento",
+      "tab": "pessoas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "email",
+      "tab": "pessoas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "pessoas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "pessoas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "salario",
+      "tab": "pessoas",
+      "type": "numeric(15,2)",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "telefone",
+      "tab": "pessoas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "pessoas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "plano_contas",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "categoria_id",
+      "tab": "plano_contas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "codigo",
+      "tab": "plano_contas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "plano_contas",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "descricao",
+      "tab": "plano_contas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "plano_contas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "pai_id",
+      "tab": "plano_contas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "plano_contas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tipo",
+      "tab": "plano_contas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "atualizado_em",
+      "tab": "platform_admins",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "criado_em",
+      "tab": "platform_admins",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "platform_admins",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "identity_id",
+      "tab": "platform_admins",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "status",
+      "tab": "platform_admins",
+      "type": "\"AccessStatus\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'ACTIVE'::\"AccessStatus\""
+    },
+    {
+      "col": "ativo",
+      "tab": "produto_grupos",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "produto_grupos",
+      "type": "character varying(30)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "produto_grupos",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "produto_grupos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "produto_grupos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "produto_grupos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "produto_linhas",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "produto_linhas",
+      "type": "character varying(30)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "produto_linhas",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "produto_linhas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "produto_linhas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "produto_linhas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tipo_id",
+      "tab": "produto_linhas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "escopo",
+      "tab": "produto_sequencias",
+      "type": "character varying(100)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "produto_sequencias",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "produto_sequencias",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ultimo_numero",
+      "tab": "produto_sequencias",
+      "type": "bigint",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "produto_tipos",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "produto_tipos",
+      "type": "character varying(30)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "produto_tipos",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "grupo",
+      "tab": "produto_tipos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "grupo_id",
+      "tab": "produto_tipos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "produto_tipos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "produto_tipos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "produto_tipos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "produtos",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "categoria",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "codigo",
+      "tab": "produtos",
+      "type": "character varying(30)",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "criado_em",
+      "tab": "produtos",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "descricao",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "grupo_id",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "linha_id",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "observacoes",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "preco_custo",
+      "tab": "produtos",
+      "type": "numeric(15,2)",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "preco_venda",
+      "tab": "produtos",
+      "type": "numeric(15,2)",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tipo",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tipo_id",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "unidade",
+      "tab": "produtos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "status_manual_tipos",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "codigo",
+      "tab": "status_manual_tipos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "cor",
+      "tab": "status_manual_tipos",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "status_manual_tipos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "status_manual_tipos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ordem",
+      "tab": "status_manual_tipos",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "0"
+    },
+    {
+      "col": "tenant_id",
+      "tab": "status_manual_tipos",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "actor_identity_id",
+      "tab": "support_grant_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "created_at",
+      "tab": "support_grant_events",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "detail",
+      "tab": "support_grant_events",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "grant_id",
+      "tab": "support_grant_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "support_grant_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "support_grant_events",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "type",
+      "tab": "support_grant_events",
+      "type": "\"SupportGrantEventType\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "access_level",
+      "tab": "support_grants",
+      "type": "\"SupportAccessLevel\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'READ_ONLY'::\"SupportAccessLevel\""
+    },
+    {
+      "col": "approved_at",
+      "tab": "support_grants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "approved_by_membership_id",
+      "tab": "support_grants",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "created_at",
+      "tab": "support_grants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "expires_at",
+      "tab": "support_grants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "support_grants",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "modules",
+      "tab": "support_grants",
+      "type": "\"SupportModule\"[]",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "platform_admin_identity_id",
+      "tab": "support_grants",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "reason",
+      "tab": "support_grants",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "rejected_at",
+      "tab": "support_grants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "rejection_reason",
+      "tab": "support_grants",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "requested_at",
+      "tab": "support_grants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "requested_minutes",
+      "tab": "support_grants",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "revocation_reason",
+      "tab": "support_grants",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "revoked_at",
+      "tab": "support_grants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "revoked_by_identity_id",
+      "tab": "support_grants",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "starts_at",
+      "tab": "support_grants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "status",
+      "tab": "support_grants",
+      "type": "\"SupportGrantStatus\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'PENDING'::\"SupportGrantStatus\""
+    },
+    {
+      "col": "tenant_id",
+      "tab": "support_grants",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "updated_at",
+      "tab": "support_grants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "created_at",
+      "tab": "support_operators",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "support_operators",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "identity_id",
+      "tab": "support_operators",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "status",
+      "tab": "support_operators",
+      "type": "\"AccessStatus\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'ACTIVE'::\"AccessStatus\""
+    },
+    {
+      "col": "updated_at",
+      "tab": "support_operators",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "cor",
+      "tab": "tarefa_status",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'#3b82f6'::text"
+    },
+    {
+      "col": "id",
+      "tab": "tarefa_status",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "tarefa_status",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ordem",
+      "tab": "tarefa_status",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "0"
+    },
+    {
+      "col": "tenant_id",
+      "tab": "tarefa_status",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "atualizado_em",
+      "tab": "tarefas",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "colunas",
+      "tab": "tarefas",
+      "type": "jsonb",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'[]'::jsonb"
+    },
+    {
+      "col": "criado_em",
+      "tab": "tarefas",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "tarefas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "linhas",
+      "tab": "tarefas",
+      "type": "jsonb",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'[]'::jsonb"
+    },
+    {
+      "col": "nome",
+      "tab": "tarefas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "seq",
+      "tab": "tarefas",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "nextval('tarefas_seq_seq'::regclass)"
+    },
+    {
+      "col": "status",
+      "tab": "tarefas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'A Fazer!'::text"
+    },
+    {
+      "col": "status_cor",
+      "tab": "tarefas",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "tarefas",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "assigned_at",
+      "tab": "tenant_contractual_responsibles",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "assigned_by_identity_id",
+      "tab": "tenant_contractual_responsibles",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "membership_id",
+      "tab": "tenant_contractual_responsibles",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "tenant_contractual_responsibles",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "atualizado_em",
+      "tab": "tenant_memberships",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "criado_em",
+      "tab": "tenant_memberships",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "tenant_memberships",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "identity_id",
+      "tab": "tenant_memberships",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "profile_id",
+      "tab": "tenant_memberships",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "role",
+      "tab": "tenant_memberships",
+      "type": "\"MembershipRole\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'MEMBER'::\"MembershipRole\""
+    },
+    {
+      "col": "status",
+      "tab": "tenant_memberships",
+      "type": "\"AccessStatus\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'ACTIVE'::\"AccessStatus\""
+    },
+    {
+      "col": "tenant_id",
+      "tab": "tenant_memberships",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "tenants",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "atualizado_em",
+      "tab": "tenants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "criado_em",
+      "tab": "tenants",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "email",
+      "tab": "tenants",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "tenants",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "logo_url",
+      "tab": "tenants",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "tenants",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "plano",
+      "tab": "tenants",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'trial'::text"
+    },
+    {
+      "col": "slug",
+      "tab": "tenants",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "titulo_tabela_status",
+      "tab": "tenants",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": "'VALOR PREVISTO'::text"
+    },
+    {
+      "col": "accepted_at",
+      "tab": "term_acceptances",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "document_hash",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "identity_id",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ip_address",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "membership_id",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "role_at_acceptance",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "scope_key",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "term_version_id",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "user_agent",
+      "tab": "term_acceptances",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "audience",
+      "tab": "term_documents",
+      "type": "\"TermAudience\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "code",
+      "tab": "term_documents",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "created_at",
+      "tab": "term_documents",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "id",
+      "tab": "term_documents",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "required",
+      "tab": "term_documents",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "byte_size",
+      "tab": "term_versions",
+      "type": "integer",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "created_at",
+      "tab": "term_versions",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "description",
+      "tab": "term_versions",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "document_id",
+      "tab": "term_versions",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "term_versions",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "mime_type",
+      "tab": "term_versions",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "published_at",
+      "tab": "term_versions",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "published_by_identity_id",
+      "tab": "term_versions",
+      "type": "text",
+      "identity": "",
+      "required": false,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "requires_reaccept",
+      "tab": "term_versions",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "sha256",
+      "tab": "term_versions",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "status",
+      "tab": "term_versions",
+      "type": "\"TermVersionStatus\"",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'DRAFT'::\"TermVersionStatus\""
+    },
+    {
+      "col": "storage_key",
+      "tab": "term_versions",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "title",
+      "tab": "term_versions",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "version",
+      "tab": "term_versions",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "ativo",
+      "tab": "usuarios",
+      "type": "boolean",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "true"
+    },
+    {
+      "col": "criado_em",
+      "tab": "usuarios",
+      "type": "timestamp(3) without time zone",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "CURRENT_TIMESTAMP"
+    },
+    {
+      "col": "email",
+      "tab": "usuarios",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "id",
+      "tab": "usuarios",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "nome",
+      "tab": "usuarios",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "papel",
+      "tab": "usuarios",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": "'membro'::text"
+    },
+    {
+      "col": "senha_hash",
+      "tab": "usuarios",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    },
+    {
+      "col": "tenant_id",
+      "tab": "usuarios",
+      "type": "text",
+      "identity": "",
+      "required": true,
+      "generated": "",
+      "default_expr": null
+    }
+  ],
+  "indexes": [
+    {
+      "indexdef": "CREATE UNIQUE INDEX access_invites_one_pending_email_tenant ON public.access_invites USING btree (tenant_id, email) WHERE (status = 'PENDING'::\"AccessInviteStatus\")",
+      "indexname": "access_invites_one_pending_email_tenant",
+      "tablename": "access_invites"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX access_invites_pkey ON public.access_invites USING btree (id)",
+      "indexname": "access_invites_pkey",
+      "tablename": "access_invites"
+    },
+    {
+      "indexdef": "CREATE INDEX access_invites_tenant_id_email_status_idx ON public.access_invites USING btree (tenant_id, email, status)",
+      "indexname": "access_invites_tenant_id_email_status_idx",
+      "tablename": "access_invites"
+    },
+    {
+      "indexdef": "CREATE INDEX access_invites_tenant_id_status_created_at_idx ON public.access_invites USING btree (tenant_id, status, created_at DESC)",
+      "indexname": "access_invites_tenant_id_status_created_at_idx",
+      "tablename": "access_invites"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX access_invites_token_hash_key ON public.access_invites USING btree (token_hash)",
+      "indexname": "access_invites_token_hash_key",
+      "tablename": "access_invites"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX access_owner_events_pkey ON public.access_owner_events USING btree (id)",
+      "indexname": "access_owner_events_pkey",
+      "tablename": "access_owner_events"
+    },
+    {
+      "indexdef": "CREATE INDEX access_owner_events_tenant_id_created_at_idx ON public.access_owner_events USING btree (tenant_id, created_at)",
+      "indexname": "access_owner_events_tenant_id_created_at_idx",
+      "tablename": "access_owner_events"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX access_profiles_id_tenant_id_key ON public.access_profiles USING btree (id, tenant_id)",
+      "indexname": "access_profiles_id_tenant_id_key",
+      "tablename": "access_profiles"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX access_profiles_pkey ON public.access_profiles USING btree (id)",
+      "indexname": "access_profiles_pkey",
+      "tablename": "access_profiles"
+    },
+    {
+      "indexdef": "CREATE INDEX access_profiles_tenant_id_ativo_idx ON public.access_profiles USING btree (tenant_id, ativo)",
+      "indexname": "access_profiles_tenant_id_ativo_idx",
+      "tablename": "access_profiles"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX access_profiles_tenant_id_nome_key ON public.access_profiles USING btree (tenant_id, nome)",
+      "indexname": "access_profiles_tenant_id_nome_key",
+      "tablename": "access_profiles"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX areas_negocio_pkey ON public.areas_negocio USING btree (id)",
+      "indexname": "areas_negocio_pkey",
+      "tablename": "areas_negocio"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX areas_negocio_tenant_id_codigo_key ON public.areas_negocio USING btree (tenant_id, codigo)",
+      "indexname": "areas_negocio_tenant_id_codigo_key",
+      "tablename": "areas_negocio"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_area_negocio_tenant ON public.areas_negocio USING btree (tenant_id)",
+      "indexname": "idx_area_negocio_tenant",
+      "tablename": "areas_negocio"
+    },
+    {
+      "indexdef": "CREATE INDEX audit_events_action_occurred_at_idx ON public.audit_events USING btree (action, occurred_at DESC)",
+      "indexname": "audit_events_action_occurred_at_idx",
+      "tablename": "audit_events"
+    },
+    {
+      "indexdef": "CREATE INDEX audit_events_actor_identity_id_occurred_at_idx ON public.audit_events USING btree (actor_identity_id, occurred_at DESC)",
+      "indexname": "audit_events_actor_identity_id_occurred_at_idx",
+      "tablename": "audit_events"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX audit_events_pkey ON public.audit_events USING btree (id)",
+      "indexname": "audit_events_pkey",
+      "tablename": "audit_events"
+    },
+    {
+      "indexdef": "CREATE INDEX audit_events_support_grant_id_occurred_at_idx ON public.audit_events USING btree (support_grant_id, occurred_at DESC)",
+      "indexname": "audit_events_support_grant_id_occurred_at_idx",
+      "tablename": "audit_events"
+    },
+    {
+      "indexdef": "CREATE INDEX audit_events_tenant_id_occurred_at_idx ON public.audit_events USING btree (tenant_id, occurred_at DESC)",
+      "indexname": "audit_events_tenant_id_occurred_at_idx",
+      "tablename": "audit_events"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX auth_identities_email_key ON public.auth_identities USING btree (email)",
+      "indexname": "auth_identities_email_key",
+      "tablename": "auth_identities"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX auth_identities_pkey ON public.auth_identities USING btree (id)",
+      "indexname": "auth_identities_pkey",
+      "tablename": "auth_identities"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX categorias_pkey ON public.categorias USING btree (id)",
+      "indexname": "categorias_pkey",
+      "tablename": "categorias"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX categorias_tenant_id_codigo_key ON public.categorias USING btree (tenant_id, codigo)",
+      "indexname": "categorias_tenant_id_codigo_key",
+      "tablename": "categorias"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_categoria_tenant ON public.categorias USING btree (tenant_id)",
+      "indexname": "idx_categoria_tenant",
+      "tablename": "categorias"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX centros_custo_pkey ON public.centros_custo USING btree (id)",
+      "indexname": "centros_custo_pkey",
+      "tablename": "centros_custo"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX centros_custo_tenant_id_codigo_key ON public.centros_custo USING btree (tenant_id, codigo)",
+      "indexname": "centros_custo_tenant_id_codigo_key",
+      "tablename": "centros_custo"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_centro_custo_tenant ON public.centros_custo USING btree (tenant_id)",
+      "indexname": "idx_centro_custo_tenant",
+      "tablename": "centros_custo"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX clientes_pkey ON public.clientes USING btree (id)",
+      "indexname": "clientes_pkey",
+      "tablename": "clientes"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX clientes_tenant_id_codigo_key ON public.clientes USING btree (tenant_id, codigo)",
+      "indexname": "clientes_tenant_id_codigo_key",
+      "tablename": "clientes"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX clientes_tenant_id_id_key ON public.clientes USING btree (tenant_id, id)",
+      "indexname": "clientes_tenant_id_id_key",
+      "tablename": "clientes"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_clientes_conta_padrao ON public.clientes USING btree (tenant_id, conta_padrao_id)",
+      "indexname": "idx_clientes_conta_padrao",
+      "tablename": "clientes"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_clientes_tenant ON public.clientes USING btree (tenant_id)",
+      "indexname": "idx_clientes_tenant",
+      "tablename": "clientes"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX dados_bancarios_pkey ON public.dados_bancarios USING btree (id)",
+      "indexname": "dados_bancarios_pkey",
+      "tablename": "dados_bancarios"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_dados_bancarios_tenant ON public.dados_bancarios USING btree (tenant_id)",
+      "indexname": "idx_dados_bancarios_tenant",
+      "tablename": "dados_bancarios"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX dre_pkey ON public.dre USING btree (id)",
+      "indexname": "dre_pkey",
+      "tablename": "dre"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX dre_tenant_id_codigo_key ON public.dre USING btree (tenant_id, codigo)",
+      "indexname": "dre_tenant_id_codigo_key",
+      "tablename": "dre"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_dre_tenant ON public.dre USING btree (tenant_id)",
+      "indexname": "idx_dre_tenant",
+      "tablename": "dre"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX empresas_pkey ON public.empresas USING btree (id)",
+      "indexname": "empresas_pkey",
+      "tablename": "empresas"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_empresa_tenant ON public.empresas USING btree (tenant_id)",
+      "indexname": "idx_empresa_tenant",
+      "tablename": "empresas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX fornecedores_pkey ON public.fornecedores USING btree (id)",
+      "indexname": "fornecedores_pkey",
+      "tablename": "fornecedores"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX fornecedores_tenant_id_codigo_key ON public.fornecedores USING btree (tenant_id, codigo)",
+      "indexname": "fornecedores_tenant_id_codigo_key",
+      "tablename": "fornecedores"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_fornecedores_conta_padrao ON public.fornecedores USING btree (tenant_id, conta_padrao_id)",
+      "indexname": "idx_fornecedores_conta_padrao",
+      "tablename": "fornecedores"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_fornecedores_tenant ON public.fornecedores USING btree (tenant_id)",
+      "indexname": "idx_fornecedores_tenant",
+      "tablename": "fornecedores"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX import_operations_idempotency_key ON public.import_operations USING btree (tenant_id, contract_type, contract_version, payload_digest)",
+      "indexname": "import_operations_idempotency_key",
+      "tablename": "import_operations"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX import_operations_pkey ON public.import_operations USING btree (id)",
+      "indexname": "import_operations_pkey",
+      "tablename": "import_operations"
+    },
+    {
+      "indexdef": "CREATE INDEX import_operations_tenant_id_completed_at_idx ON public.import_operations USING btree (tenant_id, completed_at)",
+      "indexname": "import_operations_tenant_id_completed_at_idx",
+      "tablename": "import_operations"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_lancamentos_fornecedor ON public.lancamentos USING btree (fornecedor_id)",
+      "indexname": "idx_lancamentos_fornecedor",
+      "tablename": "lancamentos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_lancamentos_tenant_cliente ON public.lancamentos USING btree (tenant_id, cliente_id)",
+      "indexname": "idx_lancamentos_tenant_cliente",
+      "tablename": "lancamentos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_lancamentos_tenant_data ON public.lancamentos USING btree (tenant_id, data_lanc DESC)",
+      "indexname": "idx_lancamentos_tenant_data",
+      "tablename": "lancamentos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_lancamentos_tenant_status ON public.lancamentos USING btree (tenant_id, status)",
+      "indexname": "idx_lancamentos_tenant_status",
+      "tablename": "lancamentos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_lancamentos_tenant_tipo ON public.lancamentos USING btree (tenant_id, tipo)",
+      "indexname": "idx_lancamentos_tenant_tipo",
+      "tablename": "lancamentos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_lancamentos_venc_plano ON public.lancamentos USING btree (tenant_id, data_venc_plano)",
+      "indexname": "idx_lancamentos_venc_plano",
+      "tablename": "lancamentos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX lancamentos_pkey ON public.lancamentos USING btree (id)",
+      "indexname": "lancamentos_pkey",
+      "tablename": "lancamentos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_layouts_usuario ON public.layouts_colunas USING btree (usuario_id)",
+      "indexname": "idx_layouts_usuario",
+      "tablename": "layouts_colunas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX layouts_colunas_pkey ON public.layouts_colunas USING btree (id)",
+      "indexname": "layouts_colunas_pkey",
+      "tablename": "layouts_colunas"
+    },
+    {
+      "indexdef": "CREATE INDEX legacy_user_access_maps_identity_id_idx ON public.legacy_user_access_maps USING btree (identity_id)",
+      "indexname": "legacy_user_access_maps_identity_id_idx",
+      "tablename": "legacy_user_access_maps"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX legacy_user_access_maps_legacy_usuario_id_key ON public.legacy_user_access_maps USING btree (legacy_usuario_id)",
+      "indexname": "legacy_user_access_maps_legacy_usuario_id_key",
+      "tablename": "legacy_user_access_maps"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX legacy_user_access_maps_legacy_usuario_id_tenant_id_key ON public.legacy_user_access_maps USING btree (legacy_usuario_id, tenant_id)",
+      "indexname": "legacy_user_access_maps_legacy_usuario_id_tenant_id_key",
+      "tablename": "legacy_user_access_maps"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX legacy_user_access_maps_pkey ON public.legacy_user_access_maps USING btree (id)",
+      "indexname": "legacy_user_access_maps_pkey",
+      "tablename": "legacy_user_access_maps"
+    },
+    {
+      "indexdef": "CREATE INDEX legacy_user_access_maps_tenant_id_idx ON public.legacy_user_access_maps USING btree (tenant_id)",
+      "indexname": "legacy_user_access_maps_tenant_id_idx",
+      "tablename": "legacy_user_access_maps"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_pessoas_tenant ON public.pessoas USING btree (tenant_id)",
+      "indexname": "idx_pessoas_tenant",
+      "tablename": "pessoas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX pessoas_pkey ON public.pessoas USING btree (id)",
+      "indexname": "pessoas_pkey",
+      "tablename": "pessoas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX pessoas_tenant_id_codigo_key ON public.pessoas USING btree (tenant_id, codigo)",
+      "indexname": "pessoas_tenant_id_codigo_key",
+      "tablename": "pessoas"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_plano_contas_tenant_categoria ON public.plano_contas USING btree (tenant_id, categoria_id)",
+      "indexname": "idx_plano_contas_tenant_categoria",
+      "tablename": "plano_contas"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_plano_contas_tenant_codigo ON public.plano_contas USING btree (tenant_id, codigo)",
+      "indexname": "idx_plano_contas_tenant_codigo",
+      "tablename": "plano_contas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX plano_contas_pkey ON public.plano_contas USING btree (id)",
+      "indexname": "plano_contas_pkey",
+      "tablename": "plano_contas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX plano_contas_tenant_id_id_key ON public.plano_contas USING btree (tenant_id, id)",
+      "indexname": "plano_contas_tenant_id_id_key",
+      "tablename": "plano_contas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX platform_admins_id_identity_id_key ON public.platform_admins USING btree (id, identity_id)",
+      "indexname": "platform_admins_id_identity_id_key",
+      "tablename": "platform_admins"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX platform_admins_identity_id_key ON public.platform_admins USING btree (identity_id)",
+      "indexname": "platform_admins_identity_id_key",
+      "tablename": "platform_admins"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX platform_admins_pkey ON public.platform_admins USING btree (id)",
+      "indexname": "platform_admins_pkey",
+      "tablename": "platform_admins"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_produto_grupos_tenant ON public.produto_grupos USING btree (tenant_id)",
+      "indexname": "idx_produto_grupos_tenant",
+      "tablename": "produto_grupos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_grupos_pkey ON public.produto_grupos USING btree (id)",
+      "indexname": "produto_grupos_pkey",
+      "tablename": "produto_grupos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_grupos_tenant_id_codigo_key ON public.produto_grupos USING btree (tenant_id, codigo)",
+      "indexname": "produto_grupos_tenant_id_codigo_key",
+      "tablename": "produto_grupos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_grupos_tenant_id_id_key ON public.produto_grupos USING btree (tenant_id, id)",
+      "indexname": "produto_grupos_tenant_id_id_key",
+      "tablename": "produto_grupos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_produto_linhas_tipo ON public.produto_linhas USING btree (tenant_id, tipo_id)",
+      "indexname": "idx_produto_linhas_tipo",
+      "tablename": "produto_linhas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_linhas_pkey ON public.produto_linhas USING btree (id)",
+      "indexname": "produto_linhas_pkey",
+      "tablename": "produto_linhas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_linhas_tenant_id_id_key ON public.produto_linhas USING btree (tenant_id, id)",
+      "indexname": "produto_linhas_tenant_id_id_key",
+      "tablename": "produto_linhas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_linhas_tenant_id_tipo_id_codigo_key ON public.produto_linhas USING btree (tenant_id, tipo_id, codigo)",
+      "indexname": "produto_linhas_tenant_id_tipo_id_codigo_key",
+      "tablename": "produto_linhas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_sequencias_pkey ON public.produto_sequencias USING btree (id)",
+      "indexname": "produto_sequencias_pkey",
+      "tablename": "produto_sequencias"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_sequencias_tenant_id_escopo_key ON public.produto_sequencias USING btree (tenant_id, escopo)",
+      "indexname": "produto_sequencias_tenant_id_escopo_key",
+      "tablename": "produto_sequencias"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_produto_tipos_tenant ON public.produto_tipos USING btree (tenant_id)",
+      "indexname": "idx_produto_tipos_tenant",
+      "tablename": "produto_tipos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_tipos_pkey ON public.produto_tipos USING btree (id)",
+      "indexname": "produto_tipos_pkey",
+      "tablename": "produto_tipos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_tipos_tenant_id_grupo_codigo_key ON public.produto_tipos USING btree (tenant_id, grupo, codigo)",
+      "indexname": "produto_tipos_tenant_id_grupo_codigo_key",
+      "tablename": "produto_tipos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_tipos_tenant_id_grupo_id_codigo_key ON public.produto_tipos USING btree (tenant_id, grupo_id, codigo)",
+      "indexname": "produto_tipos_tenant_id_grupo_id_codigo_key",
+      "tablename": "produto_tipos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produto_tipos_tenant_id_id_key ON public.produto_tipos USING btree (tenant_id, id)",
+      "indexname": "produto_tipos_tenant_id_id_key",
+      "tablename": "produto_tipos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_produtos_grupo ON public.produtos USING btree (tenant_id, grupo_id)",
+      "indexname": "idx_produtos_grupo",
+      "tablename": "produtos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_produtos_linha ON public.produtos USING btree (tenant_id, linha_id)",
+      "indexname": "idx_produtos_linha",
+      "tablename": "produtos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_produtos_tenant ON public.produtos USING btree (tenant_id)",
+      "indexname": "idx_produtos_tenant",
+      "tablename": "produtos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_produtos_tipo ON public.produtos USING btree (tenant_id, tipo_id)",
+      "indexname": "idx_produtos_tipo",
+      "tablename": "produtos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produtos_pkey ON public.produtos USING btree (id)",
+      "indexname": "produtos_pkey",
+      "tablename": "produtos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX produtos_tenant_id_codigo_key ON public.produtos USING btree (tenant_id, codigo)",
+      "indexname": "produtos_tenant_id_codigo_key",
+      "tablename": "produtos"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_status_manual_tenant ON public.status_manual_tipos USING btree (tenant_id)",
+      "indexname": "idx_status_manual_tenant",
+      "tablename": "status_manual_tipos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX status_manual_tipos_pkey ON public.status_manual_tipos USING btree (id)",
+      "indexname": "status_manual_tipos_pkey",
+      "tablename": "status_manual_tipos"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX status_manual_tipos_tenant_id_codigo_key ON public.status_manual_tipos USING btree (tenant_id, codigo)",
+      "indexname": "status_manual_tipos_tenant_id_codigo_key",
+      "tablename": "status_manual_tipos"
+    },
+    {
+      "indexdef": "CREATE INDEX support_grant_events_grant_id_created_at_idx ON public.support_grant_events USING btree (grant_id, created_at)",
+      "indexname": "support_grant_events_grant_id_created_at_idx",
+      "tablename": "support_grant_events"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX support_grant_events_pkey ON public.support_grant_events USING btree (id)",
+      "indexname": "support_grant_events_pkey",
+      "tablename": "support_grant_events"
+    },
+    {
+      "indexdef": "CREATE INDEX support_grant_events_tenant_id_created_at_idx ON public.support_grant_events USING btree (tenant_id, created_at)",
+      "indexname": "support_grant_events_tenant_id_created_at_idx",
+      "tablename": "support_grant_events"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX support_grants_id_tenant_id_key ON public.support_grants USING btree (id, tenant_id)",
+      "indexname": "support_grants_id_tenant_id_key",
+      "tablename": "support_grants"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX support_grants_pkey ON public.support_grants USING btree (id)",
+      "indexname": "support_grants_pkey",
+      "tablename": "support_grants"
+    },
+    {
+      "indexdef": "CREATE INDEX support_grants_platform_admin_identity_id_status_expires_at_idx ON public.support_grants USING btree (platform_admin_identity_id, status, expires_at)",
+      "indexname": "support_grants_platform_admin_identity_id_status_expires_at_idx",
+      "tablename": "support_grants"
+    },
+    {
+      "indexdef": "CREATE INDEX support_grants_tenant_id_status_expires_at_idx ON public.support_grants USING btree (tenant_id, status, expires_at)",
+      "indexname": "support_grants_tenant_id_status_expires_at_idx",
+      "tablename": "support_grants"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX support_operators_identity_id_key ON public.support_operators USING btree (identity_id)",
+      "indexname": "support_operators_identity_id_key",
+      "tablename": "support_operators"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX support_operators_pkey ON public.support_operators USING btree (id)",
+      "indexname": "support_operators_pkey",
+      "tablename": "support_operators"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_tarefa_status_tenant ON public.tarefa_status USING btree (tenant_id)",
+      "indexname": "idx_tarefa_status_tenant",
+      "tablename": "tarefa_status"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tarefa_status_pkey ON public.tarefa_status USING btree (id)",
+      "indexname": "tarefa_status_pkey",
+      "tablename": "tarefa_status"
+    },
+    {
+      "indexdef": "CREATE INDEX idx_tarefas_tenant ON public.tarefas USING btree (tenant_id)",
+      "indexname": "idx_tarefas_tenant",
+      "tablename": "tarefas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tarefas_pkey ON public.tarefas USING btree (id)",
+      "indexname": "tarefas_pkey",
+      "tablename": "tarefas"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenant_contractual_responsibles_membership_id_key ON public.tenant_contractual_responsibles USING btree (membership_id)",
+      "indexname": "tenant_contractual_responsibles_membership_id_key",
+      "tablename": "tenant_contractual_responsibles"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenant_contractual_responsibles_membership_id_tenant_id_key ON public.tenant_contractual_responsibles USING btree (membership_id, tenant_id)",
+      "indexname": "tenant_contractual_responsibles_membership_id_tenant_id_key",
+      "tablename": "tenant_contractual_responsibles"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenant_contractual_responsibles_pkey ON public.tenant_contractual_responsibles USING btree (tenant_id)",
+      "indexname": "tenant_contractual_responsibles_pkey",
+      "tablename": "tenant_contractual_responsibles"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenant_memberships_id_identity_id_tenant_id_key ON public.tenant_memberships USING btree (id, identity_id, tenant_id)",
+      "indexname": "tenant_memberships_id_identity_id_tenant_id_key",
+      "tablename": "tenant_memberships"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenant_memberships_id_tenant_id_key ON public.tenant_memberships USING btree (id, tenant_id)",
+      "indexname": "tenant_memberships_id_tenant_id_key",
+      "tablename": "tenant_memberships"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenant_memberships_identity_id_tenant_id_key ON public.tenant_memberships USING btree (identity_id, tenant_id)",
+      "indexname": "tenant_memberships_identity_id_tenant_id_key",
+      "tablename": "tenant_memberships"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenant_memberships_pkey ON public.tenant_memberships USING btree (id)",
+      "indexname": "tenant_memberships_pkey",
+      "tablename": "tenant_memberships"
+    },
+    {
+      "indexdef": "CREATE INDEX tenant_memberships_tenant_id_status_idx ON public.tenant_memberships USING btree (tenant_id, status)",
+      "indexname": "tenant_memberships_tenant_id_status_idx",
+      "tablename": "tenant_memberships"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenants_email_key ON public.tenants USING btree (email)",
+      "indexname": "tenants_email_key",
+      "tablename": "tenants"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenants_pkey ON public.tenants USING btree (id)",
+      "indexname": "tenants_pkey",
+      "tablename": "tenants"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX tenants_slug_key ON public.tenants USING btree (slug)",
+      "indexname": "tenants_slug_key",
+      "tablename": "tenants"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX term_acceptances_identity_id_term_version_id_scope_key_key ON public.term_acceptances USING btree (identity_id, term_version_id, scope_key)",
+      "indexname": "term_acceptances_identity_id_term_version_id_scope_key_key",
+      "tablename": "term_acceptances"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX term_acceptances_pkey ON public.term_acceptances USING btree (id)",
+      "indexname": "term_acceptances_pkey",
+      "tablename": "term_acceptances"
+    },
+    {
+      "indexdef": "CREATE INDEX term_acceptances_tenant_id_accepted_at_idx ON public.term_acceptances USING btree (tenant_id, accepted_at)",
+      "indexname": "term_acceptances_tenant_id_accepted_at_idx",
+      "tablename": "term_acceptances"
+    },
+    {
+      "indexdef": "CREATE INDEX term_acceptances_term_version_id_accepted_at_idx ON public.term_acceptances USING btree (term_version_id, accepted_at)",
+      "indexname": "term_acceptances_term_version_id_accepted_at_idx",
+      "tablename": "term_acceptances"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX term_documents_code_key ON public.term_documents USING btree (code)",
+      "indexname": "term_documents_code_key",
+      "tablename": "term_documents"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX term_documents_pkey ON public.term_documents USING btree (id)",
+      "indexname": "term_documents_pkey",
+      "tablename": "term_documents"
+    },
+    {
+      "indexdef": "CREATE INDEX term_versions_document_id_status_idx ON public.term_versions USING btree (document_id, status)",
+      "indexname": "term_versions_document_id_status_idx",
+      "tablename": "term_versions"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX term_versions_document_id_version_key ON public.term_versions USING btree (document_id, version)",
+      "indexname": "term_versions_document_id_version_key",
+      "tablename": "term_versions"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX term_versions_one_published_per_document ON public.term_versions USING btree (document_id) WHERE (status = 'PUBLISHED'::\"TermVersionStatus\")",
+      "indexname": "term_versions_one_published_per_document",
+      "tablename": "term_versions"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX term_versions_pkey ON public.term_versions USING btree (id)",
+      "indexname": "term_versions_pkey",
+      "tablename": "term_versions"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX term_versions_storage_key_key ON public.term_versions USING btree (storage_key)",
+      "indexname": "term_versions_storage_key_key",
+      "tablename": "term_versions"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX usuarios_id_tenant_id_key ON public.usuarios USING btree (id, tenant_id)",
+      "indexname": "usuarios_id_tenant_id_key",
+      "tablename": "usuarios"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX usuarios_pkey ON public.usuarios USING btree (id)",
+      "indexname": "usuarios_pkey",
+      "tablename": "usuarios"
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX usuarios_tenant_id_email_key ON public.usuarios USING btree (tenant_id, email)",
+      "indexname": "usuarios_tenant_id_email_key",
+      "tablename": "usuarios"
+    }
+  ],
+  "policies": [],
+  "triggers": [
+    {
+      "tab": "access_invites",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.access_invites FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "access_owner_events",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.access_owner_events FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "access_profiles",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.access_profiles FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "areas_negocio",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.areas_negocio FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_immutable",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER audit_events_immutable BEFORE DELETE OR UPDATE ON public.audit_events FOR EACH ROW EXECUTE FUNCTION forbid_audit_event_mutation()"
+    },
+    {
+      "tab": "audit_events",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.audit_events FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "categorias",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.categorias FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "centros_custo",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.centros_custo FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "clientes",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.clientes FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "dados_bancarios",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.dados_bancarios FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "dre",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.dre FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "empresas",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.empresas FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "fornecedores",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.fornecedores FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "import_operations",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.import_operations FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "lancamento_revision_before_update",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER lancamento_revision_before_update BEFORE UPDATE ON public.lancamentos FOR EACH ROW EXECUTE FUNCTION bump_lancamento_revision()"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.lancamentos FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "layouts_colunas",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.layouts_colunas FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "legacy_user_access_maps",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.legacy_user_access_maps FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "pessoas",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.pessoas FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "plano_contas",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.plano_contas FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "produto_grupos",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.produto_grupos FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "produto_linhas",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.produto_linhas FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "produto_sequencias",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.produto_sequencias FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "produto_tipos",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.produto_tipos FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "produtos",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.produtos FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "status_manual_tipos",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.status_manual_tipos FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "support_grant_events",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.support_grant_events FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "support_grants",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.support_grants FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "tarefa_status",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.tarefa_status FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "tarefas",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.tarefas FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "tenant_contractual_responsibles",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.tenant_contractual_responsibles FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "tenant_memberships",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.tenant_memberships FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "tenants",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.tenants FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('id')"
+    },
+    {
+      "tab": "term_acceptances",
+      "name": "access5a_acceptance_append_only",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER access5a_acceptance_append_only BEFORE DELETE OR UPDATE ON public.term_acceptances FOR EACH ROW EXECUTE FUNCTION access5a_prevent_evidence_change()"
+    },
+    {
+      "tab": "term_acceptances",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.term_acceptances FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    },
+    {
+      "tab": "term_versions",
+      "name": "access5a_version_immutable",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER access5a_version_immutable BEFORE DELETE OR UPDATE ON public.term_versions FOR EACH ROW EXECUTE FUNCTION access5a_protect_version()"
+    },
+    {
+      "tab": "usuarios",
+      "name": "tenant_restore_write_guard",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER tenant_restore_write_guard BEFORE INSERT OR DELETE OR UPDATE ON public.usuarios FOR EACH ROW EXECUTE FUNCTION guard_tenant_restore_write('tenant_id')"
+    }
+  ],
+  "functions": [
+    {
+      "args": "",
+      "name": "access5a_prevent_evidence_change",
+      "definition": "CREATE OR REPLACE FUNCTION public.access5a_prevent_evidence_change()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  RAISE EXCEPTION 'Term acceptances are append-only';\nEND $function$\n"
+    },
+    {
+      "args": "",
+      "name": "access5a_protect_version",
+      "definition": "CREATE OR REPLACE FUNCTION public.access5a_protect_version()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF TG_OP = 'DELETE' THEN\n    IF OLD.status <> 'DRAFT' THEN RAISE EXCEPTION 'Published term versions cannot be deleted'; END IF;\n    RETURN OLD;\n  END IF;\n  IF OLD.status IN ('PUBLISHED', 'RETIRED') THEN\n    IF NEW.status <> 'RETIRED' OR\n       (to_jsonb(NEW) - 'status') IS DISTINCT FROM (to_jsonb(OLD) - 'status') THEN\n      RAISE EXCEPTION 'Published term versions are immutable';\n    END IF;\n  END IF;\n  RETURN NEW;\nEND $function$\n"
+    },
+    {
+      "args": "",
+      "name": "bump_lancamento_revision",
+      "definition": "CREATE OR REPLACE FUNCTION public.bump_lancamento_revision()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  NEW.revisao := OLD.revisao + 1;\n  RETURN NEW;\nEND;\n$function$\n"
+    },
+    {
+      "args": "",
+      "name": "forbid_audit_event_mutation",
+      "definition": "CREATE OR REPLACE FUNCTION public.forbid_audit_event_mutation()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  RAISE EXCEPTION 'audit_events are append-only';\nEND;\n$function$\n"
+    },
+    {
+      "args": "",
+      "name": "guard_tenant_restore_write",
+      "definition": "CREATE OR REPLACE FUNCTION public.guard_tenant_restore_write()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE old_t text; new_t text; v text;\nBEGIN\n  IF TG_OP <> 'INSERT' THEN old_t := to_jsonb(OLD)->>TG_ARGV[0]; END IF;\n  IF TG_OP <> 'DELETE' THEN new_t := to_jsonb(NEW)->>TG_ARGV[0]; END IF;\n  FOR v IN SELECT DISTINCT x FROM unnest(ARRAY[old_t,new_t]) x WHERE x IS NOT NULL ORDER BY x LOOP\n    IF NOT pg_try_advisory_xact_lock_shared(hashtextextended('10s:tenant-restore:' || v,0)) THEN\n      RAISE EXCEPTION USING ERRCODE='55P03', MESSAGE='TENANT_RESTORE_IN_PROGRESS';\n    END IF;\n  END LOOP;\n  IF TG_OP='DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND; $function$\n"
+    }
+  ],
+  "relations": [
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "access_invites",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "access_owner_events",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "access_profiles",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "areas_negocio",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "audit_events",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "auth_identities",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "categorias",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "centros_custo",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "clientes",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "dados_bancarios",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "dre",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "empresas",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "fornecedores",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "import_operations",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "lancamentos",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "layouts_colunas",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "legacy_user_access_maps",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "pessoas",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "plano_contas",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "platform_admins",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "produto_grupos",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "produto_linhas",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "produto_sequencias",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "produto_tipos",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "produtos",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "status_manual_tipos",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "support_grant_events",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "support_grants",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "support_operators",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "tarefa_status",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "tarefas",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "tenant_contractual_responsibles",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "tenant_memberships",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "tenants",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "term_acceptances",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "term_documents",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "term_versions",
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "kind": "r",
+      "name": "usuarios",
+      "force_rls": false
+    }
+  ],
+  "sequences": [
+    {
+      "name": "tarefas_seq_seq",
+      "type": "integer",
+      "seqmax": 2147483647,
+      "seqmin": 1,
+      "seqcache": 1,
+      "seqcycle": false,
+      "seqstart": 1,
+      "seqincrement": 1
+    }
+  ],
+  "constraints": [
+    {
+      "tab": "access_invites",
+      "name": "access_invites_accepted_by_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (accepted_by_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "access_invites",
+      "name": "access_invites_invited_by_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (invited_by_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "access_invites",
+      "name": "access_invites_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "access_invites",
+      "name": "access_invites_profile_id_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (profile_id, tenant_id) REFERENCES access_profiles(id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "access_invites",
+      "name": "access_invites_revoked_by_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (revoked_by_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "access_invites",
+      "name": "access_invites_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "access_owner_events",
+      "name": "access_owner_events_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "access_owner_events",
+      "name": "access_owner_events_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "access_profiles",
+      "name": "access_profiles_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "access_profiles",
+      "name": "access_profiles_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "areas_negocio",
+      "name": "areas_negocio_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "areas_negocio",
+      "name": "areas_negocio_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_action_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((length(action) >= 3) AND (length(action) <= 100)))"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_actor_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (actor_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_actor_membership_id_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (actor_membership_id, tenant_id) REFERENCES tenant_memberships(id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_membership_context_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((actor_membership_id IS NULL) OR (tenant_id IS NOT NULL)))"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_platform_admin_id_actor_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (platform_admin_id, actor_identity_id) REFERENCES platform_admins(id, identity_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_resource_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((length(resource_type) >= 2) AND (length(resource_type) <= 100)))"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_support_context_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((support_grant_id IS NULL) OR (tenant_id IS NOT NULL)))"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_support_grant_id_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (support_grant_id, tenant_id) REFERENCES support_grants(id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "audit_events",
+      "name": "audit_events_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "auth_identities",
+      "name": "auth_identities_email_normalized_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((email <> ''::text) AND (email = lower(btrim(email)))))"
+    },
+    {
+      "tab": "auth_identities",
+      "name": "auth_identities_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "categorias",
+      "name": "categorias_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "categorias",
+      "name": "categorias_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "centros_custo",
+      "name": "centros_custo_area_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (area_id) REFERENCES areas_negocio(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "tab": "centros_custo",
+      "name": "centros_custo_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "centros_custo",
+      "name": "centros_custo_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "clientes",
+      "name": "clientes_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "clientes",
+      "name": "clientes_tenant_id_conta_padrao_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id, conta_padrao_id) REFERENCES plano_contas(tenant_id, id)"
+    },
+    {
+      "tab": "clientes",
+      "name": "clientes_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "dados_bancarios",
+      "name": "dados_bancarios_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "dados_bancarios",
+      "name": "dados_bancarios_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "dre",
+      "name": "dre_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "dre",
+      "name": "dre_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "empresas",
+      "name": "empresas_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "empresas",
+      "name": "empresas_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "fornecedores",
+      "name": "fornecedores_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "fornecedores",
+      "name": "fornecedores_tenant_id_conta_padrao_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id, conta_padrao_id) REFERENCES plano_contas(tenant_id, id)"
+    },
+    {
+      "tab": "fornecedores",
+      "name": "fornecedores_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_actor_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (actor_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_contract_version_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((contract_version > 0))"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_created_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((created >= 0))"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_file_digest_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((file_digest)::text ~ '^[0-9a-f]{64}$'::text))"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_idempotency_key",
+      "type": "u",
+      "validated": true,
+      "definition": "UNIQUE (tenant_id, contract_type, contract_version, payload_digest)"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_payload_digest_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((payload_digest)::text ~ '^[0-9a-f]{64}$'::text))"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_unchanged_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((unchanged >= 0))"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_updated_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((updated >= 0))"
+    },
+    {
+      "tab": "import_operations",
+      "name": "import_operations_warnings_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((warnings >= 0))"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "lancamentos_conta_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (conta_id) REFERENCES plano_contas(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "lancamentos_criado_por_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (criado_por) REFERENCES usuarios(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "lancamentos_fornecedor_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (fornecedor_id) REFERENCES fornecedores(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "lancamentos_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "lancamentos_revisao_nonnegative",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((revisao >= 0))"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "lancamentos_tenant_id_cliente_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id, cliente_id) REFERENCES clientes(tenant_id, id)"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "lancamentos_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "lancamentos",
+      "name": "lancamentos_valor_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((valor IS NULL) OR (valor >= (0)::numeric)))"
+    },
+    {
+      "tab": "layouts_colunas",
+      "name": "layouts_colunas_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "layouts_colunas",
+      "name": "layouts_colunas_usuario_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "legacy_user_access_maps",
+      "name": "legacy_user_access_maps_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "legacy_user_access_maps",
+      "name": "legacy_user_access_maps_legacy_usuario_id_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (legacy_usuario_id, tenant_id) REFERENCES usuarios(id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "legacy_user_access_maps",
+      "name": "legacy_user_access_maps_membership_id_identity_id_tenant_i_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (membership_id, identity_id, tenant_id) REFERENCES tenant_memberships(id, identity_id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "legacy_user_access_maps",
+      "name": "legacy_user_access_maps_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "legacy_user_access_maps",
+      "name": "legacy_user_access_maps_platform_admin_id_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (platform_admin_id, identity_id) REFERENCES platform_admins(id, identity_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "legacy_user_access_maps",
+      "name": "legacy_user_access_maps_target_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((membership_id IS NOT NULL) <> (platform_admin_id IS NOT NULL)))"
+    },
+    {
+      "tab": "pessoas",
+      "name": "pessoas_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "pessoas",
+      "name": "pessoas_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "plano_contas",
+      "name": "plano_contas_categoria_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "tab": "plano_contas",
+      "name": "plano_contas_pai_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (pai_id) REFERENCES plano_contas(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "tab": "plano_contas",
+      "name": "plano_contas_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "plano_contas",
+      "name": "plano_contas_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "platform_admins",
+      "name": "platform_admins_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "platform_admins",
+      "name": "platform_admins_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "produto_grupos",
+      "name": "produto_grupos_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "produto_grupos",
+      "name": "produto_grupos_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "produto_linhas",
+      "name": "produto_linhas_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "produto_linhas",
+      "name": "produto_linhas_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "produto_linhas",
+      "name": "produto_linhas_tenant_id_tipo_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id, tipo_id) REFERENCES produto_tipos(tenant_id, id) ON DELETE RESTRICT"
+    },
+    {
+      "tab": "produto_sequencias",
+      "name": "produto_sequencias_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "produto_sequencias",
+      "name": "produto_sequencias_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "produto_tipos",
+      "name": "produto_tipos_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "produto_tipos",
+      "name": "produto_tipos_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "produto_tipos",
+      "name": "produto_tipos_tenant_id_grupo_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id, grupo_id) REFERENCES produto_grupos(tenant_id, id) ON DELETE RESTRICT"
+    },
+    {
+      "tab": "produtos",
+      "name": "produtos_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "produtos",
+      "name": "produtos_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "produtos",
+      "name": "produtos_tenant_id_grupo_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id, grupo_id) REFERENCES produto_grupos(tenant_id, id) ON DELETE RESTRICT"
+    },
+    {
+      "tab": "produtos",
+      "name": "produtos_tenant_id_linha_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id, linha_id) REFERENCES produto_linhas(tenant_id, id)"
+    },
+    {
+      "tab": "produtos",
+      "name": "produtos_tenant_id_tipo_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id, tipo_id) REFERENCES produto_tipos(tenant_id, id)"
+    },
+    {
+      "tab": "status_manual_tipos",
+      "name": "status_manual_tipos_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "status_manual_tipos",
+      "name": "status_manual_tipos_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "support_grant_events",
+      "name": "support_grant_events_actor_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (actor_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "support_grant_events",
+      "name": "support_grant_events_grant_id_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (grant_id, tenant_id) REFERENCES support_grants(id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "support_grant_events",
+      "name": "support_grant_events_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "support_grant_events",
+      "name": "support_grant_events_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "support_grants",
+      "name": "support_grants_active_window_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((status <> 'ACTIVE'::\"SupportGrantStatus\") OR ((approved_at IS NOT NULL) AND (approved_by_membership_id IS NOT NULL) AND (starts_at IS NOT NULL) AND (expires_at IS NOT NULL) AND (expires_at > starts_at))))"
+    },
+    {
+      "tab": "support_grants",
+      "name": "support_grants_approved_by_membership_id_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (approved_by_membership_id, tenant_id) REFERENCES tenant_memberships(id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "support_grants",
+      "name": "support_grants_minutes_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((requested_minutes >= 15) AND (requested_minutes <= 1440)))"
+    },
+    {
+      "tab": "support_grants",
+      "name": "support_grants_modules_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK (((cardinality(modules) >= 1) AND (cardinality(modules) <= 2)))"
+    },
+    {
+      "tab": "support_grants",
+      "name": "support_grants_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "support_grants",
+      "name": "support_grants_platform_admin_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (platform_admin_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "support_grants",
+      "name": "support_grants_reason_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((length(btrim(reason)) >= 15))"
+    },
+    {
+      "tab": "support_grants",
+      "name": "support_grants_revoked_by_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (revoked_by_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "support_grants",
+      "name": "support_grants_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "support_operators",
+      "name": "support_operators_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "support_operators",
+      "name": "support_operators_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "tarefa_status",
+      "name": "tarefa_status_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "tarefa_status",
+      "name": "tarefa_status_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "tarefas",
+      "name": "tarefas_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "tarefas",
+      "name": "tarefas_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    },
+    {
+      "tab": "tenant_contractual_responsibles",
+      "name": "tenant_contractual_responsibles_assigned_by_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (assigned_by_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "tenant_contractual_responsibles",
+      "name": "tenant_contractual_responsibles_membership_id_key",
+      "type": "u",
+      "validated": true,
+      "definition": "UNIQUE (membership_id)"
+    },
+    {
+      "tab": "tenant_contractual_responsibles",
+      "name": "tenant_contractual_responsibles_membership_id_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (membership_id, tenant_id) REFERENCES tenant_memberships(id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "tenant_contractual_responsibles",
+      "name": "tenant_contractual_responsibles_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (tenant_id)"
+    },
+    {
+      "tab": "tenant_contractual_responsibles",
+      "name": "tenant_contractual_responsibles_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "tenant_memberships",
+      "name": "tenant_memberships_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "tenant_memberships",
+      "name": "tenant_memberships_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "tenant_memberships",
+      "name": "tenant_memberships_profile_id_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (profile_id, tenant_id) REFERENCES access_profiles(id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "tenant_memberships",
+      "name": "tenant_memberships_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "tenants",
+      "name": "tenants_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "term_acceptances",
+      "name": "term_acceptances_hash_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((document_hash ~ '^[0-9a-f]{64}$'::text))"
+    },
+    {
+      "tab": "term_acceptances",
+      "name": "term_acceptances_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "term_acceptances",
+      "name": "term_acceptances_membership_id_identity_id_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (membership_id, identity_id, tenant_id) REFERENCES tenant_memberships(id, identity_id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "term_acceptances",
+      "name": "term_acceptances_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "term_acceptances",
+      "name": "term_acceptances_scope_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((((tenant_id IS NULL) AND (membership_id IS NULL) AND (scope_key = 'GLOBAL'::text) AND (role_at_acceptance IS NULL)) OR ((tenant_id IS NOT NULL) AND (membership_id IS NOT NULL) AND (scope_key = tenant_id) AND (role_at_acceptance = 'OWNER'::text))))"
+    },
+    {
+      "tab": "term_acceptances",
+      "name": "term_acceptances_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "term_acceptances",
+      "name": "term_acceptances_term_version_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (term_version_id) REFERENCES term_versions(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "term_documents",
+      "name": "term_documents_code_key",
+      "type": "u",
+      "validated": true,
+      "definition": "UNIQUE (code)"
+    },
+    {
+      "tab": "term_documents",
+      "name": "term_documents_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "term_versions",
+      "name": "term_versions_byte_size_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((byte_size > 0))"
+    },
+    {
+      "tab": "term_versions",
+      "name": "term_versions_document_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (document_id) REFERENCES term_documents(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "term_versions",
+      "name": "term_versions_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "term_versions",
+      "name": "term_versions_publication_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((((status = 'DRAFT'::\"TermVersionStatus\") AND (published_at IS NULL) AND (published_by_identity_id IS NULL)) OR ((status <> 'DRAFT'::\"TermVersionStatus\") AND (published_at IS NOT NULL) AND (published_by_identity_id IS NOT NULL))))"
+    },
+    {
+      "tab": "term_versions",
+      "name": "term_versions_published_by_identity_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (published_by_identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+    },
+    {
+      "tab": "term_versions",
+      "name": "term_versions_sha256_check",
+      "type": "c",
+      "validated": true,
+      "definition": "CHECK ((sha256 ~ '^[0-9a-f]{64}$'::text))"
+    },
+    {
+      "tab": "term_versions",
+      "name": "term_versions_storage_key_key",
+      "type": "u",
+      "validated": true,
+      "definition": "UNIQUE (storage_key)"
+    },
+    {
+      "tab": "usuarios",
+      "name": "usuarios_pkey",
+      "type": "p",
+      "validated": true,
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tab": "usuarios",
+      "name": "usuarios_tenant_id_fkey",
+      "type": "f",
+      "validated": true,
+      "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    }
+  ]
+}

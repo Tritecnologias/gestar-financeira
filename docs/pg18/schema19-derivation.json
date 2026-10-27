@@ -1,0 +1,154 @@
+{
+  "source": "f670a43336052d9620fc51a33e9d74ad67ed0f85",
+  "version": "16.15",
+  "ledger": [
+    {
+      "migration_name": "0_legacy_baseline",
+      "checksum": "ab4c8a4084dc6c6a15ced50fca5e98593a4207c634831a6871277e89fb2197c4",
+      "ok": true
+    },
+    {
+      "migration_name": "20261004_legacy_schema_reconciliation",
+      "checksum": "aca058e54f8f16feface1d5ef757264583c4468d200548e9af21b4388cf601d4",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access4b_owner_events",
+      "checksum": "489810946c6c29ea6193f66458d643269d7ab90c8a952ecd6b76a8665cb12d2c",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access4b_permissions",
+      "checksum": "4bca54cfc0c4005eafb5a5ac1c07df9c87efcd7c94baa73f7a1fa32da3744132",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access5a_versioned_terms",
+      "checksum": "2f3c0adf3bc36b768a7a6a0da1e30c4f872f65ff4347f057dcf77ede3a25aaa7",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access5a_z_integrity",
+      "checksum": "57d4ab16fbfd6d6105a572ad054750ffd70948c0377cf6c88e8dd2cd68ab9b25",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access5b_support_grants",
+      "checksum": "8c4c4decb6bf2ceef501f22eb427e5459e32f4c3f92265481ac0211477e4525a",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access5c_audit_events",
+      "checksum": "82eca9c6a03cce6668b1fc5c3d550d8d5f22b8e309fc6a3e5f5ffe652db08abe",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access_identity_membership",
+      "checksum": "5f6f45904b43a3fe9986136cf01540537063c038c5fb76129096112ca87902d5",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access_profiles",
+      "checksum": "46ad7fec6f44573effe0f656ee716e05247bdef2a548a4def128c44bfa1ea0f7",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access_profiles_config_compat",
+      "checksum": "a8a5387549c0895ca3e692bf4dc2b3053acccf583f7612f78c9b32a9bf79427f",
+      "ok": true
+    },
+    {
+      "migration_name": "20261005_access_profiles_member_compat",
+      "checksum": "48353336eacca5d3e3597c1167245d08e445adc61ee7ab1e961bb6632506bd46",
+      "ok": true
+    },
+    {
+      "migration_name": "20261007_access_invitations",
+      "checksum": "5d66dcc1a8f6e8024befa768d2c0de4b52eae52808a7880094316f463487bcb7",
+      "ok": true
+    },
+    {
+      "migration_name": "20261024_import_operation",
+      "checksum": "00e710e09510142d6f734725705ccd8a7dfb144da6bb1ffcb3dd4ed3a0abe507",
+      "ok": true
+    },
+    {
+      "migration_name": "20261024_lancamento_optional_fields",
+      "checksum": "8ae7ad21a0704226e9e48a7694d35d8b57eb3fce0de661030bf91ec9db3aedec",
+      "ok": true
+    },
+    {
+      "migration_name": "20261024_lancamento_revision",
+      "checksum": "97af272398cfb55f618095de1ad53fb867ffd31d33b880c451cd23a5d9844a9b",
+      "ok": true
+    },
+    {
+      "migration_name": "20261024_z_tenant_restore_lock",
+      "checksum": "2f29deafdb623ce73fece4bd717fee8ec9d6f7bcca5cb16c91ce74cc6ed8735d",
+      "ok": true
+    },
+    {
+      "migration_name": "20261025_lancamento_valor_nonnegative",
+      "checksum": "4a1b93478e9afcb4e4c4fd97656122e3e7a98d94473cc2366a02af47907c121f",
+      "ok": true
+    },
+    {
+      "migration_name": "20261025_support_operators",
+      "checksum": "f4d3b0a7619a07779da0557a650d906b726b3f0e89939f1ef5b31efd106eca5b",
+      "ok": true
+    }
+  ],
+  "emptyTables": {
+    "access_invites": 0,
+    "access_owner_events": 0,
+    "access_profiles": 0,
+    "areas_negocio": 0,
+    "audit_events": 0,
+    "auth_identities": 0,
+    "categorias": 0,
+    "centros_custo": 0,
+    "clientes": 0,
+    "dados_bancarios": 0,
+    "dre": 0,
+    "empresas": 0,
+    "fornecedores": 0,
+    "import_operations": 0,
+    "lancamentos": 0,
+    "layouts_colunas": 0,
+    "legacy_user_access_maps": 0,
+    "pessoas": 0,
+    "plano_contas": 0,
+    "platform_admins": 0,
+    "produto_grupos": 0,
+    "produto_linhas": 0,
+    "produto_sequencias": 0,
+    "produto_tipos": 0,
+    "produtos": 0,
+    "status_manual_tipos": 0,
+    "support_grant_events": 0,
+    "support_grants": 0,
+    "support_operators": 0,
+    "tarefa_status": 0,
+    "tarefas": 0,
+    "tenant_contractual_responsibles": 0,
+    "tenant_memberships": 0,
+    "tenants": 0,
+    "term_acceptances": 0,
+    "term_documents": 0,
+    "term_versions": 0,
+    "usuarios": 0
+  },
+  "objects": {
+    "enums": 37,
+    "views": 0,
+    "columns": 377,
+    "indexes": 132,
+    "policies": 0,
+    "triggers": 37,
+    "functions": 5,
+    "relations": 38,
+    "sequences": 1,
+    "constraints": 140
+  },
+  "canonicalSQLSha256": "981a665ce710f265679c49ba44824ca1eecd941ff39f15819dd8c9fea8bcde87"
+}

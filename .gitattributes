@@ -1,2 +1,3 @@
 app/prisma/migrations/20261025_lancamento_valor_nonnegative/migration.sql text eol=lf
 app/prisma/migrations/20261025_support_operators/migration.sql text eol=lf
+app/prisma/migrations/20261027_pg18_baseline/migration.sql text eol=lf
