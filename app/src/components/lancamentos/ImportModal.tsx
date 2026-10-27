@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 import { useState, useRef, useEffect } from "react";
 
 interface Props {
@@ -405,7 +406,7 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
                 >
                   {tenants.map(t => (
                     <option key={t.id} value={t.id}>
-                      {t.nome} {t.id === "00000000-0000-0000-0000-000000000001" ? "(Meu Tenant)" : ""}
+                      {t.nome} {t.id === "00000000-0000-0000-0000-000000000001" ? "(Minha empresa)" : ""}
                     </option>
                   ))}
                 </select>
@@ -413,7 +414,7 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
             )}
           </div>
 
-          {error && <div className="alert alert-error" style={{ marginBottom: 0 }}>{error}</div>}
+          {error && <div className="alert alert-error" style={{ marginBottom: 0 }}>{messagePtBr(error)}</div>}
 
           {result && (
             <div
@@ -590,7 +591,7 @@ export default function ImportModal({ open, onClose, onImported }: Props) {
                   Pré-visualização dos Dados ({Math.min(10, totalLinhas)} primeiras linhas de {totalLinhas.toLocaleString()}):
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                  Role horizontalmente para inspecionar todas as colunas
+                  Função horizontalmente para inspecionar todas as colunas
                 </div>
               </div>
               <div

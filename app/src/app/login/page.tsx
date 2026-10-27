@@ -3,6 +3,7 @@
 import { Suspense, useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 function LoginForm() {
   const router = useRouter();
@@ -19,6 +20,7 @@ function LoginForm() {
     setErro("");
 
     startTransition(async () => {
+      try {
       const result = await signIn("credentials", {
         email,
         password: senha,
@@ -37,6 +39,7 @@ function LoginForm() {
           router.push(Array.isArray(choices) && (choices.length !== 1 || choices[0]?.kind === "SUPPORT_GRANT") ? "/selecionar-tenant" : callbackUrl);
         }
       }
+      } catch { setErro("Não foi possível conectar. Verifique sua conexão e tente novamente."); }
     });
   }
 
@@ -51,13 +54,15 @@ function LoginForm() {
           <p>Sistema de Fluxo de Caixa</p>
         </div>
 
-        {erro && <div className="login-error">{erro}</div>}
+        {searchParams.get("notice") === "password-changed" && <p role="status">Senha alterada com sucesso. Entre com a nova senha.</p>}
+        {erro && <div className="login-error" role="alert">{erro}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">E-mail</label>
             <input
               id="email"
+              name="email"
               type="email"
               placeholder="seu@email.com.br"
               value={email}
@@ -68,10 +73,10 @@ function LoginForm() {
             />
           </div>
           <div className="form-group" style={{ marginBottom: 20 }}>
-            <label htmlFor="senha">Senha</label>
-            <input
+            <PasswordInput
+              label="Senha"
               id="senha"
-              type="password"
+              name="password"
               placeholder="••••••••"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}

@@ -1,9 +1,11 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
+import { roleLabel } from "@/lib/presentation";
 
 type Choice = { id: string; nome: string; role?: "OWNER" | "ADMIN" | "MEMBER";
   kind?: "MEMBERSHIP" | "SUPPORT_GRANT"; grantId?: string; accessLevel?: string;
@@ -52,14 +54,15 @@ export default function SelecionarTenant() {
     <div className="login-logo"><span className="logo-icon">💼</span><h1>Dez <strong>Soluções</strong></h1></div>
     <h2 style={{ marginBottom: 8 }}>Selecionar empresa</h2>
     <p style={{ color: "var(--text-secondary)", marginBottom: 18 }}>Escolha um vínculo empresarial ou suporte autorizado.</p>
-    {error && <p className="login-error" role="alert">{error}</p>}
+    {error && <p className="login-error" role="alert">{messagePtBr(error)}</p>}
     {choices === null && !error && <p>Carregando...</p>}
-    {choices?.length === 0 && <p>Esta identidade não possui acesso empresarial ativo.</p>}
+    {choices?.length === 0 && <p>Sua conta não possui acesso ativo a nenhuma empresa.</p>}
+    <Link className="btn" href="/minha-conta" style={{ display: "inline-flex", marginBottom: 12 }}>Minha conta</Link>
     {platformAdmin && <Link className="btn" href="/plataforma" style={{ display: "inline-flex", marginBottom: 12 }}>Administração da Plataforma</Link>}
     {supportOperator && <Link className="btn" href="/suporte" style={{ display: "inline-flex", marginBottom: 12 }}>Área de Suporte</Link>}
     {choices?.map((choice, index) => <div key={choice.grantId ?? choice.id}>
       {(index === 0 || choices[index - 1].kind !== choice.kind) && <p style={{ fontSize: 11, fontWeight: 700, margin: "10px 0 5px", color: "var(--text-secondary)" }}>
-        {choice.kind === "SUPPORT_GRANT" ? "SUPORTE AUTORIZADO" : "MEUS TENANTS"}</p>}
+        {choice.kind === "SUPPORT_GRANT" ? "SUPORTE AUTORIZADO" : "MINHAS EMPRESAS"}</p>}
       <button className="btn" type="button"
       disabled={busy} onClick={() => choose(choice)}
       style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap", gap: 6,
@@ -69,7 +72,7 @@ export default function SelecionarTenant() {
       <span style={{ flex: "1 1 140px", minWidth: 0, whiteSpace: "normal", overflowWrap: "anywhere" }}>{choice.nome}</span>
       <span style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
         {choice.kind === "SUPPORT_GRANT" ? `Suporte ${choice.accessLevel === "READ_ONLY" ? "somente leitura" : "operacional"} · expira ${choice.expiresAt ? new Date(choice.expiresAt).toLocaleString("pt-BR") : "—"}` :
-          choice.role === "MEMBER" ? "Membro" : choice.role === "OWNER" ? "Proprietário" : "Admin"}
+          roleLabel(choice.role ?? "ADMIN")}
       </span>
     </button></div>)}
     <button type="button" className="btn" style={{ marginTop: 12 }} onClick={() => signOut({ callbackUrl: "/login" })}>Sair</button>

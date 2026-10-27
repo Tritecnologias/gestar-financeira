@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useState } from "react";
 import { useStructureImportRequest } from "./useStructureImportRequest";
@@ -94,7 +95,7 @@ export default function RegistrationImportModal({ onClose, onImported }: Props) 
           <li>Confirme a importação conjunta das duas abas.</li>
         </ol>
         {busy && <p role="status">{preview ? "Confirmando e revalidando..." : "Lendo e validando..."}</p>}
-        {error && <div className="alert alert-error" role="alert">{error}</div>}
+        {error && <div className="alert alert-error" role="alert">{messagePtBr(error)}</div>}
         {result && <div className="registration-import-success" role="status">Importação concluída: {result.totalNovo} novos, {result.totalAtualizado} atualizados e {result.totalSemAlteracao} sem alteração. Nenhum cadastro foi excluído.</div>}
         {created && (created.clientes.length > 0 || created.fornecedores.length > 0) && <div className="registration-import-created" role="status">
           <strong>Códigos gerados</strong>

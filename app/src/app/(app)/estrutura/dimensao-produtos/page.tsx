@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import ProductImportModal from "@/components/estrutura/ProductImportModal";
@@ -183,7 +184,7 @@ export default function DimensaoProdutosPage() {
   return <div className={`product-page ${can("estrutura.portfolio.create") ? "can-create" : ""} ${can("estrutura.portfolio.edit") ? "can-edit" : ""} ${can("estrutura.portfolio.delete") ? "can-delete" : ""}`}>
     <header className="topbar"><div><h1 className="page-title">Dimensão de Portfólio</h1><p className="page-sub">Catálogo hierárquico — Grupo → Tipo → Linha → Item</p></div></header>
     <div className="product-content">
-      {error && <div className="alert alert-error" role="alert">{error}</div>}
+      {error && <div className="alert alert-error" role="alert">{messagePtBr(error)}</div>}
       <div className="product-toolbar">
         <label className="product-search">Busca<input className="filter-input" value={search} onChange={event => setSearch(event.target.value)} placeholder="Código ou nome" /></label>
         <label>Grupo<select className="filter-input" value={groupFilter} onChange={event => { setGroupFilter(event.target.value); setTypeFilter(""); setLineFilter(""); }}><option value="">Todos</option>{filterGroups.map(group => <option key={group.id} value={group.id}>{group.codigo} — {group.nome}</option>)}</select></label>

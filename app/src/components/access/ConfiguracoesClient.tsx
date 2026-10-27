@@ -121,7 +121,7 @@ export default function ConfiguracoesClient({ canManage }: { canManage: boolean 
             <div>
               <div className="config-card-title">Logo da Empresa</div>
               <div className="config-card-sub">
-                Substitui o logo padrão na sidebar. Tamanho ideal: 200×60 px (PNG ou SVG transparente).
+                Substitui o logo padrão na menu lateral. Tamanho ideal: 200×60 px (PNG ou SVG transparente).
               </div>
             </div>
           </div>
@@ -131,7 +131,7 @@ export default function ConfiguracoesClient({ canManage }: { canManage: boolean 
             <div className="logo-preview-box">
               <Image
                 src={preview}
-                alt="Preview do logo"
+                alt="Prévia do logo"
                 width={200}
                 height={60}
                 style={{ objectFit: "contain", maxHeight: 60 }}

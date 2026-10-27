@@ -6,7 +6,7 @@ export default function AcessoNegado() {
     <section style={{ background: "var(--surface)", border: "1px solid var(--border)",
       borderRadius: 12, padding: 28, maxWidth: 440 }}>
       <h1>Acesso não autorizado</h1>
-      <p>Seu perfil não permite abrir esta tela no tenant selecionado.</p>
+      <p>Seu perfil não permite abrir esta tela na empresa selecionado.</p>
       <Link href="/">Voltar ao início</Link>
     </section>
   </main>;

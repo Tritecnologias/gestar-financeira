@@ -1,4 +1,6 @@
 "use client";
+import PasswordInput from "@/components/ui/PasswordInput";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
@@ -77,23 +79,23 @@ export default function ActivateAccessClient() {
   return <main className="activation-page"><section className="activation-card">
     <span className="activation-eyebrow">DEZ SOLUÇÕES · ACESSO</span>
     <h1>Concluir acesso ao 10S</h1>
-    {error && <p className="activation-error" role="alert">{error}</p>}
+    {error && <p className="activation-error" role="alert">{messagePtBr(error)}</p>}
     {!invite && !error && <p>Verificando convite…</p>}
     {invite && <>
       <p>Você recebeu acesso para <strong>{invite.tenantNome}</strong>. Confirme para ativar seu vínculo.</p>
       <p className="activation-muted">Este convite expira em {new Date(invite.expiresAt).toLocaleString("pt-BR")}.</p>
       {invite.mode === "new" ? <div className="activation-fields">
-        <label>Crie sua senha<input type="password" autoComplete="new-password" value={password}
-          onChange={event => setPassword(event.target.value)} minLength={12} maxLength={200} /></label>
-        <label>Confirme sua senha<input type="password" autoComplete="new-password" value={confirm}
-          onChange={event => setConfirm(event.target.value)} /></label>
+        <PasswordInput id="activation-password" label="Crie sua senha" autoComplete="new-password" value={password}
+          onChange={event => setPassword(event.target.value)} minLength={12} maxLength={200} />
+        <PasswordInput id="activation-confirmation" label="Confirme sua senha" autoComplete="new-password" value={confirm}
+          onChange={event => setConfirm(event.target.value)} />
         <p className="activation-muted">A senha é definida apenas por você. O aceite dos documentos obrigatórios será solicitado depois.</p>
-      </div> : invite.canAccept ? <p className="activation-muted">Sua identidade está autenticada. Confirme o acesso ao novo tenant.</p>
+      </div> : invite.canAccept ? <p className="activation-muted">Você está conectado. Confirme o acesso ao nova empresa.</p>
         : <form className="activation-fields" onSubmit={authenticate}>
           <p>Entre com a conta destinatária do convite antes de confirmar. Sua senha atual não será alterada.</p>
           <label>E-mail<input type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} /></label>
-          <label>Senha atual<input type="password" autoComplete="current-password" required value={loginPassword}
-            onChange={event => setLoginPassword(event.target.value)} /></label>
+          <PasswordInput id="activation-current" label="Senha atual" autoComplete="current-password" required value={loginPassword}
+            onChange={event => setLoginPassword(event.target.value)} />
           <button disabled={busy} type="submit">Entrar para confirmar</button>
         </form>}
       {(invite.mode === "new" || invite.canAccept) && <button className="activation-primary" disabled={busy}

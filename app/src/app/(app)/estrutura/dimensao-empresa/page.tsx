@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 import { useState, useEffect, useCallback } from "react";
 import ManagementImportModal from "@/components/estrutura/ManagementImportModal";
 import { useCan } from "@/components/access/PermissionContext";
@@ -107,7 +108,7 @@ export default function DimensaoEmpresaPage() {
     <div className={`company-dimension-page ${accessClass}`}>
       {pageHeader}
       <div className="company-dimension-content">
-        {error && <div className="alert alert-error company-dimension-alert">{error}</div>}
+        {error && <div className="alert alert-error company-dimension-alert">{messagePtBr(error)}</div>}
         <div className="company-dimension-toolbar">
           <div className="form-group company-dimension-search"><label htmlFor="company-dimension-search">Busca</label><input id="company-dimension-search" type="text" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="🔍 Buscar..." /></div>
           <span className="company-dimension-count">{empresasVisiveis.length + bancosVisiveis.length + areasVisiveis.length + centrosVisiveis.length} cadastros</span>

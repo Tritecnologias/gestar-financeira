@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useState } from "react";
 import { useStructureImportRequest } from "./useStructureImportRequest";
@@ -65,7 +66,7 @@ export default function ProductImportModal({ onClose, onImported }: Props) {
     <div className="product-import-body">
       <ol className="product-import-steps">{can("estrutura.portfolio.export") && <li><button type="button" className="btn btn-secondary" onClick={() => void download(true)} disabled={downloading}>Baixar modelo vazio</button> <button className="btn btn-secondary" onClick={() => void download()} disabled={downloading}>Baixar Estrutura</button><p>Baixe os cadastros ativos para editar ou acrescentar. Sem dados, o arquivo vem vazio com cabeçalhos.</p></li>}<li>Edite ou preencha as abas GRUPOS, TIPOS, LINHAS e ITENS no Excel. Preserve os códigos como texto.</li><li><label className="product-import-file">Selecione o arquivo .xlsx<input type="file" accept=".xlsx" onClick={event => { event.currentTarget.value = ""; setFile(null); setPreview(null); setResult(null); }} onChange={event => void selectFile(event.target.files?.[0] || null)} disabled={busy} /></label></li><li>Confira a prévia, avisos e erros.</li><li>Confirme a importação após revisar.</li></ol>
       {busy && <p role="status">{preview ? "Revalidando e confirmando…" : "Lendo e validando…"}</p>}
-      {error && <div className="alert alert-error" role="alert">{error}</div>}
+      {error && <div className="alert alert-error" role="alert">{messagePtBr(error)}</div>}
       {result && <div className="product-import-success" role="status">Importação concluída: {result.totalNovo} novos, {result.totalAtualizado} atualizados e {result.totalSemAlteracao} sem alteração. Nenhum registro foi excluído.</div>}
       {preview && <><div className="product-import-summary">{[["Lidos", preview.resumo.totalLido], ["Novos", preview.resumo.totalNovo], ["Atualizações", preview.resumo.totalAtualizado], ["Sem alteração", preview.resumo.totalSemAlteracao], ["Avisos", preview.resumo.totalAvisos], ["Erros", preview.resumo.totalErros]].map(([label, value]) => <div key={label}><strong>{label}</strong><span>{value}</span></div>)}</div>
         <p className="product-import-subsummary">Grupos: {preview.resumo.grupos.novos} novos, {preview.resumo.grupos.atualizacoes} atualizados. Tipos: {preview.resumo.tipos.novos} novos, {preview.resumo.tipos.atualizacoes} atualizados. Linhas: {preview.resumo.linhas.novos} novas, {preview.resumo.linhas.atualizacoes} atualizadas. Itens: {preview.resumo.itens.novos} novos, {preview.resumo.itens.atualizacoes} atualizados.</p>

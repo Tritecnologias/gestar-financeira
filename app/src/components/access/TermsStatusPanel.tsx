@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useEffect, useState } from "react";
 
@@ -19,7 +20,7 @@ export default function TermsStatusPanel() {
   }, []);
   return <details className="access-terms-status"><summary>Status dos termos obrigatórios</summary>
     {!responsible && <p className="access-warning">Responsável contratual não designado pela plataforma.</p>}
-    {error && <p role="alert" className="access-error">{error}</p>}
+    {error && <p role="alert" className="access-error">{messagePtBr(error)}</p>}
     <div className="access-table-wrap"><table className="access-table"><thead><tr><th>Usuário</th><th>Documento</th><th>Versão exigida</th><th>Versão aceita</th><th>Data</th><th>Status</th></tr></thead><tbody>
       {rows.flatMap(row => row.terms.filter(term => term.applicable).map(term => <tr key={`${row.membershipId}:${term.documentCode}`}>
         <td><strong>{row.nome}</strong><small>{row.email}{row.isContractualResponsible ? " · Responsável contratual" : ""}</small></td>

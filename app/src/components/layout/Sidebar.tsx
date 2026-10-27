@@ -169,20 +169,20 @@ function TenantSelector({ defaultTenantNome, legacyGlobal }: { defaultTenantNome
       {open && (
         <div className="sidebar-tenant-options" style={{ position: "absolute", bottom: "100%", left: 10, right: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-elevated)", padding: 8, zIndex: 100, marginBottom: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 6, padding: "2px 4px" }}>
-            Alternar Empresa / Tenant
+            Trocar empresa
           </div>
           {legacyGlobal && isCustomTenant && (
             <button
               onClick={resetTenant}
               style={{ width: "100%", padding: "7px 10px", fontSize: 11, background: "var(--selection)", border: "1px solid var(--border)", borderRadius: 5, cursor: "pointer", color: "var(--action)", marginBottom: 6, textAlign: "left", fontWeight: 700 }}
             >
-              ↩ Voltar ao meu tenant (Dez Soluções)
+              ↩ Voltar à minha empresa (Dez Soluções)
             </button>
           )}
           {tenants.map((t, index) => (
             <div key={t.grantId ?? t.id}>
             {(index === 0 || tenants[index - 1].kind !== t.kind) && <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-secondary)", padding: "8px 4px 4px" }}>
-              {t.kind === "SUPPORT_GRANT" ? "SUPORTE AUTORIZADO" : "MEUS TENANTS"}</div>}
+              {t.kind === "SUPPORT_GRANT" ? "SUPORTE AUTORIZADO" : "MINHAS EMPRESAS"}</div>}
             <button
               onClick={() => switchTenant(t)}
               style={{
@@ -509,6 +509,9 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
               </Link>)}
             </div>
           </div>}
+          {authMode === "identity" && <Link href="/minha-conta" className="sb-row" title="Minha conta" aria-label="Minha conta" onClick={() => setMobileOpen(false)}>
+            <span className="sb-icon" aria-hidden="true">👤</span><span className="sb-label">Minha conta</span>
+          </Link>}
         </nav>
 
         {/* ── Tenant Selector ─────────────────────────────────── */}
@@ -519,10 +522,10 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
         {/* ── Footer ────────────────────────────────────────── */}
         <div className="sidebar-footer">
           <div className="avatar">{iniciais}</div>
-          <div className="sb-footer-info">
+          <Link href={authMode === "identity" ? "/minha-conta" : "/inicio"} className="sb-footer-info" title={authMode === "identity" ? "Minha conta" : "Início"} aria-label={authMode === "identity" ? "Minha conta" : "Início"} onClick={() => setMobileOpen(false)} style={{ color: "inherit", textDecoration: "none", minWidth: 0 }}>
             <div className="user-name">{userNome}</div>
             <div className="user-role">{tenantNome}</div>
-          </div>
+          </Link>
           <AppearanceButton compact />
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}

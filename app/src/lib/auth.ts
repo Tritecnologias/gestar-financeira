@@ -5,6 +5,9 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { emailEqualsNormalized, normalizeEmail, unambiguousLegacyAccount } from "@/lib/email";
 import { writeAudit } from "@/lib/audit";
+import { credentialStamp, matchesCredentialStamp } from "@/lib/credential-session";
+
+const sessionSecret = () => process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "";
 
 // Rollback operacional explícito. O modo padrão usa a identidade ACCESS-2.
 export const legacyAuthEnabled = process.env.ACCESS_AUTH_MODE === "legacy";
@@ -38,7 +41,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await writeAudit(prisma, { actorIdentityId: identity.id, accessMode: "SYSTEM",
             action: "LOGIN_SUCCESS", resourceType: "AuthIdentity", resourceId: identity.id }).catch(() => {});
           return { id: identity.id, name: identity.nome, email: identity.email,
-            authMode: "identity", loginNonce: randomUUID() };
+            authMode: "identity", loginNonce: randomUUID(),
+            credentialStamp: credentialStamp(identity.id, identity.senhaHash, sessionSecret()) };
         }
 
         const usuarios = await prisma.usuario.findMany({
@@ -92,9 +96,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
         token.authMode = (user as any).authMode;
         token.loginNonce = (user as any).loginNonce;
+        token.credentialStamp = (user as any).credentialStamp;
         token.papel = (user as any).papel;
         token.tenantId = (user as any).tenantId;
         token.tenantNome = (user as any).tenantNome;
+      }
+      if (token.authMode === "identity") {
+        // Existing JWTs without a stamp require one fresh login after rollout.
+        // No profile/tenant context is used to authorize this credential check.
+        if (typeof token.id !== "string") return null;
+        const current = await prisma.authIdentity.findUnique({ where: { id: token.id }, select: { status: true, senhaHash: true } });
+        if (!current || current.status !== "ACTIVE" || !matchesCredentialStamp(token.credentialStamp, token.id, current.senhaHash, sessionSecret())) return null;
       }
       return token;
     },

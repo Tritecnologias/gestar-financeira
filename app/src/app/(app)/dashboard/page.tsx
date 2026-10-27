@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Dashboard – Dez Soluções",
+  title: "Visão Geral – Dez Soluções",
 };
 
 export default function DashboardPage() {
@@ -9,7 +9,7 @@ export default function DashboardPage() {
     <div>
       <header className="topbar">
         <div>
-          <h1 className="page-title">Dashboard</h1>
+          <h1 className="page-title">Visão Geral</h1>
           <p className="page-sub">Visão geral do período</p>
         </div>
       </header>

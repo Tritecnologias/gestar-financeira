@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useState } from "react";
 import { useStructureImportRequest } from "./useStructureImportRequest";
@@ -83,7 +84,7 @@ export default function ManagementImportModal({ onClose, onImported }: Props) {
           <li>Confirme a importação após revisar os dados.</li>
         </ol>
         {busy && <p role="status">{preview ? "Confirmando e revalidando..." : "Lendo e validando..."}</p>}
-        {error && <div className="alert alert-error" role="alert">{error}</div>}
+        {error && <div className="alert alert-error" role="alert">{messagePtBr(error)}</div>}
         {result && <div className="management-import-success" role="status">Importação concluída: {result.totalNovo} novos e {result.totalAtualizado} atualizados. Nenhum registro foi excluído.</div>}
         {!preview && localErrors.length > 0 && <div className="management-import-issues"><h3>Erros encontrados no arquivo</h3>{localErrors.map((issue, index) => <p key={index}>{issue.aba}, linha {issue.linha}, {issue.campo}: {issue.motivo}</p>)}</div>}
         {preview && <>

@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useState } from "react";
 import { useCan } from "./PermissionContext";
@@ -27,5 +28,5 @@ export default function ExportOnlyButton({ permission, importPermission, url, fi
     } finally { setBusy(false); }
   };
 
-  return <span><button type="button" className={className} onClick={() => void download()} disabled={busy}>{busy ? "Baixando…" : label}</button>{error && <span role="alert">{error}</span>}</span>;
+  return <span><button type="button" className={className} onClick={() => void download()} disabled={busy}>{busy ? "Baixando…" : label}</button>{error && <span role="alert">{messagePtBr(error)}</span>}</span>;
 }

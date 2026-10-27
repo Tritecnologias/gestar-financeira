@@ -38,9 +38,9 @@ export default async function InicioPage() {
     <section className="onboarding-panel" aria-labelledby="onboarding-access-title">
       <h2 id="onboarding-access-title">Seu acesso</h2>
       <dl className="onboarding-facts">
-        <div><dt>Identidade</dt><dd>{session.nome}{session.email ? <small>{session.email}</small> : null}</dd></div>
+        <div><dt>Conta</dt><dd>{session.nome}{session.email ? <small>{session.email}</small> : null}</dd></div>
         <div><dt>Empresa selecionada</dt><dd>{session.tenantNome}</dd></div>
-        <div><dt>Papel no tenant</dt><dd>{owner ? "Responsável pelo tenant (OWNER)" : session.membershipRole === "ADMIN" ? "Administrador" : session.membershipRole === "MEMBER" ? "Membro" : "Acesso legado"}</dd></div>
+        <div><dt>Função na empresa</dt><dd>{owner ? "Proprietário" : session.membershipRole === "ADMIN" ? "Administrador" : session.membershipRole === "MEMBER" ? "Membro" : "Acesso legado"}</dd></div>
         <div><dt>Perfil de Acesso</dt><dd>{profile?.profile?.ativo ? profile.profile.nome : "Sem perfil ativo"}</dd></div>
       </dl>
       <p className="onboarding-note">Se seus dados ou vínculos estiverem incorretos, solicite a revisão ao administrador. Documentos obrigatórios pendentes são apresentados antes da entrada no sistema.</p>
@@ -48,8 +48,8 @@ export default async function InicioPage() {
     </section>
 
     {owner && <section className="onboarding-panel" aria-labelledby="onboarding-owner-title">
-      <h2 id="onboarding-owner-title">Primeira configuração do tenant</h2>
-      <p>Como OWNER, você administra os acessos deste tenant e acompanha termos e auditoria. A aprovação de suporte cabe ao responsável contratual designado.</p>
+      <h2 id="onboarding-owner-title">Primeira configuração da empresa</h2>
+      <p>Como proprietário, você administra os acessos desta empresa e acompanha termos e auditoria. A aprovação de suporte cabe ao responsável contratual designado.</p>
       <div className="onboarding-actions">
         <Link href="/acessos">Usuários e acessos</Link>
         <Link href="/acessos/perfis">Perfis de Acesso</Link>
@@ -61,7 +61,7 @@ export default async function InicioPage() {
     </section>}
 
     <section className="onboarding-panel" aria-labelledby="onboarding-modules-title">
-      <h2 id="onboarding-modules-title">Telas disponíveis neste tenant</h2>
+      <h2 id="onboarding-modules-title">Telas disponíveis nesta empresa</h2>
       {sections.length ? <div className="onboarding-modules">{sections.map(module =>
         <div key={module.id}><h3>{module.label}</h3><div className="onboarding-actions">
           {module.screens.map(screen => <Link key={screen.id} href={screen.href}>{screen.label}</Link>)}

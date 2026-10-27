@@ -70,7 +70,7 @@ const PROBLEMAS: Record<string, string> = {
   DESPESA_COM_ENTRADA: "Conta N2 de Despesa com direção Entrada",
   TRANSFERENCIA_SEM_PAREAMENTO: "Transferência sem pareamento",
   CONTA_VINCULADA_INEXISTENTE: "Conta N2 vinculada inexistente",
-  CONTA_DE_OUTRO_TENANT: "Conta N2 fora do tenant",
+  CONTA_DE_OUTRO_TENANT: "Conta N2 fora da empresa",
 };
 
 // ── Calcula offset sticky acumulado ──────────────────────────

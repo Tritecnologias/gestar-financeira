@@ -6,6 +6,7 @@ import { auth, legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { expireInvite, hashInviteToken, INVITE_UNAVAILABLE, validInviteToken } from "@/lib/access-invites";
+import { validIdentityPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 async function handlePOST(req: NextRequest) {
   const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
@@ -22,7 +23,7 @@ async function handlePOST(req: NextRequest) {
     const current = (await auth())?.user as { id?: string; authMode?: string } | undefined;
     const password = typeof body.password === "string" ? body.password : "";
     // Hash antes da transação para não segurar lock durante o trabalho de CPU.
-    const passwordHash = password.length >= 12 && password.length <= 200 ? await bcrypt.hash(password, 12) : null;
+    const passwordHash = validIdentityPassword(password) ? await bcrypt.hash(password, 12) : null;
     const result = await prisma.$transaction(async tx => {
       const consumed = await tx.accessInvite.updateMany({ where: { id: invite.id, status: "PENDING",
         expiresAt: { gt: new Date() } }, data: { status: "ACCEPTED", acceptedAt: new Date() } });
@@ -40,7 +41,7 @@ async function handlePOST(req: NextRequest) {
         }
       } else {
         if (current?.authMode === "identity") throw Object.assign(new Error("Saia da sessão atual para criar sua identidade."), { status: 409 });
-        if (!passwordHash) throw Object.assign(new Error("Defina uma senha de 12 a 200 caracteres."), { status: 400 });
+        if (!passwordHash) throw Object.assign(new Error(PASSWORD_POLICY_MESSAGE), { status: 400 });
         identity = await tx.authIdentity.create({ data: { email: pending.email, nome: pending.name,
           senhaHash: passwordHash, status: "ACTIVE" } });
         newlyActivated = true;

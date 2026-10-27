@@ -49,7 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>}
         {session.accessSource === "SUPPORT_GRANT" ? <>
           <div className="support-mode-banner" role="status">
-            <strong>Acesso temporário de suporte</strong><span>Tenant: {session.tenantNome}</span>
+            <strong>Acesso temporário de suporte</strong><span>Empresa: {session.tenantNome}</span>
             <span>Escopo: {(session.supportModules ?? []).map((m: keyof typeof SUPPORT_MODULES) => SUPPORT_MODULES[m].label).join(", ")}</span>
             <span>{session.supportLevel === "READ_ONLY" ? "Somente leitura" : "Operacional"}</span>
             <span>Expira: {session.supportExpiresAt ? new Date(session.supportExpiresAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}</span>

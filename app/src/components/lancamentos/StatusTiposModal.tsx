@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 import { useState, useEffect, useCallback } from "react";
 import type { StatusManualTipoDTO } from "@/types";
 
@@ -201,7 +202,7 @@ export default function StatusTiposModal({ open, onClose, onUpdate }: Props) {
             Configure os status manuais disponíveis nos lançamentos. Cada status tem um código, nome e cor.
           </p>
 
-          {error && <div className="alert alert-error">{error}</div>}
+          {error && <div className="alert alert-error">{messagePtBr(error)}</div>}
 
           {/* Lista de status existentes */}
           {loading ? (

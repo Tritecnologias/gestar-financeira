@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 import { useState, useEffect, useCallback } from "react";
 import PeopleImportModal from "@/components/estrutura/PeopleImportModal";
 import { useCan } from "@/components/access/PermissionContext";
@@ -95,7 +96,7 @@ export default function DimensaoPessoasPage() {
         <div><h1 className="page-title">Dimensão de Pessoas</h1><p className="page-sub">Estrutura Empresa — Cadastro-base de Pessoas</p></div>
       </header>
       <div className="people-content">
-        {error && <div className="alert alert-error people-error" role="alert">{error}</div>}
+        {error && <div className="alert alert-error people-error" role="alert">{messagePtBr(error)}</div>}
 
         {/* Filtros */}
         <div className="people-toolbar">
@@ -155,7 +156,7 @@ export default function DimensaoPessoasPage() {
       {selectedPessoa && editData && <div className="modal-overlay open people-detail-overlay" onMouseDown={event => { if (event.target === event.currentTarget) closePerson(); }}>
         <div className="modal-content people-detail-modal" role="dialog" aria-modal="true" aria-labelledby="people-detail-title" onKeyDown={event => { if (event.key === "Escape" && !saving) { event.stopPropagation(); if (modalEditing) { setModalEditing(false); setError(""); } else closePerson(); } }}>
           <div className="modal-header"><h2 id="people-detail-title">{selectedPessoa.codigo} · {selectedPessoa.nome}</h2><button type="button" className="modal-close" aria-label="Fechar cadastro" onClick={closePerson} disabled={saving}>✕</button></div>
-          {error && <div className="alert alert-error people-detail-error" role="alert">{error}</div>}
+          {error && <div className="alert alert-error people-detail-error" role="alert">{messagePtBr(error)}</div>}
           {modalEditing ? <form onSubmit={event => { event.preventDefault(); void salvarEdit(); }}>
             <div className="people-detail-body people-detail-grid">
               <label>Código<input value={selectedPessoa.codigo} readOnly /></label>

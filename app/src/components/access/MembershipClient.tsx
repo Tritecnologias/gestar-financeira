@@ -1,4 +1,6 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
+import { roleLabel } from "@/lib/presentation";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -85,24 +87,24 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
   }
 
   return <section className="access-page">
-    <header className="access-header"><div><h1>Acessos / Usuários</h1><p>Identidades vinculadas ao tenant atual e seus perfis de acesso.</p></div>
+    <header className="access-header"><div><h1>Acessos / Usuários</h1><p>Contas vinculadas à empresa atual e seus perfis de acesso.</p></div>
       <div className="access-header-actions">
         {role === "OWNER" && <Link className="access-button access-button-secondary" href="/acessos/suporte">Suporte</Link>}
         {canViewProfiles && <Link className="access-button access-button-secondary" href="/acessos/perfis">Perfis de Acesso</Link>}
       </div></header>
     <div className="access-toolbar"><input placeholder="Buscar usuário ou perfil" aria-label="Buscar usuários" value={query} onChange={e => setQuery(e.target.value)} />
       {canManage && <button className="access-button access-button-primary" onClick={() => { setDevLink(""); setDeliveryNotice(""); setModal(true); }}>+ Convidar usuário</button>}</div>
-    {error && <p role="alert" className="access-error">{error}</p>}
+    {error && <p role="alert" className="access-error">{messagePtBr(error)}</p>}
     {deliveryNotice && <p role="status" className="access-hint">{deliveryNotice}</p>}
     {devLink && <div className="access-dev-link" role="status"><strong>Link de convite DEV</strong>
       <p>Envie por canal privado ao destinatário. Este link aparece somente agora; contém um segredo de uso único.</p>
       <input readOnly aria-label="Link de convite DEV" value={devLink} onFocus={e => e.currentTarget.select()} />
       <button className="access-button access-button-secondary" onClick={() => void navigator.clipboard.writeText(devLink)}>Copiar link</button>
       <button className="access-button access-button-secondary" onClick={() => setDevLink("")}>Ocultar</button></div>}
-    <div className="access-table-wrap"><table className="access-table"><thead><tr><th>Identidade</th><th>Role estrutural</th><th>Perfil de Acesso</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+    <div className="access-table-wrap"><table className="access-table"><thead><tr><th>Conta</th><th>Função na empresa</th><th>Perfil de Acesso</th><th>Status</th><th>Ações</th></tr></thead><tbody>
       {shown.map(m => <tr key={m.id}><td><strong>{m.identity.nome}</strong><small>{m.identity.email}</small></td>
-        <td>{canManage && role === "OWNER" ? <select aria-label={`Role de ${m.identity.nome}`} disabled={busy} value={m.role} onChange={e => void patch(m.id, { role: e.target.value })}>
-          <option value="OWNER">OWNER</option><option value="ADMIN">ADMIN</option><option value="MEMBER">MEMBER</option></select> : m.role}</td>
+        <td>{canManage && role === "OWNER" ? <select aria-label={`Função de ${m.identity.nome}`} disabled={busy} value={m.role} onChange={e => void patch(m.id, { role: e.target.value })}>
+          <option value="OWNER">Proprietário</option><option value="ADMIN">Administrador</option><option value="MEMBER">Membro</option></select> : roleLabel(m.role)}</td>
         <td><SearchableSelect label={`Perfil de ${m.identity.nome}`} value={m.profileId ?? ""} disabled={!canManage || busy || (role !== "OWNER" && m.role !== "MEMBER")}
           options={profiles.filter(p => p.ativo).map(p => ({ value: p.id, label: p.nome }))} onChange={value => void patch(m.id, { profileId: value })} /></td>
         <td>{m.status === "ACTIVE" ? "Ativo" : "Inativo"}</td><td className="access-actions">
@@ -114,7 +116,7 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
     <h2 className="access-subtitle">Convites</h2>
     <div className="access-table-wrap"><table className="access-table"><thead><tr><th>Destinatário</th><th>Papel</th><th>Perfil</th><th>Status</th><th>Expira</th><th>Ações</th></tr></thead><tbody>
       {invitations.filter(i => `${i.name} ${i.email} ${i.profile.nome}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"))).map(i =>
-        <tr key={i.id}><td><strong>{i.name}</strong><small>{i.email}</small></td><td>{i.role}</td><td>{i.profile.nome}</td>
+        <tr key={i.id}><td><strong>{i.name}</strong><small>{i.email}</small></td><td>{roleLabel(i.role)}</td><td>{i.profile.nome}</td>
           <td>{i.status === "PENDING" ? "Convite pendente" : i.status === "EXPIRED" ? "Convite expirado" :
             i.status === "ACCEPTED" ? "Ativo" : "Revogado"}</td>
           <td>{new Date(i.expiresAt).toLocaleString("pt-BR")}</td><td className="access-actions">
@@ -122,19 +124,19 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
               <button disabled={busy} onClick={() => void invitationAction(i.id, "resend")}>Reenviar</button>
               {i.status === "PENDING" && <button disabled={busy} onClick={() => void invitationAction(i.id, "revoke")}>Revogar</button>}
             </>}</td></tr>)}
-      {!invitations.length && <tr><td className="access-empty" colSpan={6}>Nenhum convite neste tenant.</td></tr>}
+      {!invitations.length && <tr><td className="access-empty" colSpan={6}>Nenhum convite nesta empresa.</td></tr>}
     </tbody></table></div>
     {role !== "MEMBER" && <TermsStatusPanel />}
     {modal && <div className="access-modal-backdrop"><section className="access-modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
-      <h2 id="member-modal-title">Convidar usuário</h2><p className="access-hint">O titular confirmará o convite e definirá a própria senha se ainda não tiver identidade. Nenhum acesso fica ativo antes do aceite.</p>
+      <h2 id="member-modal-title">Convidar usuário</h2><p className="access-hint">O titular confirmará o convite e definirá a própria senha se ainda não tiver conta. Nenhum acesso fica ativo antes do aceite.</p>
       <label>Nome<input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} /></label>
       <label>Email<input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
-      <label>Role<select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-        {role === "OWNER" && <><option value="OWNER">OWNER</option><option value="ADMIN">ADMIN</option></>}
-        <option value="MEMBER">MEMBER</option></select></label>
+      <label>Função<select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+        {role === "OWNER" && <><option value="OWNER">Proprietário</option><option value="ADMIN">Administrador</option></>}
+        <option value="MEMBER">Membro</option></select></label>
       <label>Perfil de Acesso<SearchableSelect label="Perfil de Acesso" value={form.profileId} options={profiles.filter(p => p.ativo).map(p => ({ value: p.id, label: p.nome }))}
         onChange={profileId => setForm({ ...form, profileId })} /></label>
-      {error && <p role="alert" className="access-error">{error}</p>}
+      {error && <p role="alert" className="access-error">{messagePtBr(error)}</p>}
       <div className="access-modal-actions"><button className="access-button access-button-secondary" onClick={() => setModal(false)}>Cancelar</button>
         <button className="access-button access-button-primary" disabled={busy} onClick={() => void create()}>Criar convite</button></div>
     </section></div>}

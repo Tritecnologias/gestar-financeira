@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import RegistrationImportModal from "@/components/estrutura/RegistrationImportModal";
@@ -189,7 +190,7 @@ export default function DimensoesCadastraisPage() {
         {can("estrutura.cadastrais.import") && <button type="button" className="btn btn-primary registration-import-action" onClick={() => setShowImport(true)}>Importar Cadastros</button>}
         <ExportOnlyButton permission="estrutura.cadastrais.export" importPermission="estrutura.cadastrais.import" url="/api/dimensoes-cadastrais/exportar" filename="cadastros_10s.xlsx" label="Baixar Cadastros" />
       </div>
-      {error && <div className="alert alert-error registration-message" role="alert">{error}</div>}
+      {error && <div className="alert alert-error registration-message" role="alert">{messagePtBr(error)}</div>}
       {notice && <div className="registration-message registration-success" role="status">{notice}</div>}
       <div className="registration-grid">
         {renderSection("fornecedores", "Fornecedores", filteredSuppliers, fornecedores.length)}

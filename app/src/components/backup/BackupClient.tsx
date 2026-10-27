@@ -1,5 +1,8 @@
 "use client";
 import { useState } from "react";
+import { messagePtBr } from "@/lib/presentation";
+
+const sectionLabels: Record<string,string> = { areas_negocio:"Áreas de negócio",centros_custo:"Centros de custo",categorias:"Categorias",plano_contas:"Contas",fornecedores:"Fornecedores",clientes:"Clientes",dre:"DRE",dados_bancarios:"Dados bancários",empresas:"Empresas",pessoas:"Pessoas",produto_grupos:"Grupos de produtos",produto_tipos:"Tipos de produtos",produto_linhas:"Linhas de produtos",produtos:"Produtos",produto_sequencias:"Sequências de produtos",tarefa_status:"Situações de tarefas",tarefas:"Tarefas",status_manual_tipos:"Situações manuais",layouts_colunas:"Disposição de colunas",lancamentos:"Lançamentos" };
 
 type Preview = { checksum: string; currentDigest: string; tenant: string; counts: { table: string; before: number; after: number }[]; preserved: string };
 export default function BackupClient({ tenantId, tenantName, canCreate, canRestore }: { tenantId: string; tenantName: string; canCreate: boolean; canRestore: boolean }) {
@@ -44,13 +47,13 @@ export default function BackupClient({ tenantId, tenantName, canCreate, canResto
     {canRestore && <section><h2>Restaurar nesta empresa</h2><p>Substitui os dados empresariais pelo estado do arquivo. Uma cópia de segurança é criada antes da operação. Apenas backups desta mesma empresa, até 8 MB.</p>
       <label>Arquivo de backup <input aria-label="Arquivo de backup" type="file" accept=".json,application/json" disabled={busy || unknown} onChange={e => { setFile(e.target.files?.[0] ?? null); setPreview(null); setConfirmed(false); }} /></label>
       <button disabled={busy || unknown || !file || file.size > 8 * 1024 * 1024} onClick={() => submit(false)}>Validar e ver prévia</button>
-      {preview && <div><p>{preview.preserved}</p><p>Checksum: <code>{preview.checksum}</code></p>
-        <div className="backup-table"><table><thead><tr><th>Conjunto</th><th>Atual</th><th>Após restore</th></tr></thead><tbody>{preview.counts.map(c => <tr key={c.table}><td>{c.table}</td><td>{c.before}</td><td>{c.after}</td></tr>)}</tbody></table></div>
+      {preview && <div><p>{messagePtBr(preview.preserved)}</p><p>Verificação de integridade: <code>{preview.checksum}</code></p>
+        <div className="backup-table"><table><thead><tr><th>Conjunto</th><th>Atual</th><th>Após restaurar</th></tr></thead><tbody>{preview.counts.map(c => <tr key={c.table}><td>{sectionLabels[c.table] ?? "Dados da empresa"}</td><td>{c.before}</td><td>{c.after}</td></tr>)}</tbody></table></div>
         <label><input type="checkbox" checked={confirmed} disabled={busy || unknown} onChange={e => setConfirmed(e.target.checked)} /> Confirmo substituir os dados de {tenantName} pelo backup validado.</label>
         <button disabled={busy || unknown || !confirmed} onClick={() => submit(true)}>Restaurar empresa</button></div>}
       <button disabled={busy} onClick={checkReceipt}>Conferir recibo da última tentativa</button>
     </section>}
-    <p role="status" aria-live="polite">{busy ? "Processando…" : message}</p>
+    <p role="status" aria-live="polite">{busy ? "Processando…" : messagePtBr(message)}</p>
     <style jsx>{`
       .backup-page {flex:1;min-height:0;min-width:0;width:100%;max-width:1100px;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:24px;color:var(--text-primary);}
       h1 {font-size:24px;} h2 {font-size:18px;} p {margin:12px 0;line-height:1.6;}

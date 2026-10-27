@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 import { useState, useEffect, useCallback } from "react";
 
 interface Usuario { id: string; nome: string; email: string; papel: string; ativo: boolean; criadoEm: string; tenant?: { nome: string }; tenantId?: string; }
@@ -44,7 +45,7 @@ export default function LegacyAdminClient() {
   const criar = async () => {
     if (!form.nome.trim() || !form.email.trim() || !form.senha.trim()) { setError("Preencha todos os campos"); return; }
     if (form.senha.length < 6) { setError("Senha deve ter pelo menos 6 caracteres"); return; }
-    if (!form.tenantId) { setError("Selecione o tenant (empresa)"); return; }
+    if (!form.tenantId) { setError("Selecione a empresa (empresa)"); return; }
     setError(""); setSaving(true);
     try {
       const res = await fetch("/api/usuarios", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
@@ -74,7 +75,7 @@ export default function LegacyAdminClient() {
   };
 
   const criarTenant = async () => {
-    if (!tenantForm.nome.trim() || !tenantForm.email.trim()) { setError("Nome e email do tenant são obrigatórios"); return; }
+    if (!tenantForm.nome.trim() || !tenantForm.email.trim()) { setError("Nome e email da empresa são obrigatórios"); return; }
     setError(""); setSaving(true);
     try {
       const res = await fetch("/api/tenants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(tenantForm) });
@@ -85,7 +86,7 @@ export default function LegacyAdminClient() {
 
   const filtered = usuarios.filter(u => !busca || u.nome.toLowerCase().includes(busca.toLowerCase()) || u.email.toLowerCase().includes(busca.toLowerCase()));
 
-  const papelLabel: Record<string, string> = { admin_global: "🛡️ Admin Global", admin: "👑 Admin", membro: "👤 Membro" };
+  const papelLabel: Record<string, string> = { admin_global: "🛡️ Administrador da Plataforma", admin: "👑 Administrador", membro: "👤 Membro" };
   const papelColor: Record<string, string> = { admin_global: "#7c3aed", admin: "#2563eb", membro: "#64748b" };
 
   return (
@@ -93,13 +94,13 @@ export default function LegacyAdminClient() {
       <header className="topbar">
         <div><h1 className="page-title">🛡️ Administração de Usuários</h1><p className="page-sub">Gerenciar acessos, papéis e permissões</p></div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-outline" onClick={() => setShowCreateTenant(true)}>+ Novo Tenant</button>
+          <button className="btn btn-outline" onClick={() => setShowCreateTenant(true)}>+ Novo Empresa</button>
           <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ Novo Usuário</button>
         </div>
       </header>
 
       <div style={{ padding: "16px 28px" }}>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{messagePtBr(error)}</div>}
 
         <div style={{ marginBottom: 16 }}>
           <input type="text" className="filter-input" value={busca} onChange={e => setBusca(e.target.value)} placeholder="🔍 Buscar por nome ou email..." style={{ width: 300 }} />
@@ -115,7 +116,7 @@ export default function LegacyAdminClient() {
                   <th style={{ position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2 }}>Email</th>
                   <th style={{ width: 130, position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2 }}>Papel</th>
                   <th style={{ width: 70, position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2, textAlign: "center" }}>Status</th>
-                  <th style={{ width: 120, position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2 }}>Tenant</th>
+                  <th style={{ width: 120, position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2 }}>Empresa</th>
                   <th style={{ width: 150, position: "sticky", top: 0, background: "var(--table-sticky-bg)", zIndex: 2, textAlign: "center" }}>Ações</th>
                 </tr>
               </thead>
@@ -126,7 +127,7 @@ export default function LegacyAdminClient() {
                       <>
                         <td><input className="cell-input" value={editData.nome||""} onChange={e=>setEditData((d:any)=>({...d,nome:e.target.value}))} autoFocus onKeyDown={e=>{if(e.key==="Enter")salvarEdit();if(e.key==="Escape")setEditingId(null);}} /></td>
                         <td><input className="cell-input" value={editData.email||""} onChange={e=>setEditData((d:any)=>({...d,email:e.target.value}))} /></td>
-                        <td><select className="cell-input" value={editData.papel||""} onChange={e=>setEditData((d:any)=>({...d,papel:e.target.value}))}><option value="membro">Membro</option><option value="admin">Admin</option>{legacyMode && <option value="admin_global">Admin Global</option>}</select></td>
+                        <td><select className="cell-input" value={editData.papel||""} onChange={e=>setEditData((d:any)=>({...d,papel:e.target.value}))}><option value="membro">Membro</option><option value="admin">Administrador</option>{legacyMode && <option value="admin_global">Administrador da Plataforma</option>}</select></td>
                         <td style={{textAlign:"center"}}><input type="checkbox" checked={editData.ativo} onChange={e=>setEditData((d:any)=>({...d,ativo:e.target.checked}))} /></td>
                         <td style={{fontSize:10,color:"var(--text-muted)"}}>{u.tenant?.nome||"—"}</td>
                         <td style={{textAlign:"center"}}>
@@ -165,9 +166,9 @@ export default function LegacyAdminClient() {
                 <button className="modal-close" onClick={() => setShowCreateModal(false)}>✕</button>
               </div>
               <div className="modal-body">
-                <div className="form-group"><label>Tenant (Empresa) *</label>
+                <div className="form-group"><label>Empresa *</label>
                   <select value={form.tenantId} onChange={e => setForm(f=>({...f,tenantId:e.target.value}))}>
-                    <option value="">— Selecione o tenant —</option>
+                    <option value="">— Selecione a empresa —</option>
                     {tenants.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
                   </select>
                 </div>
@@ -177,8 +178,8 @@ export default function LegacyAdminClient() {
                 <div className="form-group"><label>Papel</label>
                   <select value={form.papel} onChange={e => setForm(f=>({...f,papel:e.target.value}))}>
                     <option value="membro">Membro</option>
-                    <option value="admin">Admin</option>
-                    {legacyMode && <option value="admin_global">Admin Global</option>}
+                    <option value="admin">Administrador</option>
+                    {legacyMode && <option value="admin_global">Administrador da Plataforma</option>}
                   </select>
                 </div>
               </div>
@@ -195,15 +196,15 @@ export default function LegacyAdminClient() {
           <div className="modal-overlay" style={{ opacity: 1, pointerEvents: "all" }} onClick={() => setShowCreateTenant(false)}>
             <div className="modal-content" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h2 className="modal-title">Novo Tenant (Empresa)</h2>
+                <h2 className="modal-title">Novo Empresa</h2>
                 <button className="modal-close" onClick={() => setShowCreateTenant(false)}>✕</button>
               </div>
               <div className="modal-body">
                 <div className="form-group"><label>Nome da Empresa *</label><input type="text" value={tenantForm.nome} onChange={e => setTenantForm(f=>({...f,nome:e.target.value}))} placeholder="Ex: Empresa XYZ Ltda" /></div>
-                <div className="form-group"><label>Email do Tenant *</label><input type="email" value={tenantForm.email} onChange={e => setTenantForm(f=>({...f,email:e.target.value}))} placeholder="financeiro@empresa.com" /></div>
+                <div className="form-group"><label>Email da empresa *</label><input type="email" value={tenantForm.email} onChange={e => setTenantForm(f=>({...f,email:e.target.value}))} placeholder="financeiro@empresa.com" /></div>
                 <div className="form-group"><label>Plano</label>
                   <select value={tenantForm.plano} onChange={e => setTenantForm(f=>({...f,plano:e.target.value}))}>
-                    <option value="trial">Trial</option>
+                    <option value="trial">Período de teste</option>
                     <option value="mensal">Mensal</option>
                     <option value="anual">Anual</option>
                   </select>
@@ -211,7 +212,7 @@ export default function LegacyAdminClient() {
               </div>
               <div className="modal-actions">
                 <button className="btn btn-outline" onClick={() => setShowCreateTenant(false)}>Cancelar</button>
-                <button className="btn btn-primary" onClick={criarTenant} disabled={saving}>{saving ? "Criando..." : "Criar Tenant"}</button>
+                <button className="btn btn-primary" onClick={criarTenant} disabled={saving}>{saving ? "Criando..." : "Criar Empresa"}</button>
               </div>
             </div>
           </div>

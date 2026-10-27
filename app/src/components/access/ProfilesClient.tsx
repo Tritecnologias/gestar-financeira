@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -78,11 +79,11 @@ export default function ProfilesClient({ canManage }: { canManage: boolean }) {
   })).filter(screen => screen.actions.length > 0) })).filter(module => module.screens.length > 0);
 
   return <section className="access-page">
-    <header className="access-header"><div><h1>Perfis de Acesso</h1><p>Permissões configuráveis dentro do tenant atual.</p></div>
+    <header className="access-header"><div><h1>Perfis de Acesso</h1><p>Permissões configuráveis dentro da empresa atual.</p></div>
       <Link href="/acessos" className="access-button access-button-secondary">Acessos / Usuários</Link></header>
     <div className="access-toolbar"><input aria-label="Buscar perfis" placeholder="Buscar perfil" value={query} onChange={e => setQuery(e.target.value)} />
       {canManage && <button className="access-button access-button-primary" onClick={() => { setEdit({ ...blank }); setTreeQuery(""); }}>+ Novo perfil</button>}</div>
-    {error && <p role="alert" className="access-error">{error}</p>}
+    {error && <p role="alert" className="access-error">{messagePtBr(error)}</p>}
     <div className="access-table-wrap"><table className="access-table"><thead><tr><th>Nome</th><th>Descrição</th><th>Usuários</th><th>Status</th><th>Ações</th></tr></thead><tbody>
       {shown.map(p => <tr key={p.id}><td><strong>{p.nome}</strong></td><td>{p.descricao || "—"}</td><td>{p._count.memberships}</td>
         <td>{p.ativo ? "Ativo" : "Inativo"}</td><td className="access-actions"><button onClick={() => { setEdit({ id: p.id, nome: p.nome, descricao: p.descricao ?? "", ativo: p.ativo, permissoes: [...p.permissoes] }); setTreeQuery(""); }}>Abrir</button></td></tr>)}
@@ -107,7 +108,7 @@ export default function ProfilesClient({ canManage }: { canManage: boolean }) {
               </details>; })}</details>; })}
         {!tree.length && <p className="access-hint">Nenhuma permissão encontrada.</p>}
       </div>
-      {error && <p role="alert" className="access-error">{error}</p>}
+      {error && <p role="alert" className="access-error">{messagePtBr(error)}</p>}
       <div className="access-modal-actions"><button className="access-button access-button-secondary" onClick={() => setEdit(null)}>Cancelar</button>
         {canManage && <button className="access-button access-button-primary" disabled={busy} onClick={() => void save()}>Salvar perfil</button>}</div>
     </section></div>}

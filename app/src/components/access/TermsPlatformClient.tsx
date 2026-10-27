@@ -1,4 +1,6 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
+import { statusLabel } from "@/lib/presentation";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
@@ -52,7 +54,7 @@ export default function TermsPlatformClient() {
       data.set("description", description); data.set("requiresReaccept", String(requiresReaccept));
       const response = await fetch(`/api/platform/terms/${uploadFor}/versions`, { method: "POST", body: data });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Falha no upload.");
+      if (!response.ok) throw new Error(body.error || "Falha no envio.");
       setUploadFor(null); setVersion(""); setTitle(""); setDescription(""); setFile(null); await load();
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
@@ -72,19 +74,19 @@ export default function TermsPlatformClient() {
   return <main className="access-page access-platform access-terms-page">
     <header className="access-header"><div><h1>Termos e Políticas</h1><p>Documentos oficiais versionados. O conteúdo jurídico é fornecido por PDF e não fica no código.</p></div>
       <Link className="access-button access-button-secondary" href="/plataforma">Voltar à plataforma</Link></header>
-    {error && <p className="access-error" role="alert">{error}</p>}
+    {error && <p className="access-error" role="alert">{messagePtBr(error)}</p>}
     <form className="access-terms-form" onSubmit={event => void createDocument(event)}><h2>Novo documento lógico</h2>
       <label>Código<input required maxLength={64} value={code} onChange={event => setCode(event.target.value.toUpperCase())} placeholder="TERM_CONTRATANTE" /></label>
       <label>Audiência<select value={audience} onChange={event => setAudience(event.target.value as typeof audience)}>
-        <option value="CONTRATANTE">Contratante / responsável do tenant</option><option value="USUARIO">Usuário da plataforma</option></select></label>
+        <option value="CONTRATANTE">Contratante / responsável da empresa</option><option value="USUARIO">Usuário da plataforma</option></select></label>
       <label className="access-check-label"><input type="checkbox" checked={required} onChange={event => setRequired(event.target.checked)} />Obrigatório</label>
       <button className="access-button access-button-primary" disabled={busy}>Criar documento</button></form>
     <div className="access-terms-list">{documents.map(document => <section className="access-terms-card" key={document.id}>
-      <div className="access-terms-card-head"><div><h2>{document.code}</h2><p>{document.audience === "CONTRATANTE" ? "Responsável do tenant" : "Usuário da plataforma"} · {document.required ? "Obrigatório" : "Opcional"}</p></div>
+      <div className="access-terms-card-head"><div><h2>{document.code}</h2><p>{document.audience === "CONTRATANTE" ? "Responsável da empresa" : "Usuário da plataforma"} · {document.required ? "Obrigatório" : "Opcional"}</p></div>
         <button className="access-button access-button-secondary" onClick={() => { setUploadFor(document.id); setFile(null); }}>+ Nova versão PDF</button></div>
       <div className="access-table-wrap"><table className="access-table"><thead><tr><th>Versão</th><th>Título</th><th>Status</th><th>Publicação</th><th>Reaceite</th><th>Aceites</th><th>Arquivo / ação</th></tr></thead><tbody>
         {document.versions.map(item => <tr key={item.id}><td>{item.version}</td><td><strong>{item.title}</strong><small>SHA-256: {item.sha256}</small></td>
-          <td>{item.status}</td><td>{item.publishedAt ? `${new Date(item.publishedAt).toLocaleDateString("pt-BR")} · ${item.publishedBy?.nome ?? "—"}` : "—"}</td>
+          <td>{statusLabel(item.status)}</td><td>{item.publishedAt ? `${new Date(item.publishedAt).toLocaleDateString("pt-BR")} · ${item.publishedBy?.nome ?? "—"}` : "—"}</td>
           <td>{item.requiresReaccept ? "Sim" : "Não"}</td><td>{item._count.acceptances}</td><td className="access-actions">
             <a href={`/api/terms/versions/${item.id}/file`} target="_blank" rel="noopener noreferrer">Visualizar PDF</a>
             {item.status === "DRAFT" && <button disabled={busy} onClick={() => void changeStatus(item.id, "publish")}>Publicar</button>}

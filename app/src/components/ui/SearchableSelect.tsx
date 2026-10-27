@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -97,7 +98,7 @@ export default function SearchableSelect({ value, options, renderOption, onChang
         placeholder={placeholder} value={query} onChange={event => setQuery(event.target.value)} /></div>
       <div className="searchable-select-options" id={`${id}-options`} role="listbox" aria-label={label}>
         {loading ? <div className="searchable-select-message" role="status">Carregando...</div> :
-          error ? <div className="searchable-select-message" role="alert">{error}</div> : <>
+          error ? <div className="searchable-select-message" role="alert">{messagePtBr(error)}</div> : <>
           {!query && <button type="button" role="option" aria-selected={!value} className={!value ? "selected" : ""}
             onClick={() => choose("")}>{emptyLabel}</button>}
           {filtered.length ? filtered.map((option, index) => <button type="button" role="option" key={option.value}

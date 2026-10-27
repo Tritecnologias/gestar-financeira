@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useState } from "react";
 import { useCan } from "@/components/access/PermissionContext";
@@ -109,7 +110,7 @@ export default function OfficialImportModal({ open, onClose, onImported, filters
           <li>Confirme somente após revisar. A aplicação é atômica e revalida o arquivo.</li>
         </ol>
         {busy && <p role="status">{preview ? "Revalidando e processando..." : "Lendo e validando todo o arquivo..."}</p>}
-        {error && <div className="alert alert-error" role="alert">{error}{requestId && <small> Atendimento: {requestId}</small>}</div>}
+        {error && <div className="alert alert-error" role="alert">{messagePtBr(error)}{requestId && <small> Atendimento: {requestId}</small>}</div>}
         {uncertain && <button className="btn btn-secondary" disabled={busy} onClick={() => void checkResult()}>Consultar resultado</button>}
         {result && <div className="lanc-official-success" role="status">{receipt?.replayed ? "Este lote já foi processado. Não foi executado novamente." : "Importação concluída."} Resultado original: {result.criados} criados, {result.atualizados} atualizados, {result.inalterados} inalterados e {result.avisos} avisos. {receipt && <small>Operação {receipt.operationId} · {new Date(receipt.completedAt).toLocaleString("pt-BR")}</small>}</div>}
         {preview && <>

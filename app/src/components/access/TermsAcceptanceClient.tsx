@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useState } from "react";
 import { signOut } from "next-auth/react";
@@ -34,7 +35,7 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
   return <main className="terms-page"><section className="terms-card">
     <header><span className="terms-eyebrow">DEZ SOLUÇÕES · DOCUMENTOS OFICIAIS</span><h1>Aceite pendente</h1>
       <p>Consulte a versão publicada antes de registrar sua concordância.</p></header>
-    {current && <div className="terms-document"><span className="terms-audience">{current.audience === "CONTRATANTE" ? "Responsável do tenant" : "Usuário da plataforma"}</span>
+    {current && <div className="terms-document"><span className="terms-audience">{current.audience === "CONTRATANTE" ? "Responsável da empresa" : "Usuário da plataforma"}</span>
       <h2>{current.title}</h2><p>Versão {current.version} · publicada em {current.publishedAt ? new Date(current.publishedAt).toLocaleDateString("pt-BR") : "data indisponível"}</p>
       <a className="terms-file-link" href={personalSupport ? `/api/support/terms/${current.versionId}` : `/api/terms/versions/${current.versionId}/file`} target="_blank" rel="noopener noreferrer">Visualizar ou baixar PDF</a>
       {current.actionable ? <><label className="terms-agreement"><input type="checkbox" checked={agreed} onChange={event => setAgreed(event.target.checked)} />
@@ -43,7 +44,7 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
         : <p className="terms-wait" role="status">{current.reason}</p>}
     </div>}
     {pending.length > 1 && <p className="terms-remaining">{pending.length} documentos pendentes neste contexto.</p>}
-    {error && <p role="alert" className="terms-error">{error}</p>}
+    {error && <p role="alert" className="terms-error">{messagePtBr(error)}</p>}
     <button type="button" className="terms-signout" onClick={() => signOut({ callbackUrl: "/login" })}>Sair</button>
   </section></main>;
 }

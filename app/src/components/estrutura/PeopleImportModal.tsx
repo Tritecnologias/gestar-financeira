@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useState } from "react";
 import { useStructureImportRequest } from "./useStructureImportRequest";
@@ -74,7 +75,7 @@ export default function PeopleImportModal({ onClose, onImported }: Props) {
           <li>Confirme a importação após revisar os dados.</li>
         </ol>
         {busy && <p role="status">{preview ? "Confirmando e revalidando..." : "Lendo e validando..."}</p>}
-        {error && <div className="alert alert-error" role="alert">{error}</div>}
+        {error && <div className="alert alert-error" role="alert">{messagePtBr(error)}</div>}
         {result && <div className="people-import-success" role="status">Importação concluída: {result.totalNovo} novas e {result.totalAtualizado} atualizadas. Nenhuma Pessoa foi excluída.</div>}
         {preview && <>
           <div className="people-import-summary">

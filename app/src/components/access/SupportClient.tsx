@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 import { AppearanceButton } from "@/components/appearance/AppearanceProvider";
 
 import { useCallback, useEffect, useState } from "react";
@@ -52,7 +53,7 @@ export default function SupportClient({ mode, platformAdmin = false }: { mode: "
 
   async function submit() {
     if (!form.tenantId || form.reason.trim().length < 15 || !form.modules.length) {
-      setError("Escolha o tenant, ao menos um escopo e informe um motivo específico com 15 caracteres ou mais."); return;
+      setError("Escolha a empresa, ao menos um escopo e informe um motivo específico com 15 caracteres ou mais."); return;
     }
     if (form.accessLevel === "OPERATIONAL" && !window.confirm("Solicitar permissão operacional de criação, edição e importação nas telas selecionadas?")) return;
     setBusy(true); setError(""); setNotice("");
@@ -60,13 +61,13 @@ export default function SupportClient({ mode, platformAdmin = false }: { mode: "
       const response = await fetch("/api/support-grants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Falha ao solicitar acesso.");
-      setForm(f => ({ ...f, reason: "" })); setNotice("Solicitação enviada ao responsável contratual do tenant."); await load();
+      setForm(f => ({ ...f, reason: "" })); setNotice("Solicitação enviada ao responsável contratual da empresa."); await load();
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
 
   async function decide(grant: Grant, action: "approve" | "reject" | "revoke") {
-    if (action === "approve" && !window.confirm(`Autorizar ${grant.requester.nome} em ${grant.tenant.nome} por ${grant.requestedMinutes} minutos, nível ${grant.accessLevel}, escopo ${grant.modules.map(m => SUPPORT_MODULES[m].label).join(", ")}?`)) return;
+    if (action === "approve" && !window.confirm(`Autorizar ${grant.requester.nome} em ${grant.tenant.nome} por ${grant.requestedMinutes} minutos, nível ${grant.accessLevel === "READ_ONLY" ? "Somente leitura" : "Operacional"}, escopo ${grant.modules.map(m => SUPPORT_MODULES[m].label).join(", ")}?`)) return;
     if (action === "revoke" && !window.confirm("Revogar este acesso imediatamente? A ação é irreversível.")) return;
     const reason = action === "reject" ? window.prompt("Motivo da rejeição (opcional):") :
       action === "revoke" ? window.prompt("Motivo da revogação (opcional):") : null;
@@ -90,8 +91,8 @@ export default function SupportClient({ mode, platformAdmin = false }: { mode: "
   return <section className={`access-page ${mode === "operator" ? "access-platform" : ""}`}>
     <header className="access-header"><div><h1>{mode === "operator" ? "Área de Suporte" : "Acessos / Suporte"}</h1>
       <p>{mode === "operator" ? "Acesso técnico depende de autorização temporária do responsável da empresa." :
-        "O responsável contratual decide solicitações externas para este tenant."}</p></div>
-      <div className="access-header-actions">{mode === "operator" && <><AppearanceButton />
+        "O responsável contratual decide solicitações externas para esta empresa."}</p></div>
+      <div className="access-header-actions">{mode === "operator" && <><Link href="/minha-conta" className="access-button access-button-secondary">Minha conta</Link><AppearanceButton />
         <button className="access-button access-button-secondary" onClick={() => void leave()}>Sair do contexto de suporte</button></>}
         <Link className="access-button access-button-secondary" href={mode === "operator" ? "/selecionar-tenant" : "/acessos"}>Selecionar contexto</Link></div></header>
 
@@ -113,14 +114,14 @@ export default function SupportClient({ mode, platformAdmin = false }: { mode: "
       </fieldset>
       <button className="access-button access-button-primary" disabled={busy} onClick={submit}>Solicitar autorização</button>
     </div>}
-    {error && <p className="access-error" role="alert">{error}</p>}
+    {error && <p className="access-error" role="alert">{messagePtBr(error)}</p>}
     {notice && <p className="support-notice" role="status">{notice}</p>}
     <div className="access-terms-card"><div className="access-terms-card-head"><h2>Solicitações e histórico</h2>
       <button className="access-button access-button-secondary" disabled={busy} onClick={() => void load()}>Atualizar</button></div>
       {loading && <p>Carregando...</p>}
       {!loading && grants.length === 0 && <p className="access-hint">Nenhuma solicitação encontrada.</p>}
       <div className="support-grant-list">{grants.map(g => <article className="support-grant" key={g.id}>
-        <div className="support-grant-head"><div><strong>{g.tenant.nome}</strong> <span className={`support-state support-state-${g.status.toLowerCase()}`}>{statusLabel[g.status] ?? g.status}</span></div>
+        <div className="support-grant-head"><div><strong>{g.tenant.nome}</strong> <span className={`support-state support-state-${g.status.toLowerCase()}`}>{statusLabel[g.status] ?? "Não informado"}</span></div>
           <span>{g.accessLevel === "READ_ONLY" ? "Somente leitura" : "Operacional"} · {g.requestedMinutes} min</span></div>
         <p><strong>Solicitante:</strong> {g.requester.nome} ({g.requester.email})</p>
         <p><strong>Motivo:</strong> {g.reason}</p>

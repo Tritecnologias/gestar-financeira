@@ -5,7 +5,7 @@ import { applyPreference, defaultPreference, derivePalette, loadPreference, PALE
 import "./appearance.css";
 const Context=createContext<{open:()=>void;ready:boolean}>({open:()=>{},ready:false});
 export function AppearanceButton({compact=false}:{compact?:boolean}) { const theme=useContext(Context);return <button type="button" className={compact?"logout-btn theme-toggle":"appearance-trigger"} title="Aparência" aria-label="Aparência" disabled={!theme.ready} onClick={theme.open}>{compact?<span aria-hidden="true">◐</span>:"Aparência"}</button>; }
-const labels:Record<keyof Palette,string>={primary:"Cor principal",accent:"Ação / accent",background:"Fundo principal",surface:"Cards e superfícies",sidebar:"Sidebar",text:"Texto principal",secondary:"Texto secundário",border:"Bordas"};
+const labels:Record<keyof Palette,string>={primary:"Cor principal",accent:"Cor de destaque",background:"Fundo principal",surface:"Cartões e superfícies",sidebar:"Menu lateral",text:"Texto principal",secondary:"Texto secundário",border:"Bordas"};
 export default function AppearanceProvider({children}:{children:React.ReactNode}) {
  const pathname=usePathname(),[key,setKey]=useState<string|null>(null),[saved,setSaved]=useState<GuidedPreference>(toGuided(defaultPreference())),[draft,setDraft]=useState<GuidedPreference|null>(null),[notice,setNotice]=useState("");
  const dialog=useRef<HTMLDialogElement>(null);

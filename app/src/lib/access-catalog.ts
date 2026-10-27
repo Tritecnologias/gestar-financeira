@@ -31,7 +31,7 @@ export const ACCESS_CATALOG = [
     { id: "auditoria", label: "Auditoria do Sistema", href: "/acessos/auditoria", actions: [["view", "Visualizar"]] },
   ] },
   { id: "sistema", label: "Sistema", screens: [
-    { id: "backup", label: "Backup e Restauração", href: "/backups", actions: [["view", "Visualizar"], ["create", "Gerar backup"], ["restore", "Restaurar (somente OWNER)"]] },
+    { id: "backup", label: "Backup e Restauração", href: "/backups", actions: [["view", "Visualizar"], ["create", "Gerar backup"], ["restore", "Restaurar (somente Proprietário)"]] },
     { id: "configuracoes", label: "Configurações", href: "/configuracoes", actions: [["view", "Visualizar"], ["manage", "Alterar logo"]] },
   ] },
 ] as const;

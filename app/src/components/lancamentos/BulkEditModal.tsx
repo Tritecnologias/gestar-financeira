@@ -1,4 +1,5 @@
 "use client";
+import { messagePtBr } from "@/lib/presentation";
 
 import { useState } from "react";
 
@@ -80,10 +81,10 @@ export default function BulkEditModal({ ids, categories, accounts, statuses, onC
         {preview && <div className="lanc-bulk-preview" role="status"><strong>Prévia — {preview.count} lançamento(s)</strong>
           {enabled.map(field => <p key={field}><b>{LABELS[field]}:</b> antes: {displayValue(field, preview.before[field])} → depois: {displayValue(field, preview.after[field])}</p>)}
           {preview.implicitCategory && <p><b>Categoria N1 vinculada:</b> {displayValue("categoria", preview.implicitCategory)} será preenchida pela Conta N2.</p>}
-          {enabled.includes("dataPagamento") && <p className="lanc-bulk-warning">Alterar a Data de Realização pode mudar status financeiro, caixa realizado, cards, Relatórios e Análises.</p>}
+          {enabled.includes("dataPagamento") && <p className="lanc-bulk-warning">Alterar a Data de Realização pode mudar status financeiro, caixa realizado, indicadores, Relatórios e Análises.</p>}
           <p>Todos os registros serão validados novamente antes da gravação. Se um falhar, nenhum será alterado.</p>
         </div>}
-        {error && <p className="lanc-bulk-error" role="alert">{error}</p>}
+        {error && <p className="lanc-bulk-error" role="alert">{messagePtBr(error)}</p>}
       </div>
       <footer><button type="button" className="btn btn-outline" onClick={onClose} disabled={busy}>Cancelar</button>
         {!preview ? <button type="button" className="btn btn-primary" disabled={busy || !enabled.length} onClick={() => void request("preview")}>{busy ? "Validando…" : "Conferir prévia"}</button>
