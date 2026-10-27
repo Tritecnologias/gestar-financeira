@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, hasPermission } from "@/lib/permissions";
 import { obterResumoFluxoCaixa } from "@/lib/cash-flow-service";
@@ -10,7 +11,7 @@ const DATA_BASES: DataBaseFinanceira[] = [
 const FILTER_KEYS = ["status", "statusManual", "tipo", "contaId", "categoria", "clienteId",
   "fornecedorId", "centroCusto", "banco", "dre"] as const;
 
-export async function GET(req: NextRequest) {
+async function advisoryGET(req: NextRequest) {
   let context: Awaited<ReturnType<typeof requirePermission>>;
   try {
     context = await requirePermission("fluxo.visao.view");
@@ -51,3 +52,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não foi possível calcular o fluxo de caixa." }, { status: 500 });
   }
 }
+
+export const GET = withAdvisoryAudit("/api/fluxo-caixa/resumo", "GET", advisoryGET);

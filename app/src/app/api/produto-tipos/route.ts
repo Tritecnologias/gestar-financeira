@@ -1,9 +1,10 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita, requireSession } from "@/lib/tenant";
 import { productApiError, productError, productText, productTransaction, reserveProductCode } from "@/lib/product-catalog";
 
-export async function GET() {
+async function advisoryGET() {
   const access = await guardApi("estrutura.portfolio.view"); if (access) return access;
   try {
     const { db } = await requireSession();
@@ -14,7 +15,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function advisoryPOST(req: NextRequest) {
   const access = await guardApi("estrutura.portfolio.create"); if (access) return access;
   try {
     const { db, session } = await requireEscrita();
@@ -34,3 +35,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }
+
+export const GET = withAdvisoryAudit("/api/produto-tipos", "GET", advisoryGET);
+export const POST = withAdvisoryAudit("/api/produto-tipos", "POST", advisoryPOST);

@@ -1,3 +1,5 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
+import { businessAuthor } from "@/lib/business-author";
 import { prepareLancamento } from "@/lib/lancamento-validation";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -12,7 +14,7 @@ function rowError(index: number, message: string, status = 400): Error & { statu
   return Object.assign(new Error(`Lançamento ${index + 1}: ${message}`), { status, row: index + 1 });
 }
 
-export async function POST(req: NextRequest) {
+async function advisoryPOST(req: NextRequest) {
   let session: Awaited<ReturnType<typeof requirePermission>>["session"];
   try { ({ session } = await requirePermission("fluxo.lancamentos.create")); }
   catch (error: any) { return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 }); }
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
         const row = raw as Row;
         try {
           const data = await prepareLancamento(tx, session.tenantId, row);
-          prepared.push({ ...data, tenantId: session.tenantId, criadoPor: session.id });
+          prepared.push({ ...data, tenantId: session.tenantId, ...businessAuthor(session) });
         } catch (error: any) { throw rowError(index, error?.status ? error.message : "Não foi possível validar a linha.", error?.status || 500); }
       }
 
@@ -65,3 +67,5 @@ export async function POST(req: NextRequest) {
     { status: error?.status || (error?.code === "P2034" ? 409 : 500) });
   }
 }
+
+export const POST = withAdvisoryAudit("/api/lancamentos/lote", "POST", advisoryPOST);

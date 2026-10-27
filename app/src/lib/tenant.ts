@@ -1,3 +1,6 @@
+import { authorizedAdvisoryGrant } from "./advisory-authorization";
+import { advisoryRequestAllowed } from "./advisory-policy";
+import { bindAdvisoryRequest } from "./advisory-request";
 import { auth, legacyAuthEnabled } from "@/lib/auth";
 import { prisma, getTenantPrisma } from "@/lib/db";
 import { cookies, headers } from "next/headers";
@@ -48,7 +51,7 @@ export async function requirePlatformAdmin() {
     return { identityId: null, legacySession: context.session };
   }
   const identity = await getIdentityAccess();
-  if ((await cookies()).get("support_context")?.value) throw accessError("Saia do contexto de suporte antes de administrar a plataforma.", 403);
+  if ((await cookies()).get("support_context")?.value || (await cookies()).get("advisory_context")?.value) throw accessError("Saia do contexto de suporte ou assessoria antes de administrar a plataforma.", 403);
   if (identity.platformAdmin?.status !== "ACTIVE") throw accessError("Acesso negado", 403);
   return { identityId: identity.id, legacySession: null };
 }
@@ -77,6 +80,28 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
     const memberships = identity.memberships;
     const cookieStore = await cookies();
     const supportCookie = cookieStore.get("support_context")?.value;
+    const advisoryCookie = cookieStore.get("advisory_context")?.value;
+    if (advisoryCookie) {
+      const prefix = `${identity.id}:${identity.loginNonce}:`;
+      if (supportCookie || !advisoryCookie.startsWith(prefix)) throw accessError("Contexto de assessoria inválido.", 409);
+      const grantId = advisoryCookie.slice(prefix.length);
+      if (!/^[0-9a-f-]{36}$/i.test(grantId)) throw accessError("Contexto de assessoria inválido.", 409);
+      const grant = await authorizedAdvisoryGrant(prisma, identity.id, grantId);
+      const h = await headers();
+      const path = h.get("x-10s-request-path") ?? "";
+      const method = h.get("x-10s-request-method") ?? "";
+      if (!advisoryRequestAllowed(path, method)) throw accessError("Recurso fora do escopo da Assessoria.", 403);
+      if (path.startsWith("/api/")) await bindAdvisoryRequest({ identityId: identity.id, tenantId: grant.tenantId, grantId });
+      const context = { db: getTenantPrisma(grant.tenantId), baseTenantId: grant.tenantId,
+        session: { id: `advisory:${identity.id}`, identityId: identity.id, authMode: "identity",
+          platformAdmin: identity.platformAdmin?.status === "ACTIVE", supportOperator: identity.supportOperator?.status === "ACTIVE",
+          accessSource: "ADVISORY", advisoryGrantId: grant.id, advisoryPermissions: grant.permissions,
+          advisoryExpiresAt: grant.expiresAt?.toISOString() ?? null,
+          nome: identity.nome, email: identity.email, papel: "membro" as Papel,
+          tenantId: grant.tenantId, tenantNome: grant.tenant.nome, tenantSelecionado: true } satisfies UserSession };
+      if (!options.allowPendingTerms) await requireAcceptedTerms(context.session);
+      return context;
+    }
     const supportPrefix = `${identity.id}:${identity.loginNonce}:`;
     if (supportCookie) {
       if (!supportCookie.startsWith(supportPrefix)) throw accessError("Contexto de suporte inválido; selecione explicitamente outro contexto.", 409);
@@ -251,7 +276,7 @@ export async function getSession(): Promise<UserSession> {
  */
 export async function requireTenantMembership() {
   const context = await requireSession();
-  if (context.session.accessSource === "SUPPORT_GRANT") throw accessError("Membership empresarial necessário", 403);
+  if (context.session.accessSource === "SUPPORT_GRANT" || context.session.accessSource === "ADVISORY") throw accessError("Membership empresarial necessário", 403);
   return context;
 }
 

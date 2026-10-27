@@ -1,9 +1,10 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 
 // GET /api/status-tipos — lista status manuais do tenant
-export async function GET(req: NextRequest) {
+async function advisoryGET(req: NextRequest) {
   const access = await guardApi(["fluxo.lancamentos.view","fluxo.relatorios.view"]); if (access) return access;
   let db: any;
   try {
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/status-tipos — criar novo
-export async function POST(req: NextRequest) {
+async function advisoryPOST(req: NextRequest) {
   const access = await guardApi("fluxo.lancamentos.edit"); if (access) return access;
   let db: any;
   try {
@@ -54,3 +55,6 @@ export async function POST(req: NextRequest) {
     throw e;
   }
 }
+
+export const GET = withAdvisoryAudit("/api/status-tipos", "GET", advisoryGET);
+export const POST = withAdvisoryAudit("/api/status-tipos", "POST", advisoryPOST);

@@ -1,9 +1,11 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
+import { layoutOwner } from "@/lib/business-author";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 
 // DELETE /api/layouts/[id] — excluir layout
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function advisoryDELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const access = await guardApi("fluxo.lancamentos.view"); if (access) return access;
   let db: any, session: any;
   try {
@@ -16,7 +18,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   try {
     await db.layoutColunas.delete({
-      where: { id, usuarioId: session.id },
+      where: { id, ...layoutOwner(session) },
     });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
@@ -24,3 +26,5 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     throw e;
   }
 }
+
+export const DELETE = withAdvisoryAudit("/api/layouts/[id]", "DELETE", advisoryDELETE);

@@ -26,6 +26,7 @@ export const ACCESS_CATALOG = [
     { id: "analises", label: "Análises", href: "/fluxo-caixa/graficos", actions: [["view", "Visualizar"]] },
   ] },
   { id: "acessos", label: "Acessos", screens: [
+    { id: "assessoria", label: "Acesso de Assessoria", href: "/acessos/assessoria", actions: [["view", "Visualizar"], ["manage", "Gerenciar Acessos de Assessoria"]] },
     { id: "usuarios", label: "Usuários", href: "/acessos", actions: [["view", "Visualizar"], ["manage", "Administrar"]] },
     { id: "perfis", label: "Perfis de Acesso", href: "/acessos/perfis", actions: [["view", "Visualizar"], ["manage", "Administrar"]] },
     { id: "auditoria", label: "Auditoria do Sistema", href: "/acessos/auditoria", actions: [["view", "Visualizar"]] },
@@ -55,12 +56,9 @@ export function normalizedPermissions(input: unknown): string[] {
 }
 
 export function viewPermissionForPath(pathname: string): string | null {
-  for (const module of ACCESS_CATALOG) {
-    for (const screen of module.screens) {
-      if (pathname === screen.href || pathname.startsWith(`${screen.href}/`)) {
-        return `${module.id}.${screen.id}.view`;
-      }
-    }
+  const screens = ACCESS_CATALOG.flatMap(module => module.screens.map(screen => ({ module, screen }))).sort((a, b) => b.screen.href.length - a.screen.href.length);
+  for (const { module, screen } of screens) {
+    if (pathname === screen.href || pathname.startsWith(`${screen.href}/`)) return `${module.id}.${screen.id}.view`;
   }
   return null;
 }

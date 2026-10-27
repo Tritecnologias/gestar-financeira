@@ -41,7 +41,7 @@ async function references(db, tenantId) {
   result.usuarios = await objects(db, 'usuarios', tenantId, "to_jsonb(t)-'senha_hash'");
   // Only stable IDs/status of identities actually referenced by this tenant; never credentials or other memberships.
   result.identities = (await rows(db, `SELECT DISTINCT i.id,i.status FROM auth_identities i WHERE i.id IN
-    (SELECT identity_id FROM tenant_memberships WHERE tenant_id=$1 UNION SELECT actor_identity_id FROM import_operations WHERE tenant_id=$1)
+    (SELECT identity_id FROM tenant_memberships WHERE tenant_id=$1 UNION SELECT actor_identity_id FROM import_operations WHERE tenant_id=$1 UNION SELECT identity_id FROM advisory_access_grants WHERE tenant_id=$1 UNION SELECT criado_por_identity_id FROM lancamentos WHERE tenant_id=$1 UNION SELECT identity_id FROM layouts_colunas WHERE tenant_id=$1)
     ORDER BY i.id`, [tenantId]));
   return result;
 }

@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
@@ -5,7 +6,7 @@ import { defaultAccountRelation, profileData, validateDefaultAccount } from "@/l
 import { registrationCodeAllocator, registrationTransaction } from "@/lib/registration-codes";
 
 // GET /api/fornecedores — lista todos do tenant
-export async function GET(req: NextRequest) {
+async function advisoryGET(req: NextRequest) {
   const access = await guardApi(["estrutura.cadastrais.view","fluxo.lancamentos.view"]); if (access) return access;
   let db: any;
   try {
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/fornecedores — criar novo
-export async function POST(req: NextRequest) {
+async function advisoryPOST(req: NextRequest) {
   const access = await guardApi("estrutura.cadastrais.create"); if (access) return access;
   let db: any, tenantId: string;
   try {
@@ -53,3 +54,6 @@ export async function POST(req: NextRequest) {
     throw e;
   }
 }
+
+export const GET = withAdvisoryAudit("/api/fornecedores", "GET", advisoryGET);
+export const POST = withAdvisoryAudit("/api/fornecedores", "POST", advisoryPOST);

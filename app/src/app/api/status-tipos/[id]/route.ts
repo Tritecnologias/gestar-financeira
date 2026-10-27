@@ -1,9 +1,10 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 
 // PUT /api/status-tipos/[id] — atualizar status tipo
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function advisoryPUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const access = await guardApi("fluxo.lancamentos.edit"); if (access) return access;
   let db: any;
   try {
@@ -39,7 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // DELETE /api/status-tipos/[id] — desativar (soft delete)
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function advisoryDELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const access = await guardApi("fluxo.lancamentos.edit"); if (access) return access;
   let db: any;
   try {
@@ -61,3 +62,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     throw e;
   }
 }
+
+export const PUT = withAdvisoryAudit("/api/status-tipos/[id]", "PUT", advisoryPUT);
+export const DELETE = withAdvisoryAudit("/api/status-tipos/[id]", "DELETE", advisoryDELETE);

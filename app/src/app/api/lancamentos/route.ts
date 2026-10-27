@@ -1,3 +1,5 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
+import { businessAuthor } from "@/lib/business-author";
 import { prepareLancamento, lancamentoError } from "@/lib/lancamento-validation";
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission, hasPermission } from "@/lib/permissions";
@@ -11,7 +13,7 @@ import type { PaginatedResponse, LancamentoDTO } from "@/types";
 import { Prisma } from "@prisma/client";
 
 // ── GET /api/lancamentos ──────────────────────────────────────
-export async function GET(req: NextRequest) {
+async function advisoryGET(req: NextRequest) {
   let db: any, session: any, context: Awaited<ReturnType<typeof requirePermission>>;
   try {
     context = await requirePermission("fluxo.lancamentos.view");
@@ -116,7 +118,7 @@ export async function GET(req: NextRequest) {
 }
 
 // Single creation and batch creation share the same validation and sequence lock.
-export async function POST(req: NextRequest) {
+async function advisoryPOST(req: NextRequest) {
   let session: any;
   try { ({ session } = await requirePermission("fluxo.lancamentos.create")); }
   catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 401 }); }
@@ -127,8 +129,11 @@ export async function POST(req: NextRequest) {
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`lancamento-seq:${session.tenantId}`}, 0))`;
       const last = await tx.lancamento.findFirst({ where: { tenantId: session.tenantId }, orderBy: { seq: "desc" }, select: { seq: true } });
       return tx.lancamento.create({ data: { ...data, tenantId: session.tenantId, seq: (last?.seq ?? 0) + 1,
-        criadoPor: session.id } as Prisma.LancamentoUncheckedCreateInput, include: counterpartInclude });
+        ...businessAuthor(session) } as Prisma.LancamentoUncheckedCreateInput, include: counterpartInclude });
     });
     return NextResponse.json(toLancamentoDTO(row), { status: 201 });
   } catch (error) { const result = lancamentoError(error); return NextResponse.json({ error: result.error }, { status: result.status }); }
 }
+
+export const GET = withAdvisoryAudit("/api/lancamentos", "GET", advisoryGET);
+export const POST = withAdvisoryAudit("/api/lancamentos", "POST", advisoryPOST);

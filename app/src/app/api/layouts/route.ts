@@ -1,9 +1,11 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
+import { layoutOwner } from "@/lib/business-author";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 
 // GET /api/layouts — lista layouts do usuário logado
-export async function GET(req: NextRequest) {
+async function advisoryGET(req: NextRequest) {
   const access = await guardApi("fluxo.lancamentos.view"); if (access) return access;
   let db: any, session: any;
   try {
@@ -14,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   // ⚡ tenantId injetado automaticamente; filtramos apenas pelo usuário
   const layouts = await db.layoutColunas.findMany({
-    where: { usuarioId: session.id },
+    where: { ...layoutOwner(session) },
     orderBy: [{ isDefault: "desc" }, { criadoEm: "asc" }],
     select: { id: true, nome: true, colunas: true, isDefault: true, criadoEm: true },
   });
@@ -23,7 +25,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/layouts — salvar novo layout
-export async function POST(req: NextRequest) {
+async function advisoryPOST(req: NextRequest) {
   const access = await guardApi("fluxo.lancamentos.view"); if (access) return access;
   let db: any, session: any;
   try {
@@ -42,15 +44,18 @@ export async function POST(req: NextRequest) {
   if (isDefault) {
     // ⚡ updateMany já injeta tenantId no WHERE via Extension
     await db.layoutColunas.updateMany({
-      where: { usuarioId: session.id, isDefault: true },
+      where: { ...layoutOwner(session), isDefault: true },
       data: { isDefault: false },
     });
   }
 
   // ⚡ tenantId injetado automaticamente no create
   const layout = await db.layoutColunas.create({
-    data: { usuarioId: session.id, nome: nome.trim(), colunas, isDefault: isDefault ?? false },
+    data: { ...layoutOwner(session), nome: nome.trim(), colunas, isDefault: isDefault ?? false },
   });
 
   return NextResponse.json(layout, { status: 201 });
 }
+
+export const GET = withAdvisoryAudit("/api/layouts", "GET", advisoryGET);
+export const POST = withAdvisoryAudit("/api/layouts", "POST", advisoryPOST);

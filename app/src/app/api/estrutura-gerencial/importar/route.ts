@@ -1,8 +1,9 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { structureImportRoute } from "@/lib/structure-import-route";
 import { parseManagementWorkbook, validateManagementWorkbook, type ImportPreview } from "@/lib/management-import";
 
 export const runtime = "nodejs";
-export const POST = structureImportRoute({
+const advisoryPOST = structureImportRoute({
   contract: "MANAGEMENT", permission: "estrutura.empresa.import",
   parse: parseManagementWorkbook, validate: validateManagementWorkbook,
   locks: tenantId => [`management-import:${tenantId}`],
@@ -39,3 +40,5 @@ export const POST = structureImportRoute({
       return { resumo: preview.resumo };
   },
 });
+
+export const POST = withAdvisoryAudit("/api/estrutura-gerencial/importar", "POST", advisoryPOST);

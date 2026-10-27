@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { BACKUP_MIGRATIONS, BASELINE_MIGRATION, assertBackupMigrations } from '../src/lib/backup/schema-contract.mjs';
+import { BACKUP_MIGRATIONS, REQUIRED_MIGRATIONS, assertBackupMigrations } from '../src/lib/backup/schema-contract.mjs';
 
 const root = new URL('../prisma/migrations/', import.meta.url);
 const ledger = () => BACKUP_MIGRATIONS.map(migration_name => ({ migration_name,
@@ -10,7 +10,7 @@ const ledger = () => BACKUP_MIGRATIONS.map(migration_name => ({ migration_name,
 
 test('baseline epoch names match the active migration; exact checksum and LF bytes', () => {
   assert.deepEqual(BACKUP_MIGRATIONS.slice().sort(), readdirSync(root, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name).sort());
-  for (const required of [BASELINE_MIGRATION]) {
+  for (const required of REQUIRED_MIGRATIONS) {
     const bytes = readFileSync(new URL(`${required.name}/migration.sql`, root));
     assert(!bytes.includes(13));
     assert.equal(createHash('sha256').update(bytes).digest('hex'), required.sha256);

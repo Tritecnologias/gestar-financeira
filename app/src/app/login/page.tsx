@@ -36,7 +36,7 @@ function LoginForm() {
           const platform = await fetch("/api/platform/tenants", { cache: "no-store" });
           router.push(platform.ok ? "/plataforma" : res.headers.get("X-Support-Operator") === "true" ? "/suporte" : "/selecionar-tenant");
         } else {
-          router.push(Array.isArray(choices) && (choices.length !== 1 || choices[0]?.kind === "SUPPORT_GRANT") ? "/selecionar-tenant" : callbackUrl);
+          router.push(Array.isArray(choices) && (choices.length !== 1 || ["SUPPORT_GRANT", "ADVISORY"].includes(choices[0]?.kind)) ? "/selecionar-tenant" : callbackUrl);
         }
       }
       } catch { setErro("Não foi possível conectar. Verifique sua conexão e tente novamente."); }

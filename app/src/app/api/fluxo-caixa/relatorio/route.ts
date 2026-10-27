@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
@@ -9,7 +10,7 @@ const BASES_PREVISTO: DataBaseFinanceira[] = [
   "DATA_LANCAMENTO", "DATA_EMISSAO", "VENCIMENTO_ORIGINAL", "VENCIMENTO_PLANO", "REALIZACAO",
 ];
 
-export async function GET(req: NextRequest) {
+async function advisoryGET(req: NextRequest) {
   const access = await guardApi("fluxo.relatorios.view"); if (access) return access;
   let context: Awaited<ReturnType<typeof requireSession>>;
   try { context = await requireSession(); }
@@ -40,3 +41,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não foi possível calcular o relatório financeiro." }, { status: 500 });
   }
 }
+
+export const GET = withAdvisoryAudit("/api/fluxo-caixa/relatorio", "GET", advisoryGET);

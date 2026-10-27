@@ -1,10 +1,11 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { FINANCIAL_ACCOUNT_TYPES } from "@/lib/financial-account-types";
 import { financialCodeTransaction, reserveAccountCode } from "@/lib/financial-codes";
 
-export async function GET() {
+async function advisoryGET() {
   const access = await guardApi(["estrutura.financeiras.view","estrutura.cadastrais.view","fluxo.lancamentos.view"]); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
@@ -12,7 +13,7 @@ export async function GET() {
   return NextResponse.json(items);
 }
 
-export async function POST(req: NextRequest) {
+async function advisoryPOST(req: NextRequest) {
   const access = await guardApi("estrutura.financeiras.create"); if (access) return access;
   let db: any, tenantId: string;
   try { ({ db, baseTenantId: tenantId } = await requireEscrita()); } catch (e: any) { return NextResponse.json({ error: e?.message ?? "Não autorizado" }, { status: e?.status ?? 401 }); }
@@ -35,3 +36,6 @@ export async function POST(req: NextRequest) {
     throw e;
   }
 }
+
+export const GET = withAdvisoryAudit("/api/plano-contas", "GET", advisoryGET);
+export const POST = withAdvisoryAudit("/api/plano-contas", "POST", advisoryPOST);

@@ -151,7 +151,10 @@ export interface UserSession {
   membershipRole?: "OWNER" | "ADMIN" | "MEMBER";
     platformAdmin?: boolean;
     supportOperator?: boolean;
-    accessSource?: "MEMBERSHIP" | "SUPPORT_GRANT";
+    accessSource?: "MEMBERSHIP" | "SUPPORT_GRANT" | "ADVISORY";
+    advisoryGrantId?: string;
+    advisoryPermissions?: string[];
+    advisoryExpiresAt?: string | null;
     supportGrantId?: string;
     supportLevel?: "READ_ONLY" | "OPERATIONAL";
     supportModules?: ("ESTRUTURA_EMPRESA" | "ESTRUTURA_FINANCEIRA")[];

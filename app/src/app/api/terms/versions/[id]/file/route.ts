@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin, requireSession } from "@/lib/tenant";
@@ -5,7 +6,7 @@ import { readTermPdf } from "@/lib/term-storage";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Params) {
+async function advisoryGET(_req: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const version = await prisma.termVersion.findUnique({ where: { id }, include: { document: true } });
@@ -27,3 +28,5 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: (error as {status?: number}).status ? (error as Error).message : "Documento indisponível." }, { status: (error as {status?: number}).status ?? 500 });
   }
 }
+
+export const GET = withAdvisoryAudit("/api/terms/versions/[id]/file", "GET", advisoryGET);

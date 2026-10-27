@@ -1,10 +1,11 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 import { permissionsFor } from "@/lib/permissions";
 
 /** Contexto efetivo revalidado; o JWT contém apenas identidade e modo. */
-export async function GET() {
+async function advisoryGET() {
   try {
     const context = await requireSession();
     const { session } = context;
@@ -24,6 +25,7 @@ export async function GET() {
       platformAdmin: session.platformAdmin ?? false,
       supportOperator: session.supportOperator ?? false,
       accessSource: session.accessSource,
+      advisoryGrantId: session.advisoryGrantId ?? null,
       supportGrantId: session.supportGrantId ?? null,
       profile: membership?.profile ?? null,
       permissions: [...permissions],
@@ -33,3 +35,5 @@ export async function GET() {
       { status: (error as {status?: number}).status ?? 401 });
   }
 }
+
+export const GET = withAdvisoryAudit("/api/access/context", "GET", advisoryGET);

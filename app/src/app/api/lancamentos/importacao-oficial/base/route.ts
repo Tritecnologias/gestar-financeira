@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/permissions";
 import { counterpartInclude } from "@/lib/lancamento-counterparty";
@@ -6,7 +7,7 @@ import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamento
 import { CARDS_LANCAMENTO, type CardLancamento } from "@/lib/lancamento-card-filter";
 import { consultarIdsDoCard } from "@/lib/lancamento-card-query";
 
-export async function GET(req: NextRequest) {
+async function advisoryGET(req: NextRequest) {
   let db: any, session: any;
   try { ({ db, session } = await requirePermission("fluxo.lancamentos.import")); }
   catch (error: any) { return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 }); }
@@ -37,3 +38,5 @@ export async function GET(req: NextRequest) {
     "X-Total-Registros": String(records.length),
   } });
 }
+
+export const GET = withAdvisoryAudit("/api/lancamentos/importacao-oficial/base", "GET", advisoryGET);

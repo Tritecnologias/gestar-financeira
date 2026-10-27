@@ -40,8 +40,8 @@ export default async function InicioPage() {
       <dl className="onboarding-facts">
         <div><dt>Conta</dt><dd>{session.nome}{session.email ? <small>{session.email}</small> : null}</dd></div>
         <div><dt>Empresa selecionada</dt><dd>{session.tenantNome}</dd></div>
-        <div><dt>Função na empresa</dt><dd>{owner ? "Proprietário" : session.membershipRole === "ADMIN" ? "Administrador" : session.membershipRole === "MEMBER" ? "Membro" : "Acesso legado"}</dd></div>
-        <div><dt>Perfil de Acesso</dt><dd>{profile?.profile?.ativo ? profile.profile.nome : "Sem perfil ativo"}</dd></div>
+        <div><dt>Função na empresa</dt><dd>{session.accessSource === "ADVISORY" ? "Assessoria DEZ" : owner ? "Proprietário" : session.membershipRole === "ADMIN" ? "Administrador" : session.membershipRole === "MEMBER" ? "Membro" : "Acesso legado"}</dd></div>
+        <div><dt>Perfil de Acesso</dt><dd>{session.accessSource === "ADVISORY" ? "Escopo autorizado de assessoria" : profile?.profile?.ativo ? profile.profile.nome : "Sem perfil ativo"}</dd></div>
       </dl>
       <p className="onboarding-note">Se seus dados ou vínculos estiverem incorretos, solicite a revisão ao administrador. Documentos obrigatórios pendentes são apresentados antes da entrada no sistema.</p>
       {session.authMode === "identity" && <Link href="/selecionar-tenant" className="onboarding-link">Trocar empresa</Link>}

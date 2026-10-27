@@ -17,7 +17,7 @@ if (!process.env.DATABASE_URL && existsSync(envPath)) {
 test("Prisma escopado nunca lê nem grava dados do outro tenant", { skip: !process.env.DATABASE_URL }, async () => {
   const { prisma, getTenantPrisma } = await import("../src/lib/db.ts");
   const [{ database }] = await prisma.$queryRaw`SELECT current_database() AS database`;
-  assert.equal(database, "gestar_vf_dev", "fixtures só podem ser criadas no sandbox DEV");
+  assert(["gestar_vf_dev", "phase11b_lab"].includes(database), "fixtures só podem ser criadas no sandbox DEV ou laboratório LOCAL 11B");
 
   const marker = randomUUID();
   const ids = [];
@@ -64,7 +64,16 @@ test("Prisma escopado nunca lê nem grava dados do outro tenant", { skip: !proce
     assert.equal(upserted.tenantId, tenantA);
     assert.equal(upserted.nome, "A6");
   } finally {
-    if (ids.length) await prisma.tenant.deleteMany({ where: { id: { in: ids } } });
+    if (ids.length && database === "phase11b_lab") {
+      // Runtime deliberately cannot delete tenants. Cleanup uses the separate LOCAL lab channel.
+      assert(process.env.LOCAL_LAB_CLEANUP_URL, "canal de limpeza LOCAL explícito necessário");
+      const { Pool } = await import("pg");
+      const cleanup = new Pool({ connectionString: process.env.LOCAL_LAB_CLEANUP_URL });
+      try {
+        assert.equal((await cleanup.query("SELECT current_database() d")).rows[0].d, "phase11b_lab");
+        await cleanup.query("DELETE FROM tenants WHERE id=ANY($1::text[]) AND slug LIKE 'access-1a-%'", [ids]);
+      } finally { await cleanup.end(); }
+    } else if (ids.length) await prisma.tenant.deleteMany({ where: { id: { in: ids } } });
     await prisma.$disconnect();
   }
 });

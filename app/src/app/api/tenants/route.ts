@@ -1,3 +1,4 @@
+import { authorizedAdvisoryGrant } from "@/lib/advisory-authorization";
 import { NextRequest, NextResponse } from "next/server";
 import { getIdentityAccess, requirePlatformAdmin, requireSession } from "@/lib/tenant";
 import { legacyAuthEnabled } from "@/lib/auth";
@@ -20,9 +21,10 @@ export async function GET() {
       }));
       const { cookies } = await import("next/headers");
       const selected = (await cookies()).get("tenant_context")?.value;
+      const selectedAdvisory = (await cookies()).get("advisory_context")?.value;
       const selectedSupport = (await cookies()).get("support_context")?.value;
       const cookiePrefix = `${identity.id}:${identity.loginNonce}:`;
-      const activeId = selectedSupport?.startsWith(cookiePrefix) ? null : tenants.length === 1 ? tenants[0].id
+      const activeId = selectedAdvisory || selectedSupport?.startsWith(cookiePrefix) ? null : tenants.length === 1 ? tenants[0].id
         : selected?.startsWith(cookiePrefix) ? selected.slice(cookiePrefix.length) : null;
       const grants = identity.supportOperator?.status === "ACTIVE" ? await prisma.supportGrant.findMany({
         where: { requesterIdentityId: identity.id, status: "ACTIVE", tenant: { ativo: true } },
@@ -39,7 +41,15 @@ export async function GET() {
         entryPath: SUPPORT_MODULES[g.modules[0]].page,
         isActive: selectedSupport === `${cookiePrefix}${g.id}`,
       }));
-      return NextResponse.json([...tenants.map(t => ({ ...t, isActive: t.id === activeId })), ...supportChoices],
+      const advisory = await prisma.advisoryAccessGrant.findMany({ where: { identityId: identity.id, status: "ACTIVE" }, select: { id: true } });
+      const advisoryChoices = [];
+      for (const item of advisory) {
+        try { const g = await authorizedAdvisoryGrant(prisma, identity.id, item.id);
+          advisoryChoices.push({ id: g.tenantId, nome: g.tenant.nome, advisoryGrantId: g.id, kind: "ADVISORY", expiresAt: g.expiresAt,
+            isActive: selectedAdvisory === `${cookiePrefix}${g.id}` });
+        } catch { /* expired, revoked and inactive grants never authorize context selection */ }
+      }
+      return NextResponse.json([...tenants.map(t => ({ ...t, isActive: t.id === activeId })), ...advisoryChoices, ...supportChoices],
         { headers: { "Cache-Control": "private, no-store",
           "X-Platform-Admin": identity.platformAdmin?.status === "ACTIVE" ? "true" : "false",
           "X-Support-Operator": identity.supportOperator?.status === "ACTIVE" ? "true" : "false" } });

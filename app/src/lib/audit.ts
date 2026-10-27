@@ -10,6 +10,7 @@ export type AuditInput = {
   actorIdentityId?: string | null;
   actorMembershipId?: string | null;
   platformAdminId?: string | null;
+  advisoryGrantId?: string | null;
   supportGrantId?: string | null;
   accessMode: AuditAccessMode;
   action: string;
@@ -51,6 +52,7 @@ export async function writeAudit(tx: Writer, input: AuditInput) {
     actorIdentityId: input.actorIdentityId ?? null,
     actorMembershipId: input.actorMembershipId ?? null,
     platformAdminId: platformAdminId ?? null,
+    advisoryGrantId: input.advisoryGrantId ?? null,
     supportGrantId: input.supportGrantId ?? null,
     accessMode: input.accessMode,
     action: input.action,
@@ -65,12 +67,13 @@ export async function writeAudit(tx: Writer, input: AuditInput) {
 }
 
 export function auditContext(session: UserSession): Pick<AuditInput,
-  "tenantId" | "actorIdentityId" | "actorMembershipId" | "supportGrantId" | "accessMode"> {
+  "tenantId" | "actorIdentityId" | "actorMembershipId" | "supportGrantId" | "advisoryGrantId" | "accessMode"> {
   return {
     tenantId: session.tenantId,
     actorIdentityId: session.identityId ?? null,
     actorMembershipId: session.membershipId ?? null,
+    advisoryGrantId: session.advisoryGrantId ?? null,
     supportGrantId: session.supportGrantId ?? null,
-    accessMode: session.accessSource === "SUPPORT_GRANT" ? "SUPPORT_GRANT" : "MEMBERSHIP",
+    accessMode: session.accessSource === "ADVISORY" ? "ADVISORY" : session.accessSource === "SUPPORT_GRANT" ? "SUPPORT_GRANT" : "MEMBERSHIP",
   };
 }

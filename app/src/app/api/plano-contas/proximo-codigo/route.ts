@@ -1,9 +1,10 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { reserveAccountCode } from "@/lib/financial-codes";
 
-export async function GET(req: NextRequest) {
+async function advisoryGET(req: NextRequest) {
   const access = await guardApi("estrutura.financeiras.create"); if (access) return access;
   try {
     const { db } = await requireSession();
@@ -16,3 +17,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error?.message || "Não autorizado" }, { status: error?.status || 401 });
   }
 }
+
+export const GET = withAdvisoryAudit("/api/plano-contas/proximo-codigo", "GET", advisoryGET);

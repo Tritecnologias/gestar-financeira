@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { withAccessRequest } from "@/lib/access-request-context";
 import { trustedClientIp } from "@/lib/trusted-proxy";
 import { NextRequest, NextResponse } from "next/server";
@@ -10,7 +11,7 @@ async function handlePOST(req: NextRequest) {
   try {
     const { session } = await requireSession({ allowPendingTerms: true });
     if (session.authMode !== "identity" || !session.identityId ||
-        (!session.membershipId && session.accessSource !== "SUPPORT_GRANT")) {
+        (!session.membershipId && session.accessSource !== "SUPPORT_GRANT" && session.accessSource !== "ADVISORY")) {
       return NextResponse.json({ error: "Identidade válida necessária." }, { status: 403 });
     }
     const identityId = session.identityId;
@@ -64,4 +65,6 @@ async function handlePOST(req: NextRequest) {
   }
 }
 
-export const POST = withAccessRequest("TERM_ACCEPT", handlePOST);
+const advisoryPOST = withAccessRequest("TERM_ACCEPT", handlePOST);
+
+export const POST = withAdvisoryAudit("/api/terms/accept", "POST", advisoryPOST);

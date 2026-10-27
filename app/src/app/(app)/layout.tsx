@@ -37,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         tenantNome={session.tenantNome || "Dez Soluções"}
         tenantLogoUrl={tenant?.logoUrl ?? null}
         authMode={session.authMode}
-        platformAdmin={session.accessSource === "SUPPORT_GRANT" ? false : session.platformAdmin}
+        platformAdmin={session.accessSource === "SUPPORT_GRANT" || session.accessSource === "ADVISORY" ? false : session.platformAdmin}
         supportOperator={session.supportOperator}
         permissions={permissions}
         hasMembership={session.accessSource === "MEMBERSHIP" && Boolean(session.membershipId)}
@@ -46,6 +46,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main className="main" style={{ overflow: "hidden" }}>
         {testLabel && <div className="test-tenant-banner" role="status">
           <strong>{testLabel}</strong><span>Use somente dados sintéticos.</span>
+        </div>}
+        {session.accessSource === "ADVISORY" && <div className="support-mode-banner" role="status">
+          <strong>Assessoria DEZ</strong><span>Empresa: {session.tenantNome}</span>
+          <span>{session.advisoryExpiresAt ? `Até ${new Date(session.advisoryExpiresAt).toLocaleString("pt-BR")}` : "Vigente até revogação"}</span>
+          <Link href="/selecionar-tenant">Trocar contexto</Link>
         </div>}
         {session.accessSource === "SUPPORT_GRANT" ? <>
           <div className="support-mode-banner" role="status">

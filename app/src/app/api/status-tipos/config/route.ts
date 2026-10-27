@@ -1,10 +1,11 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, requireEscrita } from "@/lib/tenant";
 import { prisma } from "@/lib/db";
 
 // GET /api/status-tipos/config — retorna título da tabela de apoio
-export async function GET() {
+async function advisoryGET() {
   const access = await guardApi("fluxo.lancamentos.view"); if (access) return access;
   let session: any;
   try {
@@ -22,7 +23,7 @@ export async function GET() {
 }
 
 // PUT /api/status-tipos/config — atualiza título da tabela de apoio
-export async function PUT(req: NextRequest) {
+async function advisoryPUT(req: NextRequest) {
   const access = await guardApi("fluxo.lancamentos.edit"); if (access) return access;
   let session: any;
   try {
@@ -45,3 +46,6 @@ export async function PUT(req: NextRequest) {
 
   return NextResponse.json({ titulo: titulo.trim() });
 }
+
+export const GET = withAdvisoryAudit("/api/status-tipos/config", "GET", advisoryGET);
+export const PUT = withAdvisoryAudit("/api/status-tipos/config", "PUT", advisoryPUT);

@@ -2,7 +2,7 @@
 const roles: Record<string, string> = { OWNER: "Proprietário", ADMIN: "Administrador", MEMBER: "Membro", admin: "Administrador", membro: "Membro", admin_global: "Administrador da Plataforma" };
 const states: Record<string, string> = { ACTIVE: "Ativo", INACTIVE: "Inativo", PENDING: "Pendente", EXPIRED: "Expirado", ACCEPTED: "Aceito", REVOKED: "Revogado", REJECTED: "Rejeitado", DRAFT: "Rascunho", PUBLISHED: "Publicado", RETIRED: "Retirado de vigência", SENT: "Enviado", SIMULATED: "Simulado", FAILED: "Falha no envio", SUCCESS: "Concluído", DENIED: "Negado", FAILURE: "Falha", READ_ONLY: "Somente leitura", OPERATIONAL: "Operacional" };
 const resources: Record<string, string> = { AuthIdentity: "Conta", Usuario: "Usuário", Tenant: "Empresa", TenantMembership: "Vínculo com a empresa", AccessProfile: "Perfil de acesso", PlatformAdmin: "Administrador da Plataforma", SupportOperator: "Operador de Suporte", SupportGrant: "Acesso Temporário de Suporte", AccessInvite: "Convite de acesso", TermDocument: "Documento", TermVersion: "Versão do documento", TermAcceptance: "Aceite de termo", TenantBackup: "Backup da empresa" };
-const modes: Record<string, string> = { SYSTEM: "Sistema", MEMBERSHIP: "Vínculo com a empresa", PLATFORM_ADMIN: "Administração da Plataforma", SUPPORT_GRANT: "Acesso Temporário de Suporte" };
+const modes: Record<string, string> = { ADVISORY: "Assessoria DEZ", SYSTEM: "Sistema", MEMBERSHIP: "Vínculo com a empresa", PLATFORM_ADMIN: "Administração da Plataforma", SUPPORT_GRANT: "Acesso Temporário de Suporte" };
 export const resourceOptions = Object.entries(resources);
 export const roleLabel = (value: string) => roles[value] ?? "Não informado";
 export const statusLabel = (value: string) => states[value] ?? "Não informado";

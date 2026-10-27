@@ -1,10 +1,11 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { FINANCIAL_ACCOUNT_TYPES } from "@/lib/financial-account-types";
 import { validNewAccountCode } from "@/lib/financial-codes";
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function advisoryPUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const access = await guardApi("estrutura.financeiras.edit"); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
@@ -34,7 +35,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function advisoryDELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const access = await guardApi("estrutura.financeiras.delete"); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
@@ -47,3 +48,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     throw e;
   }
 }
+
+export const PUT = withAdvisoryAudit("/api/plano-contas/[id]", "PUT", advisoryPUT);
+export const DELETE = withAdvisoryAudit("/api/plano-contas/[id]", "DELETE", advisoryDELETE);

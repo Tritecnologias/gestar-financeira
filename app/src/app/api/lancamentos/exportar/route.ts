@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/permissions";
 import { toNumber } from "@/lib/formatters";
@@ -8,7 +9,7 @@ import { hojeSaoPaulo, lerFiltrosLancamentos, statusCorresponde, whereLancamento
 // ── GET /api/lancamentos/exportar ─────────────────────────────
 // Exporta TODOS os lançamentos (sem paginação) para CSV.
 // Aceita os mesmos filtros da listagem principal.
-export async function GET(req: NextRequest) {
+async function advisoryGET(req: NextRequest) {
   let db: any, session: any;
   try {
     ({ db, session } = await requirePermission("fluxo.lancamentos.export"));
@@ -120,3 +121,5 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+export const GET = withAdvisoryAudit("/api/lancamentos/exportar", "GET", advisoryGET);

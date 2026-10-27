@@ -1,8 +1,9 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { structureImportRoute } from "@/lib/structure-import-route";
 import { parsePeopleWorkbook, validatePeopleWorkbook, type PeopleImportPreview } from "@/lib/people-import";
 
 export const runtime = "nodejs";
-export const POST = structureImportRoute({
+const advisoryPOST = structureImportRoute({
   contract: "PEOPLE", permission: "estrutura.pessoas.import",
   parse: parsePeopleWorkbook, validate: validatePeopleWorkbook,
   locks: tenantId => [`people-import:${tenantId}`],
@@ -26,3 +27,5 @@ export const POST = structureImportRoute({
       return { resumo: preview.resumo };
   },
 });
+
+export const POST = withAdvisoryAudit("/api/pessoas/importar", "POST", advisoryPOST);

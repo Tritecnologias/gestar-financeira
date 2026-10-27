@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { optimisticWhere, versionToken, concurrencyConflict } from "@/lib/lancamento-version.mjs";
 import { validateLancamentoLinks } from "@/lib/lancamento-validation";
 import { normalizeLancamento } from "@/lib/lancamento-input.mjs";
@@ -26,7 +27,7 @@ function printable(value: unknown): string | null {
   return String(value);
 }
 
-export async function POST(req: NextRequest) {
+async function advisoryPOST(req: NextRequest) {
   let session: Awaited<ReturnType<typeof requirePermission>>["session"];
   try { ({ session } = await requirePermission("fluxo.lancamentos.bulk_edit")); }
   catch (error: any) { return NextResponse.json({ error: error?.message || "Não autenticado" }, { status: error?.status || 401 }); }
@@ -81,3 +82,5 @@ export async function POST(req: NextRequest) {
       : error?.status ? error.message : error instanceof SyntaxError ? "Envie um JSON válido." : "Falha na edição em massa. Nenhuma alteração foi gravada." }, { status: error?.status || (error?.code === "P2034" ? 409 : error instanceof SyntaxError ? 400 : 500) });
   }
 }
+
+export const POST = withAdvisoryAudit("/api/lancamentos/edicao-em-massa", "POST", advisoryPOST);

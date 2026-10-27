@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -8,7 +9,7 @@ import { prepareLancamento, lancamentoError } from "@/lib/lancamento-validation"
 import { optimisticWhere, concurrencyConflict } from "@/lib/lancamento-version.mjs";
 
 type Params = { params: Promise<{ id: string }> };
-export async function PUT(req: NextRequest, { params }: Params) {
+async function advisoryPUT(req: NextRequest, { params }: Params) {
   let session: any;
   try { ({ session } = await requirePermission("fluxo.lancamentos.edit")); }
   catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 401 }); }
@@ -31,7 +32,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   } catch (error) { const result = lancamentoError(error); return NextResponse.json({ error: result.error }, { status: result.status }); }
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+async function advisoryDELETE(req: NextRequest, { params }: Params) {
   let db: any;
   try { ({ db } = await requirePermission("fluxo.lancamentos.delete")); }
   catch (error: any) { return NextResponse.json({ error: error.message }, { status: error.status || 401 }); }
@@ -42,3 +43,6 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     return NextResponse.json({ success: true });
   } catch (error) { const result = lancamentoError(error); return NextResponse.json({ error: result.error }, { status: result.status }); }
 }
+
+export const PUT = withAdvisoryAudit("/api/lancamentos/[id]", "PUT", advisoryPUT);
+export const DELETE = withAdvisoryAudit("/api/lancamentos/[id]", "DELETE", advisoryDELETE);

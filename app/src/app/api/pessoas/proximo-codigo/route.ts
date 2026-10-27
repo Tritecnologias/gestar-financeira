@@ -1,8 +1,9 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 
-export async function GET() {
+async function advisoryGET() {
   const access = await guardApi("estrutura.pessoas.view"); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); }
@@ -14,3 +15,5 @@ export async function GET() {
   const proximo = numeros.length ? Math.max(...numeros) + 1 : 1;
   return NextResponse.json({ codigo: String(proximo).padStart(3, "0") });
 }
+
+export const GET = withAdvisoryAudit("/api/pessoas/proximo-codigo", "GET", advisoryGET);

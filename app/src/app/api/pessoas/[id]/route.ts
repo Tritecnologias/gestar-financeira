@@ -1,8 +1,9 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function advisoryPUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const access = await guardApi("estrutura.pessoas.edit"); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
@@ -19,7 +20,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function advisoryDELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const access = await guardApi("estrutura.pessoas.delete"); if (access) return access;
   let db: any;
   try { ({ db } = await requireSession()); } catch { return NextResponse.json({ error: "Não autorizado" }, { status: 401 }); }
@@ -27,3 +28,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try { await db.pessoa.update({ where: { id }, data: { ativo: false } }); return NextResponse.json({ ok: true }); }
   catch (e: any) { if (e.code === "P2025") return NextResponse.json({ error: "Não encontrado" }, { status: 404 }); throw e; }
 }
+
+export const PUT = withAdvisoryAudit("/api/pessoas/[id]", "PUT", advisoryPUT);
+export const DELETE = withAdvisoryAudit("/api/pessoas/[id]", "DELETE", advisoryDELETE);

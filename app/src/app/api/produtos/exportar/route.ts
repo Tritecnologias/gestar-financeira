@@ -1,10 +1,11 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { emptyStructureTemplate } from "@/lib/structure-empty-template";
 import { guardApi } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { createProductStructureWorkbook, PRODUCT_STRUCTURE_FILENAME } from "@/lib/product-import-template";
 
-export async function GET(request: Request) {
+async function advisoryGET(request: Request) {
   const access = await guardApi("estrutura.portfolio.export"); if (access) return access;
   const template = emptyStructureTemplate(request,"product"); if (template) return template;
   try {
@@ -45,3 +46,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error?.status === 401 ? "Não autorizado" : "Não foi possível baixar a estrutura deste tenant." }, { status: error?.status === 401 ? 401 : 500 });
   }
 }
+
+export const GET = withAdvisoryAudit("/api/produtos/exportar", "GET", advisoryGET);

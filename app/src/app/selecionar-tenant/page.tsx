@@ -8,7 +8,7 @@ import Link from "next/link";
 import { roleLabel } from "@/lib/presentation";
 
 type Choice = { id: string; nome: string; role?: "OWNER" | "ADMIN" | "MEMBER";
-  kind?: "MEMBERSHIP" | "SUPPORT_GRANT"; grantId?: string; accessLevel?: string;
+  kind?: "MEMBERSHIP" | "SUPPORT_GRANT" | "ADVISORY"; advisoryGrantId?: string; grantId?: string; accessLevel?: string;
   expiresAt?: string; entryPath?: string; isActive: boolean };
 
 export default function SelecionarTenant() {
@@ -40,7 +40,7 @@ export default function SelecionarTenant() {
     try {
       const res = await fetch("/api/tenants/switch", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId: choice.id, ...(choice.grantId ? { grantId: choice.grantId } : {}) }),
+        body: JSON.stringify({ tenantId: choice.id, ...(choice.advisoryGrantId ? { advisoryGrantId: choice.advisoryGrantId } : {}), ...(choice.grantId ? { grantId: choice.grantId } : {}) }),
       });
       if (!res.ok) throw new Error("Este vínculo não está mais disponível.");
       window.location.assign(choice.grantId ? choice.entryPath ?? "/suporte" : "/inicio");
@@ -53,16 +53,17 @@ export default function SelecionarTenant() {
   return <div className="login-page"><div className="login-card" style={{ width: "min(460px, 94vw)" }}>
     <div className="login-logo"><span className="logo-icon">💼</span><h1>Dez <strong>Soluções</strong></h1></div>
     <h2 style={{ marginBottom: 8 }}>Selecionar empresa</h2>
-    <p style={{ color: "var(--text-secondary)", marginBottom: 18 }}>Escolha um vínculo empresarial ou suporte autorizado.</p>
+    <p style={{ color: "var(--text-secondary)", marginBottom: 18 }}>Escolha seu vínculo empresarial, assessoria ou suporte autorizado.</p>
     {error && <p className="login-error" role="alert">{messagePtBr(error)}</p>}
     {choices === null && !error && <p>Carregando...</p>}
     {choices?.length === 0 && <p>Sua conta não possui acesso ativo a nenhuma empresa.</p>}
+    <button className="btn" type="button" disabled={busy} onClick={async () => { setBusy(true); const r = await fetch("/api/access/context/clear", { method: "POST" }); if (r.ok) window.location.assign(platformAdmin ? "/plataforma" : "/selecionar-tenant"); else { setError("Não foi possível encerrar o contexto."); setBusy(false); } }}>Sair do contexto empresarial</button>
     <Link className="btn" href="/minha-conta" style={{ display: "inline-flex", marginBottom: 12 }}>Minha conta</Link>
     {platformAdmin && <Link className="btn" href="/plataforma" style={{ display: "inline-flex", marginBottom: 12 }}>Administração da Plataforma</Link>}
     {supportOperator && <Link className="btn" href="/suporte" style={{ display: "inline-flex", marginBottom: 12 }}>Área de Suporte</Link>}
-    {choices?.map((choice, index) => <div key={choice.grantId ?? choice.id}>
+    {choices?.map((choice, index) => <div key={choice.advisoryGrantId ?? choice.grantId ?? choice.id}>
       {(index === 0 || choices[index - 1].kind !== choice.kind) && <p style={{ fontSize: 11, fontWeight: 700, margin: "10px 0 5px", color: "var(--text-secondary)" }}>
-        {choice.kind === "SUPPORT_GRANT" ? "SUPORTE AUTORIZADO" : "MINHAS EMPRESAS"}</p>}
+        {choice.kind === "ADVISORY" ? "ASSESSORIA DEZ" : choice.kind === "SUPPORT_GRANT" ? "SUPORTE AUTORIZADO" : "MINHAS EMPRESAS"}</p>}
       <button className="btn" type="button"
       disabled={busy} onClick={() => choose(choice)}
       style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap", gap: 6,
@@ -72,7 +73,7 @@ export default function SelecionarTenant() {
       <span style={{ flex: "1 1 140px", minWidth: 0, whiteSpace: "normal", overflowWrap: "anywhere" }}>{choice.nome}</span>
       <span style={{ color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
         {choice.kind === "SUPPORT_GRANT" ? `Suporte ${choice.accessLevel === "READ_ONLY" ? "somente leitura" : "operacional"} · expira ${choice.expiresAt ? new Date(choice.expiresAt).toLocaleString("pt-BR") : "—"}` :
-          roleLabel(choice.role ?? "ADMIN")}
+          choice.kind === "ADVISORY" ? "Assessoria DEZ" : roleLabel(choice.role ?? "ADMIN")}
       </span>
     </button></div>)}
     <button type="button" className="btn" style={{ marginTop: 12 }} onClick={() => signOut({ callbackUrl: "/login" })}>Sair</button>

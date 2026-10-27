@@ -1,3 +1,4 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { guardApi } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { requireEscrita } from "@/lib/tenant";
@@ -5,7 +6,7 @@ import { productApiError, productError, productText, productTransaction } from "
 
 type Context = { params: Promise<{ id: string }> };
 
-export async function PUT(req: NextRequest, { params }: Context) {
+async function advisoryPUT(req: NextRequest, { params }: Context) {
   const access = await guardApi("estrutura.portfolio.edit"); if (access) return access;
   try {
     const { db, session } = await requireEscrita();
@@ -27,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: Context) {
   }
 }
 
-export async function PATCH(_req: NextRequest, { params }: Context) {
+async function advisoryPATCH(_req: NextRequest, { params }: Context) {
   const access = await guardApi("estrutura.portfolio.edit"); if (access) return access;
   try {
     const { db, session } = await requireEscrita();
@@ -48,7 +49,7 @@ export async function PATCH(_req: NextRequest, { params }: Context) {
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: Context) {
+async function advisoryDELETE(req: NextRequest, { params }: Context) {
   const access = await guardApi("estrutura.portfolio.delete"); if (access) return access;
   try {
     const { db, session } = await requireEscrita();
@@ -71,3 +72,7 @@ export async function DELETE(req: NextRequest, { params }: Context) {
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
 }
+
+export const PUT = withAdvisoryAudit("/api/produto-linhas/[id]", "PUT", advisoryPUT);
+export const PATCH = withAdvisoryAudit("/api/produto-linhas/[id]", "PATCH", advisoryPATCH);
+export const DELETE = withAdvisoryAudit("/api/produto-linhas/[id]", "DELETE", advisoryDELETE);

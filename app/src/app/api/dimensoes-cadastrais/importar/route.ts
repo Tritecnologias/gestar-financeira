@@ -1,10 +1,11 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { structureImportRoute } from "@/lib/structure-import-route";
 import { parseRegistrationWorkbook, validateRegistrationWorkbook, type RegistrationPreview } from "@/lib/registration-import";
 import { registrationCodeAllocator } from "@/lib/registration-codes";
 import type { RegistrationRow } from "@/lib/registration-import";
 
 export const runtime = "nodejs";
-export const POST = structureImportRoute({
+const advisoryPOST = structureImportRoute({
   contract: "REGISTRATION", permission: "estrutura.cadastrais.import",
   parse: parseRegistrationWorkbook, validate: validateRegistrationWorkbook,
   locks: tenantId => [`registration-code:${tenantId}:cliente`, `registration-code:${tenantId}:fornecedor`],
@@ -38,3 +39,5 @@ export const POST = structureImportRoute({
       return { resumo: preview.resumo, criados };
   },
 });
+
+export const POST = withAdvisoryAudit("/api/dimensoes-cadastrais/importar", "POST", advisoryPOST);

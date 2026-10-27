@@ -228,6 +228,7 @@ export const COLUMNS = {
     "colunas",
     "criado_em",
     "id",
+    "identity_id",
     "is_default",
     "nome",
     "tenant_id",
@@ -244,6 +245,7 @@ export const COLUMNS = {
     "conta_id",
     "criado_em",
     "criado_por",
+    "criado_por_identity_id",
     "data_emissao",
     "data_evento",
     "data_lanc",
@@ -658,6 +660,26 @@ export const FOREIGN_KEYS = [
       "tenant_id"
     ],
     "target": "tenants",
+    "targetColumns": [
+      "id"
+    ]
+  },
+  {
+    "table": "lancamentos",
+    "columns": [
+      "criado_por_identity_id"
+    ],
+    "target": "auth_identities",
+    "targetColumns": [
+      "id"
+    ]
+  },
+  {
+    "table": "layouts_colunas",
+    "columns": [
+      "identity_id"
+    ],
+    "target": "auth_identities",
     "targetColumns": [
       "id"
     ]

@@ -1,3 +1,5 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
+import { businessAuthor } from "@/lib/business-author";
 import { optimisticWhere, concurrencyConflict } from "@/lib/lancamento-version.mjs";
 import { createHash, createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -24,7 +26,7 @@ function checkToken(token: string, digest: string, tenantId: string, userId: str
 }
 const view = (plan: OfficialPlan) => ({ rows: plan.rows, resumo: plan.resumo, errors: plan.errors });
 
-export async function POST(req: NextRequest) {
+async function advisoryPOST(req: NextRequest) {
   const requestId = randomUUID(), started = Date.now();
   let session: any, db: any, mode = "upload", rowCount = 0, payloadDigest: string | null = null;
   const reply = (body: Record<string, unknown>, status = 200, category = "SUCCESS") => {
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
       let nextSeq = (max?.seq || 0) + 1, created = 0, updated = 0;
       for (const change of plan.changes) {
         if (!change.id) {
-          await tx.lancamento.create({ data: { ...change.data, tenantId: session.tenantId, seq: nextSeq++, criadoPor: session.id,
+          await tx.lancamento.create({ data: { ...change.data, tenantId: session.tenantId, seq: nextSeq++, ...businessAuthor(session),
             importado: true, importadoEm: new Date() } as Prisma.LancamentoUncheckedCreateInput }); created++;
         } else {
           const written = await tx.lancamento.updateMany({ where: optimisticWhere(change.id, session.tenantId, change.version), data: change.data as Prisma.LancamentoUncheckedUpdateManyInput });
@@ -99,3 +101,4 @@ export async function POST(req: NextRequest) {
     return reply({ safeMessage: "Não foi possível processar o arquivo. Tente novamente e informe o código de atendimento." }, 500, "INTERNAL");
   }
 }
+export const POST = withAdvisoryAudit("/api/lancamentos/importacao-oficial", "POST", advisoryPOST);

@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 type Context = Pick<Awaited<ReturnType<typeof requireSession>>, "db" | "session">;
 
 const OWNER_ESSENTIAL = [
+  "acessos.assessoria.view", "acessos.assessoria.manage",
   "acessos.usuarios.view", "acessos.usuarios.manage",
   "acessos.perfis.view", "acessos.perfis.manage",
   "acessos.auditoria.view",
@@ -19,6 +20,11 @@ export async function permissionsFor(context: Context): Promise<ReadonlySet<stri
   if (legacyAuthEnabled) return new Set(ALL_PERMISSIONS);
   if (context.session.accessSource === "SUPPORT_GRANT") {
     return supportPermissions(context.session.supportModules ?? [], context.session.supportLevel ?? "READ_ONLY");
+  }
+  if (context.session.accessSource === "ADVISORY") {
+    const { authorizedAdvisoryGrant } = await import("./advisory-authorization");
+    const grant = await authorizedAdvisoryGrant(prisma, context.session.identityId!, context.session.advisoryGrantId!, context.session.tenantId);
+    return new Set(grant.permissions);
   }
   const membershipId = context.session.membershipId;
   if (!membershipId) return new Set();

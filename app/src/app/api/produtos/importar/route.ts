@@ -1,9 +1,10 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { structureImportRoute } from "@/lib/structure-import-route";
 import { parseProductWorkbook, validateProductWorkbook, type ProductPreview } from "@/lib/product-import";
 import { nextProductCode, reserveProductCode, validateProductClassification } from "@/lib/product-catalog";
 
 export const runtime = "nodejs";
-export const POST = structureImportRoute({
+const advisoryPOST = structureImportRoute({
   contract: "PRODUCT", permission: "estrutura.portfolio.import",
   parse: parseProductWorkbook, validate: validateProductWorkbook,
   locks: tenantId => [`product-catalog:${tenantId}`],
@@ -66,3 +67,5 @@ export const POST = structureImportRoute({
       return { resumo: preview.resumo };
   },
 });
+
+export const POST = withAdvisoryAudit("/api/produtos/importar", "POST", advisoryPOST);

@@ -1,10 +1,11 @@
+import { withAdvisoryAudit } from "@/lib/advisory-request";
 import { emptyStructureTemplate } from "@/lib/structure-empty-template";
 import { guardApi } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/tenant";
 import { createRegistrationWorkbook, REGISTRATION_FILENAME, type ExportRegistration } from "@/lib/registration-import-template";
 
-export async function GET(request: Request) {
+async function advisoryGET(request: Request) {
   const access = await guardApi("estrutura.cadastrais.export"); if (access) return access;
   const template = emptyStructureTemplate(request,"registration"); if (template) return template;
   let db: Awaited<ReturnType<typeof requireSession>>["db"];
@@ -34,3 +35,5 @@ export async function GET(request: Request) {
     "Cache-Control": "private, no-store",
   } });
 }
+
+export const GET = withAdvisoryAudit("/api/dimensoes-cadastrais/exportar", "GET", advisoryGET);

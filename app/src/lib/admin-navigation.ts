@@ -13,6 +13,7 @@ export function adminNavigation(context: {
     legacyTenant && ["admin", "admin_global"].includes(context.legacyRole ?? "");
   const allowed = new Set(context.permissions);
   const items = [
+    { href: "/acessos/assessoria", label: "Acesso de Assessoria", permission: "acessos.assessoria.view", eligible: identityMember },
     { href: "/acessos", label: "Acessos / Usuários", permission: "acessos.usuarios.view", eligible: tenantAdmin },
     { href: "/acessos/perfis", label: "Perfis de Acesso", permission: "acessos.perfis.view", eligible: tenantAdmin },
     { href: "/acessos/auditoria", label: "Auditoria do Sistema", permission: "acessos.auditoria.view", eligible: tenantAdmin },
