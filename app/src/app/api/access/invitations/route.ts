@@ -6,8 +6,8 @@ import { normalizeEmail } from "@/lib/email";
 import { requireTenantPermission, permissionError } from "@/lib/permissions";
 import { auditContext, writeAudit } from "@/lib/audit";
 import { assertInviteRateLimit, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
-import { getEmailServiceConfig } from "@/lib/email-service";
-import { deliverAndAuditInvitation } from "@/lib/invite-delivery";
+import { sameOrigin } from "@/lib/advisory-management";
+import { invitationDelivery, issueInvitationDelivery, INVITATION_RESPONSE_HEADERS } from "@/lib/invite-delivery";
 
 const ROLES = new Set(["OWNER", "ADMIN", "MEMBER"]);
 
@@ -31,12 +31,11 @@ export async function GET() {
 
 async function handlePOST(req: NextRequest) {
   try {
+    sameOrigin(req);
     const { session } = await requireTenantPermission("acessos.usuarios.manage");
-    const emailConfig = getEmailServiceConfig(req.nextUrl);
-    if (!session.identityId || !emailConfig) {
-      return NextResponse.json({ error: "Envio de convites não configurado neste ambiente." }, { status: 503 });
-    }
     const body = await req.json();
+    if (!session.identityId) return NextResponse.json({ error: "Identidade válida necessária." }, { status: 403 });
+    const deliveryConfig = invitationDelivery(req.nextUrl, body.channel);
     const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
     const name = typeof body.nome === "string" ? body.nome.trim() : "";
     const role = body.role;
@@ -53,7 +52,7 @@ async function handlePOST(req: NextRequest) {
       const tenantId = session.tenantId;
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite:${tenantId}:${email}`}, 0))`;
       const tenant = await tx.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true, nome: true } });
-      const profile = await tx.accessProfile.findFirst({ where: { id: profileId, tenantId, ativo: true }, select: { id: true } });
+      const profile = await tx.accessProfile.findFirst({ where: { id: profileId, tenantId, ativo: true }, select: { id: true, nome: true } });
       if (!tenant || !profile) throw Object.assign(new Error("Tenant ou perfil indisponível."), { status: 400 });
       const stale = await tx.accessInvite.findMany({ where: { tenantId, email, status: "PENDING",
         expiresAt: { lte: new Date() } }, select: { id: true } });
@@ -77,13 +76,13 @@ async function handlePOST(req: NextRequest) {
         invitedByIdentityId: session.identityId! } });
       await writeAudit(tx, { ...auditContext(session), action: "INVITE_CREATED", resourceType: "AccessInvite",
         resourceId: invitation.id, metadata: { role } });
-      return { id: invitation.id, status: invitation.status, expiresAt: invitation.expiresAt, tenantName: tenant.nome };
+      return { id: invitation.id, status: invitation.status, expiresAt: invitation.expiresAt, tenantName: tenant.nome, profileName: profile.nome };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
-    const sent = await deliverAndAuditInvitation(emailConfig, { id: result.id, tenantId: session.tenantId,
-      to: email, tenantName: result.tenantName, token: secret.token, expiresAt: result.expiresAt,
+    const sent = await issueInvitationDelivery(deliveryConfig, { id: result.id, tenantId: session.tenantId,
+      to: email, name, role, profileName: result.profileName, tenantName: result.tenantName, token: secret.token, expiresAt: result.expiresAt,
       actor: auditContext(session) });
     return NextResponse.json({ id: result.id, status: result.status, expiresAt: result.expiresAt, ...sent },
-      { status: 201, headers: { "Cache-Control": "private, no-store" } });
+      { status: 201, headers: INVITATION_RESPONSE_HEADERS });
   } catch (error: unknown) {
     if ((error as { code?: string })?.code === "P2002") return NextResponse.json({ error: "Já existe convite pendente para este email." }, { status: 409 });
     if ((error as { code?: string })?.code === "P2021") return NextResponse.json(

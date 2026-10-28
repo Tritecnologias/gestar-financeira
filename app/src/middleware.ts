@@ -7,7 +7,7 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isAuthPage = pathname.startsWith("/login");
   const isApiAuth = pathname.startsWith("/api/auth");
-  const isActivation = pathname === "/ativar-acesso" || pathname === "/api/access/invitations/inspect" ||
+  const isActivation = pathname === "/primeiro-acesso" || pathname === "/ativar-acesso" || pathname === "/api/access/invitations/inspect" ||
     pathname === "/api/access/invitations/accept";
   const isStatic = pathname.startsWith("/_next") || pathname.startsWith("/favicon");
   const isPublic = isAuthPage || isApiAuth || isStatic || isActivation;

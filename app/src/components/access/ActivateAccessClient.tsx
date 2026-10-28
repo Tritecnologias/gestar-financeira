@@ -24,7 +24,7 @@ export default function ActivateAccessClient() {
       headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }), cache: "no-store" });
     const body = await response.json();
     if (!response.ok) {
-      sessionStorage.removeItem("10s-invite-token");
+      if ([400, 404, 410].includes(response.status)) { tokenRef.current = ""; sessionStorage.removeItem("10s-invite-token"); }
       setInvite(null); setError(body.error || "Convite indisponível."); return;
     }
     setInvite(body); setError("");
@@ -34,11 +34,12 @@ export default function ActivateAccessClient() {
     if (!tokenRef.current) {
       const fragment = new URLSearchParams(window.location.hash.slice(1));
       tokenRef.current = fragment.get("token") || sessionStorage.getItem("10s-invite-token") || "";
-      if (tokenRef.current) sessionStorage.setItem("10s-invite-token", tokenRef.current);
       window.history.replaceState(null, "", window.location.pathname);
+      if (/^[A-Za-z0-9_-]{43}$/.test(tokenRef.current)) sessionStorage.setItem("10s-invite-token", tokenRef.current);
+      else { tokenRef.current = ""; sessionStorage.removeItem("10s-invite-token"); }
     }
     if (!tokenRef.current) { setError("Link de convite inválido."); return; }
-    void inspect(tokenRef.current);
+    void inspect(tokenRef.current).catch(() => setError("Não foi possível consultar o convite. Tente novamente."));
   }, []);
 
   async function authenticate(event: React.FormEvent) {
@@ -62,7 +63,12 @@ export default function ActivateAccessClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: tokenRef.current, ...(invite?.mode === "new" ? { password } : {}) }) });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Não foi possível concluir o acesso.");
+      if (!response.ok) {
+        if ([404, 410].includes(response.status) || body.error === "Convite inválido, expirado ou já utilizado.") {
+          tokenRef.current = ""; sessionStorage.removeItem("10s-invite-token"); setInvite(null);
+        }
+        throw new Error(body.error || "Não foi possível concluir o acesso.");
+      }
       tokenRef.current = ""; sessionStorage.removeItem("10s-invite-token");
       if (body.newlyActivated) {
         const result = await signIn("credentials", { email: body.email, password, redirect: false });
@@ -70,7 +76,10 @@ export default function ActivateAccessClient() {
         if (result?.error) { setError("Acesso ativado. Entre pelo login com sua nova senha."); setInvite(null); return; }
         window.location.assign("/inicio");
       } else {
-        window.location.assign("/selecionar-tenant");
+        // Enter only the tenant derived by the server from the consumed invitation.
+        const selected = await fetch("/api/tenants/switch", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tenantId: body.tenantId }) });
+        window.location.assign(selected.ok ? "/inicio" : "/selecionar-tenant");
       }
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
@@ -90,7 +99,7 @@ export default function ActivateAccessClient() {
         <PasswordInput id="activation-confirmation" label="Confirme sua senha" autoComplete="new-password" value={confirm}
           onChange={event => setConfirm(event.target.value)} />
         <p className="activation-muted">A senha é definida apenas por você. O aceite dos documentos obrigatórios será solicitado depois.</p>
-      </div> : invite.canAccept ? <p className="activation-muted">Você está conectado. Confirme o acesso ao nova empresa.</p>
+      </div> : invite.canAccept ? <p className="activation-muted">Você está conectado. Confirme o acesso à nova empresa.</p>
         : <form className="activation-fields" onSubmit={authenticate}>
           <p>Entre com a conta destinatária do convite antes de confirmar. Sua senha atual não será alterada.</p>
           <label>E-mail<input type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} /></label>

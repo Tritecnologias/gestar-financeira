@@ -13,3 +13,4 @@
 .activation-card a { display: inline-block; color: var(--action); margin-top: 12px; }
 .activation-card button:focus-visible, .activation-card input:focus-visible, .activation-card a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .activation-error { padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); border-radius: var(--radius-sm); color: var(--danger) !important; background: color-mix(in srgb, var(--danger) 9%, var(--surface)); }
+.activation-card h2 { margin-top: 22px; font-size: 17px; }

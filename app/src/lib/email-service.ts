@@ -35,6 +35,11 @@ function mockAdapter(): EmailAdapter {
   } };
 }
 
+/** Same public-origin policy for email and manual invitations; never trust a supplied link/Host. */
+export function getInvitationPublicUrl(requestUrl: URL): URL | null {
+  return publicUrl(requestUrl, canIssueDevInvite(requestUrl));
+}
+
 function smtpAdapter(): EmailAdapter | null {
   const host = process.env.SMTP_HOST?.trim();
   const port = Number(process.env.SMTP_PORT);

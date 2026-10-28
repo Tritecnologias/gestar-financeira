@@ -29,6 +29,8 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
+      { source: "/ativar-acesso", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      { source: "/primeiro-acesso", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
     ];
   },
 };

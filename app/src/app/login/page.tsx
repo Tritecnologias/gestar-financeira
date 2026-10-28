@@ -4,6 +4,7 @@ import { Suspense, useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PasswordInput from "@/components/ui/PasswordInput";
+import Link from "next/link";
 
 function LoginForm() {
   const router = useRouter();
@@ -100,6 +101,8 @@ function LoginForm() {
             )}
           </button>
         </form>
+
+        <p style={{ textAlign: "center", marginTop: 18 }}><Link href="/primeiro-acesso">Primeiro acesso</Link></p>
 
         <p style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: "var(--text-muted)" }}>
           Dez Soluções © {new Date().getFullYear()}

@@ -5,6 +5,7 @@ import { AppearanceButton } from "@/components/appearance/AppearanceProvider";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { planLabel, roleLabel, statusLabel } from "@/lib/presentation";
+import InvitationShareDialog, { type InvitationShare } from "@/components/access/InvitationShareDialog";
 import "./access.css";
 
 type Tenant = { id: string; nome: string; slug: string; email: string; plano: string; ativo: boolean;
@@ -36,7 +37,8 @@ export default function PlatformClient({ supportOperator = false }: { supportOpe
   const [selected, setSelected] = useState<Tenant | null>(null);
   const [tenantForm, setTenantForm] = useState({ nome: "", email: "", plano: "trial" });
   const [ownerForm, setOwnerForm] = useState({ nome: "", email: "" });
-  const [devLink, setDevLink] = useState("");
+  const [share, setShare] = useState<InvitationShare | null>(null);
+  const closeShare = useCallback(() => setShare(null), []);
   const [deliveryNotice, setDeliveryNotice] = useState("");
   const [ownerInvites, setOwnerInvites] = useState<OwnerInvite[]>([]);
   const [responsibleMembershipId, setResponsibleMembershipId] = useState("");
@@ -62,7 +64,7 @@ export default function PlatformClient({ supportOperator = false }: { supportOpe
   async function submit() {
     if (mode === "owner" && !window.confirm(`Designar ${ownerForm.email} como Proprietário de ${selected?.nome}? Esta ação concede administração essencial da empresa e será registrada.`)) return;
     if (mode === "responsible" && !window.confirm(`Designar o Proprietário selecionado como responsável contratual de ${selected?.nome}?`)) return;
-    setBusy(true); setError(""); setDevLink(""); setDeliveryNotice("");
+    setBusy(true); setError(""); setShare(null); setDeliveryNotice("");
     try {
       const existingOwnerCandidate = mode === "owner" && memberships.some(m =>
         m.tenant.id === selected?.id && m.identity.email.toLowerCase() === ownerForm.email.trim().toLowerCase());
@@ -72,12 +74,13 @@ export default function PlatformClient({ supportOperator = false }: { supportOpe
       const response = await fetch(url, { method: mode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mode === "responsible" ? { membershipId: responsibleMembershipId, confirm: true }
-          : mode === "owner" ? { ...ownerForm, confirm: true } : tenantForm) });
+          : mode === "owner" ? { ...ownerForm, confirm: true, channel: "MANUAL_SHARE" } : tenantForm) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Não foi possível concluir.");
-      setDevLink(body.devLink || "");
+      setShare(body.share ?? null);
       if (mode === "owner" && !existingOwnerCandidate) setDeliveryNotice(body.delivery?.status === "SENT" ?
-        "Convite de proprietário enviado por e-mail." : body.delivery?.status === "SIMULATED" ?
+        "Convite de proprietário enviado por e-mail." : body.delivery?.status === "MANUAL_SHARE" ?
+          "Convite de proprietário criado. Compartilhe somente com o destinatário." : body.delivery?.status === "SIMULATED" ?
           "Convite de proprietário simulado no DEV; nenhum e-mail foi enviado." :
           "Convite de proprietário criado, mas o e-mail não foi enviado. Reenvie pela lista de convites.");
       setMode(""); setSelected(null); setOwnerForm({ nome: "", email: "" }); await load();
@@ -86,27 +89,28 @@ export default function PlatformClient({ supportOperator = false }: { supportOpe
   }
 
   async function openOwner(t: Tenant) {
-    setSelected(t); setOwnerForm({ nome: "", email: "" }); setError(""); setMode("owner");
+    setShare(null); setSelected(t); setOwnerForm({ nome: "", email: "" }); setError(""); setMode("owner");
     try { setOwnerInvites(await read<OwnerInvite[]>(`/api/platform/tenants/${t.id}/owner-invitations`)); }
     catch (cause) { setError((cause as Error).message); }
   }
 
   async function ownerInviteAction(inviteId: string, action: "resend" | "revoke") {
     if (!selected || !window.confirm(action === "revoke" ? "Revogar convite de proprietário?" : "Gerar novo link de proprietário e invalidar o anterior?")) return;
-    setBusy(true); setError(""); setDevLink(""); setDeliveryNotice("");
+    setBusy(true); setError(""); setShare(null); setDeliveryNotice("");
     try {
       const url = `/api/platform/tenants/${selected.id}/owner-invitations`;
       const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteId, action }) });
+        body: JSON.stringify({ inviteId, action, channel: "MANUAL_SHARE" }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Falha ao alterar convite de proprietário.");
-      setDevLink(body.devLink || "");
+      setShare(body.share ?? null);
       setDeliveryNotice(action === "revoke" ? "Convite de proprietário revogado." : body.delivery?.status === "SENT" ?
-        "Novo convite de proprietário enviado por e-mail." : body.delivery?.status === "SIMULATED" ?
+        "Novo convite de proprietário enviado por e-mail." : body.delivery?.status === "MANUAL_SHARE" ?
+          "Novo convite de proprietário criado. O link anterior não funciona mais." : body.delivery?.status === "SIMULATED" ?
           "Novo convite de proprietário simulado no DEV; nenhum e-mail foi enviado." :
           "Novo convite de proprietário criado, mas o e-mail não foi enviado. Tente novamente após o limite de segurança.");
       setOwnerInvites(await read<OwnerInvite[]>(url));
-      if (body.devLink) { setMode(""); setSelected(null); }
+      if (body.share) { setMode(""); setSelected(null); }
     } catch (cause) { setError((cause as Error).message); }
     finally { setBusy(false); }
   }
@@ -138,7 +142,7 @@ export default function PlatformClient({ supportOperator = false }: { supportOpe
       <div className="access-tabs" role="tablist" aria-label="Administração da plataforma">
         {(["tenants", "identidades", "vinculos"] as const).map(key =>
           <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""}
-            onClick={() => { setTab(key); setQuery(""); }}>{key === "vinculos" ? "Vínculos com a Empresa" : key === "tenants" ? "Empresas" : "Contas"}</button>)}
+            onClick={() => { setShare(null); setTab(key); setQuery(""); }}>{key === "vinculos" ? "Vínculos com a Empresa" : key === "tenants" ? "Empresas" : "Contas"}</button>)}
       </div>
       <input aria-label="Buscar registros" placeholder="Buscar por nome ou email" value={query} onChange={e => setQuery(e.target.value)} />
       {tab === "tenants" && <button type="button" className="access-button access-button-primary" onClick={() => {
@@ -147,11 +151,7 @@ export default function PlatformClient({ supportOperator = false }: { supportOpe
     </div>
     {error && <p className="access-error" role="alert">{messagePtBr(error)}</p>}
     {deliveryNotice && <p className="access-hint" role="status">{deliveryNotice}</p>}
-    {devLink && <div className="access-dev-link" role="status"><strong>Link de convite de proprietário · DEV</strong>
-      <p>Compartilhe somente por canal privado. O vínculo ficará ativo após o aceite.</p>
-      <input readOnly aria-label="Link de convite de proprietário DEV" value={devLink} onFocus={e => e.currentTarget.select()} />
-      <button className="access-button access-button-secondary" onClick={() => void navigator.clipboard.writeText(devLink)}>Copiar link</button>
-      <button className="access-button access-button-secondary" onClick={() => setDevLink("")}>Ocultar</button></div>}
+    {share && <InvitationShareDialog invitation={share} onClose={closeShare} />}
     <div className="access-table-wrap"><table className="access-table"><thead><tr>
       {tab === "tenants" ? <><th>Empresa</th><th>Email</th><th>Plano</th><th>Status</th><th>Vínculos</th><th>Ações</th></>
         : tab === "identidades" ? <><th>Conta</th><th>Email</th><th>Status</th><th>Administrador da Plataforma</th><th>Empresas</th></>
@@ -195,8 +195,8 @@ export default function PlatformClient({ supportOperator = false }: { supportOpe
           {ownerInvites.map(i => <div key={i.id}><span>{i.name} · {i.email} · {i.status === "PENDING" ? "Pendente" :
             i.status === "EXPIRED" ? "Expirado" : i.status === "ACCEPTED" ? "Aceito" : "Revogado"}</span>
             {(i.status === "PENDING" || i.status === "EXPIRED") && <span>
-              <button type="button" disabled={busy} onClick={() => void ownerInviteAction(i.id, "resend")}>Reenviar</button>
-              {i.status === "PENDING" && <button type="button" disabled={busy} onClick={() => void ownerInviteAction(i.id, "revoke")}>Revogar</button>}
+              <button type="button" disabled={busy} onClick={() => void ownerInviteAction(i.id, "resend")}>Gerar novo convite</button>
+              {i.status === "PENDING" && <button type="button" disabled={busy} onClick={() => void ownerInviteAction(i.id, "revoke")}>Revogar convite</button>}
             </span>}</div>)}</div>}
       </> : <>
         <label>Nome<input required value={tenantForm.nome} onChange={e => setTenantForm({ ...tenantForm, nome: e.target.value })} /></label>

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import TermsStatusPanel from "@/components/access/TermsStatusPanel";
+import InvitationShareDialog, { type InvitationShare } from "@/components/access/InvitationShareDialog";
 import "./access.css";
 
 type Profile = { id: string; nome: string; ativo: boolean };
@@ -23,7 +24,8 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ nome: "", email: "", role: "MEMBER", profileId: "" });
-  const [devLink, setDevLink] = useState("");
+  const [share, setShare] = useState<InvitationShare | null>(null);
+  const closeShare = useCallback(() => setShare(null), []);
   const [deliveryNotice, setDeliveryNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -56,11 +58,12 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
   async function create() {
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/access/invitations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const response = await fetch("/api/access/invitations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, channel: "MANUAL_SHARE" }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Não foi possível criar convite.");
-      setDevLink(body.devLink || "");
+      setShare(body.share ?? null);
       setDeliveryNotice(body.delivery?.status === "SENT" ? "Convite criado e e-mail enviado." :
+        body.delivery?.status === "MANUAL_SHARE" ? "Convite criado. Compartilhe o link somente com o destinatário." :
         body.delivery?.status === "SIMULATED" ? "Convite criado em modo simulado. Nenhum e-mail real foi enviado." :
           "Convite criado, mas o e-mail não pôde ser enviado. Você pode tentar reenviar.");
       setModal(false);
@@ -70,15 +73,16 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
   }
   async function invitationAction(id: string, action: "resend" | "revoke") {
     if (!window.confirm(action === "revoke" ? "Revogar este convite?" : "Gerar novo link e invalidar o anterior?")) return;
-    setBusy(true); setError(""); setDevLink(""); setDeliveryNotice("");
+    setBusy(true); setError(""); setShare(null); setDeliveryNotice("");
     try {
       const response = await fetch(`/api/access/invitations/${id}`, { method: "POST",
-        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, channel: "MANUAL_SHARE" }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Não foi possível alterar o convite.");
-      setDevLink(body.devLink || "");
+      setShare(body.share ?? null);
       setDeliveryNotice(action === "revoke" ? "Convite revogado." : body.delivery?.status === "SENT" ?
-        "Novo convite enviado por e-mail." : body.delivery?.status === "SIMULATED" ?
+        "Novo convite enviado por e-mail." : body.delivery?.status === "MANUAL_SHARE" ?
+          "Novo convite criado. O link anterior não funciona mais." : body.delivery?.status === "SIMULATED" ?
           "Novo convite simulado no DEV; nenhum e-mail foi enviado." :
           "Novo convite criado, mas o e-mail não foi enviado. Tente reenviar após o limite de segurança.");
       await load();
@@ -93,14 +97,10 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
         {canViewProfiles && <Link className="access-button access-button-secondary" href="/acessos/perfis">Perfis de Acesso</Link>}
       </div></header>
     <div className="access-toolbar"><input placeholder="Buscar usuário ou perfil" aria-label="Buscar usuários" value={query} onChange={e => setQuery(e.target.value)} />
-      {canManage && <button className="access-button access-button-primary" onClick={() => { setDevLink(""); setDeliveryNotice(""); setModal(true); }}>+ Convidar usuário</button>}</div>
+      {canManage && <button className="access-button access-button-primary" onClick={() => { setShare(null); setDeliveryNotice(""); setModal(true); }}>+ Convidar usuário</button>}</div>
     {error && <p role="alert" className="access-error">{messagePtBr(error)}</p>}
     {deliveryNotice && <p role="status" className="access-hint">{deliveryNotice}</p>}
-    {devLink && <div className="access-dev-link" role="status"><strong>Link de convite DEV</strong>
-      <p>Envie por canal privado ao destinatário. Este link aparece somente agora; contém um segredo de uso único.</p>
-      <input readOnly aria-label="Link de convite DEV" value={devLink} onFocus={e => e.currentTarget.select()} />
-      <button className="access-button access-button-secondary" onClick={() => void navigator.clipboard.writeText(devLink)}>Copiar link</button>
-      <button className="access-button access-button-secondary" onClick={() => setDevLink("")}>Ocultar</button></div>}
+    {share && <InvitationShareDialog invitation={share} onClose={closeShare} />}
     <div className="access-table-wrap"><table className="access-table"><thead><tr><th>Conta</th><th>Função na empresa</th><th>Perfil de Acesso</th><th>Status</th><th>Ações</th></tr></thead><tbody>
       {shown.map(m => <tr key={m.id}><td><strong>{m.identity.nome}</strong><small>{m.identity.email}</small></td>
         <td>{canManage && role === "OWNER" ? <select aria-label={`Função de ${m.identity.nome}`} disabled={busy} value={m.role} onChange={e => void patch(m.id, { role: e.target.value })}>
@@ -118,11 +118,11 @@ export default function MembershipClient({ role, canManage, canViewProfiles }: {
       {invitations.filter(i => `${i.name} ${i.email} ${i.profile.nome}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR"))).map(i =>
         <tr key={i.id}><td><strong>{i.name}</strong><small>{i.email}</small></td><td>{roleLabel(i.role)}</td><td>{i.profile.nome}</td>
           <td>{i.status === "PENDING" ? "Convite pendente" : i.status === "EXPIRED" ? "Convite expirado" :
-            i.status === "ACCEPTED" ? "Ativo" : "Revogado"}</td>
+            i.status === "ACCEPTED" ? "Aceito" : "Revogado"}</td>
           <td>{new Date(i.expiresAt).toLocaleString("pt-BR")}</td><td className="access-actions">
             {canManage && (role === "OWNER" || i.role === "MEMBER") && (i.status === "PENDING" || i.status === "EXPIRED") && <>
-              <button disabled={busy} onClick={() => void invitationAction(i.id, "resend")}>Reenviar</button>
-              {i.status === "PENDING" && <button disabled={busy} onClick={() => void invitationAction(i.id, "revoke")}>Revogar</button>}
+              <button disabled={busy} onClick={() => void invitationAction(i.id, "resend")}>Gerar novo convite</button>
+              {i.status === "PENDING" && <button disabled={busy} onClick={() => void invitationAction(i.id, "revoke")}>Revogar convite</button>}
             </>}</td></tr>)}
       {!invitations.length && <tr><td className="access-empty" colSpan={6}>Nenhum convite nesta empresa.</td></tr>}
     </tbody></table></div>

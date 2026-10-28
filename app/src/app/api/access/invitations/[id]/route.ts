@@ -5,30 +5,29 @@ import { prisma } from "@/lib/db";
 import { requireTenantPermission, permissionError } from "@/lib/permissions";
 import { auditContext, writeAudit } from "@/lib/audit";
 import { assertInviteRateLimit, expireInvite, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
-import { getEmailServiceConfig } from "@/lib/email-service";
-import { deliverAndAuditInvitation } from "@/lib/invite-delivery";
+import { sameOrigin } from "@/lib/advisory-management";
+import { invitationDelivery, issueInvitationDelivery, INVITATION_RESPONSE_HEADERS } from "@/lib/invite-delivery";
 
 type Params = { params: Promise<{ id: string }> };
 
 async function handlePOST(req: NextRequest, { params }: Params) {
   try {
+    sameOrigin(req);
     const { session } = await requireTenantPermission("acessos.usuarios.manage");
     const { id } = await params;
     const body = await req.json();
     if (body.action !== "resend" && body.action !== "revoke") {
       return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
     }
-    const emailConfig = getEmailServiceConfig(req.nextUrl);
-    if (!session.identityId || (body.action === "resend" && !emailConfig)) {
-      return NextResponse.json({ error: "Envio de convites não configurado neste ambiente." }, { status: 503 });
-    }
+    if (!session.identityId) return NextResponse.json({ error: "Identidade válida necessária." }, { status: 403 });
+    const deliveryConfig = body.action === "revoke" ? null : invitationDelivery(req.nextUrl, body.channel);
     await expireInvite(id, session.tenantId);
     const secret = body.action === "resend" ? newInviteToken() : null;
     const result = await prisma.$transaction(async tx => {
       const tenantId = session.tenantId;
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite-id:${id}`}, 0))`;
       const current = await tx.accessInvite.findFirst({ where: { id, tenantId },
-        include: { tenant: { select: { ativo: true, nome: true } }, profile: { select: { ativo: true } } } });
+        include: { tenant: { select: { ativo: true, nome: true } }, profile: { select: { ativo: true, nome: true } } } });
       if (!current) throw Object.assign(new Error("Convite não encontrado."), { status: 404 });
       if (session.membershipRole !== "OWNER" && current.role !== "MEMBER") {
         throw Object.assign(new Error("ADMIN pode administrar somente convites MEMBER."), { status: 403 });
@@ -72,15 +71,16 @@ async function handlePOST(req: NextRequest, { params }: Params) {
       await writeAudit(tx, { ...auditContext(session), action: "INVITE_CREATED", resourceType: "AccessInvite",
         resourceId: next.id, reason: "Reenvio" });
       return { id: next.id, status: next.status, expiresAt: next.expiresAt,
-        tenantName: current.tenant.nome, email: current.email };
+        tenantName: current.tenant.nome, email: current.email, name: current.name, role: current.role, profileName: current.profile.nome };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
-    const sent = secret && emailConfig && "email" in result && result.email && result.tenantName && result.expiresAt
-      ? await deliverAndAuditInvitation(emailConfig, { id: result.id, tenantId: session.tenantId,
-      to: result.email, tenantName: result.tenantName, token: secret.token, expiresAt: result.expiresAt,
+    const sent = secret && deliveryConfig && "email" in result && result.email && result.tenantName && result.expiresAt
+      ? await issueInvitationDelivery(deliveryConfig, { id: result.id, tenantId: session.tenantId,
+      to: result.email, name: result.name, role: result.role, profileName: result.profileName,
+      tenantName: result.tenantName, token: secret.token, expiresAt: result.expiresAt, replacesId: id,
       actor: auditContext(session) }) : null;
     return NextResponse.json({ id: result.id, status: result.status,
       ...("expiresAt" in result ? { expiresAt: result.expiresAt } : {}), ...sent },
-      { headers: { "Cache-Control": "private, no-store" } });
+      { headers: INVITATION_RESPONSE_HEADERS });
   } catch (error) {
     if ((error as { code?: string })?.code === "P2021") return NextResponse.json(
       { error: "A estrutura de convites ainda não foi preparada neste ambiente." }, { status: 503 });
