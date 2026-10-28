@@ -111,11 +111,19 @@ async function main() {
     await b.p.evaluate(()=>{navigator.clipboard.writeText=window.__realCopy;delete window.__realCopy;});checks.push(step);
     step='successful copy auto-closes with neutral notice and waiting controls';
     const firstLink=await copyContractual(b.p);
-    await b.p.getByRole('heading',{name:'Aguardando aceite do Responsável Contratual',exact:true}).waitFor();
+    await b.p.getByRole('heading',{name:'Aguardando Responsável Contratual',exact:true}).waitFor();
+    assert((await b.p.locator('.terms-wait').innerText()).includes('Você indicou RESPONSÁVEL SINTÉTICO 12A'));
+    assert(!/aguardando aprovação/i.test(await b.p.locator('main').innerText()));
     await b.p.getByRole('button',{name:'Enviar novamente',exact:true}).waitFor();await b.p.getByRole('button',{name:'Trocar responsável',exact:true}).waitFor();
     assert.equal((await api(b.ctx,'/api/lancamentos')).status(),428);
     assert(!await b.p.evaluate(secret=>Object.values(localStorage).some(x=>x.includes(secret))||Object.values(sessionStorage).some(x=>x.includes(secret)),new URL(firstLink).hash.slice(7)));
-    await b.p.reload();assert.equal(await b.p.getByRole('button',{name:'Copiar link',exact:true}).count(),0);await shots(b.p,'waiting');checks.push(step);
+    await b.p.reload();await b.p.getByRole('heading',{name:'Aguardando Responsável Contratual',exact:true}).waitFor();
+    assert.equal(await b.p.getByRole('button',{name:'Copiar link',exact:true}).count(),0);
+    assert.equal((await api(b.ctx,'/api/lancamentos')).status(),428);await shots(b.p,'waiting');checks.push(step);
+    step='fresh login returns to waiting without operational access';
+    const returning=await context(),returnPage=await login(returning,f.otherEmail);
+    await returnPage.getByRole('heading',{name:'Aguardando Responsável Contratual',exact:true}).waitFor();
+    assert.equal((await api(returning,'/api/lancamentos')).status(),428);checks.push(step);
     step='resend rotates token WhatsApp auto-closes without delivery claim';
     await b.p.getByRole('button',{name:'Enviar novamente',exact:true}).click();d=shareDialog(b.p);await d.waitFor();
     assert.equal((await api(b.ctx,'/api/access/invitations/inspect','POST',{token:new URL(firstLink).hash.slice(7)})).status(),410);
@@ -141,12 +149,16 @@ async function main() {
     await nominee.p.waitForURL(u=>u.pathname==='/termos/aceite');assert.equal(await nominee.p.getByRole('button',{name:'Sou eu',exact:true}).count(),0);checks.push(step);
     step='nominee contract unlocks both sessions without creator login';
     await accept(nominee.ctx,nominee.p,'CONTRATANTE');await b.p.waitForURL(u=>u.pathname==='/inicio',{timeout:45000});
-    assert.equal((await api(b.ctx,'/api/lancamentos')).status(),200);assert.equal((await api(nominee.ctx,'/api/lancamentos')).status(),200);checks.push(step);
+    await returnPage.waitForURL(u=>u.pathname==='/inicio',{timeout:45000});
+    assert.equal((await api(b.ctx,'/api/lancamentos')).status(),200);assert.equal((await api(nominee.ctx,'/api/lancamentos')).status(),200);
+    assert.equal((await api(returning,'/api/lancamentos')).status(),200);checks.push(step);
     console.log(JSON.stringify({state:'CONTRACTUAL_BROWSER_PASSED',environment:c.environment,checks,desktopMobile:true,lightDark:true,
-      loginAttempts:4,actualMessagesSent:0,rawSecretsPrinted:false,administrativeVariantPreserved:true}));
+      loginAttempts:5,actualMessagesSent:0,rawSecretsPrinted:false,administrativeVariantPreserved:true}));
   } catch(e) {
+    const uiHeadings=creator?await creator.locator('.terms-card h1,.terms-card h2').allTextContents().catch(()=>[]):[];
     console.log(JSON.stringify({state:'CONTRACTUAL_BROWSER_FAILED',step,type:e.name,
-      safeError:String(e.message).split('\n')[0].replace(/https?:\/\/\S+/g,'[url]').slice(0,150),checks}));process.exitCode=1;
+      safeError:String(e.message).split('\n')[0].replace(/https?:\/\/\S+/g,'[url]').slice(0,150),uiHeadings,
+      location:e.stack?.split('\n').find(line=>line.includes('contractual-onboarding.browser.cjs:')),checks}));process.exitCode=1;
   } finally {
     if(creator)await creator.evaluate(()=>navigator.clipboard.writeText('')).catch(()=>{});await browser.close();c.password=undefined;
   }

@@ -88,10 +88,11 @@ export default function ContractualOnboardingClient({ initialState }: { initialS
           <label htmlFor="contractual-email">E-mail<input id="contractual-email" required type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} /></label>
           <button className="btn btn-primary" type="submit" disabled={busy}>Enviar convite</button>
         </form>}
-      </> : <div className="terms-wait" role="status"><h2 ref={statusHeading} tabIndex={-1}>Aguardando aceite do Responsável Contratual</h2>
-        <p>As áreas da empresa serão liberadas após a conclusão da contratação. Seu acesso será atualizado automaticamente.</p></div>}
+      </> : <div className="terms-wait" role="status"><h2 ref={statusHeading} tabIndex={-1}>Aguardando Responsável Contratual</h2>
+        <p>{state.isOwner && state.invitation ? <>Você indicou <strong>{state.invitation.name}</strong> como responsável pela contratação. </> : null}
+          Assim que {state.isOwner && state.invitation ? "essa pessoa" : "o Responsável Contratual"} concluir o primeiro acesso e aceitar os termos aplicáveis, o acesso à empresa será liberado automaticamente.</p></div>}
     {state.isOwner && state.invitation && state.invitation.status !== "REVOKED" && <section className="contractual-invitation" aria-label="Convite do Responsável Contratual">
-      <h2>Pessoa indicada</h2><p><strong>{state.invitation.name}</strong><br />{state.invitation.email}</p>
+      <h2>E-mail do responsável</h2><p>{state.invitation.email}</p>
       <p>{state.invitation.status === "ACCEPTED" ? "Acesso ativado. Aguardando conclusão dos termos." : state.invitation.status === "EXPIRED" ? "O convite expirou." : "Convite pronto para compartilhar. Aguardando aceite da pessoa indicada."}</p>
       <div className="contractual-choices">
         {state.invitation.canReissue && <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => void act("resend")}>Enviar novamente</button>}
