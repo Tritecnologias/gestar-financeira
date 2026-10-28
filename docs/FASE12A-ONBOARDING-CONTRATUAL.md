@@ -44,3 +44,13 @@ O grant operacional está intencionalmente limitado a LOCAL/HOMOLOG. Uma futura 
 Rollback: não executar down migration improvisada nem apontar o app antigo para o banco atualizado (seu contrato de backup exige ledger2). Preservar imagem antiga, dump e volumes. Se necessário, parar a janela, restaurar os materiais verificados em banco/volumes de recuperação isolados e só então autorizar cutover da HOMOLOG com o artefato anterior. Nenhum rollback é executado automaticamente e nenhuma auditoria é apagada.
 
 As evidências de execução e o SHA/digest efetivamente publicados ficam no checkpoint privado `phase12a-contractual`. Aceite manual de Ricardo permanece pendente: Sou eu; Outra pessoa; indicado; bloqueio/liberação; mobile; Claro/Escuro. Nenhum aceite humano foi fabricado. Não há GO PROD nesta fase.
+
+## Refinamento de UX de Outra pessoa — 28/10/2026
+
+Ricardo confirmou o fluxo manual Sou eu e o funcionamento da indicação/bloqueio em Outra pessoa. Pediu refinamento visual antes de prosseguir com o aceite do indicado. Não presumir que o teste humano da ativação/contratação do indicado já foi realizado.
+
+Somente nesse onboarding, a ação é Enviar convite e a confirmação mostra Nome, E-mail, Empresa e Validade. O título Convite pronto para compartilhar não afirma entrega. Enviar pelo WhatsApp apenas solicita a abertura do canal manual, sem confirmação de envio/entrega. Copiar link fecha após sucesso; falha de clipboard mantém a confirmação aberta e permite nova tentativa. Fechar também retorna ao onboarding, descartando o link da memória da interface; exposição única, expiração e demais proteções permanecem intactas.
+
+Após fechar, a tela mostra Aguardando aceite do Responsável Contratual, nome/e-mail e as ações permitidas pelo estado atual: Enviar novamente usa a reemissão já existente; Trocar responsável confirma a intenção e chama a revogação já existente antes de reapresentar a escolha. Cancelar essa confirmação não modifica o convite. Não são introduzidos novos privilégios nem troca forçada após ativação/designação. A variante administrativa continua exibindo Função/Perfil e mantendo seu fechamento explícito.
+
+Nenhuma API, token, role OWNER, termo, regra contratual, migration ou contrato de backup foi alterado. Provas LOCAL: sete testes de links/estado contratual, TypeScript Linux e navegador real com 12 verificações de jornada/UX, incluindo os dois presets e 414×896/1366×864. O navegador usa somente quatro logins sintéticos por rodada, mantendo margem na janela compartilhada antes do aceite humano. Evidências da janela de UX em `phase12a-ux-other`; publicar somente SHA fixado na HOMOLOG após build/artifact e pedir novo aceite visual. PROD/master permanecem fora desta publicação.

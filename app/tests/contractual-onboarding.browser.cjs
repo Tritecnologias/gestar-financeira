@@ -1,22 +1,154 @@
-const assert=require('node:assert/strict'),path=require('node:path');
-async function main(){let raw='';for await(const s of process.stdin)raw+=s;const c=JSON.parse(raw);raw='';assert(['http://localhost:3020','https://homolog.dezsolucoes.com.br'].includes(c.base));const {chromium}=require(c.playwrightModule),browser=await chromium.launch({channel:'msedge',headless:true});const base=c.base,f=c.fixture,checks=[];let step='setup',creator;
-const api=(context,url,method='GET',data)=>context.request.fetch(base+url,{method,headers:{Origin:base},...(data===undefined?{}:{data})});
-async function context(){return browser.newContext({viewport:{width:1366,height:864},permissions:['clipboard-read','clipboard-write']});}
-async function login(ctx,email){const p=await ctx.newPage();p.setDefaultTimeout(60000);await p.goto(base+'/login');assert.equal(await p.locator('form').getAttribute('method'),'post');await p.getByLabel('E-mail',{exact:true}).fill(email);await p.getByLabel('Senha',{exact:true}).fill(c.password);await p.getByRole('button',{name:'Entrar',exact:true}).click();await p.waitForURL(u=>u.pathname!='/login');return p;}
-async function invite(ctx,t,email){const r=await api(ctx,'/api/platform/tenants/'+t.id+'/owner-invitations','POST',{nome:'OWNER SINTÉTICO BROWSER 12A',email,confirm:true,channel:'MANUAL_SHARE'});assert.equal(r.status(),201);return(await r.json()).share.link;}
-async function activate(link){const ctx=await context(),p=await ctx.newPage();p.setDefaultTimeout(60000);await p.goto(link);await p.getByLabel('Crie sua senha',{exact:true}).fill(c.password);await p.getByLabel('Confirme sua senha',{exact:true}).fill(c.password);await p.getByRole('button',{name:'Confirmar acesso',exact:true}).click();await p.waitForURL(u=>!['/ativar-acesso','/login'].includes(u.pathname));assert.equal(new URL(p.url()).hash,'');return{ctx,p};}
-async function accept(ctx,p,audience){for(let i=0;i<8;i++){const pending=(await(await api(ctx,'/api/terms/pending')).json()).pending.filter(t=>t.audience===audience&&t.actionable);if(!pending.length)return;const d=p.getByRole('dialog');if(!await d.isVisible())await p.getByRole('button',{name:'Ler e aceitar documento',exact:true}).click();await d.getByRole('heading',{name:pending[0].title,exact:true}).waitFor();const agree=d.getByRole('checkbox');await agree.waitFor();await agree.check();const done=p.waitForResponse(r=>r.url()===base+'/api/terms/accept'&&r.request().method()==='POST');await d.getByRole('button',{name:'Aceitar documento',exact:true}).click();assert.equal((await done).status(),200);await p.waitForLoadState('networkidle');}throw Error('TOO_MANY_DOCUMENTS');}
-async function shots(p,label){const s=await(await p.context().request.get(base+'/api/auth/session')).json(),id=s.user.id;for(const mobile of [false,true])for(const mode of ['light','dark']){await p.setViewportSize(mobile?{width:414,height:896}:{width:1366,height:864});await p.evaluate(({id,mode})=>{localStorage.setItem('10s:appearance:v1:identity:'+id,JSON.stringify({version:1,mode,palette:{primary:'#2563EB',accent:'#0E7490',background:'#F3F7FA',surface:'#FFFFFF',sidebar:'#FFFFFF',text:'#0F172A',secondary:'#475569',border:'#D5DFE8'}}));window.dispatchEvent(new StorageEvent('storage'));},{id,mode});await p.waitForFunction(m=>document.documentElement.dataset.theme===m,mode);assert(!await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1));for(const b of await p.locator('.contractual-choices button').all()){const box=await b.boundingBox();assert(box&&box.height>=44&&box.x>=0&&box.x+box.width<=(mobile?414:1366));}await p.screenshot({animations:"disabled",path:path.join(c.output,`${c.environment}-${label}-${mobile?'414':'1366'}-${mode}.png`)});}}
-try{
- const pa=await context();await login(pa,f.adminEmail);
- step='new OWNER accepts own official USER before chooser';const a=await activate(await invite(pa,f.self,f.selfEmail));await accept(a.ctx,a.p,'USUARIO');await a.p.getByRole('heading',{name:'Responsável Contratual',exact:true}).waitFor();assert.equal((await api(a.ctx,'/api/lancamentos')).status(),428);checks.push(step);
- step='SELF chooser desktop mobile light dark keyboard';await shots(a.p,'self');await a.p.getByRole('button',{name:'Sou eu',exact:true}).focus();await a.p.keyboard.press('Enter');await a.p.waitForURL(u=>u.pathname==='/termos/aceite');checks.push(step);
- step='SELF official contract receipt releases business';await accept(a.ctx,a.p,'CONTRATANTE');await a.p.waitForURL(u=>u.pathname==='/inicio');assert.equal((await api(a.ctx,'/api/lancamentos')).status(),200);checks.push(step);
- step='OTHER OWNER USER acceptance and natural redirect';const b=await activate(await invite(pa,f.other,f.otherEmail));creator=b.p;await accept(b.ctx,b.p,'USUARIO');await b.p.getByRole('heading',{name:'Responsável Contratual',exact:true}).waitFor();
- step='OTHER asks only name email in responsive form';await b.p.getByRole('button',{name:'Outra pessoa',exact:true}).click();assert.equal(await b.p.locator('.contractual-form input').count(),2);await shots(b.p,'other');await b.p.getByLabel('Nome',{exact:true}).fill('RESPONSÁVEL SINTÉTICO 12A');await b.p.getByLabel('E-mail',{exact:true}).fill(f.nomineeEmail);await b.p.getByRole('button',{name:'Gerar convite',exact:true}).click();const dialog=b.p.getByRole('dialog',{name:'Convite criado',exact:true});await dialog.waitFor();checks.push(step);
- step='manual one-shot copy WhatsApp no actual message';await dialog.getByRole('button',{name:'Copiar link de convite',exact:true}).click();await b.p.getByText('Link copiado. Envie-o somente ao destinatário deste convite.',{exact:true}).waitFor();const link=await b.p.evaluate(()=>navigator.clipboard.readText());assert(link.startsWith(base+'/ativar-acesso#token='));await b.p.evaluate(()=>{window.__p12aOpen=[];window.open=(...args)=>{window.__p12aOpen.push(args);return null;};});await dialog.getByRole('button',{name:'Compartilhar por WhatsApp',exact:true}).click();assert.equal(await b.p.evaluate(()=>window.__p12aOpen.length),1);await dialog.getByRole('button',{name:'Fechar',exact:true}).click();await b.p.reload();assert.equal(await b.p.getByRole('button',{name:'Copiar link de convite',exact:true}).count(),0);assert.equal((await api(b.ctx,'/api/lancamentos')).status(),428);await b.p.getByRole('heading',{name:'Aguardando Responsável Contratual',exact:true}).waitFor();await shots(b.p,'waiting');checks.push(step);
- step='nominee activated USER then automatically CONTRACT no repeated chooser';const nominee=await activate(link);await accept(nominee.ctx,nominee.p,'USUARIO');const st=await(await api(nominee.ctx,'/api/onboarding/contractual')).json();assert.equal(st.status,'AWAITING_CONTRACT');assert.equal(st.canAcceptContract,true);await nominee.p.waitForURL(u=>u.pathname==='/termos/aceite');assert.equal(await nominee.p.getByRole('button',{name:'Sou eu',exact:true}).count(),0);checks.push(step);
- step='nominee contract unlocks both sessions without creator login';await accept(nominee.ctx,nominee.p,'CONTRATANTE');await b.p.waitForURL(u=>u.pathname==='/inicio',{timeout:45000});assert.equal((await api(b.ctx,'/api/lancamentos')).status(),200);assert.equal((await api(nominee.ctx,'/api/lancamentos')).status(),200);checks.push(step);
- console.log(JSON.stringify({state:'CONTRACTUAL_BROWSER_PASSED',environment:c.environment,checks,desktopMobile:true,lightDark:true,actualMessagesSent:0,rawSecretsPrinted:false}));
-}catch(e){console.log(JSON.stringify({state:'CONTRACTUAL_BROWSER_FAILED',step,type:e.name,safeError:String(e.message).split('\n')[0].replace(/https?:\/\/\S+/g,'[url]').slice(0,150),checks}));process.exitCode=1;}finally{if(creator)await creator.evaluate(()=>navigator.clipboard.writeText('')).catch(()=>{});await browser.close();c.password=undefined;}}
+const assert = require('node:assert/strict'), path = require('node:path');
+
+async function main() {
+  let raw = ''; for await (const s of process.stdin) raw += s;
+  const c = JSON.parse(raw); raw = '';
+  assert(['http://localhost:3020', 'https://homolog.dezsolucoes.com.br'].includes(c.base));
+  const {chromium} = require(c.playwrightModule);
+  const browser = await chromium.launch({channel:'msedge', headless:true});
+  const base = c.base, f = c.fixture, checks = [];
+  let step = 'setup', creator;
+  const api = (context, url, method='GET', data) => context.request.fetch(base + url,
+    {method, headers:{Origin:base}, ...(data===undefined ? {} : {data})});
+  const context = () => browser.newContext({viewport:{width:1366,height:864}, permissions:['clipboard-read','clipboard-write']});
+  async function login(ctx, email) {
+    const p = await ctx.newPage(); p.setDefaultTimeout(60000);
+    await p.goto(base + '/login'); assert.equal(await p.locator('form').getAttribute('method'), 'post');
+    await p.getByLabel('E-mail',{exact:true}).fill(email); await p.getByLabel('Senha',{exact:true}).fill(c.password);
+    await p.getByRole('button',{name:'Entrar',exact:true}).click(); await p.waitForURL(u=>u.pathname!='/login'); return p;
+  }
+  async function invite(ctx,t,email) {
+    const r=await api(ctx,'/api/platform/tenants/'+t.id+'/owner-invitations','POST',
+      {nome:'OWNER SINTÉTICO BROWSER 12A',email,confirm:true,channel:'MANUAL_SHARE'});
+    assert.equal(r.status(),201); return (await r.json()).share.link;
+  }
+  async function activate(link) {
+    const ctx=await context(),p=await ctx.newPage();p.setDefaultTimeout(60000);await p.goto(link);
+    await p.getByLabel('Crie sua senha',{exact:true}).fill(c.password);await p.getByLabel('Confirme sua senha',{exact:true}).fill(c.password);
+    await p.getByRole('button',{name:'Confirmar acesso',exact:true}).click();
+    await p.waitForURL(u=>!['/ativar-acesso','/login'].includes(u.pathname));assert.equal(new URL(p.url()).hash,'');return{ctx,p};
+  }
+  async function accept(ctx,p,audience) {
+    for(let i=0;i<8;i++) {
+      const pending=(await(await api(ctx,'/api/terms/pending')).json()).pending.filter(t=>t.audience===audience&&t.actionable);
+      if(!pending.length)return;
+      const d=p.getByRole('dialog');if(!await d.isVisible())await p.getByRole('button',{name:'Ler e aceitar documento',exact:true}).click();
+      await d.getByRole('heading',{name:pending[0].title,exact:true}).waitFor();
+      await d.getByRole('checkbox').check();
+      const done=p.waitForResponse(r=>r.url()===base+'/api/terms/accept'&&r.request().method()==='POST');
+      await d.getByRole('button',{name:'Aceitar documento',exact:true}).click();assert.equal((await done).status(),200);
+      await p.waitForLoadState('networkidle');
+    }
+    throw Error('TOO_MANY_DOCUMENTS');
+  }
+  async function shots(p,label,dialog=false) {
+    const s=await(await p.context().request.get(base+'/api/auth/session')).json(),id=s.user.id;
+    for(const mobile of [false,true])for(const mode of ['light','dark']) {
+      await p.setViewportSize(mobile?{width:414,height:896}:{width:1366,height:864});
+      await p.evaluate(({id,mode})=>{localStorage.setItem('10s:appearance:v1:identity:'+id,JSON.stringify({version:1,mode,
+        palette:{primary:'#2563EB',accent:'#0E7490',background:'#F3F7FA',surface:'#FFFFFF',sidebar:'#FFFFFF',text:'#0F172A',secondary:'#475569',border:'#D5DFE8'}}));window.dispatchEvent(new StorageEvent('storage'));},{id,mode});
+      await p.waitForFunction(m=>document.documentElement.dataset.theme===m,mode);
+      assert(!await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1));
+      const buttons=dialog?p.getByRole('dialog').getByRole('button'):p.locator('.contractual-choices button');
+      for(const b of await buttons.all()) {
+        const box=await b.boundingBox();assert(box&&box.height>=44&&box.x>=0&&box.x+box.width<=(mobile?414:1366));
+      }
+      if(dialog){const box=await p.getByRole('dialog').boundingBox();assert(box&&box.height<=(mobile?896:864));}
+      await p.screenshot({animations:'disabled',path:path.join(c.output,`${c.environment}-${label}-${mobile?'414':'1366'}-${mode}.png`)});
+    }
+  }
+  const shareDialog = p => p.getByRole('dialog',{name:'Convite pronto para compartilhar',exact:true});
+  async function copyContractual(p) {
+    await shareDialog(p).getByRole('button',{name:'Copiar link',exact:true}).click();
+    await shareDialog(p).waitFor({state:'detached'});
+    await p.getByText('Link copiado. Compartilhe somente com a pessoa indicada.',{exact:true}).waitFor();
+    const link=await p.evaluate(()=>navigator.clipboard.readText());assert(link.startsWith(base+'/ativar-acesso#token='));return link;
+  }
+  async function nominate(p,name) {
+    await p.getByRole('button',{name:'Outra pessoa',exact:true}).click();
+    await p.getByLabel('Nome',{exact:true}).fill(name);await p.getByLabel('E-mail',{exact:true}).fill(f.nomineeEmail);
+    const response=p.waitForResponse(r=>r.url()===base+'/api/onboarding/contractual'&&r.request().method()==='POST');
+    await p.getByRole('button',{name:'Enviar convite',exact:true}).click();const created=await response;
+    assert.equal(created.status(),201);const data=await created.json();assert.equal(data.share.role,'OWNER');
+    await shareDialog(p).waitFor();return data;
+  }
+  try {
+    const pa=await context(),pp=await login(pa,f.adminEmail);
+    step='administrative dialog keeps role profile labels and explicit close';
+    await pp.goto(base+'/plataforma');
+    const row=pp.getByRole('row').filter({hasText:f.self.nome});
+    await row.getByRole('button',{name:'Designar Proprietário',exact:true}).click();
+    let d=pp.getByRole('dialog');await d.getByLabel('Nome (para convite)',{exact:true}).fill('OWNER SINTÉTICO BROWSER 12A');
+    await d.getByLabel('Email',{exact:true}).fill(f.selfEmail);pp.once('dialog',dialog=>dialog.accept());
+    await d.getByRole('button',{name:'Confirmar',exact:true}).click();
+    d=pp.getByRole('dialog',{name:'Convite criado',exact:true});await d.waitFor();
+    assert((await d.locator('dt').allTextContents()).includes('Função'));assert((await d.locator('dt').allTextContents()).includes('Perfil'));
+    await d.getByRole('button',{name:'Copiar link de convite',exact:true}).click();
+    await d.getByText('Link copiado. Envie-o somente ao destinatário deste convite.',{exact:true}).waitFor();assert(await d.isVisible());
+    const selfLink=await pp.evaluate(()=>navigator.clipboard.readText());await d.getByRole('button',{name:'Fechar',exact:true}).click();checks.push(step);
+    step='new OWNER accepts own official USER before chooser';
+    const a=await activate(selfLink);await accept(a.ctx,a.p,'USUARIO');
+    await a.p.getByRole('heading',{name:'Responsável Contratual',exact:true}).waitFor();assert.equal((await api(a.ctx,'/api/lancamentos')).status(),428);checks.push(step);
+    step='SELF chooser desktop mobile light dark keyboard';await shots(a.p,'self');
+    await a.p.getByRole('button',{name:'Sou eu',exact:true}).focus();await a.p.keyboard.press('Enter');
+    await a.p.waitForURL(u=>u.pathname==='/termos/aceite');checks.push(step);
+    step='SELF official contract receipt releases business';await accept(a.ctx,a.p,'CONTRATANTE');
+    await a.p.waitForURL(u=>u.pathname==='/inicio');assert.equal((await api(a.ctx,'/api/lancamentos')).status(),200);checks.push(step);
+    step='OTHER OWNER USER acceptance and natural redirect';
+    const b=await activate(await invite(pa,f.other,f.otherEmail));creator=b.p;await accept(b.ctx,b.p,'USUARIO');
+    await b.p.getByRole('heading',{name:'Responsável Contratual',exact:true}).waitFor();
+    step='OTHER form only two fields and simplified confirmation four fields';
+    await b.p.getByRole('button',{name:'Outra pessoa',exact:true}).click();assert.equal(await b.p.locator('.contractual-form input').count(),2);
+    await shots(b.p,'other');await b.p.getByLabel('Nome',{exact:true}).fill('RESPONSÁVEL SINTÉTICO 12A');await b.p.getByLabel('E-mail',{exact:true}).fill(f.nomineeEmail);
+    const created=b.p.waitForResponse(r=>r.url()===base+'/api/onboarding/contractual'&&r.request().method()==='POST');
+    await b.p.getByRole('button',{name:'Enviar convite',exact:true}).click();assert.equal((await created).status(),201);
+    d=shareDialog(b.p);await d.waitFor();assert.deepEqual(await d.locator('dt').allTextContents(),['Nome','E-mail','Empresa','Validade']);
+    assert.deepEqual(await d.getByRole('button').allTextContents(),['Enviar pelo WhatsApp','Copiar link','Fechar']);
+    assert(!/convite enviado|e-mail enviado|mensagem enviada/i.test(await d.innerText()));await shots(b.p,'confirmation',true);checks.push(step);
+    step='clipboard failure keeps dialog open and allows retry';
+    await b.p.evaluate(()=>{window.__realCopy=navigator.clipboard.writeText.bind(navigator.clipboard);navigator.clipboard.writeText=async()=>{throw Error('SYNTHETIC_DENIAL');};});
+    await d.getByRole('button',{name:'Copiar link',exact:true}).click();await d.getByRole('status').filter({hasText:'Não foi possível copiar'}).waitFor();assert(await d.isVisible());
+    await b.p.evaluate(()=>{navigator.clipboard.writeText=window.__realCopy;delete window.__realCopy;});checks.push(step);
+    step='successful copy auto-closes with neutral notice and waiting controls';
+    const firstLink=await copyContractual(b.p);
+    await b.p.getByRole('heading',{name:'Aguardando aceite do Responsável Contratual',exact:true}).waitFor();
+    await b.p.getByRole('button',{name:'Enviar novamente',exact:true}).waitFor();await b.p.getByRole('button',{name:'Trocar responsável',exact:true}).waitFor();
+    assert.equal((await api(b.ctx,'/api/lancamentos')).status(),428);
+    assert(!await b.p.evaluate(secret=>Object.values(localStorage).some(x=>x.includes(secret))||Object.values(sessionStorage).some(x=>x.includes(secret)),new URL(firstLink).hash.slice(7)));
+    await b.p.reload();assert.equal(await b.p.getByRole('button',{name:'Copiar link',exact:true}).count(),0);await shots(b.p,'waiting');checks.push(step);
+    step='resend rotates token WhatsApp auto-closes without delivery claim';
+    await b.p.getByRole('button',{name:'Enviar novamente',exact:true}).click();d=shareDialog(b.p);await d.waitFor();
+    assert.equal((await api(b.ctx,'/api/access/invitations/inspect','POST',{token:new URL(firstLink).hash.slice(7)})).status(),410);
+    await b.p.evaluate(()=>{window.__p12aOpen=[];window.open=(...args)=>{window.__p12aOpen.push(args);return null;};});
+    await d.getByRole('button',{name:'Enviar pelo WhatsApp',exact:true}).click();await d.waitFor({state:'detached'});
+    const opened=await b.p.evaluate(()=>window.__p12aOpen);assert.equal(opened.length,1);const wa=new URL(opened[0][0]);assert.equal(wa.origin,'https://wa.me');assert(!wa.searchParams.has('phone'));assert.equal(opened[0][2],'noopener,noreferrer');
+    const secondLink=wa.searchParams.get('text').match(/https?:\/\/[^\s]+\/ativar-acesso#token=[A-Za-z0-9_-]{43}/)[0];
+    assert.notEqual(secondLink,firstLink);await b.p.getByText('Conclua o envio no WhatsApp. A plataforma não confirma o envio ou a entrega da mensagem.',{exact:true}).waitFor();checks.push(step);
+    step='change responsible cancellation preserves current invitation';
+    const before=await(await api(b.ctx,'/api/onboarding/contractual')).json();b.p.once('dialog',dialog=>dialog.dismiss());
+    await b.p.getByRole('button',{name:'Trocar responsável',exact:true}).click();
+    assert.equal((await(await api(b.ctx,'/api/onboarding/contractual')).json()).invitation.id,before.invitation.id);
+    assert.equal((await api(b.ctx,'/api/access/invitations/inspect','POST',{token:new URL(secondLink).hash.slice(7)})).status(),200);checks.push(step);
+    step='confirmed change uses existing revoke and a fresh explicit nomination';
+    b.p.once('dialog',dialog=>dialog.accept());await b.p.getByRole('button',{name:'Trocar responsável',exact:true}).click();
+    await b.p.getByRole('heading',{name:'Responsável Contratual',exact:true}).waitFor();
+    assert.equal((await api(b.ctx,'/api/access/invitations/inspect','POST',{token:new URL(secondLink).hash.slice(7)})).status(),410);
+    await nominate(b.p,'RESPONSÁVEL SINTÉTICO 12A REINDICADO');const link=await copyContractual(b.p);
+    assert.notEqual(link,secondLink);assert.equal((await api(b.ctx,'/api/lancamentos')).status(),428);checks.push(step);
+    step='nominee activated USER then automatically CONTRACT no repeated chooser';
+    const nominee=await activate(link);await accept(nominee.ctx,nominee.p,'USUARIO');
+    const st=await(await api(nominee.ctx,'/api/onboarding/contractual')).json();assert.equal(st.status,'AWAITING_CONTRACT');assert.equal(st.canAcceptContract,true);
+    await nominee.p.waitForURL(u=>u.pathname==='/termos/aceite');assert.equal(await nominee.p.getByRole('button',{name:'Sou eu',exact:true}).count(),0);checks.push(step);
+    step='nominee contract unlocks both sessions without creator login';
+    await accept(nominee.ctx,nominee.p,'CONTRATANTE');await b.p.waitForURL(u=>u.pathname==='/inicio',{timeout:45000});
+    assert.equal((await api(b.ctx,'/api/lancamentos')).status(),200);assert.equal((await api(nominee.ctx,'/api/lancamentos')).status(),200);checks.push(step);
+    console.log(JSON.stringify({state:'CONTRACTUAL_BROWSER_PASSED',environment:c.environment,checks,desktopMobile:true,lightDark:true,
+      loginAttempts:4,actualMessagesSent:0,rawSecretsPrinted:false,administrativeVariantPreserved:true}));
+  } catch(e) {
+    console.log(JSON.stringify({state:'CONTRACTUAL_BROWSER_FAILED',step,type:e.name,
+      safeError:String(e.message).split('\n')[0].replace(/https?:\/\/\S+/g,'[url]').slice(0,150),checks}));process.exitCode=1;
+  } finally {
+    if(creator)await creator.evaluate(()=>navigator.clipboard.writeText('')).catch(()=>{});await browser.close();c.password=undefined;
+  }
+}
 main().catch(e=>{console.log(JSON.stringify({state:'CONTRACTUAL_BROWSER_ABORTED',type:e.name,code:e.code}));process.exitCode=1;});
