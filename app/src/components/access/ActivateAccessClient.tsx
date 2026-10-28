@@ -100,7 +100,7 @@ export default function ActivateAccessClient() {
           onChange={event => setConfirm(event.target.value)} />
         <p className="activation-muted">A senha é definida apenas por você. O aceite dos documentos obrigatórios será solicitado depois.</p>
       </div> : invite.canAccept ? <p className="activation-muted">Você está conectado. Confirme o acesso à nova empresa.</p>
-        : <form className="activation-fields" onSubmit={authenticate}>
+        : <form method="post" className="activation-fields" onSubmit={authenticate}>
           <p>Entre com a conta destinatária do convite antes de confirmar. Sua senha atual não será alterada.</p>
           <label>E-mail<input type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} /></label>
           <PasswordInput id="activation-current" label="Senha atual" autoComplete="current-password" required value={loginPassword}

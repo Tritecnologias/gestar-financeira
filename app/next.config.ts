@@ -31,6 +31,8 @@ const nextConfig: NextConfig = {
       },
       { source: "/ativar-acesso", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/primeiro-acesso", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      { source: "/api/access/invitations/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      { source: "/api/platform/tenants/:id/owner-invitations", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
     ];
   },
 };

@@ -24,3 +24,9 @@ PROD, seus tenants persistentes, identidades, memberships e aceites não fazem p
 Testar primeiro em PostgreSQL18/HTTP reais LOCAL, com dados sintéticos, depois em HOMOLOG. Cobrir reemissão, revogação, expiração, replay, concorrência, destinatário existente, perfil/tenant indevido, origem indevida, ausência de segredo em armazenamento/logs/histórico, UI Claro/Escuro e desktop/mobile. Interceptar a abertura do WhatsApp nos testes automatizados, sem transmitir mensagem a terceiros.
 
 O aceite humano na HOMOLOG inclui gerar OWNER sintético na Plataforma, compartilhar/copiar, usar Primeiro acesso, ativar a fixture, designar explicitamente o responsável contratual, ler/aceitar os termos sintéticos aplicáveis e gerar MEMBER no mesmo tenant como OWNER. Não gerar convites reais de Izilda/Gmail antes do GO PROD.
+
+## Resultado local e proteção do login
+
+As provas reais LOCAL de HTTP/PostgreSQL passaram, incluindo concorrência, rotação, revogação, expiração, identidade existente e isolamento. Os testes de navegador confirmaram compartilhamento, descarte/TTL, ausência de recuperação após reload, ativação e convite MEMBER com perfil restrito. A suíte afetada tem 42 testes aprovados, sem skips. O candidato final ainda será conferido no build Linux limpo antes de publicação controlada.
+
+O teste de navegador identificou uma fragilidade pré-existente: antes da hidratação, o formulário de login podia fazer submissão nativa GET. A proteção mínima usa `method=post` e mantém o botão desabilitado até a hidratação; Primeiro acesso usa a mesma proteção. Uma prova com JavaScript desabilitado garante que o fallback não divulga credenciais pela URL. Somente credenciais sintéticas inativadas do laboratório estiveram envolvidas no diagnóstico; nenhuma credencial humana ou de PROD foi usada. Não houve mudança de política de senha, sessão ou autorização.

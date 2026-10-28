@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useTransition } from "react";
+import { Suspense, useEffect, useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PasswordInput from "@/components/ui/PasswordInput";
@@ -15,6 +15,8 @@ function LoginForm() {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,7 +60,7 @@ function LoginForm() {
         {searchParams.get("notice") === "password-changed" && <p role="status">Senha alterada com sucesso. Entre com a nova senha.</p>}
         {erro && <div className="login-error" role="alert">{erro}</div>}
 
-        <form onSubmit={handleSubmit}>
+        <form method="post" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">E-mail</label>
             <input
@@ -89,7 +91,7 @@ function LoginForm() {
             type="submit"
             className="btn btn-primary"
             style={{ width: "100%", justifyContent: "center", padding: "10px" }}
-            disabled={isPending}
+            disabled={!ready || isPending}
           >
             {isPending ? (
               <>

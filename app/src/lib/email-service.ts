@@ -37,7 +37,12 @@ function mockAdapter(): EmailAdapter {
 
 /** Same public-origin policy for email and manual invitations; never trust a supplied link/Host. */
 export function getInvitationPublicUrl(requestUrl: URL): URL | null {
-  return publicUrl(requestUrl, canIssueDevInvite(requestUrl));
+  try {
+    // Next/proxies can use an internal hostname. The configured public URL is
+    // authoritative; DEV still requires the exact isolated loopback database.
+    const configured = new URL(process.env.APP_PUBLIC_URL || requestUrl.origin);
+    return publicUrl(requestUrl, canIssueDevInvite(configured));
+  } catch { return null; }
 }
 
 function smtpAdapter(): EmailAdapter | null {
