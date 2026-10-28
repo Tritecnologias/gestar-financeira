@@ -4,6 +4,8 @@ import { statusLabel } from "@/lib/presentation";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import TermDocumentDialog from "./TermDocumentDialog";
+import "@/app/termos/aceite/terms.css";
 import "./access.css";
 
 type Version = { id: string; version: string; title: string; description: string | null; status: "DRAFT" | "PUBLISHED" | "RETIRED";
@@ -24,6 +26,7 @@ export default function TermsPlatformClient() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [viewing, setViewing] = useState<{ document: Document; item: Version } | null>(null);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/platform/terms", { cache: "no-store" });
@@ -88,7 +91,7 @@ export default function TermsPlatformClient() {
         {document.versions.map(item => <tr key={item.id}><td>{item.version}</td><td><strong>{item.title}</strong><small>SHA-256: {item.sha256}</small></td>
           <td>{statusLabel(item.status)}</td><td>{item.publishedAt ? `${new Date(item.publishedAt).toLocaleDateString("pt-BR")} · ${item.publishedBy?.nome ?? "—"}` : "—"}</td>
           <td>{item.requiresReaccept ? "Sim" : "Não"}</td><td>{item._count.acceptances}</td><td className="access-actions">
-            <a href={`/api/terms/versions/${item.id}/file`} target="_blank" rel="noopener noreferrer">Visualizar PDF</a>
+            <button type="button" onClick={() => setViewing({ document, item })}>Visualizar PDF</button>
             {item.status === "DRAFT" && <button disabled={busy} onClick={() => void changeStatus(item.id, "publish")}>Publicar</button>}
             {item.status === "PUBLISHED" && <button disabled={busy} onClick={() => void changeStatus(item.id, "retire")}>Retirar vigência</button>}
           </td></tr>)}
@@ -96,6 +99,12 @@ export default function TermsPlatformClient() {
       </tbody></table></div></section>)}
       {!documents.length && <p>Nenhum documento oficial cadastrado.</p>}
     </div>
+    {viewing && <TermDocumentDialog term={{ versionId: viewing.item.id, documentId: viewing.document.id, audience: viewing.document.audience,
+      title: viewing.item.title, version: viewing.item.version, sha256: viewing.item.sha256,
+      publishedAt: viewing.item.publishedAt ? new Date(viewing.item.publishedAt) : null,
+      actionable: false, reason: "Consulta do PDF. O aceite é registrado pelo titular da conta na tela de termos pendentes." }}
+      label={viewing.item.status === "DRAFT" ? "Prévia do rascunho" : viewing.item.status === "RETIRED" ? "Versão histórica" : "Documento oficial"}
+      personalSupport={false} busy={false} error="" onClose={() => setViewing(null)} onAccept={async () => {}} />}
     {uploadFor && <div className="access-modal-backdrop"><form className="access-modal" role="dialog" aria-modal="true" aria-labelledby="term-upload-title" onSubmit={event => void upload(event)}>
       <h2 id="term-upload-title">Nova versão PDF</h2><p className="access-hint">A versão publicada fica imutável. Envie somente o PDF oficial revisado.</p>
       <label>Versão<input required value={version} maxLength={32} onChange={event => setVersion(event.target.value)} placeholder="V1" /></label>

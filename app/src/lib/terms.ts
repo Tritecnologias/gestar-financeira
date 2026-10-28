@@ -7,6 +7,7 @@ export type PendingTerm = {
   audience: "CONTRATANTE" | "USUARIO";
   title: string;
   version: string;
+  sha256: string;
   publishedAt: Date | null;
   actionable: boolean;
   reason?: string;
@@ -46,7 +47,7 @@ export async function pendingTerms(session: UserSession): Promise<PendingTerm[]>
     if (accepted) continue;
     pending.push({
       versionId: term.id, documentId: term.documentId, audience: term.document.audience,
-      title: term.title, version: term.version, publishedAt: term.publishedAt,
+      title: term.title, version: term.version, sha256: term.sha256, publishedAt: term.publishedAt,
       actionable: !contract || currentResponsible?.id === session.membershipId,
       reason: contract && !currentResponsible ? "Responsável contratual ainda não designado ou inativo." :
         contract && currentResponsible?.id !== session.membershipId ? "Aguardando aceite do responsável contratual." : undefined,

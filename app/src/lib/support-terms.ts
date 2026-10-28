@@ -10,7 +10,7 @@ export async function pendingOperatorTerms(identityId: string): Promise<PendingT
     const accepted = await prisma.termAcceptance.findFirst({ where: { identityId, tenantId: null, membershipId: null,
       ...(v.requiresReaccept ? { termVersionId: v.id, documentHash: v.sha256 } : { version: { documentId: v.documentId } }) }, select: { id: true } });
     if (!accepted) result.push({ versionId: v.id, documentId: v.documentId, title: v.title, version: v.version,
-      audience: "USUARIO", publishedAt: v.publishedAt, actionable: true });
+      audience: "USUARIO", sha256: v.sha256, publishedAt: v.publishedAt, actionable: true });
   }
   return result;
 }

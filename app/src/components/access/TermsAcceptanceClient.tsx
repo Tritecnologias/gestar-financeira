@@ -1,34 +1,55 @@
 "use client";
 import { messagePtBr } from "@/lib/presentation";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import type { PendingTerm } from "@/lib/terms";
+import TermDocumentDialog, { type DisplayedTerm } from "./TermDocumentDialog";
 
 export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio", personalSupport = false }: { initialPending: PendingTerm[]; returnPath?: string; personalSupport?: boolean }) {
   const acceptUrl = personalSupport ? "/api/support/terms" : "/api/terms/accept";
   const pendingUrl = personalSupport ? "/api/support/terms" : "/api/terms/pending";
   const [pending, setPending] = useState(initialPending);
-  const [agreed, setAgreed] = useState(false);
+  const [opened, setOpened] = useState<PendingTerm | null>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const current = pending.find(item => item.actionable) ?? pending[0];
 
 
-  async function accept() {
-    if (!current?.actionable || !agreed || busy) return;
+  async function loadPending(): Promise<PendingTerm[]> {
+    const response = await fetch(pendingUrl, { cache: "no-store" });
+    if (!response.ok) throw new Error("Não foi possível conferir os aceites pendentes.");
+    const body = await response.json();
+    if (!Array.isArray(body.pending)) throw new Error("Não foi possível conferir os documentos.");
+    return body.pending;
+  }
+  function close() { setOpened(null); requestAnimationFrame(() => trigger.current?.focus()); }
+  async function refresh() {
+    if (busy) return;
+    setBusy(true); setError("");
+    try { const next = await loadPending(); setPending(next); close(); if (!next.length) window.location.assign(returnPath); }
+    catch (cause) { setError(messagePtBr((cause as Error).message)); }
+    finally { setBusy(false); }
+  }
+  async function accept(shown: DisplayedTerm) {
+    if (!opened?.actionable || shown.versionId !== opened.versionId || shown.sha256 !== opened.sha256 || busy) return;
     setBusy(true); setError("");
     try {
+      // A newly published version must be read and agreed to independently.
+      const fresh = await loadPending();
+      if (!fresh.some(t => t.actionable && t.versionId === shown.versionId && t.sha256 === shown.sha256)) {
+        setPending(fresh); close();
+        throw new Error("Os documentos mudaram durante a leitura. Abra a versão atual antes de registrar o aceite.");
+      }
       const response = await fetch(acceptUrl, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: current.versionId, agreed: true }) });
+        body: JSON.stringify({ versionId: shown.versionId, agreed: true }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Não foi possível registrar o aceite.");
-      const next = await fetch(pendingUrl, { cache: "no-store" });
-      if (!next.ok) throw new Error("Não foi possível conferir os aceites pendentes.");
-      const body = await next.json();
-      setPending(body.pending); setAgreed(false);
-      if (!body.pending.length) window.location.assign(returnPath);
-    } catch (cause) { setError((cause as Error).message); }
+      const next = await loadPending();
+      setPending(next); setOpened(next.find(t => t.actionable) ?? null);
+      if (!next.length) window.location.assign(returnPath);
+    } catch (cause) { setError(messagePtBr((cause as Error).message)); }
     finally { setBusy(false); }
   }
 
@@ -37,14 +58,13 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
       <p>Consulte a versão publicada antes de registrar sua concordância.</p></header>
     {current && <div className="terms-document"><span className="terms-audience">{current.audience === "CONTRATANTE" ? "Responsável da empresa" : "Usuário da plataforma"}</span>
       <h2>{current.title}</h2><p>Versão {current.version} · publicada em {current.publishedAt ? new Date(current.publishedAt).toLocaleDateString("pt-BR") : "data indisponível"}</p>
-      <a className="terms-file-link" href={personalSupport ? `/api/support/terms/${current.versionId}` : `/api/terms/versions/${current.versionId}/file`} target="_blank" rel="noopener noreferrer">Visualizar ou baixar PDF</a>
-      {current.actionable ? <><label className="terms-agreement"><input type="checkbox" checked={agreed} onChange={event => setAgreed(event.target.checked)} />
-        <span>Li e concordo com os termos apresentados.</span></label>
-        <button type="button" className="btn btn-primary" disabled={!agreed || busy} onClick={() => void accept()}>{busy ? "Registrando…" : "Aceitar documento"}</button></>
-        : <p className="terms-wait" role="status">{current.reason}</p>}
+      <button ref={trigger} type="button" className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setOpened(current); }}>{current.actionable ? "Ler e aceitar documento" : "Ler documento"}</button>
+      {!current.actionable && <p className="terms-wait" role="status">{current.reason}</p>}
     </div>}
     {pending.length > 1 && <p className="terms-remaining">{pending.length} documentos pendentes neste contexto.</p>}
     {error && <p role="alert" className="terms-error">{messagePtBr(error)}</p>}
+    <button type="button" className="terms-signout" disabled={busy} onClick={() => void refresh()}>Atualizar documentos</button>{" · "}
     <button type="button" className="terms-signout" onClick={() => signOut({ callbackUrl: "/login" })}>Sair</button>
-  </section></main>;
+  </section>{opened && <TermDocumentDialog key={opened.versionId} term={opened} personalSupport={personalSupport}
+    busy={busy} error={error} onClose={close} onAccept={accept} />}</main>;
 }

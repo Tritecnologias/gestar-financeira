@@ -23,6 +23,7 @@ async function advisoryGET(_req: NextRequest, { params }: Params) {
     return new NextResponse(new Uint8Array(bytes), { headers: {
       "Content-Type": "application/pdf", "Content-Disposition": "inline; filename=termo.pdf",
       "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+      "X-Term-Version-Id": version.id, "X-Term-Sha256": version.sha256,
     } });
   } catch (error) {
     return NextResponse.json({ error: (error as {status?: number}).status ? (error as Error).message : "Documento indisponível." }, { status: (error as {status?: number}).status ?? 500 });
