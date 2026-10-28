@@ -8,6 +8,7 @@ import type { UserSession, Papel } from "@/types";
 import { isActiveLegacySession } from "@/lib/access-policy";
 import { emailEqualsNormalized } from "@/lib/email";
 import { requireAcceptedTerms } from "@/lib/terms";
+import { contractualReadiness } from "@/lib/contractual-state";
 import { supportRequestAllowed } from "@/lib/support-policy";
 import { writeAudit } from "@/lib/audit";
 import { authorizedSupportGrant } from "@/lib/support-authorization";
@@ -220,6 +221,9 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
   const activeTenantId = dbUser.tenantId;
   const activeTenantNome = dbUser.tenant.nome;
   const tenantSelecionado = true;
+  if (!options.allowPendingTerms && !(await contractualReadiness(prisma, activeTenantId)).active) {
+    throw accessError("Configuração contratual da empresa ainda não concluída.", 428);
+  }
 
   const db = getTenantPrisma(activeTenantId);
   return {

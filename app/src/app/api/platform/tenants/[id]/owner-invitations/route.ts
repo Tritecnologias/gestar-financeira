@@ -9,6 +9,7 @@ import { writeAudit } from "@/lib/audit";
 import { assertInviteRateLimit, expireInvite, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
 import { sameOrigin } from "@/lib/advisory-management";
 import { invitationDelivery, issueInvitationDelivery, INVITATION_RESPONSE_HEADERS } from "@/lib/invite-delivery";
+import { lockContractualTenant, linkReissuedContractualInvite, markContractualInviteRevoked } from "@/lib/contractual-onboarding";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -42,6 +43,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
       await expireInvite(inviteId, tenantId);
       const secret = body.action === "resend" ? newInviteToken() : null;
       const changed = await prisma.$transaction(async tx => {
+        await lockContractualTenant(tx, tenantId);
         await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite-id:${inviteId}`}, 0))`;
         const old = await tx.accessInvite.findFirst({ where: { id: inviteId, tenantId, role: "OWNER" },
           include: { tenant: { select: { ativo: true, nome: true } }, profile: { select: { ativo: true, nome: true } } } });
@@ -54,6 +56,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
             revokedAt: new Date(), revokedByIdentityId: actor.identityId! } });
           await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
             action: "INVITE_REVOKED", resourceType: "AccessInvite", resourceId: inviteId });
+          await markContractualInviteRevoked(tx, tenantId, inviteId, actor.identityId!);
           return { id: inviteId, status: "REVOKED" };
         }
         if (!old.tenant.ativo || !old.profile.ativo) throw Object.assign(new Error("Tenant ou perfil inativo."), { status: 409 });
@@ -76,6 +79,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
           expiresAt: inviteExpiresAt(), invitedByIdentityId: actor.identityId! } });
         await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
           action: "INVITE_CREATED", resourceType: "AccessInvite", resourceId: next.id, reason: "Reenvio" });
+        await linkReissuedContractualInvite(tx, tenantId, inviteId, next.id, actor.identityId!);
         return { id: next.id, status: next.status, expiresAt: next.expiresAt,
           tenantName: old.tenant.nome, email: old.email, name: old.name, role: "OWNER", profileName: old.profile.nome };
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
@@ -95,6 +99,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
     }
     const secret = newInviteToken();
     const invite = await prisma.$transaction(async tx => {
+      await lockContractualTenant(tx, tenantId);
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite:${tenantId}:${email}`}, 0))`;
       const tenant = await tx.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true, nome: true } });
       if (!tenant) throw Object.assign(new Error("Tenant ativo não encontrado."), { status: 404 });

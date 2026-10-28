@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { expireInvite, hashInviteToken, INVITE_UNAVAILABLE, validInviteToken } from "@/lib/access-invites";
 import { validIdentityPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
+import { lockContractualTenant, finalizeContractualNomination } from "@/lib/contractual-onboarding";
 
 async function handlePOST(req: NextRequest) {
   const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
@@ -25,6 +26,7 @@ async function handlePOST(req: NextRequest) {
     // Hash antes da transação para não segurar lock durante o trabalho de CPU.
     const passwordHash = validIdentityPassword(password) ? await bcrypt.hash(password, 12) : null;
     const result = await prisma.$transaction(async tx => {
+      await lockContractualTenant(tx, invite.tenantId);
       const consumed = await tx.accessInvite.updateMany({ where: { id: invite.id, status: "PENDING",
         expiresAt: { gt: new Date() } }, data: { status: "ACCEPTED", acceptedAt: new Date() } });
       if (consumed.count !== 1) throw Object.assign(new Error(INVITE_UNAVAILABLE), { status: 409 });
@@ -75,6 +77,9 @@ async function handlePOST(req: NextRequest) {
       await writeAudit(tx, { tenantId: pending.tenantId, actorIdentityId: identity.id,
         actorMembershipId: membership.id, accessMode: "MEMBERSHIP", action: "MEMBERSHIP_ACTIVATED",
         resourceType: "TenantMembership", resourceId: membership.id });
+      if (membership.role === "OWNER") await finalizeContractualNomination(tx, {
+        tenantId: pending.tenantId, identityId: identity.id, membershipId: membership.id,
+      });
       return { newlyActivated, tenantId: pending.tenantId, email: pending.email };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
     return NextResponse.json(result, { headers });

@@ -7,6 +7,7 @@ import { auditContext, writeAudit } from "@/lib/audit";
 import { assertInviteRateLimit, expireInvite, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
 import { sameOrigin } from "@/lib/advisory-management";
 import { invitationDelivery, issueInvitationDelivery, INVITATION_RESPONSE_HEADERS } from "@/lib/invite-delivery";
+import { lockContractualTenant, linkReissuedContractualInvite, markContractualInviteRevoked } from "@/lib/contractual-onboarding";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -25,6 +26,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
     const secret = body.action === "resend" ? newInviteToken() : null;
     const result = await prisma.$transaction(async tx => {
       const tenantId = session.tenantId;
+      await lockContractualTenant(tx, tenantId);
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite-id:${id}`}, 0))`;
       const current = await tx.accessInvite.findFirst({ where: { id, tenantId },
         include: { tenant: { select: { ativo: true, nome: true } }, profile: { select: { ativo: true, nome: true } } } });
@@ -46,6 +48,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
         await tx.accessInvite.update({ where: { id }, data: { status: "REVOKED",
           revokedAt: new Date(), revokedByIdentityId: session.identityId! } });
         await writeAudit(tx, { ...auditContext(session), action: "INVITE_REVOKED", resourceType: "AccessInvite", resourceId: id });
+        await markContractualInviteRevoked(tx, tenantId, id, session.identityId!);
         return { id, status: "REVOKED" };
       }
       if (!current.tenant.ativo || !current.profile.ativo) {
@@ -70,6 +73,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
         tokenHash: secret!.tokenHash, expiresAt: inviteExpiresAt(), invitedByIdentityId: session.identityId! } });
       await writeAudit(tx, { ...auditContext(session), action: "INVITE_CREATED", resourceType: "AccessInvite",
         resourceId: next.id, reason: "Reenvio" });
+      await linkReissuedContractualInvite(tx, tenantId, id, next.id, session.identityId!);
       return { id: next.id, status: next.status, expiresAt: next.expiresAt,
         tenantName: current.tenant.nome, email: current.email, name: current.name, role: current.role, profileName: current.profile.nome };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });

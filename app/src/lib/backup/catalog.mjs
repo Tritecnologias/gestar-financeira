@@ -22,7 +22,7 @@ export const TABLES = [
   "lancamentos",
   "import_operations"
 ];
-export const REFERENCE_TABLES = ["access_profiles","tenant_memberships","legacy_user_access_maps","tenant_contractual_responsibles"];
+export const REFERENCE_TABLES = ["access_profiles","tenant_memberships","legacy_user_access_maps","tenant_contractual_responsibles","tenant_contractual_onboarding"];
 export const COLUMNS = {
   "areas_negocio": [
     "ativo",

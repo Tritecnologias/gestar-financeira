@@ -34,6 +34,7 @@ model Tenant {
   accessProfiles    AccessProfile[]
   ownerEvents       AccessOwnerEvent[]
   contractualResponsible TenantContractualResponsible?
+  contractualOnboarding TenantContractualOnboarding?
   termAcceptances  TermAcceptance[]
   advisoryGrants    AdvisoryAccessGrant[]
   supportGrants     SupportGrant[]
@@ -145,6 +146,8 @@ model TenantMembership {
   profile     AccessProfile? @relation(fields: [profileId, tenantId], references: [id, tenantId], onDelete: Restrict)
   legacyMaps  LegacyUserAccessMap[]
   contractualResponsibility TenantContractualResponsible?
+  initiatedContractualOnboardings TenantContractualOnboarding[] @relation("ContractualInitiator")
+  assignedContractualOnboardings TenantContractualOnboarding[] @relation("ContractualAssignee")
   termAcceptances TermAcceptance[]
   authorizedAdvisoryGrants AdvisoryAccessGrant[]
   approvedSupportGrants SupportGrant[]
@@ -207,7 +210,9 @@ model AccessInvite {
   invitedBy AuthIdentity @relation("InviteCreator", fields: [invitedByIdentityId], references: [id], onDelete: Restrict)
   acceptedBy AuthIdentity? @relation("InviteAcceptor", fields: [acceptedByIdentityId], references: [id], onDelete: Restrict)
   revokedBy AuthIdentity? @relation("InviteRevoker", fields: [revokedByIdentityId], references: [id], onDelete: Restrict)
+  contractualOnboarding TenantContractualOnboarding?
 
+  @@unique([id, tenantId])
   @@index([tenantId, status, createdAt(sort: Desc)])
   @@index([tenantId, email, status])
   @@map("access_invites")
@@ -281,6 +286,39 @@ model TenantContractualResponsible {
 
   @@unique([membershipId, tenantId])
   @@map("tenant_contractual_responsibles")
+}
+
+enum ContractualOnboardingChoice {
+  SELF
+  OTHER
+}
+
+enum ContractualOnboardingStatus {
+  PENDING
+  ASSIGNED
+  CANCELLED
+}
+
+// Current explicit decision; historical decisions remain in append-only audit.
+// A nomination identifies its recipient by the invitation, never by email inference.
+model TenantContractualOnboarding {
+  tenantId String @id @map("tenant_id")
+  choice ContractualOnboardingChoice
+  status ContractualOnboardingStatus
+  initiatedByMembershipId String @map("initiated_by_membership_id")
+  invitationId String? @map("invitation_id")
+  assignedMembershipId String? @map("assigned_membership_id")
+  assignedAt DateTime? @map("assigned_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  initiatedBy TenantMembership @relation("ContractualInitiator", fields: [initiatedByMembershipId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  invitation AccessInvite? @relation(fields: [invitationId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  assignedMembership TenantMembership? @relation("ContractualAssignee", fields: [assignedMembershipId, tenantId], references: [id, tenantId], onDelete: Restrict)
+
+  @@unique([invitationId, tenantId])
+  @@map("tenant_contractual_onboarding")
 }
 
 // ACCESS-5B: autorização temporária. Não cria TenantMembership nem papel empresarial.

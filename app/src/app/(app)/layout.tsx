@@ -15,7 +15,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ctx = await requireSession();
   } catch (error) {
     const status = (error as {status?: number}).status;
-    redirect(status === 428 ? (await cookies()).get("support_context")?.value ? "/suporte?pending=contract" : "/termos/aceite" : status === 409 || status === 403 ? "/selecionar-tenant" : "/login");
+    const jar = await cookies();
+    const pendingPath = jar.get("support_context")?.value ? "/suporte?pending=contract" : jar.get("advisory_context")?.value ? "/termos/aceite" : "/onboarding";
+    redirect(status === 428 ? pendingPath : status === 409 || status === 403 ? "/selecionar-tenant" : "/login");
   }
 
   const { session } = ctx;

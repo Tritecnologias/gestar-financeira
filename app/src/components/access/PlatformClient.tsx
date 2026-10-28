@@ -10,7 +10,7 @@ import "./access.css";
 
 type Tenant = { id: string; nome: string; slug: string; email: string; plano: string; ativo: boolean;
   _count: { memberships: number }; activeOwnerCount: number; lastOwnerDesignationAt: string | null;
-  contractualResponsibleMembershipId: string | null; contractualResponsibleReady: boolean };
+  contractualResponsibleMembershipId: string | null; contractualResponsibleReady: boolean; contractualStatus: string };
 type Identity = { id: string; nome: string; email: string; status: string;
   platformAdmin: { status: string } | null; memberships: { id: string; role: string; tenant: { nome: string } }[] };
 type Membership = { id: string; role: string; status: string; identity: { nome: string; email: string };
@@ -160,7 +160,7 @@ export default function PlatformClient({ supportOperator = false }: { supportOpe
       {tab === "tenants" && (shown as Tenant[]).map(t => <tr key={t.id}><td><strong>{t.nome}</strong><small>{t.slug}</small></td>
         <td>{t.email}</td><td>{planLabel(t.plano)}</td><td>{t.ativo ? "Ativo" : "Inativo"}
           {t.activeOwnerCount === 0 && <small className="access-warning">Sem Proprietário ativo · designação necessária</small>}
-          {!t.contractualResponsibleReady && <small className="access-warning">Responsável contratual pendente ou inativo</small>}
+          <small className={t.contractualStatus === "Contrato ativo" ? "access-hint" : "access-warning"}>{t.contractualStatus}</small>
           {t.lastOwnerDesignationAt && <small>Última designação: {new Date(t.lastOwnerDesignationAt).toLocaleDateString("pt-BR")}</small>}</td><td>{t._count.memberships}</td>
         <td className="access-actions"><button onClick={() => edit(t)}>Editar</button><button disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button>
           <button onClick={() => void openOwner(t)}>

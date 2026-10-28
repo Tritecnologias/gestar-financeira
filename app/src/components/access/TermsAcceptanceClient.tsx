@@ -6,7 +6,7 @@ import { signOut } from "next-auth/react";
 import type { PendingTerm } from "@/lib/terms";
 import TermDocumentDialog, { type DisplayedTerm } from "./TermDocumentDialog";
 
-export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio", personalSupport = false }: { initialPending: PendingTerm[]; returnPath?: string; personalSupport?: boolean }) {
+export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio", personalSupport = false, audience }: { initialPending: PendingTerm[]; returnPath?: string; personalSupport?: boolean; audience?: "USUARIO" }) {
   const acceptUrl = personalSupport ? "/api/support/terms" : "/api/terms/accept";
   const pendingUrl = personalSupport ? "/api/support/terms" : "/api/terms/pending";
   const [pending, setPending] = useState(initialPending);
@@ -22,7 +22,7 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
     if (!response.ok) throw new Error("Não foi possível conferir os aceites pendentes.");
     const body = await response.json();
     if (!Array.isArray(body.pending)) throw new Error("Não foi possível conferir os documentos.");
-    return body.pending;
+    return audience ? body.pending.filter((item: PendingTerm) => item.audience === audience) : body.pending;
   }
   function close() { setOpened(null); requestAnimationFrame(() => trigger.current?.focus()); }
   async function refresh() {

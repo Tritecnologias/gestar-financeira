@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { UserSession } from "@/types";
+import { acceptedUserTerms, contractualReadiness } from "@/lib/contractual-state";
 
 export type PendingTerm = {
   versionId: string;
@@ -57,7 +58,9 @@ export async function pendingTerms(session: UserSession): Promise<PendingTerm[]>
 }
 
 export async function requireAcceptedTerms(session: UserSession) {
-  if ((await pendingTerms(session)).length) {
+  if ((await pendingTerms(session)).length || session.authMode === "identity" &&
+      (!(await contractualReadiness(prisma, session.tenantId)).active ||
+       !await acceptedUserTerms(prisma, session.identityId!))) {
     throw Object.assign(new Error("Aceite de termos obrigatório pendente."), { status: 428 });
   }
 }

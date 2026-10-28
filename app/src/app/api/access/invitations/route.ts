@@ -8,6 +8,7 @@ import { auditContext, writeAudit } from "@/lib/audit";
 import { assertInviteRateLimit, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
 import { sameOrigin } from "@/lib/advisory-management";
 import { invitationDelivery, issueInvitationDelivery, INVITATION_RESPONSE_HEADERS } from "@/lib/invite-delivery";
+import { lockContractualTenant } from "@/lib/contractual-onboarding";
 
 const ROLES = new Set(["OWNER", "ADMIN", "MEMBER"]);
 
@@ -50,6 +51,7 @@ async function handlePOST(req: NextRequest) {
     const secret = newInviteToken();
     const result = await prisma.$transaction(async tx => {
       const tenantId = session.tenantId;
+      await lockContractualTenant(tx, tenantId);
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite:${tenantId}:${email}`}, 0))`;
       const tenant = await tx.tenant.findFirst({ where: { id: tenantId, ativo: true }, select: { id: true, nome: true } });
       const profile = await tx.accessProfile.findFirst({ where: { id: profileId, tenantId, ativo: true }, select: { id: true, nome: true } });

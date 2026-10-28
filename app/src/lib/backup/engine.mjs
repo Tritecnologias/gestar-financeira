@@ -34,8 +34,8 @@ async function lock(db, tenantId) {
 async function references(db, tenantId) {
   const result = {};
   for (const t of REFERENCE_TABLES) {
-    result[t] = t === 'tenant_contractual_responsibles'
-      ? (await rows(db, 'SELECT to_jsonb(t) v FROM tenant_contractual_responsibles t WHERE tenant_id=$1', [tenantId])).map(r => r.v)
+    result[t] = ['tenant_contractual_responsibles','tenant_contractual_onboarding'].includes(t)
+      ? (await rows(db, `SELECT to_jsonb(t) v FROM public.${qi(t)} t WHERE tenant_id=$1`, [tenantId])).map(r => r.v)
       : await objects(db, t, tenantId);
   }
   result.usuarios = await objects(db, 'usuarios', tenantId, "to_jsonb(t)-'senha_hash'");
