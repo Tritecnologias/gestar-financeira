@@ -6,7 +6,7 @@ export default function PasswordInput({ label, ...props }: InputHTMLAttributes<H
   const [visible, setVisible] = useState(false);
   return <div className="password-field"><label htmlFor={props.id}>{label}</label><div className="password-input-wrap">
     <input {...props} type={visible ? "text" : "password"} />
-    <button type="button" className="password-toggle" aria-label={`${visible ? "Ocultar" : "Mostrar"} ${label.toLocaleLowerCase("pt-BR")}`}
+    <button type="button" className="password-toggle" aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
       aria-controls={props.id} aria-pressed={visible} title={visible ? "Ocultar senha" : "Mostrar senha"}
       disabled={props.disabled} onClick={() => setVisible(value => !value)}>
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
