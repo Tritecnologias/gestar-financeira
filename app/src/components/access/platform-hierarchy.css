@@ -2,3 +2,30 @@
 @media(max-width:700px){.platform-global-toolbar{align-items:stretch}.platform-global-toolbar>label{flex-basis:100%}.platform-global-toolbar>.access-button{flex:1 1 150px}.platform-hierarchy .access-header-actions{gap:6px}.platform-hierarchy .access-header-actions>.access-button{font-size:12px}.platform-detail-row>td{padding:10px!important}.platform-tenant-actions{min-width:240px}.platform-section-title{font-size:17px}}
 
 .platform-hierarchy td.platform-email{min-width:190px}.platform-scroll-hint{display:none}@media(max-width:900px){.platform-scroll-hint{display:block;font-size:12px;line-height:1.5;color:var(--text-secondary);margin:0 0 10px}}
+
+/* Stable action dimensions; only the presentation changes across breakpoints. */
+.platform-company-table{table-layout:fixed;min-width:1180px}
+.platform-col-tenant{width:190px}
+.platform-col-email{width:200px}
+.platform-col-plan{width:90px}
+.platform-col-state{width:145px}
+.platform-col-links{width:50px}
+.platform-col-actions{width:504px}
+.platform-company-table th[scope=row]{min-width:0;white-space:normal}
+.platform-expand>span:last-child{min-width:0;overflow-wrap:anywhere}
+.platform-tenant-actions{display:grid;grid-template-columns:38px 80px 170px 170px;gap:6px;align-items:center;justify-items:start;width:476px;min-width:0;max-width:none}
+.platform-action{box-sizing:border-box;height:38px;min-height:38px;flex:none;white-space:nowrap}
+.platform-action-edit{width:38px;padding:0}
+.platform-action-toggle{width:80px}
+.platform-action-owner,.platform-action-responsible{width:170px}
+@media(max-width:1279px){
+  .platform-company-table{min-width:1050px}
+  .platform-col-actions{width:374px}
+  .platform-tenant-actions{grid-template-columns:170px 170px;width:346px}
+}
+@media(max-width:700px){
+  .platform-company-table{min-width:900px}
+  .platform-col-actions{width:198px}
+  .platform-tenant-actions{grid-template-columns:38px 126px;width:170px;min-width:0}
+  .platform-tenant-actions>.platform-action-owner,.platform-tenant-actions>.platform-action-responsible{grid-column:1 / -1}
+}
