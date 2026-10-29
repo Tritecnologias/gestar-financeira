@@ -41,7 +41,7 @@ Antes de migrar: dump completo e volumes privados, verificar integridade, restau
 
 Convites globais ficam fora do backup/restauração de tenant e dentro do dump completo do ambiente, com tokens somente cifrados. Formato operacional v3 permanece porque suas seções/referências não mudam. Aceitar apenas históricos 3/4/5 exatos; compatibilidade somente para frente entre essas alterações globais aprovadas. Reverso, históricos desconhecidos e checksums diferentes continuam bloqueados. A restauração nunca recria ou remove convites especiais, chaves, acessos ou aceites.
 
-Rollback preferido: desabilitar o piloto, preservando tabela e contrato compatível. Voltar ao binário anterior exige reconciliação do ledger4 com seu contrato ledger3; não fingir compatibilidade. Se necessário rollback integral, suspender escritas de HOMOLOG e restaurar snapshot validado em procedimento controlado, considerando escritas posteriores. Não executar rollback em PROD.
+Rollback preferido: desabilitar o piloto, preservando tabela, coluna cifrada, custódia e contrato compatível. O binário 0e09ea2 conhece ledger4, não ledger5; voltar a ele exige reconciliar o schema/ledger ou recuperar o snapshot anterior em janela controlada. Não remover chaves nem fingir compatibilidade. Se necessário rollback integral, suspender escritas de HOMOLOG e restaurar snapshot validado, considerando escritas posteriores. Não executar rollback em PROD.
 
 ## Testes
 
