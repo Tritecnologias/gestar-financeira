@@ -137,6 +137,7 @@ model ExperimentInvitation {
   id String @id @default(uuid())
   recipientName String @map("recipient_name")
   tokenHash String @unique @map("token_hash")
+  encryptedToken String? @map("encrypted_token")
   createdByIdentityId String @map("created_by_identity_id")
   createdAt DateTime @default(now()) @map("created_at")
   expiresAt DateTime @map("expires_at")

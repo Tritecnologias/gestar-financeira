@@ -6,10 +6,22 @@ Autorização de Ricardo: tabela independente, adequação de backup/migration, 
 
 1. Ricardo entra em HOMOLOG com sua conta PlatformAdmin existente.
 2. Administração da Plataforma → Convites Especiais → informa Bruno Lourenço (persona fictícia), validade e Criar convite.
-3. Copia o link apresentado na própria interface. O segredo é exibido somente nesta criação; não fica em listagens, logs ou armazenamento do navegador.
+3. Usa Copiar link na linha da tabela. A recuperação ocorre somente após essa ação explícita do PlatformAdmin; o mesmo link continua disponível após atualizar a página ou iniciar outra sessão, enquanto ativo. Nenhum segredo fica nas listagens ou logs.
 4. Abre uma janela anônima e cola exatamente esse link.
 5. Confirma as boas-vindas, navega pela prévia e usa Quero experimentar a plataforma.
-6. Volta ao painel e Atualizar lista: a data do interesse é verificável. Revogar invalida novas interações, inclusive de uma página já aberta.
+6. Volta ao painel e Atualizar lista: a data do interesse é verificável em pílula verde. Cancelar (vermelho, com confirmação) invalida o link e desabilita a cópia, inclusive para uma página já aberta. Expiração também bloqueia recuperação e uso no servidor.
+
+Fechar ou usar Escape não confirma nem recusa boas-vindas. Cada abertura do link original ativo sem confirmação reabre automaticamente o modal, mesmo com interesse já registrado. Retomar boas-vindas revalida e reabre na página atual. Retorno pelo cache de navegação também revalida; não remover DOM/token de memória no pagehide. Nenhum token é persistido em localStorage/sessionStorage/cookies.
+
+## Recuperação cifrada e custódia — LOCAL/HOMOLOG
+
+O hash SHA-256 permanece como validador. A coluna nullable `encrypted_token` guarda somente envelope AES-256-GCM: chave de 256 bits própria de cada ambiente, nonce aleatório de 96 bits, tag de 128 bits, versão e ID da chave. AAD vincula o envelope ao ID e ao hash do convite; a recuperação valida novamente o hash. Nenhum token é armazenado em texto puro. Criar não devolve link; somente POST explícito de PlatformAdmin ativo em `.../[id]/link` devolve o link, com no-store e Origin verificado. Listagem devolve somente flags de disponibilidade, sem token/hash/cifra.
+
+Configuração runtime: `SPECIAL_INVITATION_LINK_KEY_ID` e `SPECIAL_INVITATION_LINK_KEYS` (mapa privado por ID). Sem chave válida, criação/recuperação falham fechadas. Não usar NEXTAUTH_SECRET nem chaves do backup. Não incluir chaves em Git, fonte, build args, logs, dump de aplicação ou backup de tenant. A custódia separada fica cifrada com DPAPI CurrentUser, fora do projeto e dos volumes comuns. Recuperação: operador autorizado recupera o segredo do cofre runtime do ambiente ou da custódia DPAPI sob o perfil Windows autorizado, verifica ID/ambiente e restaura somente as variáveis runtime; testar recuperação de um convite sintético. Se a chave for perdida em todas as custódias, não há recuperação criptográfica; não gerar substitutos silenciosos. Rotação: conservar chaves antigas no mapa até seus convites expirarem; a chave ativa serve para novas cifras. O backup de negócio nunca restaura chaves ou convites globais.
+
+Convites anteriores apenas com hash: não há inversão do hash. A vinculação manual opcional exige o link original do administrador, mesma origem/caminho e token correspondente ao hash. Grava apenas a cifra; não altera hash, validade, confirmações, interesse ou identidade do convite. Sem original, Copiar link fica desabilitado com explicação, sem impedir o uso do link antigo por quem já o possui. Não é obrigatório vincular convites antigos para homologar esta entrega.
+
+Migration `20261029_z_experiment_link_recovery`: coluna aditiva nullable, sem backfill, permitida somente no banco LOCAL do piloto e HOMOLOG após recuperação comprovada de backup. Os históricos exatos 3/4 podem ser restaurados para 5 somente porque as mudanças do piloto são globais e excluídas das seções operacionais. Histórico desconhecido, checksum alterado e restauração reversa continuam bloqueados. Rollback preferido: desabilitar piloto preservando coluna e custódia; retorno ao binário anterior exige reconciliar contrato do ledger e suspender escritas de HOMOLOG. Nunca aplicar em PROD nesta rodada.
 
 O interesse não envia e-mail, não cria conta/tenant/membership, não autentica e não representa aceite jurídico. Para acesso operacional, permanece necessário o procedimento existente de convite de acesso, perfil/tenant autorizados, senha individual e aceites Fase 12A. Não existe cadastro público autônomo. Esta rodada entrega a jornada administrativa → landing → interesse; não libera plataforma ao destinatário por consequência desse interesse.
 
@@ -27,7 +39,7 @@ Migration aditiva `20261029_experiment_invitations`, guarda ledger3 exato/checks
 
 Antes de migrar: dump completo e volumes privados, verificar integridade, restaurar dump em laboratório isolado e comparar tabelas. Guardar evidências sem dados pessoais. Comparar hashes de tabelas empresariais/acesso antes/depois para assegurar preservação.
 
-Convites globais ficam fora do backup/restauração de tenant e dentro do dump completo do ambiente. Formato operacional v3 permanece porque suas seções/referências não mudam. Aceitar apenas ledger3 exato ou ledger4 exato; restaurar backup autêntico ledger3 em runtime ledger4 é a única compatibilidade nova. Reverso, históricos desconhecidos e checksums diferentes continuam bloqueados. A restauração nunca recria ou remove convites especiais, acessos ou aceites.
+Convites globais ficam fora do backup/restauração de tenant e dentro do dump completo do ambiente, com tokens somente cifrados. Formato operacional v3 permanece porque suas seções/referências não mudam. Aceitar apenas históricos 3/4/5 exatos; compatibilidade somente para frente entre essas alterações globais aprovadas. Reverso, históricos desconhecidos e checksums diferentes continuam bloqueados. A restauração nunca recria ou remove convites especiais, chaves, acessos ou aceites.
 
 Rollback preferido: desabilitar o piloto, preservando tabela e contrato compatível. Voltar ao binário anterior exige reconciliação do ledger4 com seu contrato ledger3; não fingir compatibilidade. Se necessário rollback integral, suspender escritas de HOMOLOG e restaurar snapshot validado em procedimento controlado, considerando escritas posteriores. Não executar rollback em PROD.
 

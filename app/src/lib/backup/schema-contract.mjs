@@ -9,7 +9,10 @@ export const ADVISORY_MIGRATION = Object.freeze({ name: '20261027_z_advisory_acc
 export const CONTRACTUAL_ONBOARDING_MIGRATION = Object.freeze({ name: '20261028_contractual_onboarding', sha256: 'c214179b8c41fb447266d75831e9602bced487e2c32ba589f7a679e26b021c60' });
 export const EXPERIMENT_MIGRATION = Object.freeze({ name: '20261029_experiment_invitations', sha256: 'a1718fa659a22a9a73dbae14deed0073e5d5958d5f485a0dd387268550082d06' });
 export const PRE_EXPERIMENT_MIGRATIONS = Object.freeze([BASELINE_MIGRATION, ADVISORY_MIGRATION, CONTRACTUAL_ONBOARDING_MIGRATION]);
-export const REQUIRED_MIGRATIONS = Object.freeze([...PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_MIGRATION]);
+export const EXPERIMENT_LEDGER4 = Object.freeze([...PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_MIGRATION]);
+export const EXPERIMENT_LINK_MIGRATION = Object.freeze({ name: '20261029_z_experiment_link_recovery', sha256: 'c7d2a402dad95beaa5c77d1a8303c10a088819941af4566b364547106d8ae284' });
+export const REQUIRED_MIGRATIONS = Object.freeze([...EXPERIMENT_LEDGER4, EXPERIMENT_LINK_MIGRATION]);
+const APPROVED_LEDGERS = [PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_LEDGER4, REQUIRED_MIGRATIONS];
 export const BACKUP_MIGRATIONS = Object.freeze(REQUIRED_MIGRATIONS.map(m => m.name));
 
 /** A count alone cannot prove the required migrations or the new SQL's checksum. */
@@ -18,14 +21,15 @@ function matches(migrations, expected) {
     migrations.filter(row => row.migration_name === m.name && row.checksum === m.sha256).length === 1);
 }
 export function assertBackupMigrations(migrations, pending) {
-  if (pending || !matches(migrations, REQUIRED_MIGRATIONS) && !matches(migrations, PRE_EXPERIMENT_MIGRATIONS)) {
+  if (pending || !APPROVED_LEDGERS.some(expected => matches(migrations, expected))) {
     fail('MIGRATIONS', 'Schema fora do contrato PG18 BASELINE V1 + Assessoria + Onboarding Contratual. Não restaure backups de outra instalação ou geração.', 409);
   }
 }
-// Exactly one additive global table, excluded from tenant restore. No generic prefix/version bypass.
-// Forward restore of an authentic ledger3 tenant backup into ledger4 preserves pilot state.
+// Only the exact, approved additive global pilot changes, excluded from tenant restore.
+// Authentic ledger3/4 business backups may restore forward into ledger5; never recreate pilot state/keys.
 // Reverse restore and all unknown/altered ledgers fail closed.
 export function compatibleBackupMigrations(backup, current) {
-  return matches(current, REQUIRED_MIGRATIONS) && (matches(backup, REQUIRED_MIGRATIONS) || matches(backup, PRE_EXPERIMENT_MIGRATIONS)) ||
-    matches(current, PRE_EXPERIMENT_MIGRATIONS) && matches(backup, PRE_EXPERIMENT_MIGRATIONS);
+  const from = APPROVED_LEDGERS.findIndex(expected => matches(backup, expected));
+  const to = APPROVED_LEDGERS.findIndex(expected => matches(current, expected));
+  return from >= 0 && to >= from;
 }
