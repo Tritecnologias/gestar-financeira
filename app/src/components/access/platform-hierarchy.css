@@ -30,3 +30,4 @@
   .platform-tenant-actions>.platform-action-owner,.platform-tenant-actions>.platform-action-responsible{grid-column:1 / -1}
 }
 .platform-company-table>thead>tr>th:nth-child(5){padding-left:10px;padding-right:10px}
+.platform-expand-all{min-width:142px;white-space:nowrap}

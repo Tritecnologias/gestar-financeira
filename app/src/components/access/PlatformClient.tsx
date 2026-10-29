@@ -62,6 +62,12 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
   useEffect(() => { void load(); }, [load]);
 
   const shown = useMemo(() => platformHierarchy(tenants, identities, memberships, query), [query, tenants, identities, memberships]);
+  const allExpanded = shown.groups.length > 0 && shown.groups.every(({ tenant }) =>
+    query.trim() ? !searchCollapsed.has(tenant.id) : expanded.has(tenant.id));
+  function toggleAllGroups() {
+    setExpanded(new Set(allExpanded ? [] : tenants.map(t => t.id)));
+    setSearchCollapsed(new Set(allExpanded ? tenants.map(t => t.id) : []));
+  }
   function toggleGroup(id: string) {
     const update = (old: Set<string>) => { const next = new Set(old); if (next.has(id)) next.delete(id); else next.add(id); return next; };
     if (query.trim()) setSearchCollapsed(update); else setExpanded(update);
@@ -146,6 +152,7 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
     </header>
     <div className="access-toolbar platform-global-toolbar">
       <label>Busca global<input type="search" aria-label="Busca global da administração" placeholder="Empresa, conta, nome, e-mail ou vínculo" autoComplete="off" value={query} onChange={e => { setQuery(e.target.value); setSearchCollapsed(new Set()); }} /></label>
+      <button type="button" className="access-button access-button-secondary platform-expand-all" disabled={loading || !shown.groups.length} aria-controls="platform-company-hierarchy" onClick={toggleAllGroups}>{allExpanded ? "Recolher tudo" : "Expandir tudo"}</button>
       <button type="button" className="access-button access-button-primary" onClick={() => { setTenantForm({ nome: "", email: "", plano: "trial" }); setError(""); setMode("create"); }}>+ Criar tenant manual</button>
       {experimentPilot && <Link href="/plataforma/convites-especiais" className="access-button access-button-secondary">+ Convites Especiais</Link>}
     </div>
@@ -155,7 +162,7 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
     <section aria-labelledby="platform-companies-title"><h2 id="platform-companies-title" className="platform-section-title">Empresas e contas vinculadas</h2>
       <p className="access-hint" role="status">{loading ? "Carregando catálogo administrativo…" : `${shown.groups.length} de ${tenants.length} empresas. Expanda uma empresa para consultar suas contas, papéis e perfis.`}</p>
       <p className="platform-scroll-hint">Em telas menores, deslize a tabela para consultar as colunas e ações.</p>
-      <div className="access-table-wrap platform-company-scroll" role="region" aria-label="Empresas e vínculos" tabIndex={0}><table className="access-table platform-company-table"><caption>Empresas e relações administrativas</caption><colgroup><col className="platform-col-tenant" /><col className="platform-col-email" /><col className="platform-col-plan" /><col className="platform-col-state" /><col className="platform-col-links" /><col className="platform-col-actions" /></colgroup><thead><tr><th scope="col">Empresa</th><th scope="col">E-mail administrativo</th><th scope="col">Plano</th><th scope="col">Situação</th><th scope="col">Vínculos</th><th scope="col">Ações</th></tr></thead><tbody>
+      <div id="platform-company-hierarchy" className="access-table-wrap platform-company-scroll" role="region" aria-label="Empresas e vínculos" tabIndex={0}><table className="access-table platform-company-table"><caption>Empresas e relações administrativas</caption><colgroup><col className="platform-col-tenant" /><col className="platform-col-email" /><col className="platform-col-plan" /><col className="platform-col-state" /><col className="platform-col-links" /><col className="platform-col-actions" /></colgroup><thead><tr><th scope="col">Empresa</th><th scope="col">E-mail administrativo</th><th scope="col">Plano</th><th scope="col">Situação</th><th scope="col">Vínculos</th><th scope="col">Ações</th></tr></thead><tbody>
       {shown.groups.map(({ tenant: t, memberships: members, totalMemberships }) => {
         const open = query.trim() ? !searchCollapsed.has(t.id) : expanded.has(t.id);
         return <Fragment key={t.id}><tr><th scope="row"><button type="button" className="platform-expand" aria-expanded={open} aria-controls={`platform-members-${t.id}`} aria-label={`${open ? "Recolher" : "Expandir"} contas de ${t.nome}`} onClick={() => toggleGroup(t.id)}><span aria-hidden="true">{open ? "▾" : "▸"}</span><span><strong>{t.nome}</strong><small>{t.slug}</small></span></button></th>
