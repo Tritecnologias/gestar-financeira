@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const token = experimentToken();
     const row = await prisma.$transaction(async tx => {
       // Revalidate capability under lock; a revoked admin cannot issue with an old session.
-      const active = await tx.$queryRaw<{ id: string }[]>`SELECT a.id FROM platform_admins a JOIN auth_identities i ON i.id=a.identity_id WHERE a.identity_id=${actor.identityId} AND a.status='ACTIVE' AND i.status='ACTIVE' FOR SHARE OF a,i`;
+      const active = await tx.$queryRaw<{ id: string }[]>`SELECT a.id FROM platform_admins a JOIN auth_identities i ON i.id=a.identity_id WHERE a.identity_id=${actor.identityId} AND a.status='ACTIVE' AND i.status='ACTIVE' FOR SHARE OF i`;
       if (!active.length) throw Object.assign(new Error("Acesso negado."), { status: 403 });
       await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${`experiment-create:${actor.identityId}`},0))`;
       if (await tx.experimentInvitation.count({ where: { createdByIdentityId: actor.identityId, createdAt: { gte: new Date(Date.now() - 900000) } } }) >= 20) throw Object.assign(new Error("Limite de convites atingido. Aguarde 15 minutos."), { status: 429 });

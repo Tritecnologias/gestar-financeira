@@ -7,7 +7,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const actor = await experimentAdmin(); experimentSameOrigin(req);
     const { id } = await params;
     await prisma.$transaction(async tx => {
-      const active = await tx.$queryRaw<{ id: string }[]>`SELECT a.id FROM platform_admins a JOIN auth_identities i ON i.id=a.identity_id WHERE a.identity_id=${actor.identityId} AND a.status='ACTIVE' AND i.status='ACTIVE' FOR SHARE OF a,i`;
+      const active = await tx.$queryRaw<{ id: string }[]>`SELECT a.id FROM platform_admins a JOIN auth_identities i ON i.id=a.identity_id WHERE a.identity_id=${actor.identityId} AND a.status='ACTIVE' AND i.status='ACTIVE' FOR SHARE OF i`;
       if (!active.length) throw Object.assign(new Error("Acesso negado."), { status: 403 });
       const updated = await tx.experimentInvitation.updateMany({ where: { id, revokedAt: null }, data: { revokedAt: new Date() } });
       if (!updated.count && !await tx.experimentInvitation.findUnique({ where: { id }, select: { id: true } })) throw Object.assign(new Error("Convite não encontrado."), { status: 404 });
