@@ -13,6 +13,12 @@ Autorização de Ricardo: tabela independente, adequação de backup/migration, 
 
 Fechar ou usar Escape não confirma nem recusa boas-vindas. Cada abertura do link original ativo sem confirmação reabre automaticamente o modal, mesmo com interesse já registrado. Retomar boas-vindas revalida e reabre na página atual. Retorno pelo cache de navegação também revalida; não remover DOM/token de memória no pagehide. Nenhum token é persistido em localStorage/sessionStorage/cookies.
 
+## Consulta administrativa
+
+O topo, a criação e os filtros permanecem fora da rolagem interna da tabela; os títulos das colunas são fixos. Em telas baixas (até 700px de altura, inclusive zoom elevado), a página também pode rolar para manter os controles acessíveis por toque/teclado. A busca por nome (sem distinção de acentos/maiúsculas) e referência atua nos últimos 100 convites carregados. Situação e manifestação de interesse são filtros independentes e combináveis; atualizar a lista preserva esses filtros e a busca na sessão da página. Cancelados ficam ao final, preservando a ordem do servidor dentro de cada grupo.
+
+Interesse é uma informação separada da validade: pílula verde quando registrado e amarela quando aguardando. A confirmação de cancelamento usa modal nativo pequeno, nome explícito, foco inicial em Voltar, navegação por Tab e fechamento por Escape sem cancelar. Confirmar mantém o registro, invalida o link pelo endpoint existente e atualiza a tabela. Esses refinamentos não incluem migration, alteração de API ou mudança na criptografia/backup.
+
 ## Recuperação cifrada e custódia — LOCAL/HOMOLOG
 
 O hash SHA-256 permanece como validador. A coluna nullable `encrypted_token` guarda somente envelope AES-256-GCM: chave de 256 bits própria de cada ambiente, nonce aleatório de 96 bits, tag de 128 bits, versão e ID da chave. AAD vincula o envelope ao ID e ao hash do convite; a recuperação valida novamente o hash. Nenhum token é armazenado em texto puro. Criar não devolve link; somente POST explícito de PlatformAdmin ativo em `.../[id]/link` devolve o link, com no-store e Origin verificado. Listagem devolve somente flags de disponibilidade, sem token/hash/cifra.
