@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "ed17a4407949479ca1d8407feeef8704bd9e0451",
+  "hashes": {
+    "index.html": "901f63f15b434a5fd61317b297496040f79987f25f50a47f400b44f7c74e7641",
+    "styles.css": "0883bcf5617309fbd1502eb77bd492899fdd5e7b78a02a7237c9ae8b3bfc5e47",
+    "brand-approved.png": "5d7a630d7997af3a9f279ee8909588703b521b76cf3b71aaf481adfc9d828caf",
+    "favicon.svg": "a7e9b576bf1bbb55579004b97aa8177896335f2c27eba5d2070fb7470a9b32ae",
+    "icons/dez-symbol-16.png": "224014098b38df1fb68fcadd53f2709a94cb45a47c398a9a70ed4a9094873166",
+    "icons/dez-symbol-32.png": "a8a6332e657f3230013dd63cf68a290c9d79a886a64dff7f14753a1ce3c0b5f8",
+    "icons/dez-symbol-48.png": "33577ca9150ba8a4792a387746eb7dd29fcd10809f6a26fd6b659dec4a8090a1",
+    "icons/dez-symbol-192.png": "40e364f9fdd908689f43ee0f48b32f6d94b71d1bee2e78261b193550507a9249",
+    "icons/dez-symbol-512.png": "3707aaaa29904f75641489e6f3a4443066e72532760311f069ddbc8b9cdfe93b"
+  }
+}

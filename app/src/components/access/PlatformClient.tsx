@@ -25,7 +25,7 @@ async function read<T>(url: string): Promise<T> {
   return body;
 }
 
-export default function PlatformClient({ supportOperator = false }: { supportOperator?: boolean }) {
+export default function PlatformClient({ supportOperator = false, experimentPilot = false }: { supportOperator?: boolean; experimentPilot?: boolean }) {
   const [tab, setTab] = useState<Tab>("tenants");
   const [query, setQuery] = useState("");
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -132,7 +132,7 @@ export default function PlatformClient({ supportOperator = false }: { supportOpe
   return <main className="access-page access-platform">
     <header className="access-header"><div><h1>Administração da Plataforma</h1>
       <p>Empresas, contas e vínculos de acesso. Os dados de cada empresa exigem acesso autorizado.</p></div>
-      <div className="access-header-actions"><Link href="/minha-conta" className="access-button access-button-secondary">Minha conta</Link><AppearanceButton />
+      <div className="access-header-actions"><Link href="/minha-conta" className="access-button access-button-secondary">Minha conta</Link>{experimentPilot && <Link href="/plataforma/convites-especiais" className="access-button access-button-secondary">Convites Especiais</Link>}<AppearanceButton />
         {supportOperator && <Link href="/suporte" className="access-button access-button-secondary">Área de Suporte</Link>}
         <Link href="/plataforma/auditoria" className="access-button access-button-secondary">Auditoria da Plataforma</Link>
         <Link href="/plataforma/termos" className="access-button access-button-secondary">Termos e Políticas</Link>

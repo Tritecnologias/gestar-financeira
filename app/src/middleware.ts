@@ -10,7 +10,9 @@ export async function middleware(req: NextRequest) {
   const isActivation = pathname === "/primeiro-acesso" || pathname === "/ativar-acesso" || pathname === "/api/access/invitations/inspect" ||
     pathname === "/api/access/invitations/accept";
   const isStatic = pathname.startsWith("/_next") || pathname.startsWith("/favicon");
-  const isPublic = isAuthPage || isApiAuth || isStatic || isActivation;
+  // Public preview endpoints never grant authentication; their own runtime gate fails closed outside LOCAL/HOMOLOG.
+  const isExperiment = pathname === "/experimentacao" || pathname === "/experimentacao/pilot.js" || pathname === "/experimentacao/pilot.css" || pathname.startsWith("/experimentacao/assets/") || pathname === "/api/experimentacao";
+  const isPublic = isAuthPage || isApiAuth || isStatic || isActivation || isExperiment;
 
   // Rate limiting na rota de login (proteção contra brute-force).
   // ⚠️ Limitação: o contador vive em memória do processo. Funciona bem em

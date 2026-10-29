@@ -4,7 +4,7 @@ import { join, isAbsolute } from 'node:path';
 import { TABLES, REFERENCE_TABLES, COLUMNS, FOREIGN_KEYS } from './catalog.mjs';
 import { VERSION, MAX_BYTES, canonical, digest, fail, validate } from './format.mjs';
 import { authenticateBackup, verifyProvenance, HISTORICAL_RELATIONS } from './provenance.mjs';
-import { assertBackupMigrations } from './schema-contract.mjs';
+import { assertBackupMigrations, compatibleBackupMigrations } from './schema-contract.mjs';
 
 const qi = name => '"' + name.replaceAll('"', '""') + '"';
 async function rows(db, sql, args = []) { return (await db.query(sql, args)).rows; }
@@ -85,7 +85,7 @@ async function snapshot(db, tenantId, config) {
 }
 function stateDigest(b) { return digest({ tenant: b.tenant, sections: b.sections, references: b.references, files: b.files, migrations: b.migrations }); }
 async function compatible(db, backup, current, proof, hold = false) {
-  if (digest(backup.migrations) !== digest(current.migrations)) fail('SCHEMA_VERSION', 'Migrations incompatíveis com este backup.', 409);
+  if (!compatibleBackupMigrations(backup.migrations, current.migrations)) fail('SCHEMA_VERSION', 'Migrations incompatíveis com este backup.', 409);
   if (digest(backup.references) !== digest(current.references)) fail('RECONCILIATION', 'Perfis, vínculos ou referências de identidade divergiram. Reconciliação administrativa necessária; nenhum acesso será recriado.', 409);
   // Validate immutable file metadata against DB; uploaded names/hashes cannot redirect file reads.
   const manifest = new Map(current.files.map(f => [f.id, f]));

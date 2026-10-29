@@ -127,8 +127,26 @@ model AuthIdentity {
   acceptedAccess AccessInvite[] @relation("InviteAcceptor")
   revokedAccess AccessInvite[] @relation("InviteRevoker")
   importOperations ImportOperation[]
+  experimentInvitations ExperimentInvitation[]
 
   @@map("auth_identities")
+}
+
+// Global pilot invitation. Never an authorization, tenant or contractual acceptance.
+model ExperimentInvitation {
+  id String @id @default(uuid())
+  recipientName String @map("recipient_name")
+  tokenHash String @unique @map("token_hash")
+  createdByIdentityId String @map("created_by_identity_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  viewedAt DateTime? @map("viewed_at")
+  acknowledgedAt DateTime? @map("acknowledged_at")
+  interestAt DateTime? @map("interest_at")
+  creator AuthIdentity @relation(fields: [createdByIdentityId], references: [id], onDelete: Restrict)
+  @@index([createdAt(sort: Desc)])
+  @@map("experiment_invitations")
 }
 
 model TenantMembership {
