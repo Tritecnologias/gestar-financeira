@@ -7,6 +7,12 @@ export type InvitationSituation = "ALL" | "ACTIVE" | "REVOKED" | "EXPIRED";
 export type InvitationInterest = "ALL" | "REGISTERED" | "WAITING";
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").trim();
 
+export function experimentSituationTone(row: Pick<ExperimentAdminItem, "status" | "interestAt">) {
+  if (row.status === "REVOKED") return "danger";
+  if (row.status === "EXPIRED") return "muted";
+  return row.interestAt ? "success" : "warning";
+}
+
 export function selectExperimentInvitations(rows: ExperimentAdminItem[], query: string, situation: InvitationSituation, interest: InvitationInterest, now: number) {
   const search = normalize(query);
   return rows.map(row => ({
