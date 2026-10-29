@@ -28,4 +28,5 @@ test('cancelled/expired link cannot open and invalidation while suspended closes
 test('plain preview does not render invitation UI or make requests; table replaces temporary share panel',async()=>{
  const f=fixture({hash:''});await flush();assert.equal(f.nodes.length,0);assert.equal(f.requests.length,0);
  const ui=readFileSync(new URL('../src/components/access/ExperimentInvitationsClient.tsx',import.meta.url),'utf8');assert(ui.includes('<table'));assert(!ui.includes('<article'));assert(!ui.includes('Copiar e testar o convite'));assert(ui.includes('experiment-pill-success'));assert(ui.includes('Confirmar cancelamento'));
+ assert(!/<form(?![^>]*method="post")/.test(ui),'even before hydration no form can submit names or original tokens in a GET URL');assert(ui.includes('disabled={!ready || busy}'));
 });
