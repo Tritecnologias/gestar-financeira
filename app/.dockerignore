@@ -14,6 +14,8 @@
 !prisma/schema.prisma
 !prisma/migrations/
 !prisma/migrations/**
+!prisma/production-migrations/
+!prisma/production-migrations/**
 !scripts/
 !scripts/secure-build/
 !scripts/secure-build/**

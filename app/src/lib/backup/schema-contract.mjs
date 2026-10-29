@@ -12,7 +12,9 @@ export const PRE_EXPERIMENT_MIGRATIONS = Object.freeze([BASELINE_MIGRATION, ADVI
 export const EXPERIMENT_LEDGER4 = Object.freeze([...PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_MIGRATION]);
 export const EXPERIMENT_LINK_MIGRATION = Object.freeze({ name: '20261029_z_experiment_link_recovery', sha256: 'c7d2a402dad95beaa5c77d1a8303c10a088819941af4566b364547106d8ae284' });
 export const REQUIRED_MIGRATIONS = Object.freeze([...EXPERIMENT_LEDGER4, EXPERIMENT_LINK_MIGRATION]);
-const APPROVED_LEDGERS = [PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_LEDGER4, REQUIRED_MIGRATIONS];
+export const PRODUCTION_EXPERIMENT_MIGRATION = Object.freeze({ name: '20261030_prod_experiment_invitations', sha256: '4c3f8a863f74e2c311cf42d6982be4880aa8f08d4c3812614260e69356a6af6e' });
+export const PRODUCTION_MIGRATIONS = Object.freeze([...PRE_EXPERIMENT_MIGRATIONS, PRODUCTION_EXPERIMENT_MIGRATION]);
+const APPROVED_LEDGERS = [PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_LEDGER4, REQUIRED_MIGRATIONS, PRODUCTION_MIGRATIONS];
 export const BACKUP_MIGRATIONS = Object.freeze(REQUIRED_MIGRATIONS.map(m => m.name));
 
 /** A count alone cannot prove the required migrations or the new SQL's checksum. */
@@ -31,5 +33,7 @@ export function assertBackupMigrations(migrations, pending) {
 export function compatibleBackupMigrations(backup, current) {
   const from = APPROVED_LEDGERS.findIndex(expected => matches(backup, expected));
   const to = APPROVED_LEDGERS.findIndex(expected => matches(current, expected));
-  return from >= 0 && to >= from;
+  if (from < 0 || to < 0) return false;
+  // A real production history is distinct from the pilot. Never cross or reverse profiles.
+  return from === to || (from === 0 && [1, 2, 3].includes(to)) || (from === 1 && to === 2);
 }

@@ -18,11 +18,13 @@ RUN node node_modules/typescript/bin/tsc --noEmit
 
 # Assemble and verify BEFORE any app artifact is copied into the runtime layers.
 FROM builder AS artifact
+ARG DEPLOYMENT_PROFILE=homolog
 RUN mkdir /runtime && cp -a .next/standalone/. /runtime/ && \
     mkdir -p /runtime/.next && cp -a .next/static /runtime/.next/static && \
     mkdir -p /runtime/public /runtime/prisma && \
     cp -a public/. /runtime/public/ && cp -a prisma/. /runtime/prisma/ && \
     cp build-metadata.json /runtime/build-metadata.json
+RUN node scripts/secure-build/prepare-profile.mjs /runtime "$DEPLOYMENT_PROFILE"
 # Keep the existing Prisma CLI/adapter deployment capability, prune development deps.
 RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund && \
     rm -rf /runtime/node_modules && cp -a node_modules /runtime/node_modules
@@ -32,12 +34,15 @@ FROM node:20.20.2-alpine3.23@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632
 WORKDIR /app
 ARG SOURCE_COMMIT
 ARG SOURCE_BRANCH=homologacao
+ARG DEPLOYMENT_PROFILE=homolog
 LABEL org.opencontainers.image.source="https://github.com/Tritecnologias/gestar-financeira" \
       org.opencontainers.image.revision="$SOURCE_COMMIT" \
       com.dezsolucoes.source.branch="$SOURCE_BRANCH" \
-      org.opencontainers.image.version="0.1.0"
+      org.opencontainers.image.version="0.1.0" \
+      com.dezsolucoes.deployment.profile="$DEPLOYMENT_PROFILE"
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 ENV SOURCE_COMMIT=$SOURCE_COMMIT SOURCE_BRANCH=$SOURCE_BRANCH
+ENV DEPLOYMENT_PROFILE=$DEPLOYMENT_PROFILE
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=artifact --chown=nextjs:nodejs /runtime/ ./
 USER nextjs
