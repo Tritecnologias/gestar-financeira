@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PasswordInput from "@/components/ui/PasswordInput";
 import Link from "next/link";
+import { PlatformIdentityMark, HomologIdentityBadge } from "@/components/identity/EnvironmentIdentity";
 
 function LoginForm() {
   const router = useRouter();
@@ -50,11 +51,11 @@ function LoginForm() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <span className="logo-icon">💼</span>
+          <span className="logo-icon"><PlatformIdentityMark size={32} /></span>
           <h1>
             Dez <strong>Soluções</strong>
           </h1>
-          <p>Sistema de Fluxo de Caixa</p>
+          <HomologIdentityBadge /><p>Sistema de Fluxo de Caixa</p>
         </div>
 
         {searchParams.get("notice") === "password-changed" && <p role="status">Senha alterada com sucesso. Entre com a nova senha.</p>}

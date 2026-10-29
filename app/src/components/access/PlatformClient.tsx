@@ -2,21 +2,17 @@
 import { messagePtBr } from "@/lib/presentation";
 import { AppearanceButton } from "@/components/appearance/AppearanceProvider";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { planLabel, roleLabel, statusLabel } from "@/lib/presentation";
 import InvitationShareDialog, { type InvitationShare } from "@/components/access/InvitationShareDialog";
 import "./access.css";
+import "./platform-hierarchy.css";
+import { platformHierarchy, type PlatformTenant as Tenant, type PlatformIdentity as Identity, type PlatformMembership as Membership } from "@/lib/platform-hierarchy";
+import { HomologIdentityBadge } from "@/components/identity/EnvironmentIdentity";
 
-type Tenant = { id: string; nome: string; slug: string; email: string; plano: string; ativo: boolean;
-  _count: { memberships: number }; activeOwnerCount: number; lastOwnerDesignationAt: string | null;
-  contractualResponsibleMembershipId: string | null; contractualResponsibleReady: boolean; contractualStatus: string };
-type Identity = { id: string; nome: string; email: string; status: string;
-  platformAdmin: { status: string } | null; memberships: { id: string; role: string; tenant: { nome: string } }[] };
-type Membership = { id: string; role: string; status: string; identity: { nome: string; email: string };
-  tenant: { id: string; nome: string }; profile: { nome: string } | null };
 type OwnerInvite = { id: string; name: string; email: string; status: string; expiresAt: string };
-type Tab = "tenants" | "identidades" | "vinculos";
+
 
 async function read<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: "no-store" });
@@ -26,13 +22,15 @@ async function read<T>(url: string): Promise<T> {
 }
 
 export default function PlatformClient({ supportOperator = false, experimentPilot = false }: { supportOperator?: boolean; experimentPilot?: boolean }) {
-  const [tab, setTab] = useState<Tab>("tenants");
+
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set()), [searchCollapsed, setSearchCollapsed] = useState<Set<string>>(() => new Set());
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"" | "create" | "edit" | "owner" | "responsible">("");
   const [selected, setSelected] = useState<Tenant | null>(null);
   const [tenantForm, setTenantForm] = useState({ nome: "", email: "", plano: "trial" });
@@ -42,8 +40,16 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
   const [deliveryNotice, setDeliveryNotice] = useState("");
   const [ownerInvites, setOwnerInvites] = useState<OwnerInvite[]>([]);
   const [responsibleMembershipId, setResponsibleMembershipId] = useState("");
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!mode) return;
+    const element = dialog.current, opener = document.activeElement as HTMLElement | null;
+    element?.showModal(); element?.querySelector<HTMLButtonElement>('[data-dialog-back]')?.focus();
+    return () => { element?.close(); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
+  }, [mode]);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const [t, i, m] = await Promise.all([
         read<Tenant[]>("/api/platform/tenants"), read<Identity[]>("/api/platform/identities"),
@@ -51,15 +57,15 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
       ]);
       setTenants(t); setIdentities(i); setMemberships(m); setError("");
     } catch (cause) { setError((cause as Error).message); }
+    finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  const shown = useMemo(() => {
-    const q = query.toLocaleLowerCase("pt-BR");
-    if (tab === "tenants") return tenants.filter(t => `${t.nome} ${t.slug} ${t.email}`.toLocaleLowerCase("pt-BR").includes(q));
-    if (tab === "identidades") return identities.filter(i => `${i.nome} ${i.email}`.toLocaleLowerCase("pt-BR").includes(q));
-    return memberships.filter(m => `${m.identity.nome} ${m.identity.email} ${m.tenant.nome} ${m.profile?.nome ?? ""}`.toLocaleLowerCase("pt-BR").includes(q));
-  }, [tab, query, tenants, identities, memberships]);
+  const shown = useMemo(() => platformHierarchy(tenants, identities, memberships, query), [query, tenants, identities, memberships]);
+  function toggleGroup(id: string) {
+    const update = (old: Set<string>) => { const next = new Set(old); if (next.has(id)) next.delete(id); else next.add(id); return next; };
+    if (query.trim()) setSearchCollapsed(update); else setExpanded(update);
+  }
 
   async function submit() {
     if (mode === "owner" && !window.confirm(`Designar ${ownerForm.email} como Proprietário de ${selected?.nome}? Esta ação concede administração essencial da empresa e será registrada.`)) return;
@@ -88,8 +94,8 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
     finally { setBusy(false); }
   }
 
-  async function openOwner(t: Tenant) {
-    setShare(null); setSelected(t); setOwnerForm({ nome: "", email: "" }); setError(""); setMode("owner");
+  async function openOwner(t: Tenant, candidate?: Membership) {
+    setOwnerInvites([]); setShare(null); setSelected(t); setOwnerForm({ nome: "", email: candidate?.identity.email ?? "" }); setError(""); setMode("owner");
     try { setOwnerInvites(await read<OwnerInvite[]>(`/api/platform/tenants/${t.id}/owner-invitations`)); }
     catch (cause) { setError((cause as Error).message); }
   }
@@ -129,52 +135,59 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
     finally { setBusy(false); }
   }
 
-  return <main className="access-page access-platform">
-    <header className="access-header"><div><h1>Administração da Plataforma</h1>
+  return <main className="access-page access-platform platform-hierarchy">
+    <header className="access-header"><div><h1>Administração da Plataforma</h1><HomologIdentityBadge />
       <p>Empresas, contas e vínculos de acesso. Os dados de cada empresa exigem acesso autorizado.</p></div>
-      <div className="access-header-actions"><Link href="/minha-conta" className="access-button access-button-secondary">Minha conta</Link>{experimentPilot && <Link href="/plataforma/convites-especiais" className="access-button access-button-secondary">Convites Especiais</Link>}<AppearanceButton />
+      <div className="access-header-actions"><Link href="/minha-conta" className="access-button access-button-secondary">Minha conta</Link><AppearanceButton />
         {supportOperator && <Link href="/suporte" className="access-button access-button-secondary">Área de Suporte</Link>}
         <Link href="/plataforma/auditoria" className="access-button access-button-secondary">Auditoria da Plataforma</Link>
         <Link href="/plataforma/termos" className="access-button access-button-secondary">Termos e Políticas</Link>
         <Link href="/selecionar-tenant" className="access-button access-button-secondary">Selecionar empresa</Link></div>
     </header>
-    <div className="access-toolbar">
-      <div className="access-tabs" role="tablist" aria-label="Administração da plataforma">
-        {(["tenants", "identidades", "vinculos"] as const).map(key =>
-          <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""}
-            onClick={() => { setShare(null); setTab(key); setQuery(""); }}>{key === "vinculos" ? "Vínculos com a Empresa" : key === "tenants" ? "Empresas" : "Contas"}</button>)}
-      </div>
-      <input aria-label="Buscar registros" placeholder="Buscar por nome ou email" value={query} onChange={e => setQuery(e.target.value)} />
-      {tab === "tenants" && <button type="button" className="access-button access-button-primary" onClick={() => {
-        setTenantForm({ nome: "", email: "", plano: "trial" }); setMode("create");
-      }}>+ Nova empresa</button>}
+    <div className="access-toolbar platform-global-toolbar">
+      <label>Busca global<input type="search" aria-label="Busca global da administração" placeholder="Empresa, conta, nome, e-mail ou vínculo" autoComplete="off" value={query} onChange={e => { setQuery(e.target.value); setSearchCollapsed(new Set()); }} /></label>
+      <button type="button" className="access-button access-button-primary" onClick={() => { setTenantForm({ nome: "", email: "", plano: "trial" }); setError(""); setMode("create"); }}>+ Criar tenant manual</button>
+      {experimentPilot && <Link href="/plataforma/convites-especiais" className="access-button access-button-secondary">+ Convites Especiais</Link>}
     </div>
     {error && <p className="access-error" role="alert">{messagePtBr(error)}</p>}
     {deliveryNotice && <p className="access-hint" role="status">{deliveryNotice}</p>}
     {share && <InvitationShareDialog invitation={share} onClose={closeShare} />}
-    <div className="access-table-wrap"><table className="access-table"><thead><tr>
-      {tab === "tenants" ? <><th>Empresa</th><th>Email</th><th>Plano</th><th>Status</th><th>Vínculos</th><th>Ações</th></>
-        : tab === "identidades" ? <><th>Conta</th><th>Email</th><th>Status</th><th>Administrador da Plataforma</th><th>Empresas</th></>
-        : <><th>Conta</th><th>Empresa</th><th>Função</th><th>Perfil</th><th>Status</th></>}
-    </tr></thead><tbody>
-      {tab === "tenants" && (shown as Tenant[]).map(t => <tr key={t.id}><td><strong>{t.nome}</strong><small>{t.slug}</small></td>
-        <td>{t.email}</td><td>{planLabel(t.plano)}</td><td>{t.ativo ? "Ativo" : "Inativo"}
-          {t.activeOwnerCount === 0 && <small className="access-warning">Sem Proprietário ativo · designação necessária</small>}
-          <small className={t.contractualStatus === "Contrato ativo" ? "access-hint" : "access-warning"}>{t.contractualStatus}</small>
-          {t.lastOwnerDesignationAt && <small>Última designação: {new Date(t.lastOwnerDesignationAt).toLocaleDateString("pt-BR")}</small>}</td><td>{t._count.memberships}</td>
-        <td className="access-actions"><button onClick={() => edit(t)}>Editar</button><button disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button>
-          <button onClick={() => void openOwner(t)}>
-            {t.activeOwnerCount ? "Adicionar Proprietário" : "Designar Proprietário"}
-          </button><button onClick={() => { setSelected(t); setResponsibleMembershipId(t.contractualResponsibleMembershipId || ""); setMode("responsible"); }}>Responsável contratual</button></td></tr>)}
-      {tab === "identidades" && (shown as Identity[]).map(i => <tr key={i.id}><td><strong>{i.nome}</strong></td><td>{i.email}</td>
-        <td>{statusLabel(i.status)}</td><td>{i.platformAdmin?.status === "ACTIVE" ? "Sim" : "Não"}</td>
-        <td>{i.memberships.map(m => `${m.tenant.nome} (${roleLabel(m.role)})`).join(", ") || "—"}</td></tr>)}
-      {tab === "vinculos" && (shown as Membership[]).map(m => <tr key={m.id}><td><strong>{m.identity.nome}</strong><small>{m.identity.email}</small></td>
-        <td>{m.tenant.nome}</td><td>{roleLabel(m.role)}</td><td>{m.profile?.nome ?? "Sem perfil"}</td><td>{statusLabel(m.status)}</td></tr>)}
-      {!shown.length && <tr><td colSpan={6} className="access-empty">Nenhum registro encontrado.</td></tr>}
-    </tbody></table></div>
-    {mode && <div className="access-modal-backdrop" role="presentation"><section className="access-modal" role="dialog" aria-modal="true" aria-labelledby="platform-modal-title">
-      <h2 id="platform-modal-title">{mode === "responsible" ? `Responsável contratual · ${selected?.nome}` : mode === "owner" ? `Adicionar Proprietário · ${selected?.nome}` : mode === "edit" ? "Editar empresa" : "Nova empresa"}</h2>
+    <section aria-labelledby="platform-companies-title"><h2 id="platform-companies-title" className="platform-section-title">Empresas e contas vinculadas</h2>
+      <p className="access-hint" role="status">{loading ? "Carregando catálogo administrativo…" : `${shown.groups.length} de ${tenants.length} empresas. Expanda uma empresa para consultar suas contas, papéis e perfis.`}</p>
+      <div className="access-table-wrap platform-company-scroll" role="region" aria-label="Empresas e vínculos" tabIndex={0}><table className="access-table platform-company-table"><caption>Empresas e relações administrativas</caption><thead><tr><th scope="col">Empresa</th><th scope="col">E-mail administrativo</th><th scope="col">Plano</th><th scope="col">Situação</th><th scope="col">Vínculos</th><th scope="col">Ações</th></tr></thead><tbody>
+      {shown.groups.map(({ tenant: t, memberships: members, totalMemberships }) => {
+        const open = query.trim() ? !searchCollapsed.has(t.id) : expanded.has(t.id);
+        return <Fragment key={t.id}><tr><th scope="row"><button type="button" className="platform-expand" aria-expanded={open} aria-controls={`platform-members-${t.id}`} aria-label={`${open ? "Recolher" : "Expandir"} contas de ${t.nome}`} onClick={() => toggleGroup(t.id)}><span aria-hidden="true">{open ? "▾" : "▸"}</span><span><strong>{t.nome}</strong><small>{t.slug}</small></span></button></th>
+          <td className="platform-email">{t.email}</td><td>{planLabel(t.plano)}</td><td><span className={`platform-state ${t.ativo ? "platform-state-active" : "platform-state-inactive"}`}>{t.ativo ? "Ativo" : "Inativo"}</span>
+            {t.activeOwnerCount === 0 && <small className="access-warning">Sem Proprietário ativo · designação necessária</small>}
+            <small className={t.contractualStatus === "Contrato ativo" ? "access-hint" : "access-warning"}>{t.contractualStatus}</small>
+            {t.lastOwnerDesignationAt && <small>Última designação: {new Date(t.lastOwnerDesignationAt).toLocaleDateString("pt-BR")}</small>}</td><td>{query.trim() && members.length !== totalMemberships ? `${members.length} de ${totalMemberships}` : totalMemberships}</td>
+          <td><div className="platform-tenant-actions"><button type="button" disabled={busy} className="platform-action platform-action-edit" aria-label={`Editar empresa ${t.nome}`} title="Editar empresa" onClick={() => edit(t)}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="m16 3 5 5-12 12H4v-5L16 3Zm-1 4 2 2M3 22h18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+            <button type="button" className={`platform-action ${t.ativo ? "platform-action-danger" : "platform-action-warning"}`} disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button>
+            <button type="button" disabled={busy} className="platform-action platform-action-neutral" onClick={() => void openOwner(t)}>{t.activeOwnerCount ? "Adicionar Proprietário" : "Designar Proprietário"}</button>
+            <button type="button" disabled={busy} className="platform-action platform-action-neutral" onClick={() => { setSelected(t); setResponsibleMembershipId(t.contractualResponsibleMembershipId || ""); setError(""); setMode("responsible"); }}>Responsável contratual</button></div></td></tr>
+          {open && <tr className="platform-detail-row"><td colSpan={6}><section id={`platform-members-${t.id}`} aria-label={`Contas vinculadas a ${t.nome}`}><h3>Contas vinculadas · {t.nome}</h3>
+            <div className="access-table-wrap" role="region" aria-label={`Vínculos de ${t.nome}`} tabIndex={0}><table className="access-table platform-member-table"><caption>Contas, funções e perfis em {t.nome}</caption><thead><tr><th scope="col">Conta global</th><th scope="col">Função no tenant</th><th scope="col">Perfil de acesso</th><th scope="col">Situação do vínculo</th><th scope="col">Ações administrativas</th></tr></thead><tbody>
+            {members.map(m => { const identity = shown.accountById.get(m.identity.id); return <tr key={m.id}><th scope="row"><strong>{m.identity.nome}</strong><small className="platform-email">{m.identity.email}</small><small>Conta: {statusLabel(identity?.status ?? "")}{identity?.platformAdmin ? ` · PlatformAdmin ${statusLabel(identity.platformAdmin.status).toLowerCase()}` : ""}</small></th>
+              <td>{roleLabel(m.role)}</td><td>{m.profile?.nome ?? "Sem perfil"}</td><td><span className={`platform-state ${m.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(m.status)}</span><small>Referência: {m.id.slice(0, 8)}</small></td>
+              <td>{m.role === "OWNER" && m.status === "ACTIVE" ? t.contractualResponsibleMembershipId === m.id ? <span className="access-hint">Responsável contratual atual</span> : <button type="button" className="platform-action platform-action-neutral" onClick={() => { setSelected(t); setResponsibleMembershipId(m.id); setError(""); setMode("responsible"); }}>Responsável contratual</button>
+                : <button type="button" className="platform-action platform-action-neutral" onClick={() => void openOwner(t, m)}>{t.activeOwnerCount ? "Adicionar Proprietário" : "Designar Proprietário"}</button>}</td></tr>; })}
+            {!members.length && <tr><td colSpan={5} className="access-empty">{query.trim() ? "Nenhum vínculo corresponde à busca nesta empresa." : "Esta empresa ainda não possui contas vinculadas."}</td></tr>}
+            </tbody></table></div></section></td></tr>}
+        </Fragment>;
+      })}
+      {!shown.groups.length && <tr><td colSpan={6} className="access-empty">{loading ? "Carregando empresas…" : "Nenhuma empresa ou conta vinculada corresponde à busca."}</td></tr>}
+      </tbody></table></div>
+    </section>
+    <section className="platform-global-accounts" aria-labelledby="platform-global-accounts-title"><h2 id="platform-global-accounts-title" className="platform-section-title">Contas globais sem vínculo empresarial</h2>
+      <p className="access-hint">Inclui PlatformAdmins sem membership. A administração da plataforma não concede acesso automático aos dados operacionais das empresas.</p>
+      <div className="access-table-wrap" role="region" aria-label="Contas globais sem vínculo empresarial" tabIndex={0}><table className="access-table platform-unlinked-table"><caption>Identidades globais sem vínculo empresarial</caption><thead><tr><th scope="col">Conta</th><th scope="col">E-mail</th><th scope="col">Situação da conta</th><th scope="col">Administrador da Plataforma</th><th scope="col">Acesso empresarial</th></tr></thead><tbody>
+        {shown.unlinked.map(i => <tr key={i.id}><th scope="row">{i.nome}</th><td className="platform-email">{i.email}</td><td><span className={`platform-state ${i.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(i.status)}</span></td><td>{i.platformAdmin ? <span className={`platform-state ${i.platformAdmin.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(i.platformAdmin.status)}</span> : "Não"}</td><td>Sem vínculo empresarial</td></tr>)}
+        {!shown.unlinked.length && <tr><td colSpan={5} className="access-empty">{loading ? "Carregando contas globais…" : query.trim() ? "Nenhuma conta sem vínculo corresponde à busca." : "Nenhuma conta global sem vínculo empresarial."}</td></tr>}
+      </tbody></table></div>
+    </section>
+    {mode && <dialog ref={dialog} className="access-modal platform-admin-dialog" aria-labelledby="platform-modal-title" onCancel={e => { e.preventDefault(); if (!busy) setMode(""); }} onKeyDown={e => { if (e.key !== "Tab") return; const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled),select:not(:disabled),a[href]")); const first = items[0], last = items[items.length - 1]; if (!first) { e.preventDefault(); return; } if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }}>
+      <h2 id="platform-modal-title">{mode === "responsible" ? `Responsável contratual · ${selected?.nome}` : mode === "owner" ? `${selected?.activeOwnerCount ? "Adicionar" : "Designar"} Proprietário · ${selected?.nome}` : mode === "edit" ? "Editar empresa" : "Criar tenant manual"}</h2>
       {mode === "responsible" ? <><p className="access-hint">Escolha explicitamente um Proprietário ativo desta empresa. O vínculo designado será o único autorizado a aceitar o termo do contratante.</p>
         <label>Proprietário responsável<select value={responsibleMembershipId} onChange={event => setResponsibleMembershipId(event.target.value)}>
           <option value="">Selecione</option>{memberships.filter(m => m.tenant.id === selected?.id && m.role === "OWNER" && m.status === "ACTIVE").map(m =>
@@ -205,8 +218,8 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
           <option value="trial">Período de teste</option><option value="mensal">Mensal</option><option value="anual">Anual</option></select></label>
       </>}
       {error && <p role="alert" className="access-error">{messagePtBr(error)}</p>}
-      <div className="access-modal-actions"><button className="access-button access-button-secondary" onClick={() => setMode("")}>Cancelar</button>
+      <div className="access-modal-actions"><button type="button" data-dialog-back disabled={busy} className="access-button access-button-secondary" onClick={() => setMode("")}>Cancelar</button>
         <button className="access-button access-button-primary" disabled={busy} onClick={submit}>{busy ? "Aguarde…" : "Confirmar"}</button></div>
-    </section></div>}
+    </dialog>}
   </main>;
 }

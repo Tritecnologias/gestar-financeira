@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 test('approved circular blue artwork is embedded without changing its pixels', () => {
-  const svg = readFileSync('public/favicon.svg', 'utf8');
+  const svg = readFileSync('public/brand/dez-blue.svg', 'utf8');
   const embedded = svg.match(/data:image\/png;base64,([A-Za-z0-9+/=]+)/);
   assert.ok(embedded);
   const png = Buffer.from(embedded[1], 'base64');
@@ -15,7 +15,7 @@ test('approved circular blue artwork is embedded without changing its pixels', (
 });
 
 test('ICO fallback has transparent 32-bit frames for 16/32/48 pixel tabs', () => {
-  const ico = readFileSync('src/app/favicon.ico');
+  const ico = readFileSync('public/brand/dez-blue.ico');
   assert.equal(ico.readUInt16LE(2), 1);
   assert.equal(ico.readUInt16LE(4), 3);
   for (const [index, size] of [16, 32, 48].entries()) {

@@ -1,5 +1,6 @@
 "use client";
 import { AppearanceButton } from "@/components/appearance/AppearanceProvider";
+import { PlatformIdentityMark } from "@/components/identity/EnvironmentIdentity";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -372,7 +373,7 @@ export default function Sidebar({ userNome, userPapel, tenantNome, tenantLogoUrl
               />
             ) : (
               <>
-                <span className="sb-logo-icon">💼</span>
+                <span className="sb-logo-icon"><PlatformIdentityMark /></span>
                 <span className="sb-logo-text">
                   Dez <strong>Soluções</strong>
                 </span>
