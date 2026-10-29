@@ -6,7 +6,8 @@
   history.replaceState(null, '', location.pathname + location.search);
   const panel = document.createElement('section'); panel.className = 'dez-pilot-panel';
   panel.setAttribute('aria-label', 'Convite especial de experimentação');
-  panel.innerHTML = '<strong>Experiência de HOMOLOG · Convite especial</strong><p class="dez-pilot-result" role="status" aria-live="polite"></p><button class="dez-pilot-resume" type="button" hidden>Retomar boas-vindas</button> <button class="dez-pilot-interest" type="button" hidden>Quero experimentar a plataforma</button><p class="dez-pilot-note">Este convite não cria conta ou acesso e não substitui os termos. Nenhum e-mail será enviado.</p>';
+  panel.innerHTML = '<strong></strong><p class="dez-pilot-result" role="status" aria-live="polite"></p><button class="dez-pilot-resume" type="button" hidden>Retomar boas-vindas</button> <button class="dez-pilot-interest" type="button" hidden>Quero experimentar a plataforma</button><p class="dez-pilot-note">Este convite não cria conta ou acesso e não substitui os termos. Nenhum e-mail será enviado.</p>';
+  panel.querySelector('strong').textContent = document.currentScript?.getAttribute('data-environment') === 'homolog' ? 'HOMOLOG · Convite especial' : 'DEZ Soluções · Convite especial';
   document.body.append(panel);
   const result = panel.querySelector('.dez-pilot-result'), interest = panel.querySelector('.dez-pilot-interest'), resume = panel.querySelector('.dez-pilot-resume');
   let pending = true, available = false, interested = false;
@@ -15,7 +16,7 @@
     const response = await fetch('/api/experimentacao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: sentToken, action: name }), credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer' });
     const body = await response.json();
     if (sentToken !== token) throw new Error('O convite foi alterado. Confira as boas-vindas atuais.');
-    if (!response.ok) { const error = new Error(response.status === 404 ? 'Convite indisponível, expirado ou cancelado. Você pode continuar conhecendo a DEZ.' : 'Não foi possível registrar. Tente novamente.'); error.unavailable = response.status === 404; throw error; }
+    if (!response.ok) { const error = new Error(response.status === 404 ? 'Convite indisponível, expirado ou cancelado. Você pode continuar conhecendo a DEZ.' : response.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' : 'Não foi possível registrar. Tente novamente.'); error.unavailable = response.status === 404; throw error; }
     return body;
   }
   const dialog = document.createElement('dialog'); dialog.className = 'dez-pilot-dialog';

@@ -7,7 +7,7 @@ import "./experiment-invitations.css";
 
 type Item = ExperimentAdminItem;
 const date = (value: string | null) => value ? new Date(value).toLocaleString("pt-BR") : "Ainda não";
-export default function ExperimentInvitationsClient() {
+export default function ExperimentInvitationsClient({ homolog = false }: { homolog?: boolean }) {
   const [rows, setRows] = useState<Item[]>([]), [name, setName] = useState(""), [hours, setHours] = useState("72");
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState(false), [cancelId, setCancelId] = useState("");
   const [bindId, setBindId] = useState(""), [originalLink, setOriginalLink] = useState("");
@@ -67,7 +67,7 @@ export default function ExperimentInvitationsClient() {
     catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
   const displayedRows = selectExperimentInvitations(rows, query, situation, interest, clock);
-  return <main className="access-page access-platform experiment-admin"><div className="experiment-admin-top"><header className="access-header"><div><h1>Convites Especiais</h1><p>Piloto de experimentação · LOCAL / HOMOLOG</p></div><Link href="/plataforma" className="access-button access-button-secondary">Administração da Plataforma</Link></header>
+  return <main className="access-page access-platform experiment-admin"><div className="experiment-admin-top"><header className="access-header"><div><h1>Convites Especiais</h1><p>{homolog ? "Convites de experimentação · HOMOLOG" : "Convites de experimentação"}</p></div><Link href="/plataforma" className="access-button access-button-secondary">Administração da Plataforma</Link></header>
     <p className="experiment-intro">Convide uma pessoa para conhecer a DEZ. Este convite não cria conta, empresa ou acesso à plataforma e não representa aceite contratual. Nenhum e-mail será enviado.</p>
     {error && <p role="alert" className="access-error">{error}</p>}<p role="status" aria-live="polite">{notice}</p>
     <section className="experiment-panel"><h2>Criar convite especial</h2><form method="post" onSubmit={create} className="experiment-form"><label>Nome do destinatário<input name="recipientName" required maxLength={160} value={name} onChange={e => setName(e.target.value)} autoComplete="off" /></label><label>Validade em horas<input name="hours" type="number" min="1" max="168" required value={hours} onChange={e => setHours(e.target.value)} /></label><button type="submit" className="access-button access-button-primary" disabled={!ready || busy}>{!ready || busy ? "Aguarde…" : "Criar convite"}</button></form></section>

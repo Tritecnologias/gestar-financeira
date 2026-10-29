@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
 import { experimentOrigin, experimentStatus } from "@/lib/experiment-policy";
+import { readExperimentBody } from "@/lib/experiment-request-body";
 
 export const EXPERIMENT_HEADERS = { "Cache-Control": "private, no-store, max-age=0", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow", "Vary": "Cookie, Origin" };
 export function experimentEnabled() {
@@ -20,12 +21,7 @@ export function experimentSameOrigin(req: Request) {
 }
 export const experimentToken = () => randomBytes(32).toString("base64url");
 export const experimentHash = (token: string) => createHash("sha256").update(token).digest("hex");
-export async function experimentBody(req: Request) {
-  const text = await req.text();
-  if (text.length > 2048) throw Object.assign(new Error("Requisição inválida."), { status: 413 });
-  try { const value = JSON.parse(text); if (!value || typeof value !== "object" || Array.isArray(value)) throw Error(); return value; }
-  catch { throw Object.assign(new Error("Requisição inválida."), { status: 400 }); }
-}
+export const experimentBody = readExperimentBody;
 export async function validExperiment(token: unknown) {
   if (typeof token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
   const row = await prisma.experimentInvitation.findUnique({ where: { tokenHash: experimentHash(token) } });
