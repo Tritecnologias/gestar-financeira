@@ -4,11 +4,12 @@ const {PrismaClient}=require('@prisma/client'),{PrismaPg}=require('@prisma/adapt
 async function main(){
  let raw='';for await(const chunk of process.stdin)raw+=chunk;const cfg=JSON.parse(raw);raw='';
  const db=new URL(process.env.DATABASE_URL);assert(cfg.base==='http://localhost:3023'&&db.hostname==='127.0.0.1'&&db.port==='55432'&&db.pathname==='/gestar_vf_dev');
+ const transport=cfg.transportBase??cfg.base;assert(transport===cfg.base||transport==='http://127.0.0.1:3022');
  assert(cfg.adminEmail==='dev18-admin@example.invalid'&&cfg.memberEmail==='dev18-member@example.invalid');
  const p=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})}),suffix=randomUUID().slice(0,8),checks=[];let step='start',last;
  const check=(name,value)=>{step=name;assert(value,name);checks.push(name);};
  async function q(j,path,method='GET',body){
-  const r=await fetch(cfg.base+path,{method,redirect:'manual',headers:{Origin:cfg.base,Cookie:[...j].map(([k,v])=>k+'='+v).join('; '),...(body===undefined?{}:{'Content-Type':body instanceof URLSearchParams?'application/x-www-form-urlencoded':'application/json'})},...(body===undefined?{}:{body:body instanceof URLSearchParams?body:JSON.stringify(body)})});
+  const r=await fetch(transport+path,{method,redirect:'manual',headers:{Origin:cfg.base,Host:new URL(cfg.base).host,Cookie:[...j].map(([k,v])=>k+'='+v).join('; '),...(body===undefined?{}:{'Content-Type':body instanceof URLSearchParams?'application/x-www-form-urlencoded':'application/json'})},...(body===undefined?{}:{body:body instanceof URLSearchParams?body:JSON.stringify(body)})});
   for(const c of r.headers.getSetCookie()){const pair=c.split(';')[0],i=pair.indexOf('=');j.set(pair.slice(0,i),pair.slice(i+1));}
   const b=r.headers.get('content-type')?.includes('json')?await r.json():await r.text();last={status:r.status,error:typeof b?.error==='string'?b.error.slice(0,160):undefined};return{status:r.status,body:b,headers:r.headers};
  }
@@ -34,7 +35,8 @@ async function main(){
   const identity=await p.authIdentity.findUniqueOrThrow({where:{email}}),ownMemberships=await p.tenantMembership.findMany({where:{identityId:identity.id}}),ma=ownMemberships.find(m=>m.tenantId===a.id),mb=ownMemberships.find(m=>m.tenantId===b.id);
   check('one global identity across multiple tenants',(await p.authIdentity.count({where:{email}}))===1&&ownMemberships.length===2);
   const owned=await p.tenant.findMany({where:{id:{in:[a.id,b.id]}},select:{nome:true}});assert(owned.length===2&&owned.every(t=>t.nome.startsWith('PLATFORM HIERARCHY QA ')));
-  const legacy=await p.legacyUserAccessMap.findUniqueOrThrow({where:{membershipId:mb.id}});
+  check('owned membership has exactly one explicit legacy mapping',await p.legacyUserAccessMap.count({where:{membershipId:mb.id,tenantId:b.id,identityId:identity.id}})===1);
+  const legacy=await p.legacyUserAccessMap.findFirstOrThrow({where:{membershipId:mb.id,tenantId:b.id,identityId:identity.id}});
   // Controlled initial MEMBER fixture in this run's tenant only, with the real activation-created mapping/profile.
   await p.$transaction([p.tenantMembership.update({where:{id:mb.id},data:{role:'MEMBER'}}),p.usuario.update({where:{id:legacy.legacyUsuarioId},data:{papel:'membro'}})]);
   check('owner designation still requires explicit confirmation',(await q(admin,'/api/platform/tenants/'+b.id+'/owners','POST',{email})).status===400);
