@@ -6,10 +6,10 @@
 /* Stable action dimensions; only the presentation changes across breakpoints. */
 .platform-company-table{table-layout:fixed;min-width:1180px}
 .platform-col-tenant{width:190px}
-.platform-col-email{width:200px}
-.platform-col-plan{width:90px}
-.platform-col-state{width:145px}
-.platform-col-links{width:50px}
+.platform-col-email{width:190px}
+.platform-col-plan{width:80px}
+.platform-col-state{width:135px}
+.platform-col-links{width:80px}
 .platform-col-actions{width:504px}
 .platform-company-table th[scope=row]{min-width:0;white-space:normal}
 .platform-expand>span:last-child{min-width:0;overflow-wrap:anywhere}
@@ -29,3 +29,4 @@
   .platform-tenant-actions{grid-template-columns:38px 126px;width:170px;min-width:0}
   .platform-tenant-actions>.platform-action-owner,.platform-tenant-actions>.platform-action-responsible{grid-column:1 / -1}
 }
+.platform-company-table>thead>tr>th:nth-child(5){padding-left:10px;padding-right:10px}
