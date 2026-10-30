@@ -7,7 +7,7 @@ test('yellow requires exact trusted HOMOLOG origin/auth/database tuple',()=>{
 test('branch/client flags cannot enable yellow in PROD or any LOCAL profile',()=>{
  assert.equal(enabled({...homo,APP_PUBLIC_URL:'https://app.dezsolucoes.com.br',NEXTAUTH_URL:'https://app.dezsolucoes.com.br',PLATFORM_BRAND_ENV:'HOMOLOG_PREVIEW',SOURCE_BRANCH:'homologacao'}),false);
  const local={APP_PUBLIC_URL:'http://localhost:3020',NEXTAUTH_URL:'http://localhost:3020',DATABASE_URL:'postgresql://x:dummy@127.0.0.1:55439/special_invite_lab'};
- assert.equal(enabled(local),false);assert.equal(enabled({...local,PLATFORM_BRAND_ENV:'HOMOLOG_PREVIEW'}),false);assert.equal(enabled({...local,PLATFORM_BRAND_ENV:'HOMOLOG_PREVIEW',DATABASE_URL:'postgresql://x:dummy@127.0.0.1:55432/gestar_vf_dev',APP_PUBLIC_URL:'http://localhost:3023',NEXTAUTH_URL:'http://localhost:3023'}),false);assert(paths(false).svg.includes('dez-blue-1'));assert(paths(true).ico.includes('homolog-yellow-1'));
+ assert.equal(enabled(local),false);assert.equal(enabled({...local,PLATFORM_BRAND_ENV:'HOMOLOG_PREVIEW'}),false);assert.equal(enabled({...local,PLATFORM_BRAND_ENV:'HOMOLOG_PREVIEW',DATABASE_URL:'postgresql://x:dummy@127.0.0.1:55432/gestar_vf_dev',APP_PUBLIC_URL:'http://localhost:3023',NEXTAUTH_URL:'http://localhost:3023'}),false);assert(paths(false).svg.includes('dez-green-navy-1'));assert(paths(true).ico.includes('homolog-yellow-1'));
 });
 test('yellow ICO preserves approved positions and alpha at 16/32/48 by color substitution only',()=>{
  const a=readFileSync('public/brand/dez-blue.ico'),b=readFileSync('public/brand/homolog-yellow.ico');assert.equal(b.readUInt16LE(4),3);

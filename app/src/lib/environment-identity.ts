@@ -9,6 +9,6 @@ export function homologIdentity(env: Record<string, string | undefined> = proces
   } catch { return false; }
 }
 export function environmentIconPaths(isHomolog: boolean) {
-  const version = isHomolog ? "homolog-yellow-1" : "dez-blue-1";
+  const version = isHomolog ? "homolog-yellow-1" : "dez-green-navy-1";
   return { svg: `/favicon.svg?v=${version}`, ico: `/favicon.ico?v=${version}` };
 }
