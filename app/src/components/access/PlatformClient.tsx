@@ -2,7 +2,7 @@
 import { messagePtBr } from "@/lib/presentation";
 import { AppearanceButton } from "@/components/appearance/AppearanceProvider";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { planLabel, roleLabel, statusLabel } from "@/lib/presentation";
 import InvitationShareDialog, { type InvitationShare } from "@/components/access/InvitationShareDialog";
@@ -162,10 +162,10 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
     <section aria-labelledby="platform-companies-title"><h2 id="platform-companies-title" className="platform-section-title">Empresas e contas vinculadas</h2>
       <p className="access-hint" role="status">{loading ? "Carregando catálogo administrativo…" : `${shown.groups.length} de ${tenants.length} empresas. Expanda uma empresa para consultar suas contas, papéis e perfis.`}</p>
       <p className="platform-scroll-hint">Em telas menores, deslize a tabela para consultar as colunas e ações.</p>
-      <div id="platform-company-hierarchy" className="access-table-wrap platform-company-scroll" role="region" aria-label="Empresas e vínculos" tabIndex={0}><table className="access-table platform-company-table"><caption>Empresas e relações administrativas</caption><colgroup><col className="platform-col-tenant" /><col className="platform-col-email" /><col className="platform-col-plan" /><col className="platform-col-state" /><col className="platform-col-links" /><col className="platform-col-actions" /></colgroup><thead><tr><th scope="col">Empresa (Tenant)</th><th scope="col">E-mail administrativo</th><th scope="col">Plano</th><th scope="col">Situação</th><th scope="col">Vínculos</th><th scope="col">Ações</th></tr></thead><tbody>
+      <div id="platform-company-hierarchy" className="access-table-wrap platform-company-scroll" role="region" aria-label="Empresas e vínculos" tabIndex={0}><table className="access-table platform-company-table"><caption>Empresas e relações administrativas</caption><colgroup><col className="platform-col-tenant" /><col className="platform-col-email" /><col className="platform-col-plan" /><col className="platform-col-state" /><col className="platform-col-links" /><col className="platform-col-actions" /></colgroup><thead><tr><th scope="col">Empresa (Tenant)</th><th scope="col">E-mail administrativo</th><th scope="col">Plano</th><th scope="col">Situação</th><th scope="col">Vínculos</th><th scope="col">Ações</th></tr></thead>
       {shown.groups.map(({ tenant: t, memberships: members, totalMemberships }) => {
         const open = query.trim() ? !searchCollapsed.has(t.id) : expanded.has(t.id);
-        return <Fragment key={t.id}><tr><th scope="row"><button type="button" className="platform-expand" aria-expanded={open} aria-controls={`platform-members-${t.id}`} aria-label={`${open ? "Recolher" : "Expandir"} contas de ${t.nome}`} onClick={() => toggleGroup(t.id)}><span aria-hidden="true">{open ? "▾" : "▸"}</span><span><strong>{t.nome}</strong><small>{t.slug}</small></span></button></th>
+        return <tbody key={t.id} className="platform-tenant-block" data-expanded={open}><tr><th scope="row"><button type="button" className="platform-expand" aria-expanded={open} aria-controls={`platform-members-${t.id}`} aria-label={`${open ? "Recolher" : "Expandir"} contas de ${t.nome}`} onClick={() => toggleGroup(t.id)}><span aria-hidden="true">{open ? "▾" : "▸"}</span><span><strong>{t.nome}</strong><small>{t.slug}</small></span></button></th>
           <td className="platform-email">{t.email}</td><td>{planLabel(t.plano)}</td><td><span className={`platform-state ${t.ativo ? "platform-state-active" : "platform-state-inactive"}`}>{t.ativo ? "Ativo" : "Inativo"}</span>
             {t.activeOwnerCount === 0 && <small className="access-warning">Sem Proprietário ativo · designação necessária</small>}
             <small className={t.contractualStatus === "Contrato ativo" ? "access-hint" : "access-warning"}>{t.contractualStatus}</small>
@@ -182,10 +182,10 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
                 : <button type="button" disabled={busy} className="platform-action platform-action-neutral platform-action-owner" onClick={() => void openOwner(t, m)}>{t.activeOwnerCount ? "Adicionar Proprietário" : "Designar Proprietário"}</button>}</td></tr>; })}
             {!members.length && <tr><td colSpan={5} className="access-empty">{query.trim() ? "Nenhum vínculo corresponde à busca nesta empresa." : "Esta empresa ainda não possui contas vinculadas."}</td></tr>}
             </tbody></table></div></section></td></tr>}
-        </Fragment>;
+        </tbody>;
       })}
-      {!shown.groups.length && <tr><td colSpan={6} className="access-empty">{loading ? "Carregando empresas…" : "Nenhuma empresa ou conta vinculada corresponde à busca."}</td></tr>}
-      </tbody></table></div>
+      {!shown.groups.length && <tbody><tr><td colSpan={6} className="access-empty">{loading ? "Carregando empresas…" : "Nenhuma empresa ou conta vinculada corresponde à busca."}</td></tr></tbody>}
+      </table></div>
     </section>
     <section className="platform-global-accounts" aria-labelledby="platform-global-accounts-title"><h2 id="platform-global-accounts-title" className="platform-section-title">Contas de usuários sem vínculo empresarial</h2>
       <p className="access-hint">Inclui PlatformAdmins sem membership. A administração da plataforma não concede acesso automático aos dados operacionais das empresas.</p>
