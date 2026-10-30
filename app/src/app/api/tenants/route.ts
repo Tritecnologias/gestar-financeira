@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIdentityAccess, requirePlatformAdmin, requireSession } from "@/lib/tenant";
 import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { emailEqualsNormalized, normalizeEmail } from "@/lib/email";
+import { normalizeEmail } from "@/lib/email";
 import { expireListedSupportGrants } from "@/lib/support-grants";
 import { writeAudit } from "@/lib/audit";
 import { authorizedSupportGrant } from "@/lib/support-authorization";
@@ -99,20 +99,25 @@ export async function POST(req: NextRequest) {
   const slug = nome.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   if (!slug) return NextResponse.json({ error: "Nome precisa conter letras ou números para gerar o identificador." }, { status: 400 });
 
-  // Verificar unicidade
-  const existente = await prisma.tenant.findFirst({ where: { OR: [{ slug }, { email: emailEqualsNormalized(email) }] } });
-  if (existente) return NextResponse.json({ error: "Nome ou email já cadastrado" }, { status: 409 });
+  // O contato administrativo pode se repetir; o identificador do tenant não.
+  const existente = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
+  if (existente) return NextResponse.json({ error: "Nome ou identificador já cadastrado" }, { status: 409 });
 
-  const tenant = await prisma.$transaction(async tx => {
-    const created = await tx.tenant.create({
-      data: { nome: nome.trim(), slug, email: normalizeEmail(email), plano: plano || "trial" },
-      select: { id: true, nome: true, slug: true, email: true, plano: true },
+  try {
+    const tenant = await prisma.$transaction(async tx => {
+      const created = await tx.tenant.create({
+        data: { nome: nome.trim(), slug, email: normalizeEmail(email), plano: plano || "trial", escolhaModalidadePendente: true },
+        select: { id: true, nome: true, slug: true, email: true, plano: true },
+      });
+      await writeAudit(tx, { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
+        action: "TENANT_CREATED", resourceType: "Tenant", resourceId: created.id,
+        metadata: { tenantName: created.nome, plan: created.plano } });
+      return created;
     });
-    await writeAudit(tx, { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
-      action: "TENANT_CREATED", resourceType: "Tenant", resourceId: created.id,
-      metadata: { tenantName: created.nome, plan: created.plano } });
-    return created;
-  });
 
-  return NextResponse.json(tenant, { status: 201 });
+    return NextResponse.json(tenant, { status: 201 });
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") return NextResponse.json({ error: "Nome ou identificador já cadastrado." }, { status: 409 });
+    throw error;
+  }
 }

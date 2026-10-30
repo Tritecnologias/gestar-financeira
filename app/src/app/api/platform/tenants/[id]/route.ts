@@ -45,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json(result);
   } catch (error: any) {
     if (error?.code === "P2025") return NextResponse.json({ error: "Tenant não encontrado." }, { status: 404 });
-    if (error?.code === "P2002") return NextResponse.json({ error: "Email já utilizado." }, { status: 409 });
+    if (error?.code === "P2002") return NextResponse.json({ error: "Identificador já utilizado." }, { status: 409 });
     return NextResponse.json({ error: error?.status ? error.message : "Falha ao atualizar tenant." }, { status: error?.status ?? 500 });
   }
 }

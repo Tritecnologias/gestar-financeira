@@ -3,6 +3,8 @@ import { requireSession } from "@/lib/tenant";
 import { contractualOnboardingState } from "@/lib/contractual-onboarding";
 import ContractualOnboardingClient from "@/components/access/ContractualOnboardingClient";
 import Link from "next/link";
+import { tenantModalityState } from "@/lib/tenant-modality-state";
+import { prisma } from "@/lib/db";
 
 export default async function OnboardingPage() {
   let session;
@@ -14,6 +16,7 @@ export default async function OnboardingPage() {
   if (session.accessSource !== "MEMBERSHIP") redirect("/selecionar-tenant");
   const state = await contractualOnboardingState(session);
   if (state.status === "USER_TERMS_REQUIRED") redirect("/termos/aceite");
+  if ((await tenantModalityState(prisma, session.tenantId)).pending) redirect("/onboarding/modalidade");
   if (state.status === "ACTIVE") redirect("/inicio");
   if (state.status === "AWAITING_CONTRACT" && state.canAcceptContract) redirect("/termos/aceite");
   return <ContractualOnboardingClient initialState={state} />;

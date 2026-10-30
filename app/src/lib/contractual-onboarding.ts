@@ -5,6 +5,7 @@ import { writeAudit, type AuditInput } from "@/lib/audit";
 import { assertInviteRateLimit, inviteExpiresAt } from "@/lib/access-invites";
 import { ALL_PERMISSIONS } from "@/lib/access-catalog";
 import type { UserSession } from "@/types";
+import { requireTenantModalityReady } from "@/lib/tenant-modality-state";
 
 type Tx = Prisma.TransactionClient;
 export type ContractualActor = { tenantId: string; identityId: string; membershipId: string };
@@ -58,6 +59,7 @@ export async function markContractualInviteRevoked(tx: Tx, tenantId: string, inv
     resourceType: "TenantContractualOnboarding", resourceId: tenantId, metadata: { invitationId } });
 }
 async function assign(tx: Tx, actor: ContractualActor) {
+  await requireTenantModalityReady(tx, actor.tenantId);
   const previous = await tx.tenantContractualResponsible.findUnique({ where: { tenantId: actor.tenantId } });
   await tx.tenantContractualResponsible.upsert({ where: { tenantId: actor.tenantId },
     create: { tenantId: actor.tenantId, membershipId: actor.membershipId, assignedByIdentityId: actor.identityId },
@@ -85,6 +87,7 @@ export async function selfContractualResponsible(actor: ContractualActor) {
   return prisma.$transaction(async tx => {
     await lockContractualTenant(tx, actor.tenantId); await assertContractualOwnerActive(tx, actor);
     if (!await acceptedUserTerms(tx, actor.identityId)) fail("Aceite primeiro os Termos de Uso do Usuário.", 428);
+    await requireTenantModalityReady(tx, actor.tenantId);
     const ready = await contractualReadiness(tx, actor.tenantId);
     if (ready.validResponsible) {
       if (ready.responsibleMembershipId === actor.membershipId) return { unchanged: true };
@@ -105,6 +108,7 @@ export async function selfContractualResponsible(actor: ContractualActor) {
 export async function nominateContractualResponsible(actor: ContractualActor, input: { email: string; name: string; tokenHash: string }) {
   return prisma.$transaction(async tx => {
     await lockContractualTenant(tx, actor.tenantId); await assertContractualOwnerActive(tx, actor);
+    await requireTenantModalityReady(tx, actor.tenantId);
     if (!await acceptedUserTerms(tx, actor.identityId)) fail("Aceite primeiro os Termos de Uso do Usuário.", 428);
     if ((await contractualReadiness(tx, actor.tenantId)).validResponsible) fail("Esta empresa já possui um responsável contratual válido.");
     await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`access-invite:${actor.tenantId}:${input.email}`}, 0))`;

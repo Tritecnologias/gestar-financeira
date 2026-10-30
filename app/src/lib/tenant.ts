@@ -9,6 +9,7 @@ import { isActiveLegacySession } from "@/lib/access-policy";
 import { emailEqualsNormalized } from "@/lib/email";
 import { requireAcceptedTerms } from "@/lib/terms";
 import { contractualReadiness } from "@/lib/contractual-state";
+import { requireTenantModalityReady } from "@/lib/tenant-modality-state";
 import { supportRequestAllowed } from "@/lib/support-policy";
 import { writeAudit } from "@/lib/audit";
 import { authorizedSupportGrant } from "@/lib/support-authorization";
@@ -100,7 +101,10 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
           advisoryExpiresAt: grant.expiresAt?.toISOString() ?? null,
           nome: identity.nome, email: identity.email, papel: "membro" as Papel,
           tenantId: grant.tenantId, tenantNome: grant.tenant.nome, tenantSelecionado: true } satisfies UserSession };
-      if (!options.allowPendingTerms) await requireAcceptedTerms(context.session);
+      if (!options.allowPendingTerms) {
+        await requireAcceptedTerms(context.session);
+        await requireTenantModalityReady(prisma, context.session.tenantId);
+      }
       return context;
     }
     const supportPrefix = `${identity.id}:${identity.loginNonce}:`;
@@ -140,7 +144,10 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
           tenantSelecionado: true,
         } satisfies UserSession,
       };
-      if (!options.allowPendingTerms) await requireAcceptedTerms(context.session);
+      if (!options.allowPendingTerms) {
+        await requireAcceptedTerms(context.session);
+        await requireTenantModalityReady(prisma, context.session.tenantId);
+      }
       if (!options.allowPendingTerms && path.startsWith("/api/") &&
           !path.startsWith("/api/access/") && !path.startsWith("/api/terms/")) {
         await writeAudit(prisma, { tenantId: grant.tenantId, actorIdentityId: identity.id,
@@ -200,7 +207,10 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
         tenantSelecionado: true,
       } satisfies UserSession,
     };
-    if (!options.allowPendingTerms) await requireAcceptedTerms(context.session);
+    if (!options.allowPendingTerms) {
+      await requireAcceptedTerms(context.session);
+      await requireTenantModalityReady(prisma, context.session.tenantId);
+    }
     return context;
   }
 
@@ -225,6 +235,7 @@ export async function requireSession(options: { allowPendingTerms?: boolean } = 
     throw accessError("Configuração contratual da empresa ainda não concluída.", 428);
   }
 
+  if (!options.allowPendingTerms) await requireTenantModalityReady(prisma, activeTenantId);
   const db = getTenantPrisma(activeTenantId);
   return {
     db,
