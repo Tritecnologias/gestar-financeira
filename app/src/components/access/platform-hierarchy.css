@@ -31,3 +31,27 @@
 }
 .platform-company-table>thead>tr>th:nth-child(5){padding-left:10px;padding-right:10px}
 .platform-expand-all{min-width:142px;white-space:nowrap}
+.platform-hierarchy .platform-company-table>tbody>tr>th[scope=row],
+.platform-hierarchy .platform-member-table>tbody>tr>th[scope=row]{background:transparent}
+
+/* One row group forms the tenant outline in both collapsed and expanded states. */
+.platform-hierarchy .platform-company-scroll{background:transparent;border:0;border-radius:0}
+.platform-company-table{border-collapse:separate;border-spacing:0}
+.platform-tenant-block::before{content:"";display:table-row;height:12px}
+.platform-hierarchy .platform-tenant-block>tr{background:transparent}
+.platform-hierarchy .platform-company-table.access-table>.platform-tenant-block>tr>*{background:var(--surface)}
+.platform-hierarchy .platform-company-table.access-table>.platform-tenant-block>tr:first-child:hover>*{background:var(--surface-hover)}
+.platform-tenant-block>tr:first-child>*{border-top:1px solid var(--border);border-bottom:0}
+.platform-tenant-block>tr> :first-child{border-left:1px solid var(--border)}
+.platform-tenant-block>tr> :last-child{border-right:1px solid var(--border)}
+.platform-tenant-block>tr:first-child> :first-child{border-top-left-radius:10px}
+.platform-tenant-block>tr:first-child> :last-child{border-top-right-radius:10px}
+.platform-hierarchy .platform-tenant-block>tr:last-child>*{border-bottom:1px solid var(--border)}
+.platform-tenant-block>tr:last-child> :first-child{border-bottom-left-radius:10px}
+.platform-tenant-block>tr:last-child> :last-child{border-bottom-right-radius:10px}
+.platform-hierarchy .platform-detail-row>td{background:transparent}
+.platform-detail-row section>h3{border-top:1px solid var(--border);padding-top:16px;background:transparent}
+.platform-hierarchy .platform-detail-row .access-table-wrap{border:0;border-radius:0;background:transparent}
+.platform-hierarchy .platform-member-table{background:transparent}
+.platform-hierarchy .platform-member-table>thead>tr>th{background:transparent}
+.platform-hierarchy .platform-member-table>tbody>tr:last-child>*{border-bottom:0}
