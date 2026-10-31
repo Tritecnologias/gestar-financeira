@@ -22,6 +22,7 @@ export default function ContractualOnboardingClient({ initialState }: { initialS
   const [share, setShare] = useState<InvitationShare | null>(null);
   const loading = useRef(false);
   const statusHeading = useRef<HTMLHeadingElement>(null);
+  const choiceHeading = useRef<HTMLHeadingElement>(null);
   const closeShare = useCallback(() => {
     setShare(null);
     requestAnimationFrame(() => statusHeading.current?.focus());
@@ -78,7 +79,7 @@ export default function ContractualOnboardingClient({ initialState }: { initialS
       <h1>{state.canChoose ? "Responsável Contratual" : "Configuração da empresa ainda não concluída"}</h1><p>{state.tenantName}</p></header>
     {unavailable ? <p role="status">Os documentos da contratação estão indisponíveis. Solicite orientação à DEZ Soluções.</p>
       : state.canChoose ? <>
-        <h2>Quem assumirá a responsabilidade pela contratação deste espaço?</h2>
+        <h2 ref={choiceHeading} tabIndex={-1}>Quem assumirá a responsabilidade pela contratação deste espaço?</h2>
         <p>A pessoa indicada será responsável por formalizar a contratação com a DEZ Soluções, aceitar os termos contratuais e responder pela relação contratual.</p>
         <div className="contractual-choices"><button className="btn btn-primary" type="button" disabled={busy} onClick={() => void act("self")}>Sou eu</button>
           <button className="btn btn-secondary" type="button" disabled={busy} aria-expanded={other} onClick={() => setOther(true)}>Outra pessoa</button></div>
@@ -87,7 +88,9 @@ export default function ContractualOnboardingClient({ initialState }: { initialS
           <label htmlFor="contractual-name">Nome<input id="contractual-name" name="responsible-name" required maxLength={160} autoComplete="off" value={name} onChange={event => setName(event.target.value)} /></label>
           <label htmlFor="contractual-email">E-mail<input id="contractual-email" name="responsible-email" required type="email" autoComplete="off" value={email} onChange={event => setEmail(event.target.value)} /></label>
           <button className="btn btn-primary" type="submit" disabled={busy}>Enviar convite</button>
-          <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => { setOther(false); setError(""); }}>Voltar à escolha</button>
+          <button className="btn btn-secondary" type="button" disabled={busy} onClick={() => {
+            setOther(false); setError(""); requestAnimationFrame(() => choiceHeading.current?.focus());
+          }}>Voltar à escolha</button>
         </form>}
       </> : <div className="terms-wait" role="status"><h2 ref={statusHeading} tabIndex={-1}>Aguardando Responsável Contratual</h2>
         <p>{state.isOwner && state.invitation ? <>Você indicou <strong>{state.invitation.name}</strong> como responsável pela contratação. </> : null}

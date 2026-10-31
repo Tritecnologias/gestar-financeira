@@ -4,7 +4,9 @@ import{experimentOrigin}from'../src/lib/experiment-policy.ts';import{homologIden
 const rows=list=>list.map(m=>({migration_name:m.name,checksum:m.sha256}));
 test('production has distinct exact history; originals and their checksums stay unchanged',()=>{
  for(const m of REQUIRED_MIGRATIONS)assert.equal(createHash('sha256').update(readFileSync('prisma/migrations/'+m.name+'/migration.sql')).digest('hex'),m.sha256);
- const m=PRODUCTION_MIGRATIONS.at(-1),sql=readFileSync('prisma/production-migrations/'+m.name+'/migration.sql');assert.equal(createHash('sha256').update(sql).digest('hex'),m.sha256);assert(sql.includes("current_database() <> 'gestar_prod_pg18'"));assert(sql.includes("current_user <> 'pg18_prod_migrator'"));assert(sql.includes('GRANT SELECT, INSERT, UPDATE'));assert(!/\b(?:INSERT INTO|UPDATE public|DELETE FROM)\b/.test(sql.toString()));
+ // Inspect the productive invitation bootstrap itself, not whichever migration was added last.
+ for(const m of PRODUCTION_MIGRATIONS){const dir=PRE_EXPERIMENT_MIGRATIONS.some(x=>x.name===m.name)?'migrations':'production-migrations';assert.equal(createHash('sha256').update(readFileSync('prisma/'+dir+'/'+m.name+'/migration.sql')).digest('hex'),m.sha256);}
+ const m=PRODUCTION_MIGRATIONS.find(m=>m.name==='20261030_prod_experiment_invitations');assert(m);const sql=readFileSync('prisma/production-migrations/'+m.name+'/migration.sql');assert.equal(createHash('sha256').update(sql).digest('hex'),m.sha256);assert(sql.includes("current_database() <> 'gestar_prod_pg18'"));assert(sql.includes("current_user <> 'pg18_prod_migrator'"));assert(sql.includes('GRANT SELECT, INSERT, UPDATE'));assert(!/\b(?:INSERT INTO|UPDATE public|DELETE FROM)\b/.test(sql.toString()));
 });
 test('backup accepts exact productive ledger, forward from baseline only, never crosses pilot or rolls back',()=>{
  const prod=rows(PRODUCTION_MIGRATIONS),base=rows(PRE_EXPERIMENT_MIGRATIONS),pilot=rows(REQUIRED_MIGRATIONS);
