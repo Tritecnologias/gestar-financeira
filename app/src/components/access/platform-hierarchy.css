@@ -64,7 +64,7 @@
 .platform-hierarchy .platform-tenant-block>tr:last-child>* { border-bottom:1px solid var(--border); }
 .platform-tenant-block>tr:last-child> :first-child { border-bottom-left-radius:10px; }
 .platform-tenant-block>tr:last-child> :last-child { border-bottom-right-radius:10px; }
-.platform-hierarchy .platform-detail-row>td { padding:0 16px 12px; }
+.platform-hierarchy .platform-company-table>.platform-tenant-block>.platform-detail-row>td { padding:0 16px 12px; background:var(--background); border-top:1px solid var(--border); }
 .platform-member-table { min-width:1200px; background:transparent; }
 .platform-hierarchy .platform-member-table :is(thead,tbody,tr,th,td),
 .platform-hierarchy .platform-member-table>tbody>tr:hover { background:transparent; }
