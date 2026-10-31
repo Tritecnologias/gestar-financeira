@@ -8,7 +8,7 @@ import { planLabel, roleLabel, statusLabel } from "@/lib/presentation";
 import InvitationShareDialog, { type InvitationShare } from "@/components/access/InvitationShareDialog";
 import "./access.css";
 import "./platform-hierarchy.css";
-import { platformHierarchy, type PlatformTenant as Tenant, type PlatformIdentity as Identity, type PlatformMembership as Membership } from "@/lib/platform-hierarchy";
+import { platformHierarchy, platformIndicators, type PlatformTenant as Tenant, type PlatformIdentity as Identity, type PlatformMembership as Membership } from "@/lib/platform-hierarchy";
 import { HomologIdentityBadge } from "@/components/identity/EnvironmentIdentity";
 
 type OwnerInvite = { id: string; name: string; email: string; status: string; expiresAt: string };
@@ -24,6 +24,7 @@ async function read<T>(url: string): Promise<T> {
 export default function PlatformClient({ supportOperator = false, experimentPilot = false }: { supportOperator?: boolean; experimentPilot?: boolean }) {
 
   const [query, setQuery] = useState("");
+  const [showInfos, setShowInfos] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set()), [searchCollapsed, setSearchCollapsed] = useState<Set<string>>(() => new Set());
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
@@ -62,6 +63,7 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
   useEffect(() => { void load(); }, [load]);
 
   const shown = useMemo(() => platformHierarchy(tenants, identities, memberships, query), [query, tenants, identities, memberships]);
+  const indicators = useMemo(() => platformIndicators(tenants, identities, memberships), [tenants, identities, memberships]);
   const allExpanded = shown.groups.length > 0 && shown.groups.every(({ tenant }) =>
     query.trim() ? !searchCollapsed.has(tenant.id) : expanded.has(tenant.id));
   function toggleAllGroups() {
@@ -142,6 +144,7 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
   }
 
   return <main className="access-page access-platform platform-hierarchy">
+    <div className="platform-fixed-controls">
     <header className="access-header"><div><h1>Administração da Plataforma</h1><HomologIdentityBadge />
       <p>Empresas, contas e vínculos de acesso. Os dados de cada empresa exigem acesso autorizado.</p></div>
       <div className="access-header-actions"><Link href="/minha-conta" className="access-button access-button-secondary">Minha conta</Link><AppearanceButton />
@@ -152,48 +155,75 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
     </header>
     <div className="access-toolbar platform-global-toolbar">
       <label>Busca global<input type="search" aria-label="Busca global da administração" placeholder="Empresa, conta, nome, e-mail ou vínculo" autoComplete="off" value={query} onChange={e => { setQuery(e.target.value); setSearchCollapsed(new Set()); }} /></label>
-      <button type="button" className="access-button access-button-secondary platform-expand-all" disabled={loading || !shown.groups.length} aria-controls="platform-company-hierarchy" onClick={toggleAllGroups}>{allExpanded ? "Recolher tudo" : "Expandir tudo"}</button>
+      <div className="platform-toolbar-actions"><button type="button" className="access-button access-button-secondary platform-expand-all" disabled={loading || !shown.groups.length} aria-controls="platform-company-hierarchy" onClick={toggleAllGroups}>{allExpanded ? "Recolher tudo" : "Expandir tudo"}</button>
       <button type="button" className="access-button access-button-primary" onClick={() => { setTenantForm({ nome: "", email: "", plano: "trial" }); setError(""); setMode("create"); }}>+ Criar tenant manual</button>
       {experimentPilot && <Link href="/plataforma/convites-especiais" className="access-button access-button-secondary">+ Convites Especiais</Link>}
+      </div>
+    <div className="platform-overview" aria-busy={loading}>
+      <dl className="platform-totals" aria-label="Totais do catálogo administrativo">
+        <div><dt>Total de tenants</dt><dd>{loading ? "—" : indicators.tenants}</dd></div>
+        <div><dt>Total de usuários</dt><dd>{loading ? "—" : indicators.users}</dd></div>
+      </dl>
+      <button type="button" className="access-button access-button-secondary" aria-expanded={showInfos} aria-controls="platform-extra-infos" onClick={() => setShowInfos(!showInfos)}>{showInfos ? "− Infos" : "+ Infos"}</button>
     </div>
+    </div>
+    {showInfos && <div id="platform-extra-infos" className="platform-extra-infos">
+      <p>Catálogo completo, independente da busca. Usuários distintos por identidade; vínculos inativos também contam como vínculo.</p>
+      <dl>{([
+        ["Tenants ativos", indicators.activeTenants], ["Tenants inativos", indicators.inactiveTenants],
+        ["Contas ativas", indicators.activeUsers], ["Contas inativas", indicators.inactiveUsers],
+        ["Contas sem vínculo", indicators.unlinkedUsers], ["Sem Proprietário ativo", indicators.withoutOwner],
+        ["Responsável pendente", indicators.pendingResponsible], ["Aguardando aceite contratual", indicators.awaitingAcceptance],
+      ] as const).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{loading ? "—" : value}</dd></div>)}</dl>
+    </div>}
     {error && <p className="access-error" role="alert">{messagePtBr(error)}</p>}
     {deliveryNotice && <p className="access-hint" role="status">{deliveryNotice}</p>}
     {share && <InvitationShareDialog invitation={share} onClose={closeShare} />}
-    <section aria-labelledby="platform-companies-title"><h2 id="platform-companies-title" className="platform-section-title">Empresas e contas vinculadas</h2>
-      <p className="access-hint" role="status">{loading ? "Carregando catálogo administrativo…" : `${shown.groups.length} de ${tenants.length} empresas. Expanda uma empresa para consultar suas contas, papéis e perfis.`}</p>
-      <p className="platform-scroll-hint">Em telas menores, deslize a tabela para consultar as colunas e ações.</p>
-      <div id="platform-company-hierarchy" className="access-table-wrap platform-company-scroll" role="region" aria-label="Empresas e vínculos" tabIndex={0}><table className="access-table platform-company-table"><caption>Empresas e relações administrativas</caption><colgroup><col className="platform-col-tenant" /><col className="platform-col-email" /><col className="platform-col-plan" /><col className="platform-col-state" /><col className="platform-col-links" /><col className="platform-col-actions" /></colgroup><thead><tr><th scope="col">Empresa (Tenant)</th><th scope="col">E-mail administrativo</th><th scope="col">Plano</th><th scope="col">Situação</th><th scope="col">Vínculos</th><th scope="col">Ações</th></tr></thead>
+    <p className="platform-scroll-hint">Role a lista para consultar os registros. Em telas menores, deslize também para os lados para ver todas as colunas.</p>
+    </div>
+    <div className="platform-records" role="region" aria-label="Registros de empresas e contas" tabIndex={0}>
+    <section aria-label="Empresas e contas vinculadas">
+      <table id="platform-company-hierarchy" className="access-table platform-company-table"><caption>Empresas e relações administrativas</caption>
+      <colgroup><col className="platform-col-tenant" /><col className="platform-col-reference" /><col className="platform-col-email" /><col className="platform-col-plan" /><col className="platform-col-state" /><col className="platform-col-date" /><col className="platform-col-owner" /><col className="platform-col-contract" /><col className="platform-col-links" /><col className="platform-col-actions" /></colgroup>
+      <thead><tr><th scope="col">Empresa (Tenant)</th><th scope="col">Identificador</th><th scope="col">E-mail administrativo</th><th scope="col">Plano</th><th scope="col">Situação</th><th scope="col">Última designação</th><th scope="col">Proprietário</th><th scope="col">Responsável contratual</th><th scope="col">Vínculos</th><th scope="col">Ações</th></tr></thead>
       {shown.groups.map(({ tenant: t, memberships: members, totalMemberships }) => {
         const open = query.trim() ? !searchCollapsed.has(t.id) : expanded.has(t.id);
-        return <tbody key={t.id} className="platform-tenant-block" data-expanded={open}><tr><th scope="row"><button type="button" className="platform-expand" aria-expanded={open} aria-controls={`platform-members-${t.id}`} aria-label={`${open ? "Recolher" : "Expandir"} contas de ${t.nome}`} onClick={() => toggleGroup(t.id)}><span aria-hidden="true">{open ? "▾" : "▸"}</span><span><strong>{t.nome}</strong><small>{t.slug}</small></span></button></th>
-          <td className="platform-email">{t.email}</td><td>{planLabel(t.plano)}</td><td><span className={`platform-state ${t.ativo ? "platform-state-active" : "platform-state-inactive"}`}>{t.ativo ? "Ativo" : "Inativo"}</span>
-            {t.activeOwnerCount === 0 && <small className="access-warning">Sem Proprietário ativo · designação necessária</small>}
-            <small className={t.contractualStatus === "Contrato ativo" ? "access-hint" : "access-warning"}>{t.contractualStatus}</small>
-            {t.lastOwnerDesignationAt && <small>Última designação: {new Date(t.lastOwnerDesignationAt).toLocaleDateString("pt-BR")}</small>}</td><td>{query.trim() && members.length !== totalMemberships ? `${members.length} de ${totalMemberships}` : totalMemberships}</td>
+        return <tbody key={t.id} className="platform-tenant-block" data-expanded={open}><tr><th scope="row"><button type="button" className="platform-expand" aria-expanded={open} aria-controls={`platform-members-${t.id}`} aria-label={`${open ? "Recolher" : "Expandir"} contas de ${t.nome}`} onClick={() => toggleGroup(t.id)}><span aria-hidden="true">{open ? "▾" : "▸"}</span><strong>{t.nome}</strong></button></th>
+          <td className="platform-reference" title={t.id}>{t.slug}</td>
+          <td className="platform-email">{t.email}</td><td>{planLabel(t.plano)}</td>
+          <td><span className={`platform-state ${t.ativo ? "platform-state-active" : "platform-state-inactive"}`}>{t.ativo ? "Ativo" : "Inativo"}</span></td>
+          <td>{t.lastOwnerDesignationAt ? <time dateTime={t.lastOwnerDesignationAt}>{new Date(t.lastOwnerDesignationAt).toLocaleDateString("pt-BR")}</time> : "—"}</td>
+          <td><div className="platform-governance"><span className={`platform-state ${t.activeOwnerCount ? "platform-state-active" : "platform-state-pending"}`}>{t.activeOwnerCount ? `${t.activeOwnerCount} ativo${t.activeOwnerCount === 1 ? "" : "s"}` : "Sem Proprietário ativo"}</span>
+            <button type="button" disabled={busy} className="platform-action platform-action-neutral platform-action-owner" onClick={() => void openOwner(t)}>{t.activeOwnerCount ? "Adicionar Proprietário" : "Designar Proprietário"}</button></div></td>
+          <td><div className="platform-governance"><span className={`platform-state ${t.contractualStatus === "Contrato ativo" ? "platform-state-active" : "platform-state-pending"}`}>{t.contractualStatus}</span>
+            <button type="button" disabled={busy} className="platform-action platform-action-neutral platform-action-responsible" onClick={() => { setSelected(t); setResponsibleMembershipId(t.contractualResponsibleMembershipId || ""); setError(""); setMode("responsible"); }}>Responsável contratual</button></div></td>
+          <td>{query.trim() && members.length !== totalMemberships ? `${members.length} de ${totalMemberships}` : totalMemberships}</td>
           <td><div className="platform-tenant-actions"><button type="button" disabled={busy} className="platform-action platform-action-edit" aria-label={`Editar empresa ${t.nome}`} title="Editar empresa" onClick={() => edit(t)}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><path d="m16 3 5 5-12 12H4v-5L16 3Zm-1 4 2 2M3 22h18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
-            <button type="button" className={`platform-action platform-action-toggle ${t.ativo ? "platform-action-danger" : "platform-action-warning"}`} disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button>
-            <button type="button" disabled={busy} className="platform-action platform-action-neutral platform-action-owner" onClick={() => void openOwner(t)}>{t.activeOwnerCount ? "Adicionar Proprietário" : "Designar Proprietário"}</button>
-            <button type="button" disabled={busy} className="platform-action platform-action-neutral platform-action-responsible" onClick={() => { setSelected(t); setResponsibleMembershipId(t.contractualResponsibleMembershipId || ""); setError(""); setMode("responsible"); }}>Responsável contratual</button></div></td></tr>
-          {open && <tr className="platform-detail-row"><td colSpan={6}><section id={`platform-members-${t.id}`} aria-label={`Contas vinculadas a ${t.nome}`}><h3>Contas vinculadas · {t.nome}</h3>
-            <div className="access-table-wrap" role="region" aria-label={`Vínculos de ${t.nome}`} tabIndex={0}><table className="access-table platform-member-table"><caption>Contas, funções e perfis em {t.nome}</caption><thead><tr><th scope="col">Conta do usuário</th><th scope="col">Função no tenant</th><th scope="col">Perfil de acesso</th><th scope="col">Situação do vínculo</th><th scope="col">Ações administrativas</th></tr></thead><tbody>
-            {members.map(m => { const identity = shown.accountById.get(m.identity.id); return <tr key={m.id}><th scope="row"><strong>{m.identity.nome}</strong><small className="platform-email">{m.identity.email}</small><small>Conta: {statusLabel(identity?.status ?? "")}{identity?.platformAdmin ? ` · PlatformAdmin ${statusLabel(identity.platformAdmin.status).toLowerCase()}` : ""}</small></th>
-              <td>{roleLabel(m.role)}</td><td>{m.profile?.nome ?? "Sem perfil"}</td><td><span className={`platform-state ${m.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(m.status)}</span><small>Referência: {m.id.slice(0, 8)}</small></td>
+            <button type="button" className={`platform-action platform-action-toggle ${t.ativo ? "platform-action-danger" : "platform-action-warning"}`} disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button></div></td></tr>
+          {open && <tr className="platform-detail-row"><td colSpan={10}><section id={`platform-members-${t.id}`} aria-label={`Contas vinculadas a ${t.nome}`}><h3>Contas vinculadas · {t.nome}</h3>
+            <table className="access-table platform-member-table"><caption>Contas, funções e perfis em {t.nome}</caption><thead><tr><th scope="col">Conta do usuário</th><th scope="col">E-mail</th><th scope="col">Situação da conta</th><th scope="col">Função no tenant</th><th scope="col">Perfil de acesso</th><th scope="col">Situação do vínculo</th><th scope="col">Referência</th><th scope="col">Ações administrativas</th></tr></thead><tbody>
+            {members.map(m => { const identity = shown.accountById.get(m.identity.id); return <tr key={m.id}><th scope="row">{m.identity.nome}</th>
+              <td className="platform-email">{m.identity.email}</td>
+              <td><span className={`platform-state ${identity?.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(identity?.status ?? "")}</span>{identity?.platformAdmin && <span className="platform-admin-status">PlatformAdmin {statusLabel(identity.platformAdmin.status).toLowerCase()}</span>}</td>
+              <td>{roleLabel(m.role)}</td><td>{m.profile?.nome ?? "Sem perfil"}</td><td><span className={`platform-state ${m.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(m.status)}</span></td>
+              <td className="platform-reference" title={m.id}>{m.id.slice(0, 8)}</td>
               <td>{m.role === "OWNER" && m.status === "ACTIVE" ? t.contractualResponsibleMembershipId === m.id ? <span className="access-hint">Responsável contratual atual</span> : <button type="button" disabled={busy} className="platform-action platform-action-neutral platform-action-responsible" onClick={() => { setSelected(t); setResponsibleMembershipId(m.id); setError(""); setMode("responsible"); }}>Responsável contratual</button>
                 : <button type="button" disabled={busy} className="platform-action platform-action-neutral platform-action-owner" onClick={() => void openOwner(t, m)}>{t.activeOwnerCount ? "Adicionar Proprietário" : "Designar Proprietário"}</button>}</td></tr>; })}
-            {!members.length && <tr><td colSpan={5} className="access-empty">{query.trim() ? "Nenhum vínculo corresponde à busca nesta empresa." : "Esta empresa ainda não possui contas vinculadas."}</td></tr>}
-            </tbody></table></div></section></td></tr>}
+            {!members.length && <tr><td colSpan={8} className="access-empty">{query.trim() ? "Nenhum vínculo corresponde à busca nesta empresa." : "Esta empresa ainda não possui contas vinculadas."}</td></tr>}
+            </tbody></table></section></td></tr>}
         </tbody>;
       })}
-      {!shown.groups.length && <tbody><tr><td colSpan={6} className="access-empty">{loading ? "Carregando empresas…" : "Nenhuma empresa ou conta vinculada corresponde à busca."}</td></tr></tbody>}
-      </table></div>
+      {!shown.groups.length && <tbody><tr><td colSpan={10} className="access-empty">{loading ? "Carregando empresas…" : "Nenhuma empresa ou conta vinculada corresponde à busca."}</td></tr></tbody>}
+      </table>
     </section>
     <section className="platform-global-accounts" aria-labelledby="platform-global-accounts-title"><h2 id="platform-global-accounts-title" className="platform-section-title">Contas de usuários sem vínculo empresarial</h2>
-      <p className="access-hint">Inclui PlatformAdmins sem membership. A administração da plataforma não concede acesso automático aos dados operacionais das empresas.</p>
-      <div className="access-table-wrap" role="region" aria-label="Contas de usuários sem vínculo empresarial" tabIndex={0}><table className="access-table platform-unlinked-table"><caption>Contas de usuários sem vínculo empresarial</caption><thead><tr><th scope="col">Conta do usuário</th><th scope="col">E-mail</th><th scope="col">Situação da conta</th><th scope="col">Administrador da Plataforma</th><th scope="col">Acesso empresarial</th></tr></thead><tbody>
+      <p className="access-hint">A administração da plataforma não concede acesso automático aos dados operacionais das empresas.</p>
+      <table className="access-table platform-unlinked-table"><caption>Contas de usuários sem vínculo empresarial</caption><thead><tr><th scope="col">Conta do usuário</th><th scope="col">E-mail</th><th scope="col">Situação da conta</th><th scope="col">Administrador da Plataforma</th><th scope="col">Acesso empresarial</th></tr></thead><tbody>
         {shown.unlinked.map(i => <tr key={i.id}><th scope="row">{i.nome}</th><td className="platform-email">{i.email}</td><td><span className={`platform-state ${i.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(i.status)}</span></td><td>{i.platformAdmin ? <span className={`platform-state ${i.platformAdmin.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(i.platformAdmin.status)}</span> : "Não"}</td><td>Sem vínculo empresarial</td></tr>)}
         {!shown.unlinked.length && <tr><td colSpan={5} className="access-empty">{loading ? "Carregando contas de usuários…" : query.trim() ? "Nenhuma conta sem vínculo corresponde à busca." : "Nenhuma conta de usuário sem vínculo empresarial."}</td></tr>}
-      </tbody></table></div>
+      </tbody></table>
     </section>
+    </div>
     {mode && <dialog ref={dialog} className="access-modal platform-admin-dialog" aria-labelledby="platform-modal-title" onCancel={e => { e.preventDefault(); if (!busy) setMode(""); }} onKeyDown={e => { if (e.key !== "Tab") return; const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled),select:not(:disabled),a[href]")); const first = items[0], last = items[items.length - 1]; if (!first) { e.preventDefault(); return; } if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }}>
       <h2 id="platform-modal-title">{mode === "responsible" ? `Responsável contratual · ${selected?.nome}` : mode === "owner" ? `${selected?.activeOwnerCount ? "Adicionar" : "Designar"} Proprietário · ${selected?.nome}` : mode === "edit" ? "Editar empresa" : "Criar tenant manual"}</h2>
       {mode === "responsible" ? <><p className="access-hint">Escolha explicitamente um Proprietário ativo desta empresa. O vínculo designado será o único autorizado a aceitar o termo do contratante.</p>

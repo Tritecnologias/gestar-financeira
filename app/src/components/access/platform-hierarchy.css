@@ -1,57 +1,106 @@
-.platform-hierarchy{min-width:0;max-width:1800px;margin:auto}.platform-global-toolbar{align-items:end;gap:10px}.platform-global-toolbar>label{display:grid;gap:6px;flex:1 1 300px;font-size:13px;min-width:0}.platform-global-toolbar input{width:100%;max-width:none;box-sizing:border-box}.platform-section-title{font-size:18px;margin:18px 0 8px}.platform-hierarchy .access-hint{margin:6px 0 12px}.platform-company-table{min-width:1100px}.platform-member-table{min-width:870px}.platform-unlinked-table{min-width:760px}.platform-hierarchy caption{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.platform-company-scroll,.platform-hierarchy .access-table-wrap{max-width:100%;touch-action:pan-x pan-y}.platform-company-table th[scope=row]{text-align:left;font-weight:500;min-width:190px}.platform-email{overflow-wrap:anywhere;max-width:280px}.platform-expand{display:flex;align-items:center;gap:10px;min-height:40px;border:0;background:transparent;color:var(--text-primary);font:inherit;text-align:left;cursor:pointer;width:100%;padding:5px}.platform-expand>span:first-child{font-size:20px;flex:none}.platform-expand strong{font-weight:650}.platform-expand small{display:block;color:var(--text-secondary);margin-top:5px}.platform-company-table td small{display:block;margin-top:6px;line-height:1.4}.platform-state{display:inline-flex;align-items:center;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:650;white-space:nowrap;cursor:default}.platform-state-active{color:#14532d;background:#dcfce7;border:1px solid #86efac}.platform-state-inactive{color:#991b1b;background:#fee2e2;border:1px solid #fca5a5}.platform-tenant-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:270px;max-width:430px}.platform-action{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:8px 11px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font:inherit;font-size:12px;font-weight:650;text-align:center}.platform-action-edit{width:38px;height:38px;padding:0;flex:none;background:var(--surface);color:var(--text-primary)}.platform-action-warning{background:#fef9c3;color:#713f12;border-color:#eab308}.platform-action-danger{background:#fee2e2;color:#991b1b;border-color:#fca5a5}.platform-action-neutral{background:var(--surface-elevated);color:var(--text-primary);border-color:var(--border)}.platform-action:hover{filter:brightness(.96)}.platform-action:disabled{opacity:.55;cursor:not-allowed}.platform-detail-row>td{background:var(--surface-elevated);padding:16px!important}.platform-detail-row h3{font-size:15px;margin-bottom:12px}.platform-member-table{background:var(--surface)}.platform-member-table th[scope=row]{font-weight:500}.platform-member-table small{display:block;font-size:12px;font-weight:400;color:var(--text-secondary);margin-top:5px}.platform-global-accounts{margin-top:28px}.platform-admin-dialog{margin:auto;width:min(620px,calc(100vw - 32px));box-sizing:border-box}.platform-admin-dialog::backdrop{background:rgba(3,14,27,.68)}.platform-admin-dialog .access-modal-actions{flex-wrap:wrap}.platform-admin-dialog .access-owner-invites{overflow-wrap:anywhere}.platform-hierarchy :focus-visible{outline:3px solid var(--focus,#1689ed);outline-offset:3px}
-@media(max-width:700px){.platform-global-toolbar{align-items:stretch}.platform-global-toolbar>label{flex-basis:100%}.platform-global-toolbar>.access-button{flex:1 1 150px}.platform-hierarchy .access-header-actions{gap:6px}.platform-hierarchy .access-header-actions>.access-button{font-size:12px}.platform-detail-row>td{padding:10px!important}.platform-tenant-actions{min-width:240px}.platform-section-title{font-size:17px}}
-
-.platform-hierarchy td.platform-email{min-width:190px}.platform-scroll-hint{display:none}@media(max-width:900px){.platform-scroll-hint{display:block;font-size:12px;line-height:1.5;color:var(--text-secondary);margin:0 0 10px}}
-
-/* Stable action dimensions; only the presentation changes across breakpoints. */
-.platform-company-table{table-layout:fixed;min-width:1180px}
-.platform-col-tenant{width:190px}
-.platform-col-email{width:190px}
-.platform-col-plan{width:80px}
-.platform-col-state{width:135px}
-.platform-col-links{width:80px}
-.platform-col-actions{width:504px}
-.platform-company-table th[scope=row]{min-width:0;white-space:normal}
-.platform-expand>span:last-child{min-width:0;overflow-wrap:anywhere}
-.platform-tenant-actions{display:grid;grid-template-columns:38px 80px 170px 170px;gap:6px;align-items:center;justify-items:start;width:476px;min-width:0;max-width:none}
-.platform-action{box-sizing:border-box;height:38px;min-height:38px;flex:none;white-space:nowrap}
-.platform-action-edit{width:38px;padding:0}
-.platform-action-toggle{width:80px}
-.platform-action-owner,.platform-action-responsible{width:170px}
-@media(max-width:1279px){
-  .platform-company-table{min-width:1050px}
-  .platform-col-actions{width:374px}
-  .platform-tenant-actions{grid-template-columns:170px 170px;width:346px}
+/* UX 03: presentation only. The fixed controls and scrollable records share the viewport. */
+.platform-hierarchy.access-page {
+  display:flex; flex-direction:column; gap:12px; min-width:0; min-height:0;
+  height:100dvh; max-width:1920px; margin:auto; overflow:hidden;
+  padding:20px clamp(12px,2vw,28px);
 }
-@media(max-width:700px){
-  .platform-company-table{min-width:900px}
-  .platform-col-actions{width:198px}
-  .platform-tenant-actions{grid-template-columns:38px 126px;width:170px;min-width:0}
-  .platform-tenant-actions>.platform-action-owner,.platform-tenant-actions>.platform-action-responsible{grid-column:1 / -1}
+.platform-fixed-controls { flex:none; min-height:0; }
+.platform-hierarchy .access-header { gap:12px; margin-bottom:14px; }
+.platform-hierarchy .access-header-actions { gap:6px; justify-content:flex-end; }
+.platform-global-toolbar { gap:10px; align-items:end; margin-bottom:12px; }
+.platform-global-toolbar>label { display:grid; gap:5px; flex:0 1 260px; min-width:160px; font-size:13px; }
+.platform-global-toolbar input { width:100%; min-width:0; box-sizing:border-box; }
+.platform-toolbar-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.platform-toolbar-actions .access-button { white-space:nowrap; }
+.platform-expand-all { min-width:138px; }
+.platform-overview { display:flex; align-items:center; gap:12px; margin-left:auto; }
+.platform-totals { display:flex; gap:10px; margin:0; }
+.platform-totals>div { display:flex; align-items:center; gap:20px; min-width:180px; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); }
+.platform-totals dt { color:var(--text-secondary); text-transform:uppercase; font-size:12px; font-weight:650; }
+.platform-totals dd { margin:0; font-size:23px; line-height:1.1; font-weight:700; font-variant-numeric:tabular-nums; }
+.platform-extra-infos { margin-top:10px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); }
+.platform-extra-infos p { color:var(--text-secondary); font-size:12px; margin-bottom:8px; }
+.platform-extra-infos dl { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 20px; }
+.platform-extra-infos dl>div { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px; }
+.platform-extra-infos dt { color:var(--text-secondary); }
+.platform-extra-infos dd { font-weight:700; font-variant-numeric:tabular-nums; }
+.platform-hierarchy .access-error,.platform-hierarchy .access-hint { margin:8px 0; }
+.platform-scroll-hint { display:none; color:var(--text-secondary); font-size:12px; margin-top:8px; }
+.platform-records { flex:1; min-height:100px; min-width:0; overflow:auto; position:relative; scrollbar-gutter:stable; overscroll-behavior:contain; touch-action:pan-x pan-y; padding:0 3px 3px; }
+.platform-hierarchy caption { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.platform-company-table { table-layout:fixed; min-width:1510px; border-collapse:separate; border-spacing:0; }
+.platform-company-table>thead>tr>th { position:sticky; top:0; z-index:3; background:var(--surface-elevated); box-shadow:0 1px var(--border); white-space:normal; height:44px; }
+.platform-hierarchy .access-table th,.platform-hierarchy .access-table td { padding:10px; }
+.platform-col-tenant { width:180px; }.platform-col-reference { width:110px; }.platform-col-email { width:175px; }
+.platform-col-plan { width:85px; }.platform-col-state { width:85px; }.platform-col-date { width:115px; }
+.platform-col-owner { width:185px; }.platform-col-contract { width:220px; }.platform-col-links { width:70px; }.platform-col-actions { width:135px; }
+.platform-hierarchy th[scope=row] { text-align:left; font-weight:500; font-size:var(--font-size-table); text-transform:none; color:var(--text-primary); white-space:normal; background:transparent; overflow-wrap:anywhere; }
+.platform-email,.platform-reference { overflow-wrap:anywhere; }
+.platform-reference { color:var(--text-secondary); font-size:12px; }
+.platform-expand { display:flex; align-items:center; gap:8px; width:100%; min-height:40px; padding:4px 0; border:0; background:transparent; color:var(--text-primary); font:inherit; text-align:left; cursor:pointer; }
+.platform-expand>span { font-size:20px; flex:none; }.platform-expand strong { font-weight:650; overflow-wrap:anywhere; }
+.platform-state { display:inline-flex; align-items:center; border:1px solid var(--border); border-radius:6px; padding:4px 7px; font-size:12px; line-height:1.35; font-weight:650; cursor:default; }
+.platform-state-active { color:var(--success); background:color-mix(in srgb,var(--success) 9%,var(--surface)); border-color:color-mix(in srgb,var(--success) 30%,var(--border)); }
+.platform-state-inactive { color:var(--danger); background:color-mix(in srgb,var(--danger) 8%,var(--surface)); border-color:color-mix(in srgb,var(--danger) 30%,var(--border)); }
+.platform-state-pending { color:var(--warning); background:color-mix(in srgb,var(--warning) 8%,var(--surface)); border-color:color-mix(in srgb,var(--warning) 30%,var(--border)); }
+.platform-governance { display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
+.platform-tenant-actions { display:flex; align-items:center; gap:6px; }
+.platform-action { display:inline-flex; align-items:center; justify-content:center; min-height:38px; padding:7px 9px; border:1px solid var(--border); border-radius:7px; font:inherit; font-size:12px; font-weight:650; line-height:1.4; text-align:center; cursor:pointer; }
+.platform-action-edit { width:38px; height:38px; padding:0; flex:none; background:var(--surface); color:var(--text-primary); }
+.platform-action-toggle { min-width:70px; }
+.platform-action-warning { background:color-mix(in srgb,var(--warning) 10%,var(--surface)); color:var(--warning); border-color:color-mix(in srgb,var(--warning) 40%,var(--border)); }
+.platform-action-danger { background:color-mix(in srgb,var(--danger) 8%,var(--surface)); color:var(--danger); border-color:color-mix(in srgb,var(--danger) 35%,var(--border)); }
+.platform-action-neutral { background:var(--surface-elevated); color:var(--text-primary); }
+.platform-action:hover { filter:brightness(.96); }.platform-action:disabled { opacity:.55; cursor:not-allowed; }
+.platform-tenant-block::before { content:""; display:table-row; height:10px; }
+.platform-hierarchy .platform-tenant-block>tr { background:transparent; }
+.platform-hierarchy .platform-company-table>.platform-tenant-block>tr>* { background:var(--surface); }
+.platform-hierarchy .platform-company-table>.platform-tenant-block>tr:first-child:hover>* { background:var(--surface-hover); }
+.platform-tenant-block>tr:first-child>* { border-top:1px solid var(--border); border-bottom:0; }
+.platform-tenant-block>tr> :first-child { border-left:1px solid var(--border); }
+.platform-tenant-block>tr> :last-child { border-right:1px solid var(--border); }
+.platform-tenant-block>tr:first-child> :first-child { border-top-left-radius:10px; }
+.platform-tenant-block>tr:first-child> :last-child { border-top-right-radius:10px; }
+.platform-hierarchy .platform-tenant-block>tr:last-child>* { border-bottom:1px solid var(--border); }
+.platform-tenant-block>tr:last-child> :first-child { border-bottom-left-radius:10px; }
+.platform-tenant-block>tr:last-child> :last-child { border-bottom-right-radius:10px; }
+.platform-hierarchy .platform-detail-row>td { padding:12px 16px; }
+.platform-detail-row h3 { border-top:1px solid var(--border); padding-top:12px; margin:0 0 10px; background:transparent; font-size:15px; }
+.platform-member-table { min-width:1200px; background:transparent; }
+.platform-hierarchy .platform-member-table>thead>tr>th { background:transparent; white-space:normal; }
+.platform-hierarchy .platform-member-table>tbody>tr:last-child>* { border-bottom:0; }
+.platform-member-table th[scope=row] { min-width:160px; }
+.platform-member-table .platform-email { min-width:200px; }
+.platform-admin-status { display:block; margin-top:4px; font-size:12px; color:var(--text-secondary); }
+.platform-global-accounts { min-width:100%; width:max-content; margin-top:20px; padding:14px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+.platform-section-title { font-size:17px; margin:0 0 8px; }
+.platform-unlinked-table { min-width:850px; }
+.platform-hierarchy .platform-unlinked-table>thead>tr>th { background:transparent; }
+.platform-admin-dialog { margin:auto; width:min(620px,calc(100vw - 32px)); box-sizing:border-box; }
+.platform-admin-dialog::backdrop { background:rgba(3,14,27,.68); }
+.platform-admin-dialog .access-modal-actions { flex-wrap:wrap; }.platform-admin-dialog .access-owner-invites { overflow-wrap:anywhere; }
+.platform-hierarchy :focus-visible { outline:3px solid var(--focus,#1689ed); outline-offset:2px; }
+@media(max-width:1550px) { .platform-scroll-hint { display:block; } }
+@media(max-width:1000px) {
+  .platform-hierarchy .access-header { flex-direction:column; gap:8px; margin-bottom:10px; }
+  .platform-hierarchy .access-header-actions { justify-content:flex-start; }
+  .platform-extra-infos dl { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
-.platform-company-table>thead>tr>th:nth-child(5){padding-left:10px;padding-right:10px}
-.platform-expand-all{min-width:142px;white-space:nowrap}
-.platform-hierarchy .platform-company-table>tbody>tr>th[scope=row],
-.platform-hierarchy .platform-member-table>tbody>tr>th[scope=row]{background:transparent}
-
-/* One row group forms the tenant outline in both collapsed and expanded states. */
-.platform-hierarchy .platform-company-scroll{background:transparent;border:0;border-radius:0}
-.platform-company-table{border-collapse:separate;border-spacing:0}
-.platform-tenant-block::before{content:"";display:table-row;height:12px}
-.platform-hierarchy .platform-tenant-block>tr{background:transparent}
-.platform-hierarchy .platform-company-table.access-table>.platform-tenant-block>tr>*{background:var(--surface)}
-.platform-hierarchy .platform-company-table.access-table>.platform-tenant-block>tr:first-child:hover>*{background:var(--surface-hover)}
-.platform-tenant-block>tr:first-child>*{border-top:1px solid var(--border);border-bottom:0}
-.platform-tenant-block>tr> :first-child{border-left:1px solid var(--border)}
-.platform-tenant-block>tr> :last-child{border-right:1px solid var(--border)}
-.platform-tenant-block>tr:first-child> :first-child{border-top-left-radius:10px}
-.platform-tenant-block>tr:first-child> :last-child{border-top-right-radius:10px}
-.platform-hierarchy .platform-tenant-block>tr:last-child>*{border-bottom:1px solid var(--border)}
-.platform-tenant-block>tr:last-child> :first-child{border-bottom-left-radius:10px}
-.platform-tenant-block>tr:last-child> :last-child{border-bottom-right-radius:10px}
-.platform-hierarchy .platform-detail-row>td{background:transparent}
-.platform-detail-row section>h3{border-top:1px solid var(--border);padding-top:16px;background:transparent}
-.platform-hierarchy .platform-detail-row .access-table-wrap{border:0;border-radius:0;background:transparent}
-.platform-hierarchy .platform-member-table{background:transparent}
-.platform-hierarchy .platform-member-table>thead>tr>th{background:transparent}
-.platform-hierarchy .platform-member-table>tbody>tr:last-child>*{border-bottom:0}
+@media(max-width:600px) {
+  .platform-hierarchy.access-page { padding:12px; gap:8px; }
+  .platform-hierarchy .access-header h1 { font-size:19px; }
+  .platform-hierarchy .access-header-actions>.access-button { font-size:12px; min-height:38px; padding:6px 9px; }
+  .platform-global-toolbar { align-items:stretch; gap:8px; margin-bottom:10px; }
+  .platform-global-toolbar>label { flex-basis:100%; }
+  .platform-toolbar-actions { display:grid; grid-template-columns:1fr 1fr; width:100%; }
+  .platform-toolbar-actions .access-button { font-size:12px; padding:7px; white-space:normal; }
+  .platform-toolbar-actions .access-button:last-child:nth-child(3) { grid-column:1 / -1; }
+  .platform-overview { gap:8px; width:100%; }.platform-totals { flex:1; gap:6px; }
+  .platform-totals>div { flex:1; display:block; min-width:0; padding:8px; }
+  .platform-totals dt { font-size:11px; }.platform-totals dd { margin-top:4px; font-size:22px; }
+  .platform-overview>.access-button { padding:8px; white-space:nowrap; }
+  .platform-extra-infos dl { font-size:12px; gap:8px; }
+  .platform-hierarchy .access-header p { font-size:12px; }
+}
+/* Short landscape screens / enlarged text: keep a usable records viewport without overlaps. */
+@media(max-height:750px) { .platform-fixed-controls { max-height:65dvh; overflow:auto; padding:3px; margin:-3px; } }

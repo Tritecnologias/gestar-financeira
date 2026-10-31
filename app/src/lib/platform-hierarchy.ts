@@ -7,6 +7,24 @@ export type PlatformMembership = { id: string; role: string; status: string; ide
   tenant: { id: string; nome: string }; profile: { id: string; nome: string } | null };
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").trim();
 
+/** Full authorized catalog, independent of search and expansion. A membership is not a new user. */
+export function platformIndicators(tenants: PlatformTenant[], identities: PlatformIdentity[], memberships: PlatformMembership[]) {
+  const accounts = [...new Map(identities.map(i => [i.id, i])).values()];
+  const linked = new Set(memberships.map(m => m.identity.id));
+  return {
+    tenants: tenants.length,
+    users: accounts.length,
+    activeTenants: tenants.filter(t => t.ativo).length,
+    inactiveTenants: tenants.filter(t => !t.ativo).length,
+    activeUsers: accounts.filter(i => i.status === "ACTIVE").length,
+    inactiveUsers: accounts.filter(i => i.status === "INACTIVE").length,
+    unlinkedUsers: accounts.filter(i => !linked.has(i.id)).length,
+    withoutOwner: tenants.filter(t => t.activeOwnerCount === 0).length,
+    pendingResponsible: tenants.filter(t => t.contractualStatus === "Responsável Contratual pendente").length,
+    awaitingAcceptance: tenants.filter(t => t.contractualStatus === "Aguardando aceite").length,
+  };
+}
+
 /** Read-only view model joined by stable IDs, never by names, emails or new identities. */
 export function platformHierarchy(tenants: PlatformTenant[], identities: PlatformIdentity[], memberships: PlatformMembership[], query: string) {
   const search = normalize(query), accountById = new Map(identities.map(i => [i.id, i]));
