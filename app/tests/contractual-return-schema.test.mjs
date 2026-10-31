@@ -10,6 +10,7 @@ test('contractual return is a single additive nullable column, preserving histor
   assert.equal(createHash('sha256').update(b).digest('hex'),m.sha256);assert(!b.includes(13));
   assert(sql.includes('ADD COLUMN provisional_cancelled_at timestamp(3)'));
   assert(sql.includes("lock_timeout = '5s'")&&sql.includes("statement_timeout = '60s'"));
+  assert(sql.includes("AND migration_name <> '20261031_contractual_choice_return'"));
   assert(!/\b(?:GRANT|REVOKE|CREATE FUNCTION|DROP CONSTRAINT|UPDATE public|DELETE FROM|INSERT INTO)\b/.test(sql));
  }
  assert.equal(h7.length,7);assert.equal(p6.length,6);assert.deepEqual(h7.slice(0,-1),h6);assert.deepEqual(p6.slice(0,-1),p5);

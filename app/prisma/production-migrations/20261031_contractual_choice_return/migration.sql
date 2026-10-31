@@ -8,7 +8,9 @@ BEGIN
     INTO history,completed,unique_names FROM public._prisma_migrations
     WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL;
   IF current_setting('server_version_num')::int NOT BETWEEN 180000 AND 189999
-    OR EXISTS (SELECT 1 FROM public._prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL)
+    -- Prisma records this migration as in progress before executing its SQL.
+    OR EXISTS (SELECT 1 FROM public._prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL
+      AND migration_name <> '20261031_contractual_choice_return')
     OR completed <> unique_names
     OR history IS NULL
     OR NOT ((completed=5 AND history='{"20261027_pg18_baseline":"54c5769aaf48114f52f597d4d79ef8c0057ff02b0a47ec78f466830638ed5ff8","20261027_z_advisory_access":"29581fdb114416878cd5799485a16f6fd846ef34f1754a0321f6de91c29e45b2","20261028_contractual_onboarding":"c214179b8c41fb447266d75831e9602bced487e2c32ba589f7a679e26b021c60","20261030_prod_experiment_invitations":"4c3f8a863f74e2c311cf42d6982be4880aa8f08d4c3812614260e69356a6af6e","20261030_tenant_modality":"570f9d7d3e5df8b155ed6931fbf75658730ff5e030e1faf932f3b5ccf9c04934"}'::jsonb)

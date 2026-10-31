@@ -54,9 +54,11 @@ protegidas pelo gate contratual. Nenhuma autoridade definitiva é ampliada.
 - Migration aditiva `20261031_contractual_choice_return`, somente proposta para
   os ambientes remotos: uma coluna `provisional_cancelled_at timestamp(3)` nullable,
   sem default, backfill, alteração de CHECK/FK ou ACL. SHA-256:
-  `3db1ed6f3569105f0b77bbc96d90377f0ef65080a1f81e426d1d8b1ae7447d15`.
+  `bf1553ef0a2cdaeb4a38f0fb9e1bb8a695dd37d47b306e9c85014e0fcf5e1f28`.
   Os SQLs dos catálogos HOMOLOG/PROD são idênticos, com guard dos históricos exatos
   H6/P5, PG18, lock timeout 5s, statement timeout 60s e transação explícita.
+  O guard aceita a entrada em execução da própria migration, criada pelo Prisma,
+  e rejeita qualquer outra pendência. O ensaio H6 → H7 ocorre somente no clone.
 - Ledgers futuros H7/P6; formato continua v3. Nenhuma aplicação remota autorizada.
 - Backup v3 já inclui onboarding e responsáveis como referências autenticadas,
   nunca como seções restauráveis. O marcador é preservado nas referências.
