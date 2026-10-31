@@ -7,9 +7,10 @@ import OfficialPdfDocument from "./OfficialPdfDocument";
 export type DisplayedTerm = { versionId: string; sha256: string };
 type VerifiedPdf = DisplayedTerm & { bytes: Uint8Array; url: string };
 
-export default function TermDocumentDialog({ term, personalSupport, busy, error, label = "Documento oficial", onClose, onAccept }: {
+export default function TermDocumentDialog({ term, personalSupport, busy, error, label = "Documento oficial", backLabel, onClose, onAccept }: {
   term: PendingTerm; personalSupport: boolean; busy: boolean; error: string;
   label?: string;
+  backLabel?: string;
   onClose: () => void; onAccept: (shown: DisplayedTerm) => Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null), heading = useRef<HTMLHeadingElement>(null);
@@ -47,12 +48,12 @@ export default function TermDocumentDialog({ term, personalSupport, busy, error,
     <div className="term-reader-shell">
       <header className="term-reader-heading"><div><span className="terms-eyebrow">{label} · Versão {term.version}</span>
         <h2 id="term-reader-title" ref={heading} tabIndex={-1}>{term.title}</h2></div>
-        <button type="button" className="term-reader-close" aria-label="Fechar documento" disabled={busy} onClick={onClose}>×</button></header>
+        <button type="button" className={`term-reader-close${backLabel ? " term-reader-back" : ""}`} aria-label={backLabel ?? "Fechar documento"} disabled={busy} onClick={onClose}>{backLabel ?? "×"}</button></header>
       <div className="term-reader-toolbar"><div className="term-reader-zoom" role="group" aria-label="Ampliação do PDF">
         <button type="button" aria-label="Diminuir zoom" disabled={zoom <= 100} onClick={() => setZoom(z => z - 25)}>−</button><output aria-live="polite">{zoom}%</output>
         <button type="button" aria-label="Aumentar zoom" disabled={zoom >= 200} onClick={() => setZoom(z => z + 25)}>+</button>
         <button type="button" className="term-reader-fit" onClick={() => setZoom(100)}>Ajustar largura</button></div>
-        {file && <a href={file.url} download={`DEZ-${term.audience}-${term.version}.pdf`} className="terms-file-link">Baixar PDF</a>}</div>
+        {file && <a href={file.url} download={`DEZ-${term.audience}-${term.version}.pdf`} className="terms-file-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" /></svg>Baixar PDF</a>}</div>
       {loadError ? <div className="term-reader-failure"><p role="alert">{loadError}</p><button type="button" className="btn" onClick={() => setAttempt(n => n + 1)}>Tentar novamente</button></div>
         : file ? <OfficialPdfDocument bytes={file.bytes} zoom={zoom} onReady={painted} onError={failed} /> : <div className="term-reader-loading" role="status">Carregando e verificando o PDF oficial…</div>}
       <footer className="term-reader-footer">

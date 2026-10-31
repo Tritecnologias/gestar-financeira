@@ -6,6 +6,7 @@ import { SUPPORT_MODULES } from "@/lib/support-policy";
 import "./terms.css";
 import { contractualReadiness } from "@/lib/contractual-state";
 import { prisma } from "@/lib/db";
+import { contractualOnboardingState } from "@/lib/contractual-onboarding";
 
 export default async function TermsAcceptancePage() {
   let session;
@@ -22,5 +23,6 @@ export default async function TermsAcceptancePage() {
     if (!ready.active && !pending.some(t => t.actionable)) redirect("/onboarding");
   }
   if (!pending.length) redirect(returnPath);
-  return <TermsAcceptanceClient initialPending={pending} returnPath={returnPath} />;
+  const canReturnToChoice = session.accessSource === "MEMBERSHIP" && (await contractualOnboardingState(session)).canReturnToChoice;
+  return <TermsAcceptanceClient initialPending={pending} returnPath={returnPath} canReturnToChoice={canReturnToChoice} />;
 }

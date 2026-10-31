@@ -94,11 +94,12 @@ export default function ActivateAccessClient() {
       <p>Você recebeu acesso para <strong>{invite.tenantNome}</strong>. Confirme para ativar seu vínculo.</p>
       <p className="activation-muted">Este convite expira em {new Date(invite.expiresAt).toLocaleString("pt-BR")}.</p>
       {invite.mode === "new" ? <div className="activation-fields">
-        <PasswordInput id="activation-password" label="Crie sua senha" autoComplete="new-password" value={password}
+        <PasswordInput id="activation-password" label="Crie sua senha" sequential aria-describedby="activation-password-help" autoComplete="new-password" value={password}
           onChange={event => setPassword(event.target.value)} minLength={12} maxLength={200} />
-        <PasswordInput id="activation-confirmation" label="Confirme sua senha" autoComplete="new-password" value={confirm}
+        <PasswordInput id="activation-confirmation" label="Confirme sua senha" sequential aria-describedby="activation-password-help" autoComplete="new-password" value={confirm}
           onChange={event => setConfirm(event.target.value)} />
         <p className="activation-muted">A senha é definida apenas por você. O aceite dos documentos obrigatórios será solicitado depois.</p>
+        <p id="activation-password-help" className="activation-muted">Use Tab para ir da senha à confirmação e ao botão Confirmar acesso. Para mostrar ou ocultar a senha pelo teclado, pressione Alt + Shift + V no campo. Você também pode clicar ou tocar no olho.</p>
       </div> : invite.canAccept ? <p className="activation-muted">Você está conectado. Confirme o acesso à nova empresa.</p>
         : <form method="post" className="activation-fields" onSubmit={authenticate}>
           <p>Entre com a conta destinatária do convite antes de confirmar. Sua senha atual não será alterada.</p>

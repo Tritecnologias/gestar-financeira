@@ -6,7 +6,7 @@ import { signOut } from "next-auth/react";
 import type { PendingTerm } from "@/lib/terms";
 import TermDocumentDialog, { type DisplayedTerm } from "./TermDocumentDialog";
 
-export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio", personalSupport = false, audience }: { initialPending: PendingTerm[]; returnPath?: string; personalSupport?: boolean; audience?: "USUARIO" }) {
+export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio", personalSupport = false, audience, canReturnToChoice = false }: { initialPending: PendingTerm[]; returnPath?: string; personalSupport?: boolean; audience?: "USUARIO"; canReturnToChoice?: boolean }) {
   const acceptUrl = personalSupport ? "/api/support/terms" : "/api/terms/accept";
   const pendingUrl = personalSupport ? "/api/support/terms" : "/api/terms/pending";
   const [pending, setPending] = useState(initialPending);
@@ -25,6 +25,17 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
     return audience ? body.pending.filter((item: PendingTerm) => item.audience === audience) : body.pending;
   }
   function close() { setOpened(null); requestAnimationFrame(() => trigger.current?.focus()); }
+  async function backToChoice() {
+    if (busy) return;
+    setBusy(true); setError("");
+    try {
+      const response = await fetch("/api/onboarding/contractual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "back" }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Não foi possível retornar à escolha. Atualize a situação e tente novamente.");
+      window.location.assign("/onboarding");
+    } catch (cause) { setError(messagePtBr((cause as Error).message)); }
+    finally { setBusy(false); }
+  }
   async function refresh() {
     if (busy) return;
     setBusy(true); setError("");
@@ -55,16 +66,17 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
 
   return <main className="terms-page"><section className="terms-card">
     <header><span className="terms-eyebrow">DEZ SOLUÇÕES · DOCUMENTOS OFICIAIS</span><h1>Aceite pendente</h1>
-      <p>Consulte a versão publicada antes de registrar sua concordância.</p></header>
+      <p>{current?.audience === "USUARIO" ? "Este é o seu Termo de Uso da DEZ Soluções. Ele identifica você como usuário da plataforma e estabelece as condições de acesso, utilização e responsabilidades, contribuindo para a segurança das suas informações." : "Consulte a versão publicada antes de registrar sua concordância."}</p></header>
     {current && <div className="terms-document"><span className="terms-audience">{current.audience === "CONTRATANTE" ? "Responsável da empresa" : "Usuário da plataforma"}</span>
       <h2>{current.title}</h2><p>Versão {current.version} · publicada em {current.publishedAt ? new Date(current.publishedAt).toLocaleDateString("pt-BR") : "data indisponível"}</p>
       <button ref={trigger} type="button" className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setOpened(current); }}>{current.actionable ? "Ler e aceitar documento" : "Ler documento"}</button>
       {!current.actionable && <p className="terms-wait" role="status">{current.reason}</p>}
     </div>}
     {pending.length > 1 && <p className="terms-remaining">{pending.length} documentos pendentes neste contexto.</p>}
-    {error && <p role="alert" className="terms-error">{messagePtBr(error)}</p>}
-    <button type="button" className="terms-signout" disabled={busy} onClick={() => void refresh()}>Atualizar documentos</button>{" · "}
+    {error && <div><p role="alert" className="terms-error">{messagePtBr(error)}</p><button type="button" className="terms-signout" disabled={busy} onClick={() => void refresh()}>Tentar novamente</button></div>}
+    {canReturnToChoice && <button type="button" className="terms-signout terms-choice-back" disabled={busy} onClick={() => void backToChoice()}>Voltar à escolha</button>}
     <button type="button" className="terms-signout" onClick={() => signOut({ callbackUrl: "/login" })}>Sair</button>
   </section>{opened && <TermDocumentDialog key={opened.versionId} term={opened} personalSupport={personalSupport}
-    busy={busy} error={error} onClose={close} onAccept={accept} />}</main>;
+    busy={busy} error={error} backLabel={opened.audience === "CONTRATANTE" ? "Voltar" : undefined}
+    onClose={opened.audience === "CONTRATANTE" && canReturnToChoice ? () => void backToChoice() : close} onAccept={accept} />}</main>;
 }

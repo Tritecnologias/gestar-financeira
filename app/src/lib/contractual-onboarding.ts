@@ -185,6 +185,32 @@ export async function continueContractualNomination(actor: ContractualActor) {
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }
 
+/** Only the actor's own provisional SELF choice can be reopened. Evidence is never undone. */
+async function canReopenContractualChoice(tx: Tx, actor: ContractualActor) {
+  const row = await tx.tenantContractualOnboarding.findUnique({ where: { tenantId: actor.tenantId } });
+  if (row?.choice !== "SELF" || row.status !== "ASSIGNED" || row.initiatedByMembershipId !== actor.membershipId ||
+      row.assignedMembershipId !== actor.membershipId) return false;
+  const responsible = await tx.tenantContractualResponsible.findUnique({ where: { tenantId: actor.tenantId } });
+  if (responsible?.membershipId !== actor.membershipId || responsible.assignedByIdentityId !== actor.identityId) return false;
+  // Any historical contractual acceptance seals this flow, including retired document versions.
+  return !await tx.termAcceptance.findFirst({ where: { tenantId: actor.tenantId, version: { document: { audience: "CONTRATANTE" } } }, select: { id: true } });
+}
+
+export async function reopenContractualChoice(actor: ContractualActor) {
+  return prisma.$transaction(async tx => {
+    // Acceptance uses the same lock. A concurrent acceptance cannot be silently undone.
+    await lockContractualTenant(tx, actor.tenantId); await assertContractualOwnerActive(tx, actor);
+    await requireTenantModalityReady(tx, actor.tenantId);
+    if (!await acceptedUserTerms(tx, actor.identityId)) fail("Aceite primeiro os Termos de Uso do Usuário.", 428);
+    if (!await canReopenContractualChoice(tx, actor)) fail("A escolha não pode ser alterada. Atualize a situação da empresa.");
+    await tx.tenantContractualResponsible.delete({ where: { tenantId: actor.tenantId } });
+    await tx.tenantContractualOnboarding.update({ where: { tenantId: actor.tenantId },
+      data: { status: "CANCELLED", assignedMembershipId: null, assignedAt: null } });
+    await writeAudit(tx, event(actor, "CONTRACTUAL_CHOICE_REOPENED", actor.tenantId));
+    return { status: "CHOOSE_RESPONSIBLE" };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
+}
+
 export async function contractualOnboardingState(session: UserSession) {
   if (session.authMode !== "identity" || session.accessSource !== "MEMBERSHIP" || !session.identityId || !session.membershipId) fail("Contexto empresarial necessário.", 403);
   const ready = await contractualReadiness(prisma, session.tenantId);
@@ -203,6 +229,8 @@ export async function contractualOnboardingState(session: UserSession) {
   return { status, tenantName: session.tenantNome, isOwner: owner,
     canChoose: owner && userAccepted && userDocumentsAvailable && ready.documentsAvailable && !ready.validResponsible && !waiting,
     canResolve: !!canResolve, canAcceptContract: userAccepted && ready.responsibleMembershipId === session.membershipId,
+    canReturnToChoice: owner && userAccepted && await canReopenContractualChoice(prisma, {
+      tenantId: session.tenantId, identityId: session.identityId, membershipId: session.membershipId }),
     invitation: owner && userAccepted && row?.choice === "OTHER" && invite ? {
       id: invite.id, name: invite.name, email: invite.email, status: invitationStatus, expiresAt: invite.expiresAt.toISOString(),
       canReissue: !ready.validResponsible && row.status === "PENDING" && ["PENDING", "EXPIRED"].includes(invitationStatus!),

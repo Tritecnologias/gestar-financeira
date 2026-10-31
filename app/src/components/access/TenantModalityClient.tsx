@@ -23,14 +23,13 @@ export default function TenantModalityClient({ tenantName, canChoose }: { tenant
     <HomologIdentityBadge />
     <p className="modality-tenant">Espaço: <strong>{tenantName}</strong></p>
     {canChoose ? <><h1 id="modality-title">Como você deseja utilizar este espaço?</h1>
-      <p>A escolha vale para esta empresa ou espaço pessoal. Sua conta de acesso continua a mesma.</p>
-      <form onSubmit={confirm}><fieldset disabled={busy}><legend>Escolha a modalidade</legend>
-        <label className="modality-option"><input type="radio" name="modalidade" value="PF" checked={choice === "PF"} onChange={() => setChoice("PF")} required /><span><strong>Gestão Pessoal — PF</strong><span>Organizar minhas finanças pessoais.</span></span></label>
-        <label className="modality-option"><input type="radio" name="modalidade" value="PJ" checked={choice === "PJ"} onChange={() => setChoice("PJ")} required /><span><strong>Gestão Empresarial — PJ</strong><span>Organizar a gestão da minha empresa.</span></span></label>
+      <form onSubmit={confirm}><fieldset disabled={busy} aria-labelledby="modality-title">
+        <label className="modality-option"><input type="radio" name="modalidade" value="PF" checked={choice === "PF"} onChange={() => setChoice("PF")} required /><svg className="modality-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="12" cy="7" r="4" /><path d="M4 22v-3a8 8 0 0 1 16 0v3" /></svg><span><strong>Gestão Pessoal — PF</strong><span>Organizar minhas finanças pessoais.</span></span></label>
+        <label className="modality-option"><input type="radio" name="modalidade" value="PJ" checked={choice === "PJ"} onChange={() => setChoice("PJ")} required /><svg className="modality-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M4 22V3h12v19M16 10h4v12M9 22v-4h3v4M7 7h2m3 0h2M7 11h2m3 0h2M7 15h2m3 0h2M2 22h20" /></svg><span><strong>Gestão Empresarial — PJ</strong><span>Organizar a gestão da minha empresa.</span></span></label>
       </fieldset>
       {error && <p className="modality-error" role="alert">{error}</p>}
       <button className="modality-confirm" type="submit" disabled={!choice || busy}>{busy ? "Confirmando…" : "Confirmar e continuar"}</button>
-      </form><p className="modality-hint">Em seguida, você continuará a definição do Responsável Contratual e os termos aplicáveis.</p>
+      </form>
     </> : <><h1 id="modality-title">Aguardando o Proprietário</h1><p>O Proprietário precisa definir a modalidade deste espaço antes de liberar a operação. Nenhum acesso adicional foi concedido.</p></>}
     <nav aria-label="Conta"><Link href="/selecionar-tenant">Minhas empresas</Link><Link href="/minha-conta">Minha conta</Link></nav>
   </section></main>;

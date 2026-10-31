@@ -6,7 +6,7 @@ import { withAccessRequest } from "@/lib/access-request-context";
 import { newInviteToken } from "@/lib/access-invites";
 import { auditContext } from "@/lib/audit";
 import { contractualActor, contractualOnboardingState, selfContractualResponsible,
-  nominateContractualResponsible, contractualInvitationAction, continueContractualNomination } from "@/lib/contractual-onboarding";
+  nominateContractualResponsible, contractualInvitationAction, continueContractualNomination, reopenContractualChoice } from "@/lib/contractual-onboarding";
 import { invitationDelivery, issueInvitationDelivery, INVITATION_RESPONSE_HEADERS } from "@/lib/invite-delivery";
 
 function failure(error: unknown) {
@@ -32,6 +32,7 @@ async function handlePOST(req: NextRequest) {
       return NextResponse.json({ error: "Solicitação inválida." }, { status: 400 });
     }
     if (body.action === "self") return NextResponse.json(await selfContractualResponsible(actor), { headers: INVITATION_RESPONSE_HEADERS });
+    if (body.action === "back") return NextResponse.json(await reopenContractualChoice(actor), { headers: INVITATION_RESPONSE_HEADERS });
     if (body.action === "continue") return NextResponse.json(await continueContractualNomination(actor), { headers: INVITATION_RESPONSE_HEADERS });
     if (body.action === "revoke") return NextResponse.json(await contractualInvitationAction(actor, "revoke"), { headers: INVITATION_RESPONSE_HEADERS });
     if (body.action !== "other" && body.action !== "resend") return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
