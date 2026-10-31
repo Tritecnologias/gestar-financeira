@@ -66,7 +66,9 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
 
   return <main className="terms-page"><section className="terms-card">
     <header><span className="terms-eyebrow">DEZ SOLUÇÕES · DOCUMENTOS OFICIAIS</span><h1>Aceite pendente</h1>
-      <p>{current?.audience === "USUARIO" ? "Este é o seu Termo de Uso da DEZ Soluções. Ele identifica você como usuário da plataforma e estabelece as condições de acesso, utilização e responsabilidades, contribuindo para a segurança das suas informações." : "Consulte a versão publicada antes de registrar sua concordância."}</p></header>
+      <p>{current?.audience === "USUARIO" ? "Este é o seu Termo de Uso da DEZ Soluções. Ele identifica você como usuário da plataforma e estabelece as condições de acesso, utilização e responsabilidades, contribuindo para a segurança das suas informações."
+        : current?.documentCode === "TERM_CONTRATANTE" && current.audience === "CONTRATANTE" ? "Este é o Termo de Contratação da DEZ Soluções. Ele estabelece as condições de utilização do espaço contratado e as responsabilidades assumidas pelo responsável contratual, garantindo clareza e segurança na relação entre as partes."
+        : "Consulte a versão publicada antes de registrar sua concordância."}</p></header>
     {current && <div className="terms-document"><span className="terms-audience">{current.audience === "CONTRATANTE" ? "Responsável da empresa" : "Usuário da plataforma"}</span>
       <h2>{current.title}</h2><p>Versão {current.version} · publicada em {current.publishedAt ? new Date(current.publishedAt).toLocaleDateString("pt-BR") : "data indisponível"}</p>
       <button ref={trigger} type="button" className="btn btn-primary" disabled={busy} onClick={() => { setError(""); setOpened(current); }}>{current.actionable ? "Ler e aceitar documento" : "Ler documento"}</button>

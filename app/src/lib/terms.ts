@@ -5,6 +5,7 @@ import { acceptedUserTerms, contractualReadiness } from "@/lib/contractual-state
 export type PendingTerm = {
   versionId: string;
   documentId: string;
+  documentCode?: string;
   audience: "CONTRATANTE" | "USUARIO";
   title: string;
   version: string;
@@ -47,7 +48,7 @@ export async function pendingTerms(session: UserSession): Promise<PendingTerm[]>
     });
     if (accepted) continue;
     pending.push({
-      versionId: term.id, documentId: term.documentId, audience: term.document.audience,
+      versionId: term.id, documentId: term.documentId, documentCode: term.document.code, audience: term.document.audience,
       title: term.title, version: term.version, sha256: term.sha256, publishedAt: term.publishedAt,
       actionable: !contract || currentResponsible?.id === session.membershipId,
       reason: contract && !currentResponsible ? "Responsável contratual ainda não designado ou inativo." :

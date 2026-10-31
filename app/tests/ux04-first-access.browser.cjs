@@ -33,6 +33,9 @@ async function main() {
     await p.locator('.password-toggle').first().click();assert.equal(await create.getAttribute('type'),'text');
     await p.locator('.password-toggle').first().click();assert.equal(await create.getAttribute('type'),'password');
     assert.equal(await create.getAttribute('aria-describedby'),'activation-password-help');
+    assert.equal(await p.getByText('Use Tab para ir da senha à confirmação',{exact:false}).count(),0);
+    assert.deepEqual(await p.locator('.activation-fields .activation-muted').allTextContents(),['A senha é definida apenas por você. O aceite dos documentos obrigatórios será solicitado depois.']);
+    assert.equal(await p.locator('#activation-password-help').evaluate(e=>getComputedStyle(e).clipPath),'inset(50%)');
     await shots(p,'activation');
     await create.fill(c.password);await confirm.fill(c.password);
     loginAttempts++;await p.getByRole('button',{name:'Confirmar acesso',exact:true}).click();
@@ -42,6 +45,11 @@ async function main() {
     for(let i=0;i<8;i++) {
       const pending=(await(await api(ctx,'/api/terms/pending')).json()).pending.filter(t=>t.audience===audience&&t.actionable);
       if(!pending.length)return;
+      assert(pending.every(t=>t.documentCode==='TERM_'+audience));
+      const userIntro='Este é o seu Termo de Uso da DEZ Soluções. Ele identifica você como usuário da plataforma e estabelece as condições de acesso, utilização e responsabilidades, contribuindo para a segurança das suas informações.';
+      const contractIntro='Este é o Termo de Contratação da DEZ Soluções. Ele estabelece as condições de utilização do espaço contratado e as responsabilidades assumidas pelo responsável contratual, garantindo clareza e segurança na relação entre as partes.';
+      await p.getByText(audience==='USUARIO'?userIntro:contractIntro,{exact:true}).waitFor();
+      assert.equal(await p.getByText(audience==='USUARIO'?contractIntro:userIntro,{exact:true}).count(),0);
       if(audience==='USUARIO'&&!integrityChecked) {
         await p.route('**/api/terms/versions/*/file',async route=>{const response=await route.fetch();await route.fulfill({response,headers:{...response.headers(),'x-term-sha256':'0'.repeat(64)}});});
         await p.getByRole('button',{name:'Ler e aceitar documento',exact:true}).click();

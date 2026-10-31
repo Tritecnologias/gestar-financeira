@@ -99,7 +99,7 @@ export default function ActivateAccessClient() {
         <PasswordInput id="activation-confirmation" label="Confirme sua senha" sequential aria-describedby="activation-password-help" autoComplete="new-password" value={confirm}
           onChange={event => setConfirm(event.target.value)} />
         <p className="activation-muted">A senha é definida apenas por você. O aceite dos documentos obrigatórios será solicitado depois.</p>
-        <p id="activation-password-help" className="activation-muted">Use Tab para ir da senha à confirmação e ao botão Confirmar acesso. Para mostrar ou ocultar a senha pelo teclado, pressione Alt + Shift + V no campo. Você também pode clicar ou tocar no olho.</p>
+        <span id="activation-password-help" className="password-visibility-status">Para mostrar ou ocultar a senha pelo teclado, pressione Alt + Shift + V no campo.</span>
       </div> : invite.canAccept ? <p className="activation-muted">Você está conectado. Confirme o acesso à nova empresa.</p>
         : <form method="post" className="activation-fields" onSubmit={authenticate}>
           <p>Entre com a conta destinatária do convite antes de confirmar. Sua senha atual não será alterada.</p>
