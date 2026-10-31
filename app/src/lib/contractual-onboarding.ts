@@ -34,7 +34,12 @@ function event(actor: ContractualActor, action: string, resourceId: string, meta
 }
 export async function cancelContractualNomination(tx: Tx, tenantId: string, actorIdentityId: string, reason: string) {
   const row = await tx.tenantContractualOnboarding.findUnique({ where: { tenantId }, include: { invitation: true } });
-  if (!row || row.status === "CANCELLED") return;
+  if (!row) return;
+  if (row.status === "CANCELLED") {
+    // Administrative replacement must discard any retained provisional marker.
+    await tx.tenantContractualOnboarding.update({ where: { tenantId }, data: { assignedMembershipId: null, assignedAt: null } });
+    return;
+  }
   if (row.status === "PENDING" && row.invitation?.status === "PENDING") {
     await tx.accessInvite.update({ where: { id: row.invitation.id }, data: { status: "REVOKED", revokedAt: new Date(), revokedByIdentityId: actorIdentityId } });
     await writeAudit(tx, { tenantId, actorIdentityId, accessMode: "SYSTEM", action: "INVITE_REVOKED",
@@ -129,7 +134,8 @@ export async function nominateContractualResponsible(actor: ContractualActor, in
     const invite = await tx.accessInvite.create({ data: { tenantId: actor.tenantId, email: input.email, name: input.name, role: "OWNER",
       profileId: profile.id, tokenHash: input.tokenHash, expiresAt: inviteExpiresAt(), invitedByIdentityId: actor.identityId } });
     const data = { choice: "OTHER" as const, status: "PENDING" as const, initiatedByMembershipId: actor.membershipId,
-      invitationId: invite.id, assignedMembershipId: null, assignedAt: null };
+      // Carry the exact cancelled assignment until a new responsible is assigned.
+      invitationId: invite.id, assignedMembershipId: previous?.assignedMembershipId ?? null, assignedAt: previous?.assignedAt ?? null };
     await tx.tenantContractualOnboarding.upsert({ where: { tenantId: actor.tenantId }, create: { tenantId: actor.tenantId, ...data }, update: data });
     if (!previous) await writeAudit(tx, event(actor, "CONTRACTUAL_ONBOARDING_STARTED", actor.tenantId));
     await writeAudit(tx, event(actor, "CONTRACTUAL_PERSON_NOMINATED", actor.tenantId, { invitationId: invite.id }));
@@ -203,10 +209,12 @@ export async function reopenContractualChoice(actor: ContractualActor) {
     await requireTenantModalityReady(tx, actor.tenantId);
     if (!await acceptedUserTerms(tx, actor.identityId)) fail("Aceite primeiro os Termos de Uso do Usuário.", 428);
     if (!await canReopenContractualChoice(tx, actor)) fail("A escolha não pode ser alterada. Atualize a situação da empresa.");
-    await tx.tenantContractualResponsible.delete({ where: { tenantId: actor.tenantId } });
+    const responsible = await tx.tenantContractualResponsible.findUniqueOrThrow({ where: { tenantId: actor.tenantId } });
     await tx.tenantContractualOnboarding.update({ where: { tenantId: actor.tenantId },
-      data: { status: "CANCELLED", assignedMembershipId: null, assignedAt: null } });
-    await writeAudit(tx, event(actor, "CONTRACTUAL_CHOICE_REOPENED", actor.tenantId));
+      data: { status: "CANCELLED", assignedMembershipId: responsible.membershipId, assignedAt: responsible.assignedAt } });
+    await writeAudit(tx, { ...event(actor, "CONTRACTUAL_CHOICE_REOPENED", actor.tenantId),
+      changes: { before: { status: "ASSIGNED", membershipId: responsible.membershipId },
+        after: { status: "CANCELLED", retainedProvisionalMembershipId: responsible.membershipId } } });
     return { status: "CHOOSE_RESPONSIBLE" };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
 }

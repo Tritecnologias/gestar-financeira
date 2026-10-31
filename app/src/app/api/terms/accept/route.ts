@@ -6,7 +6,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/tenant";
 import { auditContext, writeAudit } from "@/lib/audit";
-import { acceptedUserTerms, contractualReadiness } from "@/lib/contractual-state";
+import { acceptedUserTerms, contractualReadiness, currentContractualResponsible } from "@/lib/contractual-state";
 import { lockContractualTenant, finalizeContractualNomination, assertContractualOwnerActive } from "@/lib/contractual-onboarding";
 import { sameOrigin } from "@/lib/advisory-management";
 import { requireTenantModalityReady } from "@/lib/tenant-modality-state";
@@ -41,7 +41,7 @@ async function handlePOST(req: NextRequest) {
         if (!await acceptedUserTerms(tx, identityId)) throw Object.assign(new Error("Aceite primeiro os Termos de Uso do Usuário."), { status: 403 });
         if (!membershipId) throw Object.assign(new Error("Somente o responsável contratual pode aceitar este documento."), { status: 403 });
         await assertContractualOwnerActive(tx, { tenantId: session.tenantId, identityId, membershipId });
-        const responsible = await tx.tenantContractualResponsible.findUnique({ where: { tenantId: session.tenantId }, include: { membership: { include: { identity: true } } } });
+        const responsible = await currentContractualResponsible(tx, session.tenantId);
         if (!responsible || responsible.membershipId !== membershipId ||
           responsible.membership.identityId !== identityId || responsible.membership.role !== "OWNER" ||
           responsible.membership.status !== "ACTIVE" || responsible.membership.identity.status !== "ACTIVE") {

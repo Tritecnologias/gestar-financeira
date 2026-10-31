@@ -7,6 +7,7 @@ import { expireListedSupportGrants } from "@/lib/support-grants";
 import { SUPPORT_MINUTES, validSupportModules } from "@/lib/support-policy";
 import { writeAudit } from "@/lib/audit";
 import { lockSupportOperator } from "@/lib/support-authorization";
+import { currentContractualResponsible } from "@/lib/contractual-state";
 
 const noStore = { "Cache-Control": "private, no-store" };
 const withDetails = {
@@ -66,9 +67,7 @@ export async function POST(req: NextRequest) {
     }
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { ativo: true } });
     if (!tenant?.ativo) throw Object.assign(new Error("Tenant indisponível."), { status: 404 });
-    const responsible = await prisma.tenantContractualResponsible.findUnique({
-      where: { tenantId }, include: { membership: { include: { identity: { select: { status: true } } } } },
-    });
+    const responsible = await currentContractualResponsible(prisma, tenantId);
     if (!responsible || responsible.membership.role !== "OWNER" || responsible.membership.status !== "ACTIVE" ||
         responsible.membership.identity.status !== "ACTIVE") {
       throw Object.assign(new Error("Tenant sem responsável contratual OWNER ativo para decidir suporte."), { status: 409 });

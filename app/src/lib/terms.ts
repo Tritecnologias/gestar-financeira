@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { UserSession } from "@/types";
-import { acceptedUserTerms, contractualReadiness } from "@/lib/contractual-state";
+import { acceptedUserTerms, contractualReadiness, currentContractualResponsible } from "@/lib/contractual-state";
 
 export type PendingTerm = {
   versionId: string;
@@ -24,13 +24,8 @@ export async function pendingTerms(session: UserSession): Promise<PendingTerm[]>
     orderBy: { createdAt: "asc" },
   });
   if (!versions.length) return [];
-  const responsible = await prisma.tenantContractualResponsible.findUnique({
-    where: { tenantId: session.tenantId },
-    include: { membership: { include: { identity: { select: { status: true } } } } },
-  });
-  const currentResponsible = responsible?.membership.status === "ACTIVE" &&
-    responsible.membership.role === "OWNER" && responsible.membership.identity.status === "ACTIVE"
-    ? responsible.membership : null;
+  const responsible = await currentContractualResponsible(prisma, session.tenantId);
+  const currentResponsible = responsible?.membership ?? null;
   const pending: PendingTerm[] = [];
   for (const term of versions) {
     const contract = term.document.audience === "CONTRATANTE";

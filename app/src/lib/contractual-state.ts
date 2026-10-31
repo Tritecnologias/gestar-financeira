@@ -1,6 +1,24 @@
 import type { Prisma } from "@prisma/client";
 
-export type ContractualReader = Pick<Prisma.TransactionClient, "termVersion" | "termAcceptance" | "tenantContractualResponsible">;
+export type ContractualReader = Pick<Prisma.TransactionClient, "termVersion" | "termAcceptance" | "tenantContractualResponsible" | "tenantContractualOnboarding">;
+
+/** A cancelled provisional choice retains its row, but not its authority.
+ * The exact assignment snapshot prevents an old cancellation masking a later
+ * administrative designation. Any historical contractual receipt seals it.
+ */
+export async function currentContractualResponsible(db: ContractualReader, tenantId: string) {
+  const responsible = await db.tenantContractualResponsible.findUnique({ where: { tenantId },
+    include: { membership: { include: { identity: { select: { status: true } }, tenant: { select: { ativo: true } } } } } });
+  if (!responsible || responsible.membership.tenantId !== tenantId ||
+      responsible.membership.role !== "OWNER" || responsible.membership.status !== "ACTIVE" ||
+      responsible.membership.identity.status !== "ACTIVE" || !responsible.membership.tenant.ativo) return null;
+  const choice = await db.tenantContractualOnboarding.findUnique({ where: { tenantId } });
+  if (choice && choice.status !== "ASSIGNED" && choice.assignedMembershipId === responsible.membershipId &&
+      choice.assignedAt?.getTime() === responsible.assignedAt.getTime() &&
+      !await db.termAcceptance.findFirst({ where: { tenantId,
+        version: { document: { audience: "CONTRATANTE" } } }, select: { id: true } })) return null;
+  return responsible;
+}
 
 export async function requiredPublishedTerms(db: ContractualReader, audience: "USUARIO" | "CONTRATANTE") {
   return db.termVersion.findMany({ where: { status: "PUBLISHED", document: { required: true, audience } },
@@ -19,11 +37,8 @@ export async function acceptedUserTerms(db: ContractualReader, identityId: strin
 
 /** Current authorization, never a cached onboarding flag or an email match. */
 export async function contractualReadiness(db: ContractualReader, tenantId: string) {
-  const responsible = await db.tenantContractualResponsible.findUnique({ where: { tenantId },
-    include: { membership: { include: { identity: { select: { status: true } }, tenant: { select: { ativo: true } } } } } });
-  const validResponsible = !!responsible && responsible.membership.tenantId === tenantId &&
-    responsible.membership.role === "OWNER" && responsible.membership.status === "ACTIVE" &&
-    responsible.membership.identity.status === "ACTIVE" && responsible.membership.tenant.ativo;
+  const responsible = await currentContractualResponsible(db, tenantId);
+  const validResponsible = !!responsible;
   const versions = await requiredPublishedTerms(db, "CONTRATANTE");
   const documentsAvailable = versions.some(v => v.document.code === "TERM_CONTRATANTE");
   let accepted = validResponsible && documentsAvailable;

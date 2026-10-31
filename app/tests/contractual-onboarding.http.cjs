@@ -43,6 +43,15 @@ async function main() {
  async function memberPending(t){const email='p12a-member-'+suffix+'@example.invalid',token=randomBytes(32).toString('base64url');tokens.push(token);const profile=await p.accessProfile.create({data:{tenantId:t.id,nome:'CONSULTA 12A '+suffix,permissoes:['fluxo.lancamentos.view']}});await p.accessInvite.create({data:{tenantId:t.id,email,name:'MEMBRO SINTÉTICO PRÉ-CONVIDADO',role:'MEMBER',profileId:profile.id,tokenHash:createHash('sha256').update(token).digest('hex'),invitedByIdentityId:pa.a.id,expiresAt:new Date(Date.now()+3600000)}});check('pending MEMBER activates during gate',(await q(new Map(),'/api/access/invitations/accept','POST',{token,password:cfg.password})).status===200);const a=await p.authIdentity.findUniqueOrThrow({where:{email}});ids.push(a.id);const m=await p.tenantMembership.findUniqueOrThrow({where:{identityId_tenantId:{identityId:a.id,tenantId:t.id}}});const w={a,m,j:await login(email)};await switchTo(w,t);return w;}
  try {
   check('exact completed ledger',(await p.$queryRaw`SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`).length===(cfg.expectedMigrationCount??3));
+  if(local) {
+   const [acl]=await p.$queryRaw`SELECT current_user AS role, has_table_privilege(current_user,'tenant_contractual_responsibles','DELETE') AS delete,
+     has_table_privilege(current_user,'tenant_contractual_responsibles','UPDATE') AS update,
+     has_table_privilege(current_user,'term_acceptances','DELETE') AS receipt_delete,
+     has_table_privilege(current_user,'term_acceptances','UPDATE') AS receipt_update,
+     has_table_privilege(current_user,'audit_events','DELETE') AS audit_delete,
+     has_table_privilege(current_user,'audit_events','UPDATE') AS audit_update`;
+   check('restricted runtime has UPDATE but no responsible DELETE or evidence mutation',acl.role==='pg18_prod_runtime'&&acl.update&&!acl.delete&&!acl.receipt_delete&&!acl.receipt_update&&!acl.audit_delete&&!acl.audit_update);
+  }
   if(cfg.baseline){step='existing tenant unchanged';const f=cfg.baseline.fixture,t={id:f.tenantId};const proof={tenant:await p.tenant.findUniqueOrThrow({where:{id:t.id}}),responsible:await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:t.id}}),memberships:await p.tenantMembership.findMany({where:{tenantId:t.id}}),acceptances:await p.termAcceptance.findMany({where:{identityId:f.ownerId}})};
    const oldProof=structuredClone(cfg.baseline.proof),currentProof=JSON.parse(JSON.stringify(proof));for(const key of ['memberships','acceptances']){oldProof[key].sort((a,b)=>a.id.localeCompare(b.id));currentProof[key].sort((a,b)=>a.id.localeCompare(b.id));}
    assert.deepEqual(currentProof,oldProof);check('pre-migration tenant links and receipts byte-equivalent',true);check('no backfill onboarding row',await p.tenantContractualOnboarding.count({where:{tenantId:t.id}})===0);const old={j:await login(f.ownerEmail)};await switchTo(old,t);await active(old);
@@ -65,11 +74,18 @@ async function main() {
   check('cross-origin return denied',(await q(wa.j,'/api/onboarding/contractual','POST',{action:'back'},'https://evil.invalid')).status===403);
   check('forged tenant return denied',(await action(wa,{action:'back',tenantId:randomUUID()})).status===400);
   const membershipsBefore=await p.tenantMembership.count(),identitiesBefore=await p.authIdentity.count();
+  const provisionalBefore=await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:ta.id}});
+  const staleContract=(await q(wa.j,'/api/terms/pending')).body.pending.find(x=>x.audience==='CONTRATANTE'&&x.actionable);
   check('provisional SELF returns',(await action(wa,{action:'back'})).status===200);
-  check('return removes only provisional designation',await p.tenantContractualResponsible.count({where:{tenantId:ta.id}})===0&&(await state(wa)).canChoose);
+  assert.deepEqual(await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:ta.id}}),provisionalBefore);
+  check('return preserves exact provisional row without authority',(await state(wa)).canChoose&&!(await state(wa)).canAcceptContract);
+  check('stale contract acceptance after return denied',(await q(wa.j,'/api/terms/accept','POST',{versionId:staleContract.versionId,agreed:true})).status===403);
+  check('pending contract no longer actionable',(await q(wa.j,'/api/terms/pending')).body.pending.filter(x=>x.audience==='CONTRATANTE').every(x=>!x.actionable));
+  check('return creates no acceptance',await p.termAcceptance.count({where:{tenantId:ta.id}})===0);
   check('return grants no access',await p.tenantMembership.count()===membershipsBefore&&await p.authIdentity.count()===identitiesBefore);await blocked(wa);
   const switched=await nomination(wa,'switched-from-self');
   check('SELF to OTHER remains pending',(await state(wa)).status==='AWAITING_RESPONSIBLE');
+  check('former SELF cannot accept while OTHER pending',(await q(wa.j,'/api/terms/accept','POST',{versionId:staleContract.versionId,agreed:true})).status===403);
   check('back does not revoke pending OTHER',(await action(wa,{action:'back'})).status===409);
   check('existing explicit revoke returns to chooser',(await action(wa,{action:'revoke'})).status===200&&(await state(wa)).canChoose);
   check('old OTHER link invalidated',(await q(new Map(),'/api/access/invitations/inspect','POST',{token:switched.token})).status===410);
@@ -108,7 +124,13 @@ async function main() {
   check('nominee cannot undo explicit OTHER designation',(await action(wn,{action:'back'})).status===409&&(await state(wn)).canReturnToChoice===false);check('creator cannot sign for nominee',(await q(wb.j,'/api/terms/accept','POST',{versionId:(await q(wn.j,'/api/terms/pending')).body.pending.find(x=>x.audience==='CONTRATANTE').versionId,agreed:true})).status===403);
   await blocked(wm);await terms(wn,'CONTRATANTE');await active(wn);await active(wb);await active(wm);
   check('restricted MEMBER no administrative access',(await q(wm.j,'/api/access/invitations')).status===403);
-  const tc=await tenant('existing'),wc=await existingOwner(tc,wb);await terms(wc,'USUARIO');const existing=await nomination(wc,'existing-nominee',wa.a.email);
+  const tc=await tenant('existing'),wc=await existingOwner(tc,wb);await terms(wc,'USUARIO');
+  check('retained SELF set before nominee reassignment',(await action(wc,{action:'self'})).status===200);
+  const retained=await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:tc.id}});
+  check('retained SELF reopened before nominee reassignment',(await action(wc,{action:'back'})).status===200);
+  const existing=await nomination(wc,'existing-nominee',wa.a.email);
+  assert.deepEqual(await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:tc.id}}),retained);
+  check('pending OTHER cannot regain retained SELF authority',!(await state(wc)).canAcceptContract&&(await state(wc)).status==='AWAITING_RESPONSIBLE');
   const countBefore=await p.authIdentity.count({where:{email:wa.a.email}}),hashBefore=(await p.authIdentity.findUniqueOrThrow({where:{id:wa.a.id}})).senhaHash;
   check('existing identity requires own session',(await q(new Map(),'/api/access/invitations/accept','POST',{token:existing.token})).status===403);
   check('existing identity accepts own nomination',(await q(wa.j,'/api/access/invitations/accept','POST',{token:existing.token})).status===200);
@@ -136,8 +158,8 @@ async function main() {
   const sealRace=await Promise.all([action(winning,{action:'back'}),q(winning.j,'/api/terms/accept','POST',{versionId:doc.versionId,agreed:true})]);
   check('return versus acceptance serializes',sealRace.filter(r=>r.status===200).length===1&&sealRace.every(r=>[200,403,409].includes(r.status)));
   const raceReceipts=await p.termAcceptance.count({where:{tenantId:tf.id}}),raceResponsible=await p.tenantContractualResponsible.count({where:{tenantId:tf.id}});
-  check('race preserves evidence or safely reopens',raceReceipts===1?raceResponsible===1&&!(await state(winning)).canReturnToChoice:raceResponsible===0&&(await state(winning)).canChoose);
-  if(!raceResponsible)check('race fixture reassigned before FK proof',(await action(winning,{action:'self'})).status===200);
+  check('race preserves evidence or safely reopens',raceResponsible===1&&(raceReceipts===1?!(await state(winning)).canReturnToChoice:(await state(winning)).canChoose));
+  if(!raceReceipts)check('race fixture reassigned before FK proof',(await action(winning,{action:'self'})).status===200);
 
   await assert.rejects(p.tenantContractualOnboarding.update({where:{tenantId:tf.id},data:{assignedMembershipId:wa.m.id}}));check('database composite FK rejects cross-tenant assignee',true);
   await assert.rejects(p.tenantContractualOnboarding.update({where:{tenantId:td.id},data:{invitationId:other.id}}));check('database composite FK rejects cross-tenant invitation',true);
@@ -146,6 +168,20 @@ async function main() {
   await p.authIdentity.update({where:{id:an.id},data:{status:'INACTIVE'}});await blocked(wb);await p.authIdentity.update({where:{id:an.id},data:{status:'ACTIVE'}});await active(wb);
   await p.tenant.update({where:{id:tb.id},data:{ativo:false}});check('inactive tenant context revoked',(await q(wb.j,'/api/lancamentos')).status===409);await p.tenant.update({where:{id:tb.id},data:{ativo:true}});
   check('PA manual contingency retained',(await q(pa.j,'/api/platform/tenants/'+td.id+'/contractual-responsible','POST',{membershipId:wd.m.id,confirm:true})).status===200);check('contingency fabricates no acceptance',await p.termAcceptance.count({where:{tenantId:td.id}})===0);await blocked(wd);
+  check('manual designation is not reopened as provisional SELF',(await action(wd,{action:'back'})).status===409);
+  await switchTo(wc,tc); // A fresh, unrelated tenant remains active while another choice changes.
+  const neighborBefore=JSON.stringify({responsible:await p.tenantContractualResponsible.findUnique({where:{tenantId:ta.id}}),choice:await p.tenantContractualOnboarding.findUnique({where:{tenantId:ta.id}}),receipts:await p.termAcceptance.findMany({where:{tenantId:ta.id},orderBy:{id:'asc'}})});
+  check('active nominee context cannot reopen another tenant via payload',(await action(wc,{action:'back',tenantId:ta.id})).status===400);
+  check('unrelated tenant authority and evidence unchanged',neighborBefore===JSON.stringify({responsible:await p.tenantContractualResponsible.findUnique({where:{tenantId:ta.id}}),choice:await p.tenantContractualOnboarding.findUnique({where:{tenantId:ta.id}}),receipts:await p.termAcceptance.findMany({where:{tenantId:ta.id},orderBy:{id:'asc'}})}));
+  // Reusing the same OWNER through the administrative contingency must explicitly
+  // replace a cancelled marker, rather than falsely treating its row as current.
+  await switchTo(wd,td);
+  const tg=await tenant('manual-after-return'),wg=await existingOwner(tg,wd);await terms(wg,'USUARIO');
+  check('SELF before administrative contingency',(await action(wg,{action:'self'})).status===200);
+  check('return before administrative contingency',(await action(wg,{action:'back'})).status===200);
+  check('PA can explicitly designate retained same OWNER',(await q(pa.j,'/api/platform/tenants/'+tg.id+'/contractual-responsible','POST',{membershipId:wg.m.id,confirm:true})).body.unchanged===false);
+  check('administrative designation remains current and cannot reopen',(await state(wg)).canAcceptContract&&(await action(wg,{action:'back'})).status===409);
+  if(local)check('runtime still has no responsible DELETE',(await p.$queryRaw`SELECT NOT has_table_privilege(current_user,'tenant_contractual_responsibles','DELETE') AS ok`)[0].ok);
   const platform=await q(pa.j,'/api/platform/tenants');check('platform statuses explicit',platform.status===200&&JSON.stringify(platform.body).includes('Contrato ativo')&&JSON.stringify(platform.body).includes('Aguardando aceite'));
   const events=await p.auditEvent.findMany({where:{tenantId:{in:tids}}});const actions=events.map(e=>e.action);
   for(const name of ['CONTRACTUAL_CHOICE_REOPENED','CONTRACTUAL_ONBOARDING_STARTED','CONTRACTUAL_SELF_SELECTED','CONTRACTUAL_PERSON_NOMINATED','CONTRACTUAL_INVITE_CREATED','CONTRACTUAL_INVITE_REISSUED','CONTRACTUAL_INVITE_REVOKED','CONTRACTUAL_RESPONSIBLE_ASSIGNED','TERM_ACCEPTED','CONTRACTUAL_TENANT_RELEASED'])check('append-only audit '+name,actions.includes(name));

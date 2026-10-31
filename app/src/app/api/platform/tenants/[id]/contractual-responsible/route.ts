@@ -6,6 +6,7 @@ import { writeAudit } from "@/lib/audit";
 import { Prisma } from "@prisma/client";
 import { sameOrigin } from "@/lib/advisory-management";
 import { lockContractualTenant, cancelContractualNomination } from "@/lib/contractual-onboarding";
+import { currentContractualResponsible } from "@/lib/contractual-state";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -24,7 +25,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
       }, select: { id: true, identityId: true } });
       if (!membership) throw Object.assign(new Error("Proprietário ativo desta empresa não encontrado."), { status: 409 });
       const current = await tx.tenantContractualResponsible.findUnique({ where: { tenantId } });
-      if (current?.membershipId === membershipId) return { membershipId, unchanged: true };
+      if ((await currentContractualResponsible(tx, tenantId))?.membershipId === membershipId) return { membershipId, unchanged: true };
       await cancelContractualNomination(tx, tenantId, actor.identityId!, "Designação administrativa de contingência");
       await tx.tenantContractualResponsible.upsert({
         where: { tenantId },
