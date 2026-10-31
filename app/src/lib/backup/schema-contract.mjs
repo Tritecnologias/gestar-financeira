@@ -15,9 +15,12 @@ export const PRE_MODALITY_HOMOLOG_MIGRATIONS = Object.freeze([...EXPERIMENT_LEDG
 export const PRODUCTION_EXPERIMENT_MIGRATION = Object.freeze({ name: '20261030_prod_experiment_invitations', sha256: '4c3f8a863f74e2c311cf42d6982be4880aa8f08d4c3812614260e69356a6af6e' });
 export const PRE_MODALITY_PRODUCTION_MIGRATIONS = Object.freeze([...PRE_EXPERIMENT_MIGRATIONS, PRODUCTION_EXPERIMENT_MIGRATION]);
 export const TENANT_MODALITY_MIGRATION = Object.freeze({ name: '20261030_tenant_modality', sha256: '570f9d7d3e5df8b155ed6931fbf75658730ff5e030e1faf932f3b5ccf9c04934' });
-export const REQUIRED_MIGRATIONS = Object.freeze([...PRE_MODALITY_HOMOLOG_MIGRATIONS, TENANT_MODALITY_MIGRATION]);
-export const PRODUCTION_MIGRATIONS = Object.freeze([...PRE_MODALITY_PRODUCTION_MIGRATIONS, TENANT_MODALITY_MIGRATION]);
-const APPROVED_LEDGERS = [PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_LEDGER4, PRE_MODALITY_HOMOLOG_MIGRATIONS, PRE_MODALITY_PRODUCTION_MIGRATIONS, REQUIRED_MIGRATIONS, PRODUCTION_MIGRATIONS];
+export const PRE_RETURN_HOMOLOG_MIGRATIONS = Object.freeze([...PRE_MODALITY_HOMOLOG_MIGRATIONS, TENANT_MODALITY_MIGRATION]);
+export const PRE_RETURN_PRODUCTION_MIGRATIONS = Object.freeze([...PRE_MODALITY_PRODUCTION_MIGRATIONS, TENANT_MODALITY_MIGRATION]);
+export const CONTRACTUAL_RETURN_MIGRATION = Object.freeze({ name: '20261031_contractual_choice_return', sha256: '3db1ed6f3569105f0b77bbc96d90377f0ef65080a1f81e426d1d8b1ae7447d15' });
+export const REQUIRED_MIGRATIONS = Object.freeze([...PRE_RETURN_HOMOLOG_MIGRATIONS, CONTRACTUAL_RETURN_MIGRATION]);
+export const PRODUCTION_MIGRATIONS = Object.freeze([...PRE_RETURN_PRODUCTION_MIGRATIONS, CONTRACTUAL_RETURN_MIGRATION]);
+const APPROVED_LEDGERS = [PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_LEDGER4, PRE_MODALITY_HOMOLOG_MIGRATIONS, PRE_MODALITY_PRODUCTION_MIGRATIONS, PRE_RETURN_HOMOLOG_MIGRATIONS, PRE_RETURN_PRODUCTION_MIGRATIONS, REQUIRED_MIGRATIONS, PRODUCTION_MIGRATIONS];
 export const BACKUP_MIGRATIONS = Object.freeze(REQUIRED_MIGRATIONS.map(m => m.name));
 
 /** A count alone cannot prove the required migrations or the new SQL's checksum. */
@@ -33,7 +36,9 @@ export function assertBackupMigrations(migrations, pending) {
 // Only the exact, approved additive global pilot changes, excluded from tenant restore.
 // Authenticated business backups may move forward within their profile. Restore
 // never writes modality/pending state, pilot invitations, access or global keys.
-// Reverse restore and all unknown/altered ledgers fail closed.
+// Reverse restore and all unknown/altered ledgers fail closed. The contractual
+// cancellation column changes reference semantics: H7/P6 restore only themselves,
+// never convert or re-sign an older backup to invent that state.
 export function compatibleBackupMigrations(backup, current) {
   const from = APPROVED_LEDGERS.findIndex(expected => matches(backup, expected));
   const to = APPROVED_LEDGERS.findIndex(expected => matches(current, expected));

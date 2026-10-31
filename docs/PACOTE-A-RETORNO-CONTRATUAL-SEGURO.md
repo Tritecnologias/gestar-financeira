@@ -6,21 +6,21 @@ Publicação, ACL e dados remotos dependem de autorização posterior.
 ## Contrato mínimo
 
 “Voltar à escolha” cancela a decisão SELF ainda provisória, sem apagar sua
-designação. Atualiza somente `tenant_contractual_onboarding` para CANCELLED e
-retém `assignedMembershipId` e `assignedAt` como fotografia exata da designação
-cancelada. O registro em `tenant_contractual_responsibles` permanece intacto.
+designação. Atualiza `tenant_contractual_onboarding` para CANCELLED e limpa seus
+campos de designação, preservando integralmente as CHECKs existentes. No registro
+retido de `tenant_contractual_responsibles`, altera somente o novo campo nullable
+`provisionalCancelledAt`; vínculo, autor da designação e data original permanecem.
 A auditoria append-only registra antes/depois da decisão.
 
-O leitor único `currentContractualResponsible` considera essa fotografia sem
-autoridade somente quando o onboarding não está ASSIGNED, o vínculo e o instante
-correspondem exatamente à designação e não existe nenhum aceite CONTRATANTE no
-tenant, inclusive de versões históricas. Uma nova indicação OTHER transporta a
-fotografia até a substituição; uma nova escolha SELF ou a conclusão do indicado
-atualiza a designação e torna o onboarding ASSIGNED. Assim, uma escolha cancelada
+O leitor único `currentContractualResponsible` considera a designação cancelada
+sem autoridade quando existe o marcador e não existe nenhum aceite CONTRATANTE no
+tenant, inclusive de versões históricas. Uma nova indicação OTHER preserva esse
+marcador até a substituição; uma nova escolha SELF ou a conclusão do indicado
+limpa o marcador, atualiza a designação e torna o onboarding ASSIGNED. Uma escolha cancelada
 não volta a autorizar aceites durante a espera pelo indicado.
 
 Designações sem onboarding (legadas/administrativas) continuam válidas. A
-contingência administrativa limpa a fotografia e reassina explicitamente a
+contingência administrativa limpa o marcador e reassina explicitamente a
 designação, mesmo quando o membro é o mesmo. Nenhuma identidade, membership ou
 permissão é criada por “Voltar”. Convites continuam seguindo o fluxo existente.
 
@@ -48,21 +48,33 @@ protegidas pelo gate contratual. Nenhuma autoridade definitiva é ampliada.
 - Nenhum DELETE físico de responsável e nenhum GRANT novo.
 - Nenhuma função SQL privilegiada, SECURITY DEFINER ou contexto SQL confiado ao
   chamador.
-- UPDATE já existente no onboarding; INSERT/UPDATE de responsáveis somente nos
-  fluxos de designação existentes; INSERT na auditoria existente.
+- UPDATE já existente no onboarding e em responsáveis, INSERT/UPDATE nos fluxos
+  de designação existentes e INSERT na auditoria existente.
 - Aceites e auditoria continuam append-only; runtime não recebe DDL/ownership.
-- Nenhuma migration, coluna, enum, versão de backup ou ledger novo.
+- Migration aditiva `20261031_contractual_choice_return`, somente proposta para
+  os ambientes remotos: uma coluna `provisional_cancelled_at timestamp(3)` nullable,
+  sem default, backfill, alteração de CHECK/FK ou ACL. SHA-256:
+  `3db1ed6f3569105f0b77bbc96d90377f0ef65080a1f81e426d1d8b1ae7447d15`.
+  Os SQLs dos catálogos HOMOLOG/PROD são idênticos, com guard dos históricos exatos
+  H6/P5, PG18, lock timeout 5s, statement timeout 60s e transação explícita.
+- Ledgers futuros H7/P6; formato continua v3. Nenhuma aplicação remota autorizada.
 - Backup v3 já inclui onboarding e responsáveis como referências autenticadas,
-  nunca como seções restauráveis. A fotografia é preservada nas referências.
-  Divergências de governança continuam falhando com RECONCILIATION: não converter
-  nem reassinar backups antigos para contornar esse bloqueio.
+  nunca como seções restauráveis. O marcador é preservado nas referências.
+  H7/P6 aceitam somente backups do próprio ledger/perfil. Backups H6/P5 não serão
+  convertidos nem reassinados: falham SCHEMA_VERSION após a evolução. Divergências
+  de governança no mesmo ledger continuam falhando com RECONCILIATION.
+
+A primeira tentativa local, sem coluna nova, foi rejeitada pela CHECK
+`contractual_onboarding_state_check`, que exige campos de designação vazios em
+CANCELLED/PENDING. A transação foi revertida; a prova foi preservada. Não se
+afrouxou essa CHECK para obter PASS. O SHA intermediário b1bd9ed não é publicável.
 
 ## Provas locais requeridas
 
 Executar com PostgreSQL 18.6, aplicação compilada, Prisma/HTTP reais e runtime sem
 DELETE em responsáveis/onboarding e sem UPDATE/DELETE nos aceites/auditoria:
 SELF → retorno → OTHER; formulário OTHER → voltar → SELF; revogação de indicação
-pendente; aceite stale após retorno; pessoa indicada substituindo a fotografia;
+pendente; aceite stale após retorno; pessoa indicada substituindo a designação;
 contrato formalizado; usuário indevido; outro tenant; concorrência retorno/aceite;
 contingência administrativa no mesmo OWNER; backup/preview/restore/replay,
 HMAC/tampering, NULL/zero/centavo e tenant vizinho; navegação desktop/mobile,
@@ -76,13 +88,14 @@ Resultados e SHA final serão registrados no diretório externo de evidências
 1. Solicitar aprovação do novo SHA após a revisão das provas locais.
 2. Guarda read-only de SHA, fila, ledger H6, ACL restrita, documentos/aceites e
    governança existentes; backup recuperável da janela pelo procedimento vigente.
-3. Construir/verificar o perfil HOMOLOG com identidade amarela/preta e ledger H6;
-   nenhuma migration, função SQL ou alteração de ACL é necessária.
-4. Publicar somente o novo SHA autorizado em HOMOLOG e executar os dois caminhos
+3. Após autorização específica, aplicar somente a migration acima pelo migrator
+   separado, H6 → H7, sem mudança de ACL; conferir checksums e ausência de pending/failed.
+4. Construir/verificar o perfil HOMOLOG amarelo/preto e ledger H7. Publicar somente
+   o novo SHA autorizado em HOMOLOG e executar os dois caminhos
    em fixtures sintéticas, seguida de inspeção manual de Ricardo.
 5. Confirmar que contratos já formalizados permanecem iguais e sem retorno.
 
-Não voltar ao binário antigo após criar uma fotografia cancelada: ele desconhece
+Não voltar ao binário antigo após criar uma designação cancelada: ele desconhece
 essa semântica e pode tratar a linha retida como designação atual. Contingência
 deve preservar o leitor corrigido (roll-forward); eventual recuperação integral
 da janela exige autorização e prova própria, sem exclusão manual de referências.

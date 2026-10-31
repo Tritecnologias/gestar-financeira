@@ -30,7 +30,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
       await tx.tenantContractualResponsible.upsert({
         where: { tenantId },
         create: { tenantId, membershipId, assignedByIdentityId: actor.identityId! },
-        update: { membershipId, assignedByIdentityId: actor.identityId!, assignedAt: new Date() },
+        update: { membershipId, assignedByIdentityId: actor.identityId!, assignedAt: new Date(), provisionalCancelledAt: null },
       });
       await writeAudit(tx, { tenantId, actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
         action: current ? "OWNER_REASSIGNED" : "OWNER_ASSIGNED",

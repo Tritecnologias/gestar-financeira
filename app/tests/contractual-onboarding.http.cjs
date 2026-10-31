@@ -77,7 +77,9 @@ async function main() {
   const provisionalBefore=await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:ta.id}});
   const staleContract=(await q(wa.j,'/api/terms/pending')).body.pending.find(x=>x.audience==='CONTRATANTE'&&x.actionable);
   check('provisional SELF returns',(await action(wa,{action:'back'})).status===200);
-  assert.deepEqual(await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:ta.id}}),provisionalBefore);
+  const provisionalAfter=await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:ta.id}});
+  assert(provisionalAfter.provisionalCancelledAt instanceof Date);
+  assert.deepEqual({...provisionalAfter,provisionalCancelledAt:null},provisionalBefore);
   check('return preserves exact provisional row without authority',(await state(wa)).canChoose&&!(await state(wa)).canAcceptContract);
   check('stale contract acceptance after return denied',(await q(wa.j,'/api/terms/accept','POST',{versionId:staleContract.versionId,agreed:true})).status===403);
   check('pending contract no longer actionable',(await q(wa.j,'/api/terms/pending')).body.pending.filter(x=>x.audience==='CONTRATANTE').every(x=>!x.actionable));
@@ -129,7 +131,9 @@ async function main() {
   const retained=await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:tc.id}});
   check('retained SELF reopened before nominee reassignment',(await action(wc,{action:'back'})).status===200);
   const existing=await nomination(wc,'existing-nominee',wa.a.email);
-  assert.deepEqual(await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:tc.id}}),retained);
+  const retainedAfter=await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:tc.id}});
+  assert(retainedAfter.provisionalCancelledAt instanceof Date);
+  assert.deepEqual({...retainedAfter,provisionalCancelledAt:null},retained);
   check('pending OTHER cannot regain retained SELF authority',!(await state(wc)).canAcceptContract&&(await state(wc)).status==='AWAITING_RESPONSIBLE');
   const countBefore=await p.authIdentity.count({where:{email:wa.a.email}}),hashBefore=(await p.authIdentity.findUniqueOrThrow({where:{id:wa.a.id}})).senhaHash;
   check('existing identity requires own session',(await q(new Map(),'/api/access/invitations/accept','POST',{token:existing.token})).status===403);
@@ -181,6 +185,7 @@ async function main() {
   check('return before administrative contingency',(await action(wg,{action:'back'})).status===200);
   check('PA can explicitly designate retained same OWNER',(await q(pa.j,'/api/platform/tenants/'+tg.id+'/contractual-responsible','POST',{membershipId:wg.m.id,confirm:true})).body.unchanged===false);
   check('administrative designation remains current and cannot reopen',(await state(wg)).canAcceptContract&&(await action(wg,{action:'back'})).status===409);
+  check('administrative designation explicitly clears cancellation',(await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:tg.id}})).provisionalCancelledAt===null);
   if(local)check('runtime still has no responsible DELETE',(await p.$queryRaw`SELECT NOT has_table_privilege(current_user,'tenant_contractual_responsibles','DELETE') AS ok`)[0].ok);
   const platform=await q(pa.j,'/api/platform/tenants');check('platform statuses explicit',platform.status===200&&JSON.stringify(platform.body).includes('Contrato ativo')&&JSON.stringify(platform.body).includes('Aguardando aceite'));
   const events=await p.auditEvent.findMany({where:{tenantId:{in:tids}}});const actions=events.map(e=>e.action);

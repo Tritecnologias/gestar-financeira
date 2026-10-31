@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {randomBytes,createHash} from 'node:crypto';
 import {sealExperimentToken,openExperimentToken,experimentTokenMatches,tokenFromOriginalExperimentLink} from '../src/lib/experiment-link-crypto.ts';
-import {compatibleBackupMigrations,REQUIRED_MIGRATIONS,EXPERIMENT_LEDGER4,PRE_EXPERIMENT_MIGRATIONS} from '../src/lib/backup/schema-contract.mjs';
+import {compatibleBackupMigrations,PRE_RETURN_HOMOLOG_MIGRATIONS as REQUIRED_MIGRATIONS,EXPERIMENT_LEDGER4,PRE_EXPERIMENT_MIGRATIONS} from '../src/lib/backup/schema-contract.mjs';
 const env={SPECIAL_INVITATION_LINK_KEY_ID:'test-v1',SPECIAL_INVITATION_LINK_KEYS:JSON.stringify({'test-v1':randomBytes(32).toString('hex')})};
 const token=randomBytes(32).toString('base64url'),hash=createHash('sha256').update(token).digest('hex'),id='synthetic-invitation';
 test('AES-GCM recovers exact original with fresh nonce and never stores plaintext',()=>{

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {modalityPending,validTenantModality,requireTenantModalityReady,tenantModalityErrorStatus} from '../src/lib/tenant-modality-state.ts';
-import {PRE_MODALITY_HOMOLOG_MIGRATIONS as h5,PRE_MODALITY_PRODUCTION_MIGRATIONS as p4,REQUIRED_MIGRATIONS as h6,PRODUCTION_MIGRATIONS as p5,compatibleBackupMigrations,assertBackupMigrations,TENANT_MODALITY_MIGRATION as migration} from '../src/lib/backup/schema-contract.mjs';
+import {PRE_MODALITY_HOMOLOG_MIGRATIONS as h5,PRE_MODALITY_PRODUCTION_MIGRATIONS as p4,PRE_RETURN_HOMOLOG_MIGRATIONS as h6,PRE_RETURN_PRODUCTION_MIGRATIONS as p5,compatibleBackupMigrations,assertBackupMigrations,TENANT_MODALITY_MIGRATION as migration} from '../src/lib/backup/schema-contract.mjs';
 const rows=list=>list.map(m=>({migration_name:m.name,checksum:m.sha256}));
 test('only serialization/deadlock conflicts become retryable 409; unknown database failures stay 500',()=>{
  for(const e of [{code:'P2034'},{code:'P2010',meta:{code:'40001'}},{code:'P2010',meta:{code:'40P01'}},{code:'P2010',meta:{driverAdapterError:{cause:{originalCode:'40001',kind:'TransactionWriteConflict'}}}}])assert.equal(tenantModalityErrorStatus(e),409);

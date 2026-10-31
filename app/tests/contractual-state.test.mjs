@@ -5,12 +5,11 @@ import { contractualReadiness, acceptedUserTerms, currentContractualResponsible 
 function fixture() {
   const user = { id:'u-v1', documentId:'u', sha256:'u-hash', requiresReaccept:true, document:{code:'TERM_USUARIO',audience:'USUARIO'} };
   const contract = { id:'c-v1', documentId:'c', sha256:'c-hash', requiresReaccept:true, document:{code:'TERM_CONTRATANTE',audience:'CONTRATANTE'} };
-  const state = { choice:null, versions:[user,contract], responsible:{membershipId:'owner-m',assignedAt:new Date('2026-10-31T12:00:00Z'),membership:{tenantId:'a',identityId:'owner-i',role:'OWNER',status:'ACTIVE',identity:{status:'ACTIVE'},tenant:{ativo:true}}}, receipts:[
+  const state = { versions:[user,contract], responsible:{membershipId:'owner-m',assignedAt:new Date('2026-10-31T12:00:00Z'),provisionalCancelledAt:null,membership:{tenantId:'a',identityId:'owner-i',role:'OWNER',status:'ACTIVE',identity:{status:'ACTIVE'},tenant:{ativo:true}}}, receipts:[
     {identityId:'owner-i',tenantId:null,termVersionId:'u-v1',documentHash:'u-hash',documentId:'u'},
     {identityId:'owner-i',membershipId:'owner-m',tenantId:'a',termVersionId:'c-v1',documentHash:'c-hash',documentId:'c'},
   ] };
   const db = { termVersion:{findMany:async({where})=>state.versions.filter(v=>v.document.audience===where.document.audience)},
-    tenantContractualOnboarding:{findUnique:async()=>state.choice},
     tenantContractualResponsible:{findUnique:async()=>state.responsible}, termAcceptance:{findFirst:async({where})=>state.receipts.find(r=>Object.entries(where).every(([k,v])=>k==='version'?(v.document?.audience==='CONTRATANTE'?r.documentId==='c':r.documentId===v.documentId):r[k]===v))??null} };
   return {state,db};
 }
@@ -37,21 +36,18 @@ test('reaccept publication and retained old-version policy preserve their distin
   contract.requiresReaccept=false;assert((await contractualReadiness(db,'a')).active);state.receipts[1].membershipId='former-owner';assert(!(await contractualReadiness(db,'a')).active);
 });
 
-test('cancelled exact provisional assignment is retained without current authority, including a subsequent nomination',async()=>{
+test('cancelled provisional assignment is retained without current authority until explicit reassignment',async()=>{
   const {state,db}=fixture();state.receipts.pop();const original=structuredClone(state.responsible);
-  for(const status of ['CANCELLED','PENDING']){
-    state.choice={status,assignedMembershipId:'owner-m',assignedAt:new Date(state.responsible.assignedAt)};
-    assert.equal(await currentContractualResponsible(db,'a'),null);
-    assert.deepEqual(await contractualReadiness(db,'a'),{active:false,validResponsible:false,documentsAvailable:true,responsibleMembershipId:null,responsibleIdentityId:null});
-    assert.deepEqual(state.responsible,original);
-  }
+  state.responsible.provisionalCancelledAt=new Date('2026-10-31T12:01:00Z');
+  assert.equal(await currentContractualResponsible(db,'a'),null);
+  assert.deepEqual(await contractualReadiness(db,'a'),{active:false,validResponsible:false,documentsAvailable:true,responsibleMembershipId:null,responsibleIdentityId:null});
+  assert.deepEqual({...state.responsible,provisionalCancelledAt:null},original);
+  state.responsible.provisionalCancelledAt=null;assert(await currentContractualResponsible(db,'a'));
 });
 
-test('cancellation cannot mask accepted history, an administrative assignment or another assignment snapshot',async()=>{
-  const {state,db}=fixture();state.choice={status:'CANCELLED',assignedMembershipId:'owner-m',assignedAt:new Date(state.responsible.assignedAt)};
+test('historical contractual receipt seals responsibility even with obsolete cancellation state',async()=>{
+  const {state,db}=fixture();state.responsible.provisionalCancelledAt=new Date('2026-10-31T12:01:00Z');
   assert((await contractualReadiness(db,'a')).active); // Any historical receipt seals the choice.
   state.versions[1].id='c-v2';state.versions[1].sha256='new';assert((await contractualReadiness(db,'a')).validResponsible);
-  state.receipts.pop();state.choice.assignedMembershipId=null;assert(await currentContractualResponsible(db,'a'));
-  state.choice.assignedMembershipId='owner-m';state.choice.assignedAt=new Date('2026-10-30T12:00:00Z');assert(await currentContractualResponsible(db,'a'));
-  state.choice.assignedAt=new Date(state.responsible.assignedAt);state.choice.status='ASSIGNED';assert(await currentContractualResponsible(db,'a'));
+  assert(!(await contractualReadiness(db,'a')).active);state.versions[1].requiresReaccept=false;assert((await contractualReadiness(db,'a')).active);
 });

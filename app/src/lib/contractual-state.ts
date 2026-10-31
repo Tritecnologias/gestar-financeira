@@ -1,10 +1,10 @@
 import type { Prisma } from "@prisma/client";
 
-export type ContractualReader = Pick<Prisma.TransactionClient, "termVersion" | "termAcceptance" | "tenantContractualResponsible" | "tenantContractualOnboarding">;
+export type ContractualReader = Pick<Prisma.TransactionClient, "termVersion" | "termAcceptance" | "tenantContractualResponsible">;
 
 /** A cancelled provisional choice retains its row, but not its authority.
- * The exact assignment snapshot prevents an old cancellation masking a later
- * administrative designation. Any historical contractual receipt seals it.
+ * Reassignment explicitly clears the cancellation. Any historical contractual
+ * receipt seals the responsibility, including retired document versions.
  */
 export async function currentContractualResponsible(db: ContractualReader, tenantId: string) {
   const responsible = await db.tenantContractualResponsible.findUnique({ where: { tenantId },
@@ -12,9 +12,7 @@ export async function currentContractualResponsible(db: ContractualReader, tenan
   if (!responsible || responsible.membership.tenantId !== tenantId ||
       responsible.membership.role !== "OWNER" || responsible.membership.status !== "ACTIVE" ||
       responsible.membership.identity.status !== "ACTIVE" || !responsible.membership.tenant.ativo) return null;
-  const choice = await db.tenantContractualOnboarding.findUnique({ where: { tenantId } });
-  if (choice && choice.status !== "ASSIGNED" && choice.assignedMembershipId === responsible.membershipId &&
-      choice.assignedAt?.getTime() === responsible.assignedAt.getTime() &&
+  if (responsible.provisionalCancelledAt &&
       !await db.termAcceptance.findFirst({ where: { tenantId,
         version: { document: { audience: "CONTRATANTE" } } }, select: { id: true } })) return null;
   return responsible;

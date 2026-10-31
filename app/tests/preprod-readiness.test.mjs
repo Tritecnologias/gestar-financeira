@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import{readFileSync,mkdtempSync,mkdirSync,writeFileSync,existsSync,readdirSync,rmSync,cpSync}from'node:fs';import{resolve,join}from'node:path';import{tmpdir}from'node:os';import{createHash}from'node:crypto';
-import{PRODUCTION_MIGRATIONS,REQUIRED_MIGRATIONS,PRE_EXPERIMENT_MIGRATIONS,EXPERIMENT_LEDGER4,assertBackupMigrations,compatibleBackupMigrations}from'../src/lib/backup/schema-contract.mjs';
+import{PRODUCTION_MIGRATIONS,REQUIRED_MIGRATIONS,PRE_RETURN_PRODUCTION_MIGRATIONS,PRE_RETURN_HOMOLOG_MIGRATIONS,PRE_EXPERIMENT_MIGRATIONS,EXPERIMENT_LEDGER4,assertBackupMigrations,compatibleBackupMigrations}from'../src/lib/backup/schema-contract.mjs';
 import{experimentOrigin}from'../src/lib/experiment-policy.ts';import{homologIdentity}from'../src/lib/environment-identity.ts';import{prepareProfile}from'../scripts/secure-build/prepare-profile.mjs';
 const rows=list=>list.map(m=>({migration_name:m.name,checksum:m.sha256}));
 test('production has distinct exact history; originals and their checksums stay unchanged',()=>{
@@ -9,7 +9,7 @@ test('production has distinct exact history; originals and their checksums stay 
  const m=PRODUCTION_MIGRATIONS.find(m=>m.name==='20261030_prod_experiment_invitations');assert(m);const sql=readFileSync('prisma/production-migrations/'+m.name+'/migration.sql');assert.equal(createHash('sha256').update(sql).digest('hex'),m.sha256);assert(sql.includes("current_database() <> 'gestar_prod_pg18'"));assert(sql.includes("current_user <> 'pg18_prod_migrator'"));assert(sql.includes('GRANT SELECT, INSERT, UPDATE'));assert(!/\b(?:INSERT INTO|UPDATE public|DELETE FROM)\b/.test(sql.toString()));
 });
 test('backup accepts exact productive ledger, forward from baseline only, never crosses pilot or rolls back',()=>{
- const prod=rows(PRODUCTION_MIGRATIONS),base=rows(PRE_EXPERIMENT_MIGRATIONS),pilot=rows(REQUIRED_MIGRATIONS);
+ const prod=rows(PRE_RETURN_PRODUCTION_MIGRATIONS),base=rows(PRE_EXPERIMENT_MIGRATIONS),pilot=rows(PRE_RETURN_HOMOLOG_MIGRATIONS);
  assert.doesNotThrow(()=>assertBackupMigrations(prod,0));assert(compatibleBackupMigrations(base,prod));assert(compatibleBackupMigrations(prod,prod));
  for(const target of [base,rows(EXPERIMENT_LEDGER4),pilot])assert(!compatibleBackupMigrations(prod,target));assert(!compatibleBackupMigrations(pilot,prod));assert(!compatibleBackupMigrations(rows(EXPERIMENT_LEDGER4),prod));
  assert.throws(()=>assertBackupMigrations(prod,1));assert.throws(()=>assertBackupMigrations(prod.map((m,i)=>i===3?{...m,checksum:'0'.repeat(64)}:m),0));

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {experimentOrigin,experimentStatus,experimentInput} from '../src/lib/experiment-policy.ts';
-import {compatibleBackupMigrations,REQUIRED_MIGRATIONS,PRE_EXPERIMENT_MIGRATIONS} from '../src/lib/backup/schema-contract.mjs';
+import {compatibleBackupMigrations,PRE_RETURN_HOMOLOG_MIGRATIONS as REQUIRED_MIGRATIONS,PRE_EXPERIMENT_MIGRATIONS} from '../src/lib/backup/schema-contract.mjs';
 const ledger = list => list.map(m=>({migration_name:m.name,checksum:m.sha256}));
 test('pilot permits only explicitly enabled LOCAL laboratory or exact HOMOLOG database and origin',()=>{
  const env={SPECIAL_INVITATIONS_ENABLED:'true',APP_PUBLIC_URL:'https://homolog.dezsolucoes.com.br',DATABASE_URL:'postgresql://runtime@0f5rvkjqjdt9fez1ajiascyk/gestar_homolog_pg18'};
