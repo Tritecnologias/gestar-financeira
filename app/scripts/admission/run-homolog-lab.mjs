@@ -141,12 +141,14 @@ try{
    const grants=JSON.parse(await value(pg,t,"SELECT coalesce(json_agg(x),'[]') FROM(SELECT privilege_type FROM aclexplode('"+aclText.replaceAll("'","''")+"'::aclitem[])WHERE grantee='"+t.rt+"'::regrole)x"));
    for(const g of grants){assert(['SELECT','INSERT','UPDATE','DELETE','USAGE'].includes(g.privilege_type));assert(/^[a-z_]+$/.test(row.relname));await sql(pg,t,'GRANT '+g.privilege_type+' ON '+(row.relkind==='S'?'SEQUENCE':'TABLE')+' '+row.relname+' TO '+t.rt);}
   }
-  await sql(pg,t,readFileSync(join(app,'scripts/admission/fixtures.sql')));
+  const pdf=createRequire(import.meta.url)(join(app,'tests/synthetic-pdf.cjs'))();
+  const fixtures=readFileSync(join(app,'scripts/admission/fixtures.sql'),'utf8')
+    .replaceAll("'application/pdf',1,","'application/pdf',"+pdf.length+",")
+    .replaceAll("repeat('1',64)","'"+sha(pdf)+"'").replaceAll("repeat('2',64)","'"+sha(pdf)+"'");
+  await sql(pg,t,fixtures); // Correct bytes at INSERT; published documents remain immutable.
   if(profile==='production')await sql(pg,t,"CREATE TABLE public.synthetic_legacy_proof(id integer PRIMARY KEY,note text);INSERT INTO public.synthetic_legacy_proof VALUES(1,'SYNTHETIC ONLY');ALTER TABLE public.synthetic_legacy_proof OWNER TO gestar_prod_migrator;GRANT SELECT ON public.synthetic_legacy_proof TO powerbi_reader;GRANT gestar_admin TO gestar_prod_migrator;",{role:t.admin,db:'postgres'});
   const auth=secret(),env={DATABASE_URL:'postgresql://'+t.rt+':'+credentials[t.rt]+'@'+t.host+':5432/'+t.db+(profile==='local'?'':'?schema=public'),DEPLOYMENT_PROFILE:profile,ACCESS_AUTH_MODE:'identity',APP_PUBLIC_URL:t.origin,NEXTAUTH_URL:t.origin,[t.flag]:'true',EMAIL_PROVIDER:'mock',AUTH_SECRET:auth,NEXTAUTH_SECRET:auth,AUTH_TRUST_HOST:'true',ADMISSION_SESSION_KEY:secret(),ADMISSION_LAB_MAIL_KEY:secret(),ADMISSION_LAB_MAIL_DIR:profile==='local'?'/tmp/a2-mail':'/var/lib/10s/backups/admission-mail',TERM_STORAGE_DIR:'/var/lib/10s/terms',TENANT_BACKUP_DIR:'/var/lib/10s/backups',TENANT_BACKUP_INSTANCE_ID:'portable-'+profile,TENANT_BACKUP_SIGNING_KEY_ID:'a26',TENANT_BACKUP_SIGNING_KEYS:JSON.stringify({a26:secret()}),SPECIAL_INVITATIONS_ENABLED:'true',SPECIAL_INVITATIONS_PRODUCTION_APPROVED:profile==='production'?'true':'false',SPECIAL_INVITATION_LINK_KEY_ID:'a26',SPECIAL_INVITATION_LINK_KEYS:JSON.stringify({a26:secret()}),HOSTNAME:'127.0.0.1',PORT:'3000'};
   privateValues.push(auth,env.ADMISSION_SESSION_KEY,env.ADMISSION_LAB_MAIL_KEY);
-  const pdf=createRequire(import.meta.url)(join(app,'tests/synthetic-pdf.cjs'))();
-  await sql(pg,t,"UPDATE term_versions SET storage_key=CASE id WHEN 'version-u' THEN 'synthetic/user.pdf' ELSE 'synthetic/contract.pdf' END,sha256='"+sha(pdf)+"',byte_size="+pdf.length+";UPDATE term_acceptances SET document_hash='"+sha(pdf)+"';");
   const volumeScript="import pathlib,os,sys,tarfile;p=pathlib.Path('/var/lib/postgresql/a26-private');(p/'terms/synthetic').mkdir(parents=True);(p/'backups').mkdir();b=sys.stdin.buffer.read();[(p/n).write_bytes(b)for n in ['terms/synthetic/user.pdf','terms/synthetic/contract.pdf']];[(os.chown(x,1001,1001),os.chmod(x,0o750 if x.is_dir()else 0o600))for x in p.rglob('*')];t=tarfile.open(fileobj=sys.stdout.buffer,mode='w|');t.add(p/'terms',arcname='terms');t.add(p/'backups',arcname='backups');t.close()";
   const initialVolumes=(await run(['exec','-i',pg,'python3','-c',volumeScript],pdf)).bytes;
   const initial=await inv(pg,t,profile);assert.equal(initial.inventory[t.db].rows.length,42);assert.equal(await value(pg,t,'SELECT count(*) FROM _prisma_migrations'),String(t.before.length));
