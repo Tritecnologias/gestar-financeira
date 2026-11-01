@@ -14,6 +14,7 @@
 .terms-agreement input { width: 18px; height: 18px; accent-color: var(--action); flex: none; }
 .terms-page :is(button, a, input):focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .terms-wait { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-elevated); padding: 12px; }
+.terms-admission-status { margin-bottom: 22px; }.terms-admission-status p { margin: 8px 0 0; }
 .terms-remaining { margin-top: 20px; }
 .terms-error { color: var(--danger) !important; }
 .terms-signout { margin-top: 22px; border: 0; background: transparent; color: var(--text-secondary); text-decoration: underline; cursor: pointer; }

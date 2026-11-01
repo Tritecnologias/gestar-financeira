@@ -5,8 +5,9 @@ import { useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import type { PendingTerm } from "@/lib/terms";
 import TermDocumentDialog, { type DisplayedTerm } from "./TermDocumentDialog";
+import AdmissionHandoffNotice from "./AdmissionHandoffNotice";
 
-export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio", personalSupport = false, audience, canReturnToChoice = false }: { initialPending: PendingTerm[]; returnPath?: string; personalSupport?: boolean; audience?: "USUARIO"; canReturnToChoice?: boolean }) {
+export default function TermsAcceptanceClient({ initialPending, returnPath = "/inicio", personalSupport = false, audience, canReturnToChoice = false, admissionTenantId }: { initialPending: PendingTerm[]; returnPath?: string; personalSupport?: boolean; audience?: "USUARIO"; canReturnToChoice?: boolean; admissionTenantId?: string }) {
   const acceptUrl = personalSupport ? "/api/support/terms" : "/api/terms/accept";
   const pendingUrl = personalSupport ? "/api/support/terms" : "/api/terms/pending";
   const [pending, setPending] = useState(initialPending);
@@ -65,6 +66,7 @@ export default function TermsAcceptanceClient({ initialPending, returnPath = "/i
   }
 
   return <main className="terms-page"><section className="terms-card">
+    {audience === "USUARIO" && admissionTenantId && <AdmissionHandoffNotice tenantId={admissionTenantId} />}
     <header><span className="terms-eyebrow">DEZ SOLUÇÕES · DOCUMENTOS OFICIAIS</span><h1>Aceite pendente</h1>
       <p>{current?.audience === "USUARIO" ? "Este é o seu Termo de Uso da DEZ Soluções. Ele identifica você como usuário da plataforma e estabelece as condições de acesso, utilização e responsabilidades, contribuindo para a segurança das suas informações."
         : current?.documentCode === "TERM_CONTRATANTE" && current.audience === "CONTRATANTE" ? "Este é o Termo de Contratação da DEZ Soluções. Ele estabelece as condições de utilização do espaço contratado e as responsabilidades assumidas pelo responsável contratual, garantindo clareza e segurança na relação entre as partes."

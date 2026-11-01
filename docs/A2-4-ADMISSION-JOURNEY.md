@@ -1,5 +1,9 @@
 # Pacote A.2 — Fase A.2.4: jornada visual integrada
 
+**Atualização após o aceite de Ricardo:** este documento registra a entrega-base.
+O aceite funcional/visual e os três refinamentos finais estão documentados em
+[A2-4-FINAL-REFINEMENTS.md](A2-4-FINAL-REFINEMENTS.md), com evidências próprias.
+
 Data: 01/11/2026. Branch: `feat/a2-4-admission-journey`.
 Base aprovada, conferida e inicialmente limpa: `795705106f49ca2ceeeeb397d02994c702f8abf9`
 (`feat/a2-3-atomic-provisioning`). Baseline master/PROD preservada:

@@ -17,7 +17,7 @@ export default async function TermsAcceptancePage() {
     ? SUPPORT_MODULES[session.supportModules?.[0] ?? "ESTRUTURA_EMPRESA"].page : "/inicio";
   if (session.accessSource === "MEMBERSHIP") {
     const userTerms = pending.filter(t => t.audience === "USUARIO");
-    if (userTerms.length) return <TermsAcceptanceClient initialPending={userTerms} audience="USUARIO" returnPath="/onboarding" />;
+    if (userTerms.length) return <TermsAcceptanceClient initialPending={userTerms} audience="USUARIO" returnPath="/onboarding" admissionTenantId={session.tenantId} />;
     const ready = await contractualReadiness(prisma, session.tenantId);
     if (!ready.active && ready.responsibleMembershipId !== session.membershipId) redirect("/onboarding");
     if (!ready.active && !pending.some(t => t.actionable)) redirect("/onboarding");

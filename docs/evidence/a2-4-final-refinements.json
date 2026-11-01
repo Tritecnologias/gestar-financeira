@@ -1,0 +1,375 @@
+{
+  "phase": "A.2.4 final refinements",
+  "date": "2026-11-01",
+  "recordedAt": "2026-11-01T13:32:34.234Z",
+  "state": "PASSED",
+  "branch": "feat/a2-4-admission-journey",
+  "baseCommit": "1cf8b0fc7bf779fc2f0946bc60a67d97f44c8474",
+  "masterBaseline": "74400e028949a763107061a09b8af6e406e83e70",
+  "ricardoAcceptance": "Functional and visual acceptance of base confirmed, conditioned on these three refinements",
+  "scope": "LOCAL only; same branch, previous commits preserved; no A.2.5",
+  "changes": [
+    "Opt-in hold-to-reveal for new admission password and confirmation; sequential Tab and documented keyboard shortcut",
+    "Provisioning confirmation inside pending USER terms after existing API confirms PROVISIONED for session tenant",
+    "UX04 copy verified unchanged; synthetic titles, versions and PDFs preserved"
+  ],
+  "approvedCopy": [
+    {
+      "path": "app/src/components/access/TermsAcceptanceClient.tsx",
+      "approvedAndBaseGitBlob": "514de3e8b5b05ab1c54c7e558630ddf6e553818a",
+      "introMarkupSHA256": "052402e0f85f57ef3d845e27295948b4581fd2bc199c278e7c32ceff1684fe20",
+      "approvedTextChanged": false,
+      "change": "Separate server-verified admission notice added before existing header"
+    },
+    {
+      "path": "app/src/components/access/TenantModalityClient.tsx",
+      "approvedAndCurrentGitBlob": "9dceaba2a76fde6052da3c2d6d3830af1cc3498c",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/components/access/ContractualOnboardingClient.tsx",
+      "approvedAndCurrentGitBlob": "8889dcc42d7c21052156f904068c22a41dc9195f",
+      "unchanged": true
+    },
+    {
+      "path": "app/src/components/access/TermDocumentDialog.tsx",
+      "approvedAndCurrentGitBlob": "6ea4b4b7c85393730e4f1a044e97c33a698a2108",
+      "unchanged": true
+    }
+  ],
+  "syntheticPublishedDocuments": [
+    {
+      "code": "TERM_USUARIO",
+      "audience": "USUARIO",
+      "title": "SINTETICO A23 SEM VALOR CONTRATUAL",
+      "version": "synthetic-a23"
+    },
+    {
+      "code": "TERM_CONTRATANTE",
+      "audience": "CONTRATANTE",
+      "title": "SINTETICO A23 SEM VALOR CONTRATUAL",
+      "version": "synthetic-a23"
+    }
+  ],
+  "security": {
+    "serviceApiSchemaAndLandingUnchanged": true,
+    "authenticationAndProvisioningPoliciesUnchanged": true,
+    "newMigrations": 0,
+    "realContractsChanged": false,
+    "realEmail": false,
+    "remoteEnvironmentsAccessed": false,
+    "operationalGateBeforeAcceptance": 428,
+    "afterAllRequiredAcceptances": 200,
+    "referenceAloneDoesNotAuthorizeHandoffNotice": true
+  },
+  "tests": {
+    "http": {
+      "admissionA22": 70,
+      "provisioningA23": 118,
+      "specialInvitations": 36,
+      "operationalInvitations": 50,
+      "contractualPhase12A": 265
+    },
+    "httpTotal": 539,
+    "browser": {
+      "state": "PASSED",
+      "checks": [
+        "interest alone creates no authorization",
+        "administrator authorizes through existing panel",
+        "admin-authorization layout without horizontal overflow",
+        "new-desktop-light-email layout without horizontal overflow",
+        "keyboard confirmation removes token and focuses identity step",
+        "new-desktop-light-identity layout without horizontal overflow",
+        "hold controls: mouse keyboard desktop light, unchanged focus and no submit",
+        "refined-password-desktop-light layout without horizontal overflow",
+        "hold controls: mouse keyboard touch release/cancel mobile light, unchanged focus and no submit",
+        "refined-password-mobile-light layout without horizontal overflow",
+        "hold controls: mouse keyboard desktop dark, unchanged focus and no submit",
+        "refined-password-desktop-dark layout without horizontal overflow",
+        "hold controls: mouse keyboard touch release/cancel mobile dark, unchanged focus and no submit",
+        "refined-password-mobile-dark layout without horizontal overflow",
+        "password mismatch receives accessible feedback",
+        "reload retains verified identity without restarting",
+        "new-desktop-light-space layout without horizontal overflow",
+        "new-mobile-light-space layout without horizontal overflow",
+        "double submit sends once and lost response reconciles committed tenant",
+        "new-provisioned-recovery layout without horizontal overflow",
+        "second tab recovers the same completed authorization",
+        "tenant handoff keeps operational gate",
+        "refined-handoff-desktop-light layout without horizontal overflow",
+        "handoff notice requires server-confirmed admission; stored reference alone cannot claim success",
+        "provisioning confirmation appears inside mandatory user terms without an extra step: desktop-light",
+        "UX04 USUARIO introduction preserved with synthetic document",
+        "UX04 PF/PJ copy preserved",
+        "UX04 responsible copy preserved",
+        "UX04 CONTRATANTE introduction preserved with synthetic document",
+        "new user completes terms PF responsible contract and operational entry via existing screens",
+        "fresh browser original mail resumes through existing login",
+        "existing-mobile-dark-identity layout without horizontal overflow",
+        "existing-desktop-dark-identity layout without horizontal overflow",
+        "existing account failure offers safe support without password reset",
+        "existing-mobile-dark-space layout without horizontal overflow",
+        "existing identity retains password and previous memberships",
+        "refined-handoff-mobile-dark layout without horizontal overflow",
+        "provisioning confirmation appears inside mandatory user terms without an extra step: mobile-dark",
+        "existing-mobile-dark-resume layout without horizontal overflow",
+        "provisioned state resumes without reprovisioning",
+        "UX04 USUARIO introduction preserved with synthetic document",
+        "UX04 CONTRATANTE introduction preserved with synthetic document",
+        "existing user completes PJ and existing contractual screens",
+        "expired challenge explains inability to continue",
+        "resend-mobile-light layout without horizontal overflow",
+        "resend confirms same authorization",
+        "cancelled authorization cannot show identity form",
+        "unauthorized reference reveals no account existence",
+        "expired special invitation remains blocked",
+        "expired-mobile-light layout without horizontal overflow"
+      ],
+      "screenshots": [
+        "admin-authorization.png",
+        "new-desktop-light-email.png",
+        "new-desktop-light-identity.png",
+        "refined-password-desktop-light.png",
+        "refined-password-mobile-light.png",
+        "refined-password-desktop-dark.png",
+        "refined-password-mobile-dark.png",
+        "new-desktop-light-space.png",
+        "new-mobile-light-space.png",
+        "new-provisioned-recovery.png",
+        "refined-handoff-desktop-light.png",
+        "existing-mobile-dark-identity.png",
+        "existing-desktop-dark-identity.png",
+        "existing-mobile-dark-space.png",
+        "refined-handoff-mobile-dark.png",
+        "existing-mobile-dark-resume.png",
+        "resend-mobile-light.png",
+        "expired-mobile-light.png"
+      ],
+      "browser": "Microsoft Edge headless (real Chromium)",
+      "browserVersion": "156.0.4314.58",
+      "syntheticOnly": true,
+      "realEmail": false
+    },
+    "viewports": [
+      {
+        "width": 1366,
+        "height": 900
+      },
+      {
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "touch": "Chromium CDP touchStart/touchEnd/touchCancel; no physical-device certification",
+    "typescript": "PASSED",
+    "lint": "PASSED affected UI files",
+    "build": "PASSED",
+    "externalDatabaseSuitesRun": false,
+    "externalPhase12BaselineHook": false,
+    "wholeUnitSuiteRerun": false
+  },
+  "recovery": {
+    "state": "PASSED",
+    "tables": 44,
+    "method": "pg_dump/pg_restore plus exact sorted row digests",
+    "dumpSHA256": "33eaf3499e7e49b723637e7b6c68c00607ee992d3fc20dc604e45b00e0b9a21a"
+  },
+  "lab": {
+    "path": "C:/Users/ricar/Documents/Codex/a2-4-refinements/lab-01",
+    "network": "none",
+    "dockerPublishedPorts": [],
+    "browserLoopbackPort": 3020,
+    "syntheticOnly": true,
+    "containersRemoved": true,
+    "startedAt": "2026-11-01T13:24:14.142Z",
+    "finishedAt": "2026-11-01T13:30:34.306Z",
+    "foundationDumpSHA256": "85c33525c6b4f7d7a04ed29a8e90008ab6a4378b009fea7785beb3950aa55697"
+  },
+  "artifacts": [
+    {
+      "name": "admin-authorization.png",
+      "sha256": "a5111234d9b5277a4722f101e4fb6f74b65318aa75a6f4b375e4483264040254"
+    },
+    {
+      "name": "app.log",
+      "sha256": "e97ceed4c0262937040cc12f6c99150e58a739592e60d3b57050280d09533def"
+    },
+    {
+      "name": "BROWSER-RESULT.json",
+      "sha256": "e370e2a87a1b51109d8241facc5220f053623e071745c8b4bff4ef61e76b1fa1"
+    },
+    {
+      "name": "browser.log",
+      "sha256": "5ff0577ecacd8b61917aa40e1723d400989be333a4e1092c963055f157abfa4f"
+    },
+    {
+      "name": "contractual.log",
+      "sha256": "08fdfbc2a56b724bbf41ca3d373ebe23413a918fabf7f8b63cb16bd7f775fa50"
+    },
+    {
+      "name": "existing-desktop-dark-identity.png",
+      "sha256": "c01421bcf4dde296cdf1ce0cde1c3c54d856500d42e7169e0d5467a21a45b83e"
+    },
+    {
+      "name": "existing-mobile-dark-identity.png",
+      "sha256": "13e85d9d85287079204676f9dba643623204a6903ab27b6ba09b7b579fa2ac70"
+    },
+    {
+      "name": "existing-mobile-dark-resume.png",
+      "sha256": "a6097cbbfe9ef521f613b0537207ba7291509a434c008fb1e8a9902059175cf3"
+    },
+    {
+      "name": "existing-mobile-dark-space.png",
+      "sha256": "0db5941f2c6b14082591dd3a2de9a5e1c6ce88c0ae397f1d14bc4c3456171efc"
+    },
+    {
+      "name": "expired-mobile-light.png",
+      "sha256": "706bbc2d05c34366c155f62a47bcd02d703ab902d04dc6bb1001e23c70ca569d"
+    },
+    {
+      "name": "HTTP-RESULT.json",
+      "sha256": "2dba473f69dc3a698360ea7f092300743a8b2a90fddd3e81186b9a0348c8cde2"
+    },
+    {
+      "name": "http.log",
+      "sha256": "3bfe0302760c3e906feba61c694e5c7eb2f65960f12c529bcf5e91ac92ca5cd8"
+    },
+    {
+      "name": "new-desktop-light-email.png",
+      "sha256": "25610e33d8df0a2c715e3e151111981206167f9e162b42a3a82ab8c99d9974b7"
+    },
+    {
+      "name": "new-desktop-light-identity.png",
+      "sha256": "e2c19d0ad7ac3fb9a55532244bc1b2c709216d7262ed9eabdfab4215e89a0984"
+    },
+    {
+      "name": "new-desktop-light-space.png",
+      "sha256": "9476a68c7294b5d5264544311a31ae2ce895bd7cb364c330459e1fe16cec5af9"
+    },
+    {
+      "name": "new-mobile-light-space.png",
+      "sha256": "cf1771069b39e5f0f49dd997db18882326ba30334348f40be3bc095a719574c1"
+    },
+    {
+      "name": "new-provisioned-recovery.png",
+      "sha256": "cd5e7d4c04065b1d3ab0a2eebddbfba8bb5a4449ca84d847689f781b24ceaf9d"
+    },
+    {
+      "name": "operational.log",
+      "sha256": "506296acc0fcc7b6e4ceb0e9fb6f8dc2479be64efc6f24b6b17d161b99dd9ebf"
+    },
+    {
+      "name": "PROVISIONING-RESULT.json",
+      "sha256": "68a82747bbb7370f6b0136c2b16074062e40c1d312c377ee9282e1787b65a026"
+    },
+    {
+      "name": "provisioning.log",
+      "sha256": "30e5eb857604e27762479846f47ff5d0ce5e03b724271ce4fb271f382ad8d476"
+    },
+    {
+      "name": "recovery-tables.txt",
+      "sha256": "6179aaa1f4ec09df2e9149352c1239633040c88571437faf9cbf704d24874aed"
+    },
+    {
+      "name": "refined-handoff-desktop-light.png",
+      "sha256": "900c7e9b7353860e25e7fe28e3f742ac9f9e908021d3959d9612d80ad3713a63"
+    },
+    {
+      "name": "refined-handoff-mobile-dark.png",
+      "sha256": "1e95de2b4c5db04f5ed0c059d2e9693e9302ad44eab48fff3e18214252434559"
+    },
+    {
+      "name": "refined-password-desktop-dark.png",
+      "sha256": "32e5c57fa3a88f6491882748f7a2fa7c8df13358386e12288422160cc09d861d"
+    },
+    {
+      "name": "refined-password-desktop-light.png",
+      "sha256": "18ed98fe41824b99f502a234354fb848d2b0a9162142f6f48c91a19d98a54e71"
+    },
+    {
+      "name": "refined-password-mobile-dark.png",
+      "sha256": "63484499a42b43453f818bf5b056dd368f64f7b41b46733950c8c2a1cc03f8e9"
+    },
+    {
+      "name": "refined-password-mobile-light.png",
+      "sha256": "a67dee8eacd7d7d2d34bdc4e8fb5cd60e87f1fc24942655d8c6714e2c3996f9e"
+    },
+    {
+      "name": "regression-app.log",
+      "sha256": "bbcf03c8c2528087885e2282a97c83ebd01915031439a0615d1e9c0773c0006c"
+    },
+    {
+      "name": "resend-mobile-light.png",
+      "sha256": "9cd65676ace383312618a6fddc4d2ec8d1a6eb7b5dadfa7d7b5e58d006131e18"
+    },
+    {
+      "name": "RESULT.json",
+      "sha256": "c0bc2dddac170e8d1d00da752ad720189864d3d5fe2c447f818f218322d676a2"
+    },
+    {
+      "name": "special-invitations.log",
+      "sha256": "2178389c639b92a3898fbdf613d5eb96803ac6cd94634978b77bf894f606a029"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "app/src/components/ui/PasswordInput.tsx",
+      "sha256": "a9e10f97344aa389bb78b88ead17ee5bac4160810eddbc8d2b66aff98672fdec"
+    },
+    {
+      "path": "app/src/components/ui/password-input.css",
+      "sha256": "4d8933b1aea4886f64438d8c32018e1428bf3fb66d1cca4e00c1078a3aec71a7"
+    },
+    {
+      "path": "app/src/components/access/AdmissionClient.tsx",
+      "sha256": "ef3d65b739ca83091c8ed923c54bf9b5c991e5bc2e4a64d11730fc9c54dce09a"
+    },
+    {
+      "path": "app/src/components/access/AdmissionHandoffNotice.tsx",
+      "sha256": "a1ee604cf7c1c7a7ad022c12a4bc9c5161c8f49733914893735410c253af5ec7"
+    },
+    {
+      "path": "app/src/components/access/TermsAcceptanceClient.tsx",
+      "sha256": "14c6dc591b2815a425812e41407008600467c52901123382fa28f252310aa373"
+    },
+    {
+      "path": "app/src/app/termos/aceite/page.tsx",
+      "sha256": "ca4078a632d6e66adf171f9f0643cb347d024098c54e031edf9ec1f8778ad07e"
+    },
+    {
+      "path": "app/src/app/termos/aceite/terms.css",
+      "sha256": "b1b69dc69049d5b030e00a03f31882b106392a9e723836c64bfb641df71383db"
+    },
+    {
+      "path": "app/tests/admission-journey.browser.cjs",
+      "sha256": "d93310fb596f66e28be8bb0720a21fb264916c4c0e5b050494c6c89bd9623d26"
+    },
+    {
+      "path": "app/tests/admission-refinements.browser.cjs",
+      "sha256": "c570eee5bc47a2f0f3092bfde1dedd77854beac5dfc0f5fb37ce08a154b00d07"
+    }
+  ],
+  "localCheckLogs": [
+    {
+      "path": "C:\\Users\\ricar\\Documents\\Codex\\a2-4-refinements\\typescript.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "C:\\Users\\ricar\\Documents\\Codex\\a2-4-refinements\\lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "verdict": {
+    "integratedValidation": "GO",
+    "a25Started": false,
+    "nextPhaseRequiresRicardoAuthorization": true,
+    "publicReleaseDependencies": [
+      "Account recovery",
+      "Environment, real mail, keys and deployment approval"
+    ]
+  }
+}

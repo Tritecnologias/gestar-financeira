@@ -117,8 +117,11 @@ export default function AdmissionClient() {
       {state && step === 1 && <form method="post" className="activation-fields" onSubmit={identify}>
         <p>{state.state === "CREATE_IDENTITY" ? "Crie uma senha com pelo menos 12 caracteres para proteger sua conta." : "Use sua senha atual. Seus acessos a outras empresas serão preservados."}</p>
         {signedIn && <button type="button" className="admission-secondary" disabled={busy} onClick={() => void action(async current => { await signOut({ redirect: false }); if (current()) { setSignedIn(false); await refresh(id); } })}>Sair da conta atual</button>}
-        <PasswordInput id="admission-password" label={state.state === "CREATE_IDENTITY" ? "Crie sua senha" : "Senha atual"} disabled={busy} required autoComplete={state.state === "CREATE_IDENTITY" ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} minLength={state.state === "CREATE_IDENTITY" ? 12 : undefined} maxLength={200} />
-        {state.state === "CREATE_IDENTITY" && <PasswordInput id="admission-confirmation" label="Confirme sua senha" required disabled={busy} autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)} minLength={12} maxLength={200} />}
+        <PasswordInput id="admission-password" label={state.state === "CREATE_IDENTITY" ? "Crie sua senha" : "Senha atual"} disabled={busy} required autoComplete={state.state === "CREATE_IDENTITY" ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} minLength={state.state === "CREATE_IDENTITY" ? 12 : undefined} maxLength={200}
+          sequential={state.state === "CREATE_IDENTITY"} holdToReveal={state.state === "CREATE_IDENTITY"} aria-describedby={state.state === "CREATE_IDENTITY" ? "admission-password-help" : undefined} />
+        {state.state === "CREATE_IDENTITY" && <><PasswordInput id="admission-confirmation" label="Confirme sua senha" required disabled={busy} autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)} minLength={12} maxLength={200}
+          sequential holdToReveal aria-describedby="admission-password-help" />
+          <p id="admission-password-help" className="activation-muted">Para conferir a senha, mantenha o olho pressionado. No teclado, mantenha Alt+Shift+V pressionado no campo.</p></>}
         <button disabled={busy} type="submit">{busy ? "Confirmando…" : "Confirmar identidade"}</button>
         {state.state === "LOGIN_REQUIRED" && <p className="activation-muted">Não lembra sua senha? Solicite atendimento a quem enviou o convite. O link de adesão não altera sua senha.</p>}
       </form>}
