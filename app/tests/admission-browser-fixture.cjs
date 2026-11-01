@@ -10,6 +10,7 @@ async function main(){let raw='';for await(const s of process.stdin)raw+=s;const
  if(a.op==='expire'){await pg.query("UPDATE experiment_invitations SET created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' WHERE id=$1",[a.id]);return{ok:true};}
  if(a.op==='existing'){const i=await p.authIdentity.findFirstOrThrow({where:{email:{startsWith:'a23-existing-'}}});return {email:i.email,hash:i.senhaHash,id:i.id,memberships:await p.tenantMembership.count({where:{identityId:i.id}})};}
  if(a.op==='preview'){const admin=await p.authIdentity.findUniqueOrThrow({where:{email:'a22-admin@example.invalid'}});return{admin:admin.email};}
+ if(a.op==='a25-context'){assert(Array.isArray(a.completed)&&a.completed.length===2);assert(a.completed.every(x=>x.email.endsWith('@example.invalid')));await fs.writeFile('/tmp/a25-browser-context.json',JSON.stringify(a),{mode:0o600});return{ok:true};}
  throw Error('UNKNOWN_FIXTURE_OPERATION');
 }
 main().then(r=>console.log(JSON.stringify(r))).catch(e=>{console.error(e.code||e.name);process.exitCode=1}).finally(async()=>{await p.$disconnect();await pg.end()});

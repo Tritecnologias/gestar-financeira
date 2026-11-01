@@ -1,5 +1,6 @@
 /** A.2.2 / A.2.3 real Next/HTTP proof. Reuses the verified synthetic full dump from A.2.1. */
 import assert from 'node:assert/strict';
+import {integratedSuite,recoverApplication} from './integrated-lab.mjs';
 import {startJourneyBridge,testJourney} from './journey-lab.mjs';
 import {spawn} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,cpSync} from 'node:fs';
@@ -10,17 +11,18 @@ import {randomUUID,randomBytes,createHash} from 'node:crypto';
 const app=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 assert(process.argv[2]&&isAbsolute(process.argv[2])&&process.argv[3]&&isAbsolute(process.argv[3]),'Usage: node run-http-lab.mjs <A2.1-evidence-directory> <new-evidence-directory>');
 const source=resolve(process.argv[2]),out=resolve(process.argv[3]);assert(!existsSync(out),'NEW_EVIDENCE_DIRECTORY_REQUIRED');
-assert(process.argv[4]===undefined||['--provision','--journey','--preview'].includes(process.argv[4]),'UNKNOWN_PHASE');
-const journey=['--journey','--preview'].includes(process.argv[4]);
-const provision=journey||process.argv[4]==='--provision', phase=journey?'A.2.4':provision?'A.2.3':'A.2.2', label=journey?'dez-a24-http':provision?'dez-a23-http':'dez-a22-http';
+assert(process.argv[4]===undefined||['--provision','--journey','--preview','--integrated'].includes(process.argv[4]),'UNKNOWN_PHASE');
+const integrated=process.argv[4]==='--integrated';
+const journey=integrated||['--journey','--preview'].includes(process.argv[4]);
+const provision=journey||process.argv[4]==='--provision', phase=integrated?'A.2.5':journey?'A.2.4':provision?'A.2.3':'A.2.2', label=integrated?'dez-a25-http':journey?'dez-a24-http':provision?'dez-a23-http':'dez-a22-http';
 const foundation=JSON.parse(readFileSync(join(source,'RESULT.json'),'utf8'));
 assert.equal(foundation.state,'PASSED');assert.equal(foundation.phase,'A.2.1');assert.equal(foundation.syntheticOnly,true);assert.equal(foundation.network,'none');assert.equal(foundation.realEmail,false);
 const dump=readFileSync(join(source,'synthetic-a2-h8.dump'));assert.equal(createHash('sha256').update(dump).digest('hex'),foundation.dumpSHA256);
 mkdirSync(out,{recursive:true});const staged=join(out,'source');mkdirSync(staged);
 for(const name of ['src','public','package.json','package-lock.json','tsconfig.json','next.config.ts','next-env.d.ts'])cpSync(join(app,name),join(staged,name),{recursive:true});
 mkdirSync(join(staged,'prisma'));cpSync(join(app,'prisma/schema.prisma'),join(staged,'prisma/schema.prisma'));
-mkdirSync(join(staged,'tests'));for(const name of ['admission.http.cjs','experiment.http.cjs',...(provision?['synthetic-pdf.cjs','admission-provisioning.http.cjs','admission-lab-helpers.cjs','invitations-multichannel.http.cjs','contractual-onboarding.http.cjs']:[]),...(journey?['admission-browser-relay.cjs','admission-browser-fixture.cjs']:[])])cpSync(join(app,'tests',name),join(staged,'tests',name));
-const suffix=randomUUID().slice(0,8),pg=(journey?'dez-a24-pg-':provision?'dez-a23-pg-':'dez-a22-pg-')+suffix,worker=label+'-'+suffix;
+mkdirSync(join(staged,'tests'));for(const name of ['admission.http.cjs','experiment.http.cjs',...(provision?['synthetic-pdf.cjs','admission-provisioning.http.cjs','admission-lab-helpers.cjs','invitations-multichannel.http.cjs','contractual-onboarding.http.cjs']:[]),...(integrated?['admission-integrated.http.cjs']:[]),...(journey?['admission-browser-relay.cjs','admission-browser-fixture.cjs']:[])])cpSync(join(app,'tests',name),join(staged,'tests',name));
+const suffix=randomUUID().slice(0,8),pg=(integrated?'dez-a25-pg-':journey?'dez-a24-pg-':provision?'dez-a23-pg-':'dez-a22-pg-')+suffix,worker=label+'-'+suffix;
 const pgImage='sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5',nodeImage='sha256:271e76a186736f3a533931712920c03644bd69684b11d04b1c468d0870ba0d13';
 const report={phase,network:'none',publishedPorts:[],syntheticOnly:true,realEmail:false,foundationDumpSHA256:foundation.dumpSHA256,startedAt:new Date().toISOString()};
 const created=[];let closeBridge;
@@ -59,7 +61,7 @@ try {
     const r=await run(['exec',worker,'node','-e',"fetch('http://localhost:3020/adesao').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"],undefined,false);
     if(r.code===0){ready=true;break;}if(n%10===0)console.log('Waiting for isolated Next application');await new Promise(r=>setTimeout(r,1000));
   }
-  if(!ready){const log=await run(['exec',worker,'cat','/tmp/a2-app.log'],undefined,false);writeFileSync(join(out,'app.log'),log.stdout);throw new Error('LOCAL_APP_NOT_READY; inspect app.log');}
+  if(!ready){const log=await run(['exec',worker,'cat','/tmp/a2-app.log'],undefined,false);if(log.code===0)writeFileSync(join(out,'app.log'),log.stdout);throw new Error('LOCAL_APP_NOT_READY; inspect app.log');}
   report.build='PASSED';console.log('PASS Next build and real application ready inside isolated network namespace');
   const test=await run(['exec','-w','/work',worker,'node','tests/admission.http.cjs'],undefined,false);writeFileSync(join(out,'http.log'),test.stdout+test.stderr);console.log(test.stdout);
   const result=await run(['exec',worker,'cat','/tmp/a2-http-result.json'],undefined,false);if(result.code===0){writeFileSync(join(out,'HTTP-RESULT.json'),result.stdout);report.http=JSON.parse(result.stdout);}
@@ -98,7 +100,8 @@ try {
       assert(report[key]);console.log('PASS '+key+' HTTP regression: '+report[key].checks.length+' checks');
     }
     writeFileSync(join(out,'regression-app.log'),(await run(['exec',worker,'cat','/tmp/a23-regression-app.log'])).stdout);
-    if(journey){closeBridge=await startJourneyBridge(worker);await testJourney(app,worker,out);report.browser=JSON.parse(readFileSync(join(out,'BROWSER-RESULT.json'),'utf8'));report.loopbackBrowserPort=3020;console.log('PASS real browser journey: '+report.browser.checks.length+' checks');}
+    if(journey){closeBridge=await startJourneyBridge(worker);await testJourney(app,worker,out,integrated);report.browser=JSON.parse(readFileSync(join(out,'BROWSER-RESULT.json'),'utf8'));report.loopbackBrowserPort=3020;console.log('PASS real browser journey: '+report.browser.checks.length+' checks');}
+    if(integrated)report.integrated=await integratedSuite(run,worker,out,'prepare');
     const full=(await run(['exec',pg,'pg_dump','-U','postgres','-d','special_invite_lab','-Fc'])).bytes;
     writeFileSync(join(out,'synthetic-a23-h8.dump'),full);
     await sql('CREATE DATABASE a23_recovery OWNER a2_migrator;');
@@ -111,8 +114,9 @@ try {
     assert.equal(restored.stdout,before.stdout);writeFileSync(join(out,'recovery-tables.txt'),restored.stdout);
     report.recovery={state:'PASSED',tables:44,method:'pg_dump/pg_restore plus exact sorted row digests',dumpSHA256:createHash('sha256').update(full).digest('hex')};
     console.log('PASS full H8 dump and recovery: all 44 table digests match');
+    if(integrated){report.applicationRecovery=await recoverApplication({run,worker,pgImage,nodeImage,staged,out,envArgs,full,snapshot,before,created,label,suffix,closeBridge});closeBridge=undefined;console.log('PASS independent application recovery and interrupted journeys');}
   }
-  const log=await run(['exec',worker,'cat','/tmp/a2-app.log']);writeFileSync(join(out,'app.log'),log.stdout);
+  if(!integrated){const log=await run(['exec',worker,'cat','/tmp/a2-app.log']);writeFileSync(join(out,'app.log'),log.stdout);}
   report.state='PASSED';
   if(process.argv[4]==='--preview'){writeFileSync(join(out,'PREVIEW-READY.json'),JSON.stringify(report,null,2));console.log('LOCAL preview ready: '+join(out,'PREVIEW.md')+'; create STOP-LOCAL in this directory to close it. Automatic cleanup after two hours.');const deadline=Date.now()+7200000;while(Date.now()<deadline&&!existsSync(join(out,'STOP-LOCAL')))await new Promise(r=>setTimeout(r,1000));}
 } catch(error){report.state='FAILED';report.error=String(error.message).slice(0,400);console.error(report.error);

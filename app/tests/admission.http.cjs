@@ -61,6 +61,17 @@ async function age(grant,seconds=61){
 }
 let adminId,memberId,adminJar=jar(),memberJar=jar();
 async function main(){
+  // Foundation fixtures are historical inputs, even when its dump was just generated.
+  // Keep their relative timestamps and evidence; do not disable the real mail budget.
+  const inherited=(await query('SELECT id,authorized_email FROM admissions')).rows;
+  assert.equal(inherited.length,11);assert(inherited.every(r=>/^(admission-(?:[1-9]|10)|race-approval-[ab])$/.test(r.id)&&r.authorized_email==='owner@example.invalid'));
+  const clock=await pool.connect();try{await clock.query('BEGIN');
+    for(const [table,columns] of [['experiment_invitations',['created_at','expires_at','revoked_at','viewed_at','acknowledged_at','interest_at']],
+      ['admissions',['authorized_at','expires_at','email_verified_at','provisioned_at','cancelled_at']],
+      ['admission_challenges',['issued_at','expires_at','consumed_at','revoked_at','last_attempt_at']]])
+      await clock.query(`UPDATE ${table} SET ${columns.map(c=>c+"="+c+"-interval '1 day'").join(',')}`);
+    await clock.query('COMMIT');
+  }catch(error){await clock.query('ROLLBACK');throw error;}finally{clock.release();}
   const protectedTables=['tenants','tenant_memberships','access_profiles','usuarios','legacy_user_access_maps','access_invites','access_owner_events','term_acceptances','tenant_contractual_onboarding','tenant_contractual_responsibles'];
   const snapshot=async()=>{const value={};for(const table of protectedTables)value[table]=(await one(`SELECT md5(coalesce(string_agg(to_jsonb(t)::text,chr(10) ORDER BY to_jsonb(t)::text),'')) hash FROM ${table} t`)).hash;return value;};
   const original=await snapshot();
