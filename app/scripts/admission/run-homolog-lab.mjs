@@ -1,189 +1,209 @@
-/** LOCAL operational rehearsal, not a publisher. No SSH, DNS, remote context, exposed port or SMTP.
- * node scripts/admission/run-homolog-lab.mjs <new absolute evidence dir> [immutable candidate image id]
- * Reuses Prisma deploy, the existing profile assembler and PostgreSQL backup/restore commands.
+/** A.2.6 single LOCAL integration using the existing lab and recovery procedure.
+ * node scripts/admission/run-homolog-lab.mjs <new absolute evidence dir> <immutable image id> <approved Pacote A ops directory>
+ * The same OCI image runs in LOCAL/HOMOLOG/PROD configurations. No publication or remote access.
  */
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,copyFileSync} from 'node:fs';
 import {resolve,join,isAbsolute,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {randomUUID,randomBytes,createHash,createCipheriv,createDecipheriv} from 'node:crypto';
-import {PRE_ADMISSION_HOMOLOG_MIGRATIONS as h7,HOMOLOG_MIGRATIONS as h8,HOMOLOG_ADMISSION_MIGRATION as migration} from '../../src/lib/backup/schema-contract.mjs';
-import {HOMOLOG_DATABASE_GUARD_SQL as attestation} from '../../src/lib/admission-database-contract.mjs';
-import {rehearseCandidate,recoverCandidate} from './homolog-runtime-lab.mjs';
-const app=resolve(dirname(fileURLToPath(import.meta.url)),'../..'),out=resolve(process.argv[2]||'.');
-assert(process.argv[2]&&isAbsolute(process.argv[2])&&!existsSync(out),'NEW_ABSOLUTE_OUTPUT_REQUIRED');
-const candidate=process.argv[3];assert(!candidate||/^sha256:[a-f0-9]{64}$/.test(candidate),'IMMUTABLE_IMAGE_REQUIRED');
+import {createRequire} from 'node:module';
+import {randomUUID,randomBytes,createHash} from 'node:crypto';
+import {PRE_ADMISSION_HOMOLOG_MIGRATIONS as h7,PRE_ADMISSION_PRODUCTION_MIGRATIONS as p6,PORTABLE_HOMOLOG_MIGRATIONS as h8,PORTABLE_PRODUCTION_MIGRATIONS as p7,PORTABLE_ADMISSION_MIGRATION as admission} from '../../src/lib/backup/schema-contract.mjs';
+import {admissionDatabaseGuardSql} from '../../src/lib/admission-database-contract.mjs';
+import {startCandidate,rehearseCandidate,recoverCandidate} from './homolog-runtime-lab.mjs';
+const app=resolve(dirname(fileURLToPath(import.meta.url)),'../..'),out=process.argv[2],image=process.argv[3],ops=process.argv[4];
+assert(out&&isAbsolute(out)&&!existsSync(out)&&/^sha256:[a-f0-9]{64}$/.test(image)&&ops&&isAbsolute(ops),'EXPLICIT_LOCAL_REHEARSAL_INPUTS');
 mkdirSync(out,{recursive:true});
-const pgImage='sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5',nodeImage=candidate||'sha256:271e76a186736f3a533931712920c03644bd69684b11d04b1c468d0870ba0d13';
-const suffix=randomUUID().slice(0,8),pg='dez-a26-homolog-'+suffix,recovery='dez-a26-recovery-'+suffix,created=[];
-const db='gestar_homolog_pg18',mg='pg18_homolog_migrator',rt='pg18_homolog_runtime',intent='dez-a2-homolog-h7-h8';
-const sha=b=>createHash('sha256').update(b).digest('hex');
-const report={phase:'A.2.6 LOCAL',startedAt:new Date().toISOString(),syntheticOnly:true,remoteOperations:0,network:'none',publishedPorts:[],realEmail:false,candidateImage:candidate||null,checks:[],commands:[]};
-const pass=name=>{report.checks.push(name);console.log('PASS '+name);};
-function run(args,input,ok=true){return new Promise((accept,reject)=>{
-  const child=spawn('docker',args,{windowsHide:true,stdio:['pipe','pipe','pipe']}),stdout=[],stderr=[];
+const sha=b=>createHash('sha256').update(b).digest('hex'),secret=()=>randomBytes(32).toString('hex');
+const dependencies={
+  'ops-common.py':'8d51f090b3a5c119580bf246252e7584281610886d66abea37b3dcaa7353c7fa',
+  'roles.py':'fd821c55be867282f5c9d00cdfbb3caa30142bff66550250578b58f6fce1b7cb',
+};
+for(const [file,hash]of Object.entries(dependencies)){assert.equal(sha(readFileSync(join(ops,file))),hash);copyFileSync(join(ops,file),join(out,file));}
+const pgImage='sha256:4ac55a220620fa161678918a1dbd68878ad82837caefa8fa2410f244f23fff64'; // Previously rehearsed PG18.6 + Python/OpenSSL lab dependency, never an application substitute.
+const report={phase:'A.2.6 portable final LOCAL integration',startedAt:new Date().toISOString(),candidateImage:image,syntheticOnly:true,remoteOperations:0,publishedPorts:[],checks:[],profiles:{},commands:[],operationsModules:dependencies};
+const created=[],privateValues=[];let context='';
+const pass=name=>{report.checks.push(name);console.log('PASS '+name)};
+const safe=text=>privateValues.reduce((s,v)=>v?s.replaceAll(v,'[REDACTED]'):s,String(text)).replace(/postgres(?:ql)?:\/\/[^\s]+/g,'[DATABASE_URL]');
+function run(args,input,ok=true){return new Promise((yes,no)=>{
+  const child=spawn('docker',context?['--context',context,...args]:args,{windowsHide:true,stdio:['pipe','pipe','pipe']}),stdout=[],stderr=[];
   const timer=setTimeout(()=>child.kill(),240000);child.stdout.on('data',b=>stdout.push(b));child.stderr.on('data',b=>stderr.push(b));
-  child.on('error',e=>{clearTimeout(timer);reject(e)});child.on('close',code=>{clearTimeout(timer);
-    const result={code,bytes:Buffer.concat(stdout),stdout:Buffer.concat(stdout).toString(),stderr:Buffer.concat(stderr).toString()};
-    report.commands.push({operation:args[0],code});
-    if(ok&&code!==0)reject(Error('LOCAL_DOCKER_STEP_FAILED '+args[0]+' '+result.stderr.slice(-500)));else accept(result);
-  });child.stdin.on('error',()=>{});child.stdin.end(input);
+  child.on('error',e=>{clearTimeout(timer);no(e)});child.on('close',code=>{clearTimeout(timer);const r={code,bytes:Buffer.concat(stdout),stdout:Buffer.concat(stdout).toString(),stderr:Buffer.concat(stderr).toString()};report.commands.push({operation:args[0],code});
+    if(ok&&code!==0)no(Error('LOCAL_STEP_'+args[0]+'_'+code+' '+safe(r.stderr).slice(-600)));else yes(r);});child.stdin.on('error',()=>{});child.stdin.end(input);
 });}
-async function sql(query,{database=db,role=mg,container=pg,ok=true,authorized=true}={}){
-  assert([pg,recovery].includes(container));assert(/^[a-z0-9_]+$/.test(database));
-  return run(['exec','-i','-e','PGAPPNAME='+(authorized?intent:'unapproved'),container,'psql','-XqAt','-v','ON_ERROR_STOP=1','-U',role,'-d',database],query,ok);
+const profiles={
+ homolog:{db:'gestar_homolog_pg18',admin:'pg18_homolog_admin',mg:'pg18_homolog_migrator',rt:'pg18_homolog_runtime',owner:'pg18_homolog_admin',host:'0f5rvkjqjdt9fez1ajiascyk',origin:'https://homolog.dezsolucoes.com.br',flag:'ADMISSION_HOMOLOG_ENABLED',intent:'dez-a2-homolog-h7-h8',before:h7,after:h8,roles:['pg18_homolog_admin','pg18_homolog_migrator','pg18_homolog_runtime']},
+ production:{db:'gestar_prod_pg18',admin:'postgres',mg:'pg18_prod_migrator',rt:'pg18_prod_runtime',owner:'pg18_prod_migrator',host:'ik7d1n0035vis9y5rprjpgmn',origin:'https://app.dezsolucoes.com.br',flag:'ADMISSION_PRODUCTION_ENABLED',intent:'dez-a2-production-p6-p7',before:p6,after:p7,roles:['postgres','pg18_prod_migrator','pg18_prod_runtime','gestar_admin','gestar_prod_runtime','gestar_prod_migrator','powerbi_reader']},
+ local:{db:'special_invite_lab',admin:'postgres',mg:'a2_migrator',rt:'a2_runtime',owner:'a2_migrator',host:'127.0.0.1',origin:'http://localhost:3020',flag:'ADMISSION_LAB_ENABLED',intent:'dez-a2-local-h7-h8',before:h7,after:h8,roles:['postgres','a2_migrator','a2_runtime']},
+};
+const snapshot=JSON.parse(readFileSync(resolve(ops,'../a2-6-operational-final/HOMOLOG-READONLY.json'))).catalog;
+const helper=String.raw`import ast,pathlib,json,sys,subprocess,os,hashlib,tarfile,tempfile,re,shutil
+P=json.load(sys.stdin);T=P['target'];DB=T['db'];ADMIN=T['admin'];APPROVED_ROLE_NAMES=frozenset(T['roles']);ROOT=pathlib.Path('/var/lib/postgresql/a26-ops-'+P['tag']);ROOT.mkdir(mode=0o700,exist_ok=True)
+def require(v,m):
+ if not v:raise RuntimeError(m)
+def run(argv,body=None,timeout=120):
+ require(argv[0]in ['psql','pg_dump','pg_dumpall','pg_restore','openssl'],'COMMAND_SCOPE')
+ p=subprocess.run(argv,input=body,capture_output=True,timeout=timeout);require(p.returncode==0,'COMMAND_FAILED_'+argv[0]);return p.stdout
+def sql(q,database=DB,readonly=True):
+ require(database in [DB,'postgres'],'DATABASE_SCOPE')
+ text=('BEGIN READ ONLY;SET LOCAL TIME ZONE \'UTC\';SET LOCAL search_path=public,pg_catalog;'+q+';ROLLBACK;')if readonly else q
+ return run(['psql','-XqAt','-v','ON_ERROR_STOP=1','-U',ADMIN,'-d',database],text.encode()).decode().strip()
+# Execute only the reviewed pure operational functions, never module-level publishing code.
+for file,names in [('ops-common.py',['fp','filemeta','dbmeta','cms_encrypt','cms_decrypt','extract_volumes','restore_db_acl']),('roles.py',['role_inventory'])]:
+ tree=ast.parse(pathlib.Path('/lab/'+file).read_text());selected=[n for n in tree.body if isinstance(n,ast.FunctionDef)and n.name in names];require(len(selected)==len(names),'APPROVED_FUNCTIONS');exec(compile(ast.Module(body=selected,type_ignores=[]),file,'exec'))
+databases=[DB]+(['postgres']if P['profile']=='production'else[])
+def inventory():
+ out={}
+ for db in databases:
+  inv=role_inventory(database=db);require({r['rolname']for r in inv['roles']}==APPROVED_ROLE_NAMES,'EXACT_ROLE_INVENTORY')
+  for r in inv['roles']:
+   if r['rolname']in [T['mg'],T['rt']]:require(r['rolcanlogin']and not any(r[k]for k in ['rolsuper','rolcreatedb','rolcreaterole','rolreplication','rolbypassrls']),'RESTRICTED_ACTIVE_ROLE')
+  out[db]={'roles':inv,'rows':fp(database=db),'database':dbmeta(database=db)}
+ return out
+try:
+ if P['action']=='inventory':result={'inventory':inventory(),'allRoleCount':int(sql('SELECT count(*)FROM pg_roles'))}
+ elif P['action']=='capture':
+  import base64
+  expected=inventory();(ROOT/'metadata.json').write_text(json.dumps(expected));(ROOT/'configuration.private.json').write_text(json.dumps(P['configuration']));(ROOT/'volumes.tar').write_bytes(base64.b64decode(P['volumes']))
+  (ROOT/'roles.sql').write_bytes(run(['pg_dumpall','-U',ADMIN,'--roles-only']))
+  for db in databases:(ROOT/(db+'.dump')).write_bytes(run(['pg_dump','-U',ADMIN,'-d',db,'-Fc']))
+  CERT=ROOT/'certificate.pem';key=ROOT/'private.pem';PRIVATE={'passphrase':P['passphrase']}
+  run(['openssl','req','-new','-x509','-newkey','rsa:2048','-keyout',str(key),'-out',str(CERT),'-days','1','-subj','/CN=DEZ-PORTABLE-SYNTHETIC','-passout','stdin'],(PRIVATE['passphrase']+'\n').encode())
+  PRIVATE['encryptedPrivateKeyPem']=key.read_text();entries=['metadata.json','configuration.private.json','volumes.tar','roles.sql']+[db+'.dump'for db in databases]
+  receipt=cms_encrypt(ROOT/'capture.cms',[(n,ROOT/n)for n in entries]);result={'receipt':receipt,'privateKey':PRIVATE['encryptedPrivateKeyPem'],'cipher':base64.b64encode((ROOT/'capture.cms').read_bytes()).decode(),'inventory':expected}
+ elif P['action']=='recover':
+  import base64
+  cipher=ROOT/'input.cms';cipher.write_bytes(base64.b64decode(P['cipher']));receipt=dict(P['receipt'],path=str(cipher));PRIVATE={'passphrase':P['passphrase'],'encryptedPrivateKeyPem':P['privateKey']};into=ROOT/'restored';into.mkdir(mode=0o700,exist_ok=True);cms_decrypt(receipt,into)
+  roles=(into/'roles.sql').read_bytes();names=re.findall(rb'^CREATE ROLE (?:"([A-Za-z_][A-Za-z0-9_]*)"|([A-Za-z_][A-Za-z0-9_]*));\s*$',roles,re.M)
+  require({(a or b).decode()for a,b in names}==APPROVED_ROLE_NAMES and len(names)==len(APPROVED_ROLE_NAMES),'EXACT_RESTORE_ROLES')
+  roles=b'\n'.join(line for line in roles.splitlines()if line not in [('CREATE ROLE '+ADMIN+';').encode(),('CREATE ROLE "'+ADMIN+'";').encode()])+b'\n';run(['psql','-XqAt','-v','ON_ERROR_STOP=1','-U',ADMIN,'-d','postgres'],roles)
+  expected=json.loads((into/'metadata.json').read_bytes());sql('CREATE DATABASE '+DB+' OWNER '+T['owner'],database='postgres',readonly=False)
+  for db in databases:
+   run(['pg_restore','-U',ADMIN,'-d',db,'--exit-on-error'],(into/(db+'.dump')).read_bytes());meta=expected[db]['database'];restore_db_acl(lambda q,ro=True,db=db:sql(q,database=db,readonly=ro),db,meta['owner'],meta['acl'])
+  actual=inventory()
+  for db in databases:
+   require(actual[db]['roles']==expected[db]['roles']and actual[db]['rows']==expected[db]['rows'],'RECOVERY_ROWS_ROLES_ACL_LEDGER_DRIFT')
+   # role_inventory compares normalized database ACLs; pg_dump's NULL/default ACL
+   # can legitimately become an explicit equivalent array after GRANT replay.
+   require({k:v for k,v in actual[db]['database'].items()if k!='acl'}=={k:v for k,v in expected[db]['database'].items()if k!='acl'},'RECOVERY_DATABASE_DRIFT')
+  result={'proof':'EXACT_RECOVERY_PASS','configuration':json.loads((into/'configuration.private.json').read_bytes()),'volumes':base64.b64encode((into/'volumes.tar').read_bytes()).decode()}
+ else:raise RuntimeError('ACTION_SCOPE')
+ print(json.dumps(result))
+except BaseException as e:
+ print(json.dumps({'state':'REJECTED','code':str(e)if isinstance(e,RuntimeError)else type(e).__name__}));sys.exit(2)
+`;
+writeFileSync(join(out,'recovery-helper.py'),helper);
+async function startPg(name,t,credentials){
+ await run(['run','-d','--pull=never','--name',name,'--entrypoint','docker-entrypoint.sh','--network','none','--add-host',t.host+':127.0.0.1','--restart','no','--label','purpose=dez-a26-portable-lab','--memory','768m',
+ '--mount','type=tmpfs,destination=/var/lib/postgresql','--mount','type=bind,source='+out+',target=/lab,readonly','-e','POSTGRES_USER='+t.admin,'-e','POSTGRES_DB=postgres','-e','POSTGRES_PASSWORD='+credentials[t.admin],pgImage,'postgres']);created.push(name);
+ let ready=false;for(let n=0;n<80;n++){if((await run(['exec',name,'pg_isready','-h','127.0.0.1','-U',t.admin],undefined,false)).code===0){ready=true;break;}await new Promise(r=>setTimeout(r,250));}assert(ready,'LOCAL_PG_READY');
+ const state=JSON.parse((await run(['inspect',name])).stdout)[0];assert.equal(state.HostConfig.NetworkMode,'none');assert.deepEqual(state.HostConfig.PortBindings,{});
 }
-async function value(query,options){return (await sql(query,options)).stdout.trim();}
-async function fails(name,query,marker,options={}){const r=await sql(query,{...options,ok:false});assert.notEqual(r.code,0,name);assert(r.stderr.includes(marker),r.stderr.slice(-800));pass(name);}
-async function start(name){
-  await run(['run','-d','--pull=never','--name',name,'--network','none','--add-host','0f5rvkjqjdt9fez1ajiascyk:127.0.0.1','--restart','no','--label','purpose=dez-a26-local-rehearsal','--memory','768m',
-    '--mount','type=tmpfs,destination=/var/lib/postgresql','-e','POSTGRES_HOST_AUTH_METHOD=trust',pgImage]);created.push(name);
-  let ready=false;for(let n=0;n<80;n++){if((await run(['exec',name,'pg_isready','-h','127.0.0.1','-U','postgres'],undefined,false)).code===0){ready=true;break;}await new Promise(r=>setTimeout(r,250));}assert(ready);
-  const state=JSON.parse((await run(['inspect',name])).stdout)[0];assert.equal(state.HostConfig.NetworkMode,'none');assert.deepEqual(state.HostConfig.PortBindings,{});
+async function sql(pg,t,q,{role=t.mg,db=t.db,ok=true,intent=t.intent}={}){assert(created.includes(pg));return run(['exec','-i','-e','PGAPPNAME='+intent,pg,'psql','-XqAt','-v','ON_ERROR_STOP=1','-U',role,'-d',db],q,ok);}
+async function value(pg,t,q,o){return (await sql(pg,t,q,o)).stdout.trim();}
+async function inv(pg,t,profile,tag='inventory'){return JSON.parse((await run(['exec','-i',pg,'python3','/lab/recovery-helper.py'],JSON.stringify({action:'inventory',profile,target:t,tag}))).stdout);}
+async function migrate(pg,t,profile,credentials,before=false,ok=true,authorized=true){
+ const config=before?'/lab/'+profile+'/before/config.cjs':'/app/prisma.config.cjs';
+ const r=await run(['run','--rm','--pull=never','--network','container:'+pg,'--memory','768m','--entrypoint','node','--mount','type=bind,source='+out+',target=/lab,readonly',
+ '-e','DEPLOYMENT_PROFILE='+profile,'-e','DATABASE_URL=postgresql://'+t.mg+':'+credentials[t.mg]+'@127.0.0.1:5432/'+t.db+'?schema=public&application_name='+(authorized?t.intent:'unapproved'),image,'node_modules/prisma/build/index.js','migrate','deploy','--config',config],undefined,false);
+ writeFileSync(join(out,profile,(before?'before':'after')+'-deploy-'+report.checks.length+'.log'),safe(r.stdout+r.stderr));if(ok)assert.equal(r.code,0,'PRISMA_DEPLOY_FAILED '+safe(r.stderr).slice(-400));return r;
 }
-function stage(lane,list,alter){
-  mkdirSync(join(out,lane,'migrations'),{recursive:true});
-  writeFileSync(join(out,lane,'config.cjs'),"module.exports={schema:'/source/schema.prisma',migrations:{path:'/lab/"+lane+"/migrations'},datasource:{url:process.env.DATABASE_URL}};\n");
-  writeFileSync(join(out,lane,'migrations/migration_lock.toml'),'provider = "postgresql"\n');
-  for(const m of list){const folder=m.name===migration.name?'homolog-migrations':'migrations';const bytes=readFileSync(join(app,'prisma',folder,m.name,'migration.sql'));assert.equal(sha(bytes),m.sha256);
-    mkdirSync(join(out,lane,'migrations',m.name),{recursive:true});writeFileSync(join(out,lane,'migrations',m.name,'migration.sql'),alter&&m.name===migration.name?alter(bytes.toString()):bytes);
-  }
+async function capture(pg,t,profile,tag,configuration,volumes){
+ const passphrase=secret();privateValues.push(passphrase);
+ const r=JSON.parse((await run(['exec','-i',pg,'python3','/lab/recovery-helper.py'],JSON.stringify({action:'capture',profile,target:t,tag,configuration,volumes:volumes.toString('base64'),passphrase}))).stdout);
+ const cipher=Buffer.from(r.cipher,'base64');assert.equal(sha(cipher),r.receipt.sha256);writeFileSync(join(out,profile,tag+'.cms'),cipher);
+ return {...r,passphrase};
 }
-async function migrate(lane,verb='deploy',ok=true){
-  const r=await run(['run','--rm','--pull=never','--network','container:'+pg,'--memory','768m','--entrypoint','node',
-    '--mount','type=bind,source='+out+',target=/lab,readonly','--mount','type=bind,source='+join(app,'prisma/schema.prisma')+',target=/source/schema.prisma,readonly',
-    '-e','DATABASE_URL=postgresql://'+mg+'@127.0.0.1:5432/'+db+'?schema=public&application_name='+intent,nodeImage,
-    'node_modules/prisma/build/index.js','migrate',verb,'--config','/lab/'+lane+'/config.cjs'],undefined,false);
-  writeFileSync(join(out,lane+'-'+verb+'-'+report.checks.length+'.log'),r.stdout+r.stderr);
-  if(ok)assert.equal(r.code,0,r.stdout+r.stderr);return r;
+async function recover(pg,t,profile,tag,capture,ok=true){
+ const r=await run(['exec','-i',pg,'python3','/lab/recovery-helper.py'],JSON.stringify({action:'recover',profile,target:t,tag,...capture}),false);
+ if(ok)assert.equal(r.code,0,'RESTORE_FAILED '+safe(r.stdout).slice(-200));return r;
 }
-async function fingerprint(container=pg,includeLedger=true){
-  const tables=(await value("SELECT tablename FROM pg_tables WHERE schemaname='public'"+(includeLedger?'':" AND tablename<>'_prisma_migrations' AND tablename NOT IN ('admissions','admission_challenges')")+' ORDER BY tablename',{container})).split('\n');
-  const selects=tables.map(t=>{assert(/^[a-z_]+$/.test(t));return "SELECT '"+t+"' name,count(*) rows,md5(coalesce(string_agg(to_jsonb(t)::text,chr(10) ORDER BY to_jsonb(t)::text),'')) digest FROM public.\""+t+'" t';});
-  return JSON.parse(await value('SELECT json_agg(x ORDER BY name) FROM ('+selects.join(' UNION ALL ')+') x',{container}));
-}
-const roleQuery="SELECT json_agg(x ORDER BY rolname) FROM(SELECT rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolbypassrls,rolconnlimit,rolconfig FROM pg_roles)x";
-const aclQuery="SELECT json_agg(x ORDER BY relname) FROM(SELECT relname,pg_get_userbyid(relowner) owner,relacl::text acl FROM pg_class WHERE relnamespace='public'::regnamespace AND relkind IN('r','p') AND relname NOT IN ('admissions','admission_challenges'))x";
-const sqlText=readFileSync(join(app,'prisma/homolog-migrations',migration.name,'migration.sql'),'utf8'),acl=readFileSync(join(app,'scripts/admission/homolog-runtime-acl.sql'),'utf8');
-const key=randomBytes(32),header=Buffer.from('DEZ-HOMOLOG-DR/1\n');
-function encrypt(plain){const iv=randomBytes(12),c=createCipheriv('aes-256-gcm',key,iv);c.setAAD(header);return Buffer.concat([header,iv,c.update(plain),c.final(),c.getAuthTag()]);}
-function decrypt(bytes){assert(bytes.subarray(0,header.length).equals(header));const d=createDecipheriv('aes-256-gcm',key,bytes.subarray(header.length,header.length+12));d.setAAD(header);d.setAuthTag(bytes.subarray(-16));return Buffer.concat([d.update(bytes.subarray(header.length+12,-16)),d.final()]);}
-try {
-  assert(JSON.parse((await run(['context','inspect'])).stdout)[0].Endpoints.docker.Host.startsWith('npipe://'),'LOCAL_WINDOWS_DOCKER_ONLY');
-  for(const image of [pgImage,nodeImage])assert.equal((await run(['image','inspect',image,'--format','{{.Id}}'])).stdout.trim(),image);
-  if(candidate){
-    const metadata=JSON.parse((await run(['run','--rm','--pull=never','--network','none','--entrypoint','cat',candidate,'/app/build-metadata.json'])).stdout);
-    assert.equal(metadata.deploymentProfile,'homolog');assert.deepEqual(metadata.migrations,h8);report.sourceCommit=metadata.sourceCommit;report.metadata=metadata;
-    for(const m of h8){const bytes=(await run(['run','--rm','--pull=never','--network','none','--entrypoint','cat',candidate,'/app/prisma/migrations/'+m.name+'/migration.sql'])).bytes;assert.equal(sha(bytes),m.sha256);}
-    pass('immutable candidate image present; provenance and all eight packaged migration hashes verified');
+try{
+ const local=JSON.parse((await run(['context','inspect'])).stdout)[0];assert(local.Endpoints.docker.Host.startsWith('npipe://'),'LOCAL_DOCKER_DESKTOP_REQUIRED');context=local.Name;
+ for(const pin of [image,pgImage])assert.equal((await run(['image','inspect',pin,'--format','{{.Id}}'])).stdout.trim(),pin);
+ const bundle=JSON.parse((await run(['run','--rm','--pull=never','--network','none','--entrypoint','node',image,'-e',`const fs=require('fs'),m=require('/app/build-metadata.json'),files={};for(const [p,list]of Object.entries(m.migrationProfiles))for(const x of list){const key=p+'/'+x.name;files[key]=fs.readFileSync('/app/prisma/migrations/'+key+'/migration.sql','base64')}console.log(JSON.stringify({metadata:m,buildId:fs.readFileSync('/app/.next/BUILD_ID','utf8'),files,acl:fs.readFileSync('/app/prisma/migrations/manual_admission_runtime_acl.sql','base64')}));`])).stdout);
+ assert.equal(bundle.metadata.deploymentProfile,'portable');assert.deepEqual(bundle.metadata.migrationProfiles,{local:h8,homolog:h8,production:p7});report.sourceCommit=bundle.metadata.sourceCommit;report.buildId=bundle.buildId;report.metadata=bundle.metadata;
+ for(const [profile,t]of Object.entries(profiles))for(const m of t.after)assert.equal(sha(Buffer.from(bundle.files[profile+'/'+m.name],'base64')),m.sha256);
+ const migrationSql=Buffer.from(bundle.files['homolog/'+admission.name],'base64').toString(),acl=Buffer.from(bundle.acl,'base64');assert.equal(sha(acl),bundle.metadata.admissionAclSha256);
+ pass('one immutable image contains every exact lineage and the same Admission migration/ACL');
+ for(const [profile,t]of Object.entries(profiles)){
+  const lane=join(out,profile);mkdirSync(join(lane,'before/migrations'),{recursive:true});writeFileSync(join(lane,'before/config.cjs'),"module.exports={schema:'/app/prisma/schema.prisma',migrations:{path:'/lab/"+profile+"/before/migrations'},datasource:{url:process.env.DATABASE_URL}};\n");writeFileSync(join(lane,'before/migrations/migration_lock.toml'),'provider = "postgresql"\n');
+  for(const m of t.before){mkdirSync(join(lane,'before/migrations',m.name));writeFileSync(join(lane,'before/migrations',m.name,'migration.sql'),Buffer.from(bundle.files[profile+'/'+m.name],'base64'));}
+  const prefix='dez-a26-portable-'+profile+'-'+randomUUID().slice(0,8),credentials=Object.fromEntries(t.roles.map(role=>[role,secret()]));privateValues.push(...Object.values(credentials));
+  let pg=prefix+'-source';await startPg(pg,t,credentials);
+  await sql(pg,t,t.roles.filter(role=>role!==t.admin).map(role=>'CREATE ROLE '+role+(role===t.mg||role===t.rt?' LOGIN':' NOLOGIN')+' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS'+(profile==='local'&&role===t.rt?' NOINHERIT':' INHERIT')+" PASSWORD '"+credentials[role]+"';").join('\n')+'\nCREATE DATABASE '+t.db+' OWNER '+t.owner+';',{role:t.admin,db:'postgres'});
+  await sql(pg,t,'ALTER SCHEMA public OWNER TO '+t.mg+';GRANT CONNECT ON DATABASE '+t.db+' TO '+t.mg+','+t.rt,{role:t.admin});
+  await migrate(pg,t,profile,credentials,true);
+  await sql(pg,t,'GRANT USAGE ON SCHEMA public TO '+t.rt+';ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;');
+  for(const row of snapshot.relations){
+   if(!row.acl)continue;const aclText=row.acl.replaceAll('pg18_homolog_migrator',t.mg).replaceAll('pg18_homolog_runtime',t.rt);
+   const grants=JSON.parse(await value(pg,t,"SELECT coalesce(json_agg(x),'[]') FROM(SELECT privilege_type FROM aclexplode('"+aclText.replaceAll("'","''")+"'::aclitem[])WHERE grantee='"+t.rt+"'::regrole)x"));
+   for(const g of grants){assert(['SELECT','INSERT','UPDATE','DELETE','USAGE'].includes(g.privilege_type));assert(/^[a-z_]+$/.test(row.relname));await sql(pg,t,'GRANT '+g.privilege_type+' ON '+(row.relkind==='S'?'SEQUENCE':'TABLE')+' '+row.relname+' TO '+t.rt);}
   }
-  await start(pg);
-  await sql('CREATE ROLE pg18_homolog_admin LOGIN SUPERUSER; CREATE ROLE '+mg+' LOGIN; CREATE ROLE '+rt+' LOGIN; CREATE DATABASE '+db+' OWNER '+mg,{database:'postgres',role:'postgres'});
-  stage('h7',h7);await migrate('h7');
-  await sql('REVOKE ALL ON DATABASE '+db+' FROM PUBLIC; GRANT CONNECT ON DATABASE '+db+' TO '+rt+'; REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT USAGE ON SCHEMA public TO '+rt+'; GRANT SELECT ON ALL TABLES IN SCHEMA public TO '+rt+';'+
-    'GRANT INSERT ON audit_events,access_owner_events,term_acceptances TO '+rt+'; GRANT INSERT,UPDATE ON tenants,auth_identities,tenant_memberships,access_profiles,usuarios,legacy_user_access_maps,platform_admins,experiment_invitations TO '+rt+';');
-  await sql(readFileSync(join(app,'scripts/admission/fixtures.sql'),'utf8'));
-  const initial=await fingerprint(),priorRows=await fingerprint(pg,false),priorAcl=await value(aclQuery);assert.equal(initial.length,42);
-  report.roles=JSON.parse(await value(roleQuery));report.memberships=JSON.parse(await value("SELECT coalesce(json_agg(x),'[]') FROM (SELECT pg_get_userbyid(roleid) role,pg_get_userbyid(member) member,admin_option FROM pg_auth_members)x"));
-  pass('genuine H7 with 42 tables, full PostgreSQL role and membership inventory, synthetic contracts and data');
-  const h7Dump=(await run(['exec',pg,'pg_dump','-U','postgres','-d',db,'-Fc'])).bytes;
-  // H7 recovery point is authenticated before any H8 change; plaintext stays in RAM.
-  await run(['exec',pg,'mkdir','-p','/var/lib/postgresql/a26-h7']);
-  await run(['exec','-i',pg,'sh','-c','cat > /var/lib/postgresql/a26-h7/database.dump'],h7Dump);
-  await run(['exec',pg,'pg_dumpall','-U','postgres','--roles-only','-f','/var/lib/postgresql/a26-h7/roles.sql']);
-  await run(['exec','-i',pg,'sh','-c','cat > /var/lib/postgresql/a26-h7/configuration.private.json'],JSON.stringify({database:db,owner:mg,roles:report.roles,databaseAcl:await value("SELECT datacl::text FROM pg_database WHERE datname=current_database()"),ledger:h7}));
-  const h7Tar=(await run(['exec',pg,'tar','-C','/var/lib/postgresql/a26-h7','-cf','-','.'])).bytes;
-  const h7Cipher=encrypt(h7Tar);writeFileSync(join(out,'synthetic-h7.aesgcm'),h7Cipher);
-  assert.deepEqual(decrypt(readFileSync(join(out,'synthetic-h7.aesgcm'))),h7Tar);
-  report.h7Backup={format:'DEZ-HOMOLOG-DR/1 AES-256-GCM authenticated tar',sha256:sha(h7Cipher),plaintextSHA256:sha(h7Tar),dumpSHA256:sha(h7Dump)};
-  await fails('no release intent denied before DDL',sqlText,'ADMISSION_REQUIRES_AUTHORIZED_HOMOLOG_EXACT_H7',{authorized:false});
-  await fails('runtime cannot execute migration',sqlText,'ADMISSION_REQUIRES_AUTHORIZED_HOMOLOG_EXACT_H7',{role:rt});
-  await fails('SET ROLE does not substitute session identity','SET ROLE '+mg+';'+sqlText,'ADMISSION_REQUIRES_AUTHORIZED_HOMOLOG_EXACT_H7',{role:'postgres'});
-  await fails('altered H7 ledger denied','BEGIN; UPDATE _prisma_migrations SET checksum=repeat(\'0\',64) WHERE migration_name=\''+h7[0].name+'\';'+sqlText,'ADMISSION_REQUIRES_AUTHORIZED_HOMOLOG_EXACT_H7');
-  await fails('extra schema in initial search path denied','SET search_path=pg_catalog;'+sqlText,'ADMISSION_REQUIRES_PUBLIC');
-  await sql('GRANT '+mg+' TO '+rt,{database:'postgres',role:'postgres'});
-  await fails('elevated runtime membership denied',sqlText,'ADMISSION_REQUIRES_AUTHORIZED_HOMOLOG_EXACT_H7');
-  await sql('REVOKE '+mg+' FROM '+rt,{database:'postgres',role:'postgres'});
-  for(const name of ['gestar_prod_pg18','unapproved_database']){
-    await sql('ALTER DATABASE '+db+' RENAME TO '+name,{database:'postgres',role:'postgres'});
-    await fails(name+' cannot be authorized by role and intent alone',sqlText,'ADMISSION_REQUIRES_AUTHORIZED_HOMOLOG_EXACT_H7',{database:name});
-    await sql('ALTER DATABASE '+name+' RENAME TO '+db,{database:'postgres',role:'postgres'});
+  await sql(pg,t,readFileSync(join(app,'scripts/admission/fixtures.sql')));
+  if(profile==='production')await sql(pg,t,"CREATE TABLE public.synthetic_legacy_proof(id integer PRIMARY KEY,note text);INSERT INTO public.synthetic_legacy_proof VALUES(1,'SYNTHETIC ONLY');ALTER TABLE public.synthetic_legacy_proof OWNER TO gestar_prod_migrator;GRANT SELECT ON public.synthetic_legacy_proof TO powerbi_reader;GRANT gestar_admin TO gestar_prod_migrator;",{role:t.admin,db:'postgres'});
+  const auth=secret(),env={DATABASE_URL:'postgresql://'+t.rt+':'+credentials[t.rt]+'@'+t.host+':5432/'+t.db+(profile==='local'?'':'?schema=public'),DEPLOYMENT_PROFILE:profile,ACCESS_AUTH_MODE:'identity',APP_PUBLIC_URL:t.origin,NEXTAUTH_URL:t.origin,[t.flag]:'true',EMAIL_PROVIDER:'mock',AUTH_SECRET:auth,NEXTAUTH_SECRET:auth,AUTH_TRUST_HOST:'true',ADMISSION_SESSION_KEY:secret(),ADMISSION_LAB_MAIL_KEY:secret(),ADMISSION_LAB_MAIL_DIR:profile==='local'?'/tmp/a2-mail':'/var/lib/10s/backups/admission-mail',TERM_STORAGE_DIR:'/var/lib/10s/terms',TENANT_BACKUP_DIR:'/var/lib/10s/backups',TENANT_BACKUP_INSTANCE_ID:'portable-'+profile,TENANT_BACKUP_SIGNING_KEY_ID:'a26',TENANT_BACKUP_SIGNING_KEYS:JSON.stringify({a26:secret()}),SPECIAL_INVITATIONS_ENABLED:'true',SPECIAL_INVITATIONS_PRODUCTION_APPROVED:profile==='production'?'true':'false',SPECIAL_INVITATION_LINK_KEY_ID:'a26',SPECIAL_INVITATION_LINK_KEYS:JSON.stringify({a26:secret()}),HOSTNAME:'127.0.0.1',PORT:'3000'};
+  privateValues.push(auth,env.ADMISSION_SESSION_KEY,env.ADMISSION_LAB_MAIL_KEY);
+  const pdf=createRequire(import.meta.url)(join(app,'tests/synthetic-pdf.cjs'))();
+  await sql(pg,t,"UPDATE term_versions SET storage_key=CASE id WHEN 'version-u' THEN 'synthetic/user.pdf' ELSE 'synthetic/contract.pdf' END,sha256='"+sha(pdf)+"',byte_size="+pdf.length+";UPDATE term_acceptances SET document_hash='"+sha(pdf)+"';");
+  const volumeScript="import pathlib,os,sys,tarfile;p=pathlib.Path('/var/lib/postgresql/a26-private');(p/'terms/synthetic').mkdir(parents=True);(p/'backups').mkdir();b=sys.stdin.buffer.read();[(p/n).write_bytes(b)for n in ['terms/synthetic/user.pdf','terms/synthetic/contract.pdf']];[(os.chown(x,1001,1001),os.chmod(x,0o750 if x.is_dir()else 0o600))for x in p.rglob('*')];t=tarfile.open(fileobj=sys.stdout.buffer,mode='w|');t.add(p/'terms',arcname='terms');t.add(p/'backups',arcname='backups');t.close()";
+  const initialVolumes=(await run(['exec','-i',pg,'python3','-c',volumeScript],pdf)).bytes;
+  const initial=await inv(pg,t,profile);assert.equal(initial.inventory[t.db].rows.length,42);assert.equal(await value(pg,t,'SELECT count(*) FROM _prisma_migrations'),String(t.before.length));
+  report.profiles[profile]={beforeTables:42,beforeLedger:t.before,roles:initial.allRoleCount,imageId:image,buildId:bundle.buildId,checks:[]};
+  const mark=n=>{report.profiles[profile].checks.push(n);pass(profile+': '+n)};
+  const before=await capture(pg,t,profile,'before',{env},initialVolumes),restored=prefix+'-before-restored';await startPg(restored,t,credentials);
+  if(profile==='homolog'){
+   const bad=Buffer.from(before.cipher,'base64');bad[Math.floor(bad.length/2)]^=1;assert.notEqual((await recover(restored,t,profile,'tampered',{...before,cipher:bad.toString('base64')},false)).code,0);mark('altered encrypted backup rejected before restoring roles or data');
   }
-  await fails('failure after DDL rolls back both tables and all enums',sqlText.replace('COMMIT;',"DO $$ BEGIN RAISE EXCEPTION 'INDUCED_LATE_FAILURE'; END $$; COMMIT;"),'INDUCED_LATE_FAILURE');
-  assert.equal(await value("SELECT to_regclass('admissions') IS NULL AND NOT EXISTS(SELECT 1 FROM pg_type WHERE typname='AdmissionSource')"),'t');assert.deepEqual(await fingerprint(),initial);
-  // A real Prisma failure leaves its failed ledger entry; never fabricate a successful resolution.
-  stage('failed',h8,s=>s.replace('COMMIT;',"DO $$ BEGIN RAISE EXCEPTION 'INDUCED_PRISMA_FAILURE'; END $$; COMMIT;"));
-  assert.notEqual((await migrate('failed','deploy',false)).code,0);
-  assert.equal(await value("SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NULL"),'1');
-  assert.equal(await value("SELECT to_regclass('admissions') IS NULL"),'t');
-  stage('h8',h8);assert.notEqual((await migrate('h8','deploy',false)).code,0);pass('Prisma partial failure retains failed ledger, rolls back DDL, and blocks automatic retry');
-  await sql('ALTER DATABASE '+db+' RENAME TO a26_failed_preserved; CREATE DATABASE '+db+' OWNER '+mg,{database:'postgres',role:'postgres'});
-  await run(['exec',pg,'mkdir','-p','/var/lib/postgresql/a26-h7-recovered']);
-  await run(['exec','-i',pg,'tar','-C','/var/lib/postgresql/a26-h7-recovered','-xf','-'],decrypt(readFileSync(join(out,'synthetic-h7.aesgcm'))));
-  await run(['exec',pg,'pg_restore','-U','postgres','-d',db,'--exit-on-error','/var/lib/postgresql/a26-h7-recovered/database.dump']);
-  await sql('REVOKE ALL ON DATABASE '+db+' FROM PUBLIC; GRANT CONNECT ON DATABASE '+db+' TO '+rt+';');
-  assert.deepEqual(await fingerprint(),initial);pass('failed rehearsal recovers exact H7 backup without editing history');
-  await migrate('h8');assert.equal((await fingerprint()).length,44);assert.deepEqual(await fingerprint(pg,false),priorRows);assert.equal(await value(aclQuery),priorAcl);
-  pass('H7 to H8: exactly 42 to 44 tables, prior rows/contracts/ACLs unchanged');
-  assert.equal(await value(attestation,{role:rt}),'f');pass('application database proof denies missing A2 ACLs');
-  await sql(acl);await sql(acl);assert.equal(await value(attestation,{role:rt}),'t');
-  assert.equal(await value(aclQuery),priorAcl);pass('minimal A2 ACLs replay safely; complete runtime database attestation passes');
-  const after=await fingerprint();await migrate('h8');await migrate('h8','status');assert.deepEqual(await fingerprint(),after);pass('Prisma deploy replay is a no-op and ledger/status are exact H8');
-  const constraints=JSON.parse(await value("SELECT json_agg(x ORDER BY conname) FROM(SELECT conname,contype,convalidated,pg_get_constraintdef(oid) definition FROM pg_constraint WHERE conrelid IN('admissions'::regclass,'admission_challenges'::regclass))x"));
-  assert.equal(constraints.filter(x=>x.contype==='f').length,8);assert(constraints.every(x=>x.convalidated));report.constraints=constraints;
-  for(const [name,q] of [['ledger writes',"UPDATE _prisma_migrations SET checksum=checksum"],['audit changes','UPDATE audit_events SET action=action'],['accepted contracts','DELETE FROM term_acceptances'],['admission deletion','DELETE FROM admissions'],['challenge deletion','DELETE FROM admission_challenges'],['immutable token','UPDATE admission_challenges SET token_hash=token_hash'],['immutable email','UPDATE admissions SET authorized_email=authorized_email'],['DDL','CREATE TABLE public.forbidden(id int)']])await fails(name+' denied to runtime',q,'permission denied',{role:rt});
-  const insert="INSERT INTO admissions(id,source,source_reference,experiment_invitation_id,authorized_email,authorized_by_admin_id,authorized_by_identity_id,expires_at) VALUES ('proof','AUTHORIZED_INVITE','special-1','special-1','owner@example.invalid','admin-a','admin-i',now()+interval '1 hour');";
-  await sql(insert,{role:rt});await fails('unique authorization source enforced',insert.replace("('proof'","('proof-duplicate'"),'duplicate key',{role:rt});
-  await fails('wrong issuer identity rejected by FK',insert.replaceAll('special-1','special-2').replace("('proof'","('proof-bad' ").replace("'admin-a','admin-i'","'admin-a','other-i'"),'foreign key',{role:rt});
-  await sql('GRANT DELETE ON admissions TO '+rt);assert.equal(await value(attestation,{role:rt}),'f');await sql('REVOKE DELETE ON admissions FROM '+rt);pass('unexpected privilege expansion disables runtime authorization');
-  await sql('GRANT SELECT ON admissions TO PUBLIC');assert.equal(await value(attestation,{role:rt}),'f');await sql('REVOKE SELECT ON admissions FROM PUBLIC');pass('PUBLIC exposure disables runtime authorization');
-  for(const [name,change,undo] of [
-    ['table owner','ALTER TABLE admissions OWNER TO pg18_homolog_admin','ALTER TABLE admissions OWNER TO '+mg],
-    ['database owner','ALTER DATABASE '+db+' OWNER TO postgres','ALTER DATABASE '+db+' OWNER TO '+mg],
-    ['schema owner','ALTER SCHEMA public OWNER TO postgres','ALTER SCHEMA public OWNER TO pg_database_owner'],
-    ['superuser runtime','ALTER ROLE '+rt+' SUPERUSER','ALTER ROLE '+rt+' NOSUPERUSER'],
-    ['column grant option','GRANT UPDATE(status) ON admissions TO '+rt+' WITH GRANT OPTION','REVOKE GRANT OPTION FOR UPDATE(status) ON admissions FROM '+rt]
-  ]){
-    await sql(change,{role:'postgres'});assert.equal(await value(attestation,{role:rt}),'f',name);await sql(undo,{role:'postgres'});assert.equal(await value(attestation,{role:rt}),'t',name+' restored');pass(name+' drift denied without relying on environment flags');
+  assert.equal(JSON.parse((await recover(restored,t,profile,'restored-before',before)).stdout).proof,'EXACT_RECOVERY_PASS');mark('pre-migration encrypted backup restored with full roles, ACLs, rows and ledger');
+  assert.notEqual((await sql(pg,t,migrationSql,{ok:false,intent:'unapproved'})).code,0);
+  const wrong=profile==='homolog'?'dez-a2-production-p6-p7':'dez-a2-homolog-h7-h8';assert.notEqual((await sql(pg,t,migrationSql,{ok:false,intent:wrong})).code,0);
+  assert.notEqual((await sql(pg,t,migrationSql,{ok:false,role:t.rt})).code,0);
+  assert.notEqual((await sql(pg,t,'SET ROLE '+t.mg+';'+migrationSql,{ok:false,role:t.admin})).code,0);mark('missing/cross-environment intent, runtime DDL and SET ROLE impersonation rejected');
+  assert.deepEqual((await inv(pg,t,profile)).inventory,initial.inventory);
+  if(profile==='homolog'){
+   await run(['exec','-d',pg,'psql','-XqAt','-v','ON_ERROR_STOP=1','-U',t.mg,'-d',t.db,'-c',"BEGIN;LOCK TABLE experiment_invitations IN ACCESS EXCLUSIVE MODE;SELECT pg_sleep(60);COMMIT;"]);
+   for(let n=0;n<40;n++){if(await value(pg,t,"SELECT EXISTS(SELECT 1 FROM pg_locks WHERE relation='experiment_invitations'::regclass AND mode='AccessExclusiveLock'AND granted)")==='t')break;await new Promise(r=>setTimeout(r,100));}
+   assert.notEqual((await migrate(pg,t,profile,credentials,false,false)).code,0);
+   await sql(pg,t,"SELECT pg_terminate_backend(pid)FROM pg_stat_activity WHERE query LIKE '%pg_sleep(60)%'AND pid<>pg_backend_pid()",{role:t.admin});
+   assert.equal(await value(pg,t,"SELECT to_regclass('admissions')IS NULL AND NOT EXISTS(SELECT 1 FROM pg_type WHERE typname='AdmissionSource')"),'t');
+   assert.equal(await value(pg,t,'SELECT count(*)FROM _prisma_migrations WHERE finished_at IS NULL'),'1');assert.notEqual((await migrate(pg,t,profile,credentials,false,false)).code,0);
+   await run(['stop','-t','10',pg]);pg=restored;mark('real lock failure rolls back DDL, preserves failed ledger, blocks retry; recovered clean H7 is selected');
   }
-  assert.equal(await value(attestation,{role:rt}),'t');
-  const application=candidate?await rehearseCandidate({run,image:candidate,pg,created,out,app,pass}):null;
-  if(application)report.http=application.checks;
-  // Operational DR/1 envelope: authenticated tar with dump, roles, database ownership/ACL metadata.
-  // Only ciphertext is persisted on the host. Plain files exist in isolated container tmpfs.
-  const finalRows=await fingerprint();
-  await run(['exec',pg,'mkdir','-p','/var/lib/postgresql/a26-backup']);
-  await run(['exec',pg,'pg_dump','-U','postgres','-d',db,'-Fc','-f','/var/lib/postgresql/a26-backup/database.dump']);
-  await run(['exec',pg,'pg_dumpall','-U','postgres','--roles-only','-f','/var/lib/postgresql/a26-backup/roles.sql']);
-  await run(['exec','-i',pg,'sh','-c','cat > /var/lib/postgresql/a26-backup/configuration.private.json'],JSON.stringify({database:db,owner:mg,roles:report.roles,databaseAcl:await value("SELECT datacl::text FROM pg_database WHERE datname=current_database()"),sourceCommit:report.sourceCommit||'local-source-rehearsal',...(application?{env:application.env,client:application.client,files:application.files}:{})}));
-  if(application)await run(['exec','-i',pg,'sh','-c','cat > /var/lib/postgresql/a26-backup/volumes.tar'],application.volumes);
-  const tar=(await run(['exec',pg,'tar','-C','/var/lib/postgresql/a26-backup','-cf','-','.'])).bytes;
-  const cipher=encrypt(tar);writeFileSync(join(out,'synthetic-h8.aesgcm'),cipher);assert.deepEqual(decrypt(readFileSync(join(out,'synthetic-h8.aesgcm'))),tar);
-  const corrupt=Buffer.from(cipher);corrupt[corrupt.length-20]^=1;assert.throws(()=>decrypt(corrupt));pass('DR/1 AES-256-GCM backup authenticates encrypted capture and rejects tampering');
-  await start(recovery);await run(['exec',recovery,'mkdir','-p','/var/lib/postgresql/a26-restore']);
-  await run(['exec','-i',recovery,'tar','-C','/var/lib/postgresql/a26-restore','-xf','-'],decrypt(cipher));
-  const roles=(await run(['exec',recovery,'cat','/var/lib/postgresql/a26-restore/roles.sql'])).stdout;
-  // The bootstrap role is already present in a fresh PostgreSQL image; retain its ALTER statements.
-  await sql(roles.replace(/^CREATE ROLE postgres;\r?\n/m,''),{container:recovery,database:'postgres',role:'postgres'});
-  await sql('CREATE DATABASE '+db+' OWNER '+mg,{container:recovery,database:'postgres',role:'postgres'});
-  await run(['exec',recovery,'pg_restore','-U','postgres','-d',db,'--exit-on-error','/var/lib/postgresql/a26-restore/database.dump']);
-  await sql('REVOKE ALL ON DATABASE '+db+' FROM PUBLIC; GRANT CONNECT ON DATABASE '+db+' TO '+rt+';',{container:recovery});
-  assert.deepEqual(await fingerprint(recovery),finalRows);assert.equal(await value(roleQuery,{container:recovery}),await value(roleQuery));assert.equal(await value(aclQuery,{container:recovery}),priorAcl);
-  assert.equal(await value(attestation,{container:recovery,role:rt}),'t');
-  if(application){
-    const restored=JSON.parse((await run(['exec',recovery,'cat','/var/lib/postgresql/a26-restore/configuration.private.json'])).stdout);
-    const volumes=(await run(['exec',recovery,'cat','/var/lib/postgresql/a26-restore/volumes.tar'])).bytes;
-    await recoverCandidate({run,image:candidate,pg:recovery,created,context:{...restored,volumes},pass,out});
-    report.contingency={sameH8Image:true,originalStopped:true,restoredSessionResumed:true,oldBinaryNeverUsed:true};
+  await migrate(pg,t,profile,credentials);await sql(pg,t,acl);await sql(pg,t,acl);
+  assert.equal(await value(pg,t,admissionDatabaseGuardSql(profile),{role:t.rt}),'t');
+  const after=await inv(pg,t,profile);assert.equal(after.inventory[t.db].rows.length,44);
+  const historical=r=>r.filter(x=>!['_prisma_migrations','admissions','admission_challenges'].includes(x.table));assert.deepEqual(historical(after.inventory[t.db].rows),historical(initial.inventory[t.db].rows));
+  await migrate(pg,t,profile,credentials);assert.deepEqual((await inv(pg,t,profile)).inventory,after.inventory);
+  assert.equal(await value(pg,t,"SELECT count(*)FROM pg_constraint WHERE conrelid IN('admissions'::regclass,'admission_challenges'::regclass)AND contype='f'AND convalidated"),'8');
+  for(const q of ['DELETE FROM admissions','UPDATE admission_challenges SET token_hash=token_hash','UPDATE _prisma_migrations SET checksum=checksum','DELETE FROM term_acceptances','CREATE TABLE public.forbidden(id int)'])assert.notEqual((await sql(pg,t,q,{role:t.rt,ok:false})).code,0);
+  mark('42 to 44 tables; exact migration replay, eight FKs, live attestation and restricted ACLs');
+  let application;
+  if(profile!=='local')application=await rehearseCandidate({run,image,pg,created,out:lane,app,pass:mark,env,initialVolumes,testDatabaseUrl:'postgresql://'+t.admin+':'+credentials[t.admin]+'@127.0.0.1:5432/'+t.db});
+  else{
+   const name=pg+'-app';await startCandidate({run,image,pg,name,created,env});
+   await run(['exec',name,'node','-e',"fetch('http://127.0.0.1:3000/api/admissions/resume',{method:'POST',headers:{Origin:'http://localhost:3020','Content-Type':'application/json'},body:JSON.stringify({email:'unknown@example.invalid'})}).then(r=>{if(r.status!==200)throw Error('LOCAL_RUNTIME');console.log('LOCAL_RUNTIME_PASS')}).catch(()=>process.exit(1))"]);
+   await run(['stop','-t','10',name]);mark('same OCI image runs LOCAL configuration with real database attestation');
   }
-  report.recovery={state:'PASSED',tables:44,roles:report.roles.length,encryptedSHA256:sha(cipher),plaintextSHA256:sha(tar),separateNetworkNamespace:true,allRowsAndLedgerEqual:true};
-  pass('independent PostgreSQL restore preserves all 44 tables, ledger, full roles, ACLs and runtime proof');
-  report.ledger=h8;report.state='PASSED';
-} catch(error){report.state='FAILED';report.failure=String(error.message).slice(0,1600);console.error(report.failure);process.exitCode=1;}
-finally {
-  key.fill(0);report.finishedAt=new Date().toISOString();
-  for(const name of created.reverse())await run(['rm','-f',name],undefined,false);
-  report.containersRemoved=created;
-  writeFileSync(join(out,'RESULT.json'),JSON.stringify(report,null,2)+'\n');console.log('RESULT '+report.state);
+  const finalCapture=await capture(pg,t,profile,'after',application?{env:application.env,client:application.client,files:application.files}:{env},application?.volumes??initialVolumes);
+  const recovered=prefix+'-after-restored';await startPg(recovered,t,credentials);
+  const recovery=JSON.parse((await recover(recovered,t,profile,'restored-after',finalCapture)).stdout);
+  assert.equal(recovery.proof,'EXACT_RECOVERY_PASS');
+  if(application)await recoverCandidate({run,image,pg:recovered,created,context:{...recovery.configuration,volumes:Buffer.from(recovery.volumes,'base64')},pass:mark,out:lane});
+  assert.equal(await value(recovered,t,admissionDatabaseGuardSql(profile),{role:t.rt}),'t');
+  if(application)await run(['stop','-t','10',recovered+'-app']);
+  const disabled=prefix+'-disabled';await startCandidate({run,image,pg:recovered,name:disabled,created,env:{...env,[t.flag]:'false'},enabled:false});
+  await run(['exec',disabled,'node','-e',"fetch('http://127.0.0.1:3000/api/admissions/resume',{method:'POST',headers:{Origin:"+JSON.stringify(t.origin)+",'Content-Type':'application/json'},body:JSON.stringify({email:'unknown@example.invalid'})}).then(r=>{if(r.status!==404)throw Error('UNAUTHORIZED');console.log('UNAUTHORIZED_RUNTIME_PASS')}).catch(()=>process.exit(1))"]);
+  await run(['stop','-t','10',disabled]);mark('same image denies disabled authorization; no default-on deployment');
+  report.profiles[profile].afterTables=44;report.profiles[profile].afterLedger=t.after;report.profiles[profile].backup={before:{sha256:before.receipt.sha256,cipher:before.receipt.cipher},after:{sha256:finalCapture.receipt.sha256,cipher:finalCapture.receipt.cipher}};report.profiles[profile].http=application?.checks??null;report.profiles[profile].favicon=application?.favicon??null;report.profiles[profile].recovery='EXACT_RECOVERY_PASS';
+  for(const name of created.filter(n=>n.startsWith(prefix)).reverse())await run(['rm','-f',name]);
+ }
+ assert.equal(new Set(Object.values(report.profiles).map(p=>p.imageId)).size,1);assert.equal(new Set(Object.values(report.profiles).map(p=>p.buildId)).size,1);assert.notEqual(report.profiles.homolog.favicon.sha256,report.profiles.production.favicon.sha256);pass('environment branding changes at runtime while image and Next BUILD_ID stay identical');report.state='PASSED';
+}catch(e){report.state='FAILED';report.failure=safe(e.message).slice(0,1400);console.error(report.failure);process.exitCode=1;}
+finally{
+ for(const name of created.reverse()){
+  const state=await run(['inspect',name],undefined,false);if(state.code===0){assert.equal(JSON.parse(state.stdout)[0].Config.Labels.purpose,'dez-a26-portable-lab');await run(['rm','-f',name]);}
+ }
+ report.finishedAt=new Date().toISOString();report.containersRemoved=created;writeFileSync(join(out,'RESULT.json'),JSON.stringify(report,null,2)+'\n');console.log('RESULT '+report.state);
 }

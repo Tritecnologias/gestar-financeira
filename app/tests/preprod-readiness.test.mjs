@@ -20,15 +20,6 @@ test('production feature fails closed without every server approval, origin/data
  for(const change of [{SPECIAL_INVITATIONS_ENABLED:'false'},{SPECIAL_INVITATIONS_PRODUCTION_APPROVED:'false'},{DEPLOYMENT_PROFILE:'homolog'},{NEXTAUTH_URL:'https://homolog.dezsolucoes.com.br'},{DATABASE_URL:env.DATABASE_URL.replace('gestar_prod_pg18','gestar_homolog_pg18')},{DATABASE_URL:env.DATABASE_URL.replace('ik7d1n0035vis9y5rprjpgmn','other')},{SPECIAL_INVITATION_LINK_KEYS:''},{SPECIAL_INVITATION_LINK_KEYS:'{}'},{SPECIAL_INVITATION_LINK_KEY_ID:'unknown'}])assert.equal(experimentOrigin({...env,...change}),null);
  assert(!homologIdentity({...env,APP_PUBLIC_URL:'https://homolog.dezsolucoes.com.br',NEXTAUTH_URL:'https://homolog.dezsolucoes.com.br',DATABASE_URL:'postgresql://x@0f5rvkjqjdt9fez1ajiascyk/gestar_homolog_pg18'}));
 });
-test('production artifact excludes yellow assets and pilot SQL; homolog retains its original lane',()=>{
- const temp=mkdtempSync(join(tmpdir(),'dez-preprod-artifact-'));
- try{for(const profile of ['production','homolog']){
-  const root=join(temp,profile);mkdirSync(root,{recursive:true});writeFileSync(join(root,'server.js'),'');writeFileSync(join(root,'build-metadata.json'),'{}');mkdirSync(join(root,'public'),{recursive:true});cpSync('public/brand',join(root,'public/brand'),{recursive:true});
-  const metadata=prepareProfile(root,profile,process.cwd());assert.equal(metadata.deploymentProfile,profile);assert.deepEqual(readdirSync(join(root,'prisma/migrations')).filter(x=>x!=='migration_lock.toml').sort(),(profile==='production'?PRODUCTION_MIGRATIONS:REQUIRED_MIGRATIONS).map(x=>x.name).sort());
-  assert.equal(existsSync(join(root,'public/brand/homolog-yellow.svg')),profile==='homolog');assert(!readdirSync(join(root,'public/brand')).some(x=>profile==='production'&&x.startsWith('homolog-')));assert(readFileSync(join(root,'public/brand/dez-blue.svg')).equals(readFileSync('public/brand/dez-blue.svg')));
- }}finally{if(!resolve(temp).startsWith(resolve(tmpdir())+requireSeparator()))throw Error('TEMP_SCOPE');rmSync(temp,{recursive:true});}
-});
-function requireSeparator(){return process.platform==='win32'?'\\':'/';}
 test('no old logo fallback and invitation referrer policy is explicit',()=>{
  const identity=readFileSync('src/components/identity/EnvironmentIdentity.tsx','utf8');assert(!identity.includes('💼'));assert(!identity.includes('fallback'));assert(identity.includes('/favicon.svg?v=dez-blue-1'));
  const config=readFileSync('next.config.ts','utf8');for(const path of ['/experimentacao','/api/experimentacao','/api/platform/experiment-invitations/:path*'])assert(config.includes(`source: "${path}", headers: [{ key: "Referrer-Policy", value: "no-referrer" }]`));

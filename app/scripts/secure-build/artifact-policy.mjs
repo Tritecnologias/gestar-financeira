@@ -11,7 +11,7 @@ export function forbiddenArtifactPath(path) {
   if (parts[0] === "node_modules") return false;
   if (["scripts", "src", "tests", "docs", "reports", "backups"].includes(parts[0])) return true;
   if (/audit-macro|credentials/i.test(path) || /\.(log|tsbuildinfo)$/.test(name)) return true;
-  if (/\.sql$/.test(name) && !/^prisma\/migrations\/(?:[^/]+\/migration|manual_[a-z0-9_]+)\.sql$/.test(path)) return true;
+  if (/\.sql$/.test(name) && !/^prisma\/migrations\/(?:(?:local|homolog|production)\/[^/]+\/migration|manual_admission_runtime_acl)\.sql$/.test(path)) return true;
   return false;
 }
 

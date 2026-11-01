@@ -67,7 +67,7 @@ test("artifact policy rejects secrets/tools/dumps but retains schema and migrati
       writeFileSync(join(root, file), "synthetic fixture");
     }
     assert.ok(inspectArtifact(root).length >= 5);
-    assert.equal(forbiddenArtifactPath("prisma/migrations/0_legacy_baseline/migration.sql"), false);
+    assert.equal(forbiddenArtifactPath("prisma/migrations/local/0_legacy_baseline/migration.sql"), false);
     assert.equal(forbiddenArtifactPath("prisma/schema.prisma"), false);
     assert.equal(forbiddenArtifactPath("node_modules/package/.env.local"), true);
     assert.equal(forbiddenArtifactPath("node_modules/package/README.md"), false);

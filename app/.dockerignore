@@ -18,9 +18,13 @@
 !prisma/production-migrations/**
 !prisma/homolog-migrations/
 !prisma/homolog-migrations/**
+!prisma/portable-migrations/
+!prisma/portable-migrations/**
 !scripts/
 !scripts/secure-build/
 !scripts/secure-build/**
+!scripts/admission/
+!scripts/admission/portable-runtime-acl.sql
 !scripts/access2/
 !scripts/access2/analysis.mjs
 !scripts/access3b/

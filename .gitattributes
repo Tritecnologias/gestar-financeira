@@ -5,3 +5,5 @@ app/prisma/migrations/20261101_admission_foundation/migration.sql text eol=lf
 app/prisma/production-migrations/20261101_admission_foundation/migration.sql text eol=lf
 app/prisma/homolog-migrations/20261101_admission_foundation/migration.sql text eol=lf
 app/scripts/admission/homolog-runtime-acl.sql text eol=lf
+app/prisma/portable-migrations/20261101_admission_foundation/migration.sql text eol=lf
+app/scripts/admission/portable-runtime-acl.sql text eol=lf
