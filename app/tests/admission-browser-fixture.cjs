@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),{randomUUID,randomBytes,createHash,createDecipheriv}=require('node:crypto'),fs=require('node:fs/promises');
+const {PrismaClient}=require('@prisma/client'),{PrismaPg}=require('@prisma/adapter-pg'),{Pool}=require('pg');
+assert.equal(process.env.DATABASE_URL,'postgresql://a2_runtime@127.0.0.1:5432/special_invite_lab');
+const p=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})}),pg=new Pool({connectionString:'postgresql://postgres@127.0.0.1:5432/special_invite_lab'});
+async function main(){let raw='';for await(const s of process.stdin)raw+=s;const a=JSON.parse(raw);
+ if(a.op==='fixture'){const token=randomBytes(32).toString('base64url'),admin=await p.authIdentity.findUniqueOrThrow({where:{email:'a22-admin@example.invalid'}}),label='A24 '+randomUUID();const invitation=await p.experimentInvitation.create({data:{recipientName:label,tokenHash:createHash('sha256').update(token).digest('hex'),createdByIdentityId:admin.id,expiresAt:new Date(Date.now()+86400000),interestAt:a.interested?new Date():null}});return{id:invitation.id,label,token,email:'a24-'+randomUUID()+'@example.invalid'};}
+ if(a.op==='mail'){const challenge=await p.admissionChallenge.findFirstOrThrow({where:{admissionId:a.id},orderBy:{issuedAt:'desc'}}),b=Buffer.from(await fs.readFile('/tmp/a2-mail/'+challenge.id+'.mail','utf8'),'base64url'),d=createDecipheriv('aes-256-gcm',Buffer.from(process.env.ADMISSION_LAB_MAIL_KEY,'hex'),b.subarray(0,12));d.setAAD(Buffer.from('dez/admission/synthetic-mail/v1'));d.setAuthTag(b.subarray(12,28));const m=JSON.parse(Buffer.concat([d.update(b.subarray(28)),d.final()]).toString());return {link:/http:\/\/localhost:3020\/adesao#[^\s]+/.exec(m.text)[0]};}
+ if(a.op==='snapshot'){const row=await p.admission.findUniqueOrThrow({where:{id:a.id}});return {status:row.status,tenantId:row.tenantId,identityId:row.identityId,memberships:row.identityId?await p.tenantMembership.count({where:{identityId:row.identityId}}):0,tenants:await p.tenant.count({where:{slug:'adesao-'+a.id}})};}
+ if(a.op==='cooldown'){await pg.query("UPDATE admission_challenges SET issued_at=issued_at-interval '16 minutes',expires_at=expires_at-interval '16 minutes' WHERE admission_id=$1 AND status='PENDING'",[a.id]);return{ok:true};}
+ if(a.op==='expire'){await pg.query("UPDATE experiment_invitations SET created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' WHERE id=$1",[a.id]);return{ok:true};}
+ if(a.op==='existing'){const i=await p.authIdentity.findFirstOrThrow({where:{email:{startsWith:'a23-existing-'}}});return {email:i.email,hash:i.senhaHash,id:i.id,memberships:await p.tenantMembership.count({where:{identityId:i.id}})};}
+ if(a.op==='preview'){const admin=await p.authIdentity.findUniqueOrThrow({where:{email:'a22-admin@example.invalid'}});return{admin:admin.email};}
+ throw Error('UNKNOWN_FIXTURE_OPERATION');
+}
+main().then(r=>console.log(JSON.stringify(r))).catch(e=>{console.error(e.code||e.name);process.exitCode=1}).finally(async()=>{await p.$disconnect();await pg.end()});

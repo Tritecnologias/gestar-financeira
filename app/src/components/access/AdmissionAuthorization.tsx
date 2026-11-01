@@ -23,7 +23,7 @@ export default function AdmissionAuthorization({ invitationId }: { invitationId:
   }
   return <div className="experiment-bind">
     {!open ? <button type="button" className="access-button access-button-secondary" disabled={busy} onClick={() => void inspect()}>Analisar adesão</button>
-      : admission ? <div><small>Autorização: {admission.status === "CANCELLED" ? "cancelada" : admission.emailVerified ? "e-mail confirmado" : "aguardando confirmação"}.</small><small>{admission.email}</small><small>Válida até {new Date(admission.expiresAt).toLocaleString("pt-BR")}.</small></div>
+      : admission ? <div><small>Autorização: {admission.status === "PROVISIONED" ? "espaço criado" : admission.status === "CANCELLED" ? "cancelada" : new Date(admission.expiresAt) <= new Date() ? "expirada" : admission.emailVerified ? "e-mail confirmado" : "aguardando confirmação"}.</small><small>{admission.email}</small><small>{admission.status === "PROVISIONED" ? "Autorização utilizada para criar o espaço." : `Válida até ${new Date(admission.expiresAt).toLocaleString("pt-BR")}.`}</small></div>
         : <form method="post" onSubmit={authorize}><label>E-mail autorizado<input type="email" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} /></label><p>Ao aceitar o interesse, você autoriza a adesão somente para este endereço.</p><button className="access-button access-button-primary" type="submit" disabled={busy}>Aceitar interesse e autorizar</button></form>}
     {error && <small role="alert">{error}</small>}{notice && <small role="status">{notice}</small>}
   </div>;

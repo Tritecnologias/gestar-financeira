@@ -184,8 +184,8 @@ async function main(){
   const failedGrant={id:failed.body.id,email:'a22-delivery-failure@example.invalid'};await age(failedGrant);await request(jar(),'/api/admissions/resume','POST',{email:failedGrant.email,admissionId:failedGrant.id});
   pass('temporary delivery failure recovers on the same authorization',(await verify(failedGrant,jar(),await latestMail(failedGrant.id))).status===200);
   const page=await request(jar(),'/adesao');
-  console.log('PAGE_HEADERS '+JSON.stringify({status:page.status,referrer:page.headers.get('referrer-policy'),cache:page.headers.get('cache-control'),robots:page.headers.get('x-robots-tag'),heading:page.body.includes('Continue sua adesão')}));
-  pass('admission page is private and noindex with no-referrer',page.status===200&&page.headers.get('referrer-policy')==='no-referrer'&&page.headers.get('cache-control').includes('no-store')&&page.body.includes('Continue sua adesão'));
+  console.log('PAGE_HEADERS '+JSON.stringify({status:page.status,referrer:page.headers.get('referrer-policy'),cache:page.headers.get('cache-control'),robots:page.headers.get('x-robots-tag'),heading:page.body.includes('Seu próximo passo começa aqui')}));
+  pass('admission page is private and noindex with no-referrer',page.status===200&&page.headers.get('referrer-policy')==='no-referrer'&&page.headers.get('cache-control').includes('no-store')&&page.body.includes('Seu próximo passo começa aqui'));
   pass('no new tenant, membership, owner, operational invitation or contractual record',JSON.stringify(await snapshot())===JSON.stringify(original));
   assert.deepEqual(await one('SELECT * FROM auth_identities WHERE id=$1',[memberId]),existingBefore);pass('existing identity password and all prior fields preserved');
   assert.deepEqual(await one('SELECT count(*)::int n,md5(string_agg(to_jsonb(t)::text,chr(10) ORDER BY id)) hash FROM _prisma_migrations t'),ledger);pass('A.2.1 schema and migration ledger unchanged');

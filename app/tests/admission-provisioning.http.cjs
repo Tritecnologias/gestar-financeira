@@ -82,7 +82,7 @@ async function main(){
   await mkdir(process.env.TERM_STORAGE_DIR,{recursive:true});await mkdir(process.env.TENANT_BACKUP_DIR,{recursive:true});
   const receiptsBefore=await digest(['term_acceptances']);
   for(const documentId of ['doc-u','doc-c']){
-    const data=Buffer.from('%PDF-1.4\n% SYNTHETIC A23 REGRESSION ONLY\n%%EOF\n'),key=randomUUID()+'.pdf';
+    const data=require('./synthetic-pdf.cjs')(),key=randomUUID()+'.pdf';
     await writeFile(process.env.TERM_STORAGE_DIR+'/'+key,data,{mode:0o600});
     const c=await fixture.connect();try{await c.query('BEGIN');
       await c.query("UPDATE term_versions SET status='RETIRED' WHERE document_id=$1 AND status='PUBLISHED'",[documentId]);

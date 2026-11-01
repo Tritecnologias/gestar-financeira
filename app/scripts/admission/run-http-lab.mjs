@@ -1,5 +1,6 @@
 /** A.2.2 / A.2.3 real Next/HTTP proof. Reuses the verified synthetic full dump from A.2.1. */
 import assert from 'node:assert/strict';
+import {startJourneyBridge,testJourney} from './journey-lab.mjs';
 import {spawn} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,cpSync} from 'node:fs';
 import {resolve,join,isAbsolute,dirname} from 'node:path';
@@ -9,19 +10,20 @@ import {randomUUID,randomBytes,createHash} from 'node:crypto';
 const app=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 assert(process.argv[2]&&isAbsolute(process.argv[2])&&process.argv[3]&&isAbsolute(process.argv[3]),'Usage: node run-http-lab.mjs <A2.1-evidence-directory> <new-evidence-directory>');
 const source=resolve(process.argv[2]),out=resolve(process.argv[3]);assert(!existsSync(out),'NEW_EVIDENCE_DIRECTORY_REQUIRED');
-assert(process.argv[4]===undefined||process.argv[4]==='--provision','UNKNOWN_PHASE');
-const provision=process.argv[4]==='--provision', phase=provision?'A.2.3':'A.2.2', label=provision?'dez-a23-http':'dez-a22-http';
+assert(process.argv[4]===undefined||['--provision','--journey','--preview'].includes(process.argv[4]),'UNKNOWN_PHASE');
+const journey=['--journey','--preview'].includes(process.argv[4]);
+const provision=journey||process.argv[4]==='--provision', phase=journey?'A.2.4':provision?'A.2.3':'A.2.2', label=journey?'dez-a24-http':provision?'dez-a23-http':'dez-a22-http';
 const foundation=JSON.parse(readFileSync(join(source,'RESULT.json'),'utf8'));
 assert.equal(foundation.state,'PASSED');assert.equal(foundation.phase,'A.2.1');assert.equal(foundation.syntheticOnly,true);assert.equal(foundation.network,'none');assert.equal(foundation.realEmail,false);
 const dump=readFileSync(join(source,'synthetic-a2-h8.dump'));assert.equal(createHash('sha256').update(dump).digest('hex'),foundation.dumpSHA256);
 mkdirSync(out,{recursive:true});const staged=join(out,'source');mkdirSync(staged);
 for(const name of ['src','public','package.json','package-lock.json','tsconfig.json','next.config.ts','next-env.d.ts'])cpSync(join(app,name),join(staged,name),{recursive:true});
 mkdirSync(join(staged,'prisma'));cpSync(join(app,'prisma/schema.prisma'),join(staged,'prisma/schema.prisma'));
-mkdirSync(join(staged,'tests'));for(const name of ['admission.http.cjs','experiment.http.cjs',...(provision?['admission-provisioning.http.cjs','admission-lab-helpers.cjs','invitations-multichannel.http.cjs','contractual-onboarding.http.cjs']:[])])cpSync(join(app,'tests',name),join(staged,'tests',name));
-const suffix=randomUUID().slice(0,8),pg=(provision?'dez-a23-pg-':'dez-a22-pg-')+suffix,worker=label+'-'+suffix;
+mkdirSync(join(staged,'tests'));for(const name of ['admission.http.cjs','experiment.http.cjs',...(provision?['synthetic-pdf.cjs','admission-provisioning.http.cjs','admission-lab-helpers.cjs','invitations-multichannel.http.cjs','contractual-onboarding.http.cjs']:[]),...(journey?['admission-browser-relay.cjs','admission-browser-fixture.cjs']:[])])cpSync(join(app,'tests',name),join(staged,'tests',name));
+const suffix=randomUUID().slice(0,8),pg=(journey?'dez-a24-pg-':provision?'dez-a23-pg-':'dez-a22-pg-')+suffix,worker=label+'-'+suffix;
 const pgImage='sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5',nodeImage='sha256:271e76a186736f3a533931712920c03644bd69684b11d04b1c468d0870ba0d13';
 const report={phase,network:'none',publishedPorts:[],syntheticOnly:true,realEmail:false,foundationDumpSHA256:foundation.dumpSHA256,startedAt:new Date().toISOString()};
-const created=[];
+const created=[];let closeBridge;
 function run(args,input,ok=true){return new Promise((accept,reject)=>{
   const child=spawn('docker',args,{windowsHide:true,stdio:['pipe','pipe','pipe']}),stdout=[],stderr=[];const timer=setTimeout(()=>child.kill(),600000);
   child.stdout.on('data',b=>stdout.push(b));child.stderr.on('data',b=>stderr.push(b));child.on('error',e=>{clearTimeout(timer);reject(e)});
@@ -96,6 +98,7 @@ try {
       assert(report[key]);console.log('PASS '+key+' HTTP regression: '+report[key].checks.length+' checks');
     }
     writeFileSync(join(out,'regression-app.log'),(await run(['exec',worker,'cat','/tmp/a23-regression-app.log'])).stdout);
+    if(journey){closeBridge=await startJourneyBridge(worker);await testJourney(app,worker,out);report.browser=JSON.parse(readFileSync(join(out,'BROWSER-RESULT.json'),'utf8'));report.loopbackBrowserPort=3020;console.log('PASS real browser journey: '+report.browser.checks.length+' checks');}
     const full=(await run(['exec',pg,'pg_dump','-U','postgres','-d','special_invite_lab','-Fc'])).bytes;
     writeFileSync(join(out,'synthetic-a23-h8.dump'),full);
     await sql('CREATE DATABASE a23_recovery OWNER a2_migrator;');
@@ -111,10 +114,12 @@ try {
   }
   const log=await run(['exec',worker,'cat','/tmp/a2-app.log']);writeFileSync(join(out,'app.log'),log.stdout);
   report.state='PASSED';
+  if(process.argv[4]==='--preview'){writeFileSync(join(out,'PREVIEW-READY.json'),JSON.stringify(report,null,2));console.log('LOCAL preview ready: '+join(out,'PREVIEW.md')+'; create STOP-LOCAL in this directory to close it. Automatic cleanup after two hours.');const deadline=Date.now()+7200000;while(Date.now()<deadline&&!existsSync(join(out,'STOP-LOCAL')))await new Promise(r=>setTimeout(r,1000));}
 } catch(error){report.state='FAILED';report.error=String(error.message).slice(0,400);console.error(report.error);
   if(created.includes(worker)){const log=await run(['exec',worker,'cat','/tmp/a2-app.log'],undefined,false);writeFileSync(join(out,'app.log'),log.stdout);
     if(provision){const regressionLog=await run(['exec',worker,'cat','/tmp/a23-regression-app.log'],undefined,false);if(regressionLog.code===0)writeFileSync(join(out,'regression-app.log'),regressionLog.stdout);}}
 } finally {
+  closeBridge?.();
   for(const name of created.reverse()){
     const check=JSON.parse((await run(['inspect',name])).stdout)[0];assert.equal(check.Name,'/'+name);assert.equal(check.Config.Labels.purpose,label);
     await run(['stop','-t','5',name]);await run(['rm','-v',name]);
