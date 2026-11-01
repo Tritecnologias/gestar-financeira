@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {CONTRACTUAL_RETURN_MIGRATION as m,PRE_RETURN_HOMOLOG_MIGRATIONS as h6,PRE_RETURN_PRODUCTION_MIGRATIONS as p5,REQUIRED_MIGRATIONS as h7,PRODUCTION_MIGRATIONS as p6,assertBackupMigrations,compatibleBackupMigrations} from '../src/lib/backup/schema-contract.mjs';
+import {CONTRACTUAL_RETURN_MIGRATION as m,PRE_RETURN_HOMOLOG_MIGRATIONS as h6,PRE_RETURN_PRODUCTION_MIGRATIONS as p5,PRE_ADMISSION_HOMOLOG_MIGRATIONS as h7,PRE_ADMISSION_PRODUCTION_MIGRATIONS as p6,assertBackupMigrations,compatibleBackupMigrations} from '../src/lib/backup/schema-contract.mjs';
 const rows=list=>list.map(m=>({migration_name:m.name,checksum:m.sha256}));
 test('contractual return is a single additive nullable column, preserving historical CHECKs and ACLs',()=>{
  for(const lane of ['migrations','production-migrations']){

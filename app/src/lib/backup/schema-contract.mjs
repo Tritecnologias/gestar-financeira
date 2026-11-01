@@ -18,9 +18,13 @@ export const TENANT_MODALITY_MIGRATION = Object.freeze({ name: '20261030_tenant_
 export const PRE_RETURN_HOMOLOG_MIGRATIONS = Object.freeze([...PRE_MODALITY_HOMOLOG_MIGRATIONS, TENANT_MODALITY_MIGRATION]);
 export const PRE_RETURN_PRODUCTION_MIGRATIONS = Object.freeze([...PRE_MODALITY_PRODUCTION_MIGRATIONS, TENANT_MODALITY_MIGRATION]);
 export const CONTRACTUAL_RETURN_MIGRATION = Object.freeze({ name: '20261031_contractual_choice_return', sha256: 'bf1553ef0a2cdaeb4a38f0fb9e1bb8a695dd37d47b306e9c85014e0fcf5e1f28' });
-export const REQUIRED_MIGRATIONS = Object.freeze([...PRE_RETURN_HOMOLOG_MIGRATIONS, CONTRACTUAL_RETURN_MIGRATION]);
-export const PRODUCTION_MIGRATIONS = Object.freeze([...PRE_RETURN_PRODUCTION_MIGRATIONS, CONTRACTUAL_RETURN_MIGRATION]);
-const APPROVED_LEDGERS = [PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_LEDGER4, PRE_MODALITY_HOMOLOG_MIGRATIONS, PRE_MODALITY_PRODUCTION_MIGRATIONS, PRE_RETURN_HOMOLOG_MIGRATIONS, PRE_RETURN_PRODUCTION_MIGRATIONS, REQUIRED_MIGRATIONS, PRODUCTION_MIGRATIONS];
+export const PRE_ADMISSION_HOMOLOG_MIGRATIONS = Object.freeze([...PRE_RETURN_HOMOLOG_MIGRATIONS, CONTRACTUAL_RETURN_MIGRATION]);
+export const PRE_ADMISSION_PRODUCTION_MIGRATIONS = Object.freeze([...PRE_RETURN_PRODUCTION_MIGRATIONS, CONTRACTUAL_RETURN_MIGRATION]);
+// A.2.1 is executable only in explicitly isolated local databases. Catalog preparation is not remote approval.
+export const ADMISSION_MIGRATION = Object.freeze({ name: '20261101_admission_foundation', sha256: '46d7bd07acb5fc075e824cf064de3fdc655ea8e85fc33f202f95c6ded965874b' });
+export const REQUIRED_MIGRATIONS = Object.freeze([...PRE_ADMISSION_HOMOLOG_MIGRATIONS, ADMISSION_MIGRATION]);
+export const PRODUCTION_MIGRATIONS = Object.freeze([...PRE_ADMISSION_PRODUCTION_MIGRATIONS, ADMISSION_MIGRATION]);
+const APPROVED_LEDGERS = [PRE_EXPERIMENT_MIGRATIONS, EXPERIMENT_LEDGER4, PRE_MODALITY_HOMOLOG_MIGRATIONS, PRE_MODALITY_PRODUCTION_MIGRATIONS, PRE_RETURN_HOMOLOG_MIGRATIONS, PRE_RETURN_PRODUCTION_MIGRATIONS, PRE_ADMISSION_HOMOLOG_MIGRATIONS, PRE_ADMISSION_PRODUCTION_MIGRATIONS, REQUIRED_MIGRATIONS, PRODUCTION_MIGRATIONS];
 export const BACKUP_MIGRATIONS = Object.freeze(REQUIRED_MIGRATIONS.map(m => m.name));
 
 /** A count alone cannot prove the required migrations or the new SQL's checksum. */
@@ -39,6 +43,8 @@ export function assertBackupMigrations(migrations, pending) {
 // Reverse restore and all unknown/altered ledgers fail closed. The contractual
 // cancellation column changes reference semantics: H7/P6 restore only themselves,
 // never convert or re-sign an older backup to invent that state.
+// A.2 H8/P7 likewise restore only their own exact profile. Admission evidence
+// and challenges are global governance, excluded from writable tenant sections.
 export function compatibleBackupMigrations(backup, current) {
   const from = APPROVED_LEDGERS.findIndex(expected => matches(backup, expected));
   const to = APPROVED_LEDGERS.findIndex(expected => matches(current, expected));

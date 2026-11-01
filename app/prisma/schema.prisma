@@ -44,6 +44,7 @@ model Tenant {
   auditEvents       AuditEvent[]
   accessInvites     AccessInvite[]
   importOperations  ImportOperation[]
+  admission         Admission?
   lancamentos       Lancamento[]
   planoContas       PlanoContas[]
   fornecedores      Fornecedor[]
@@ -89,6 +90,105 @@ model Usuario {
   @@map("usuarios")
 }
 
+// A.2.1 foundation only: no public admission endpoint or provisioner yet.
+enum AdmissionSource {
+  AUTHORIZED_INVITE
+  VALIDATED_PAYMENT
+}
+
+enum AdmissionStatus {
+  AUTHORIZED
+  PROVISIONED
+  CANCELLED
+}
+
+enum AdmissionChallengePurpose {
+  EMAIL_VERIFICATION
+  RESUME
+}
+
+enum AdmissionChallengeStatus {
+  PENDING
+  CONSUMED
+  REVOKED
+}
+
+enum AdmissionDeliveryStatus {
+  PENDING
+  SENT
+  SIMULATED
+  FAILED
+}
+
+// Stable authorization, never a cached contractual/operational permission.
+// Expiration is derived from expiresAt; terminal states retain their evidence.
+model Admission {
+  id String @id @default(uuid())
+  source AdmissionSource
+  sourceReference String @map("source_reference")
+  experimentInvitationId String? @unique @map("experiment_invitation_id")
+  authorizedEmail String @map("authorized_email")
+  authorizedByAdminId String? @map("authorized_by_admin_id")
+  authorizedByIdentityId String? @map("authorized_by_identity_id")
+  authorizedAt DateTime @default(now()) @map("authorized_at")
+  expiresAt DateTime @map("expires_at")
+  status AdmissionStatus @default(AUTHORIZED)
+  verifiedChallengeId String? @unique @map("verified_challenge_id")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  identityId String? @map("identity_id")
+  tenantId String? @unique @map("tenant_id")
+  membershipId String? @map("membership_id")
+  provisionedAt DateTime? @map("provisioned_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledByAdminId String? @map("cancelled_by_admin_id")
+  cancelledByIdentityId String? @map("cancelled_by_identity_id")
+  cancellationReason String? @map("cancellation_reason")
+
+  experimentInvitation ExperimentInvitation? @relation(fields: [experimentInvitationId], references: [id], onDelete: Restrict)
+  authorizer PlatformAdmin? @relation("AdmissionAuthorizer", fields: [authorizedByAdminId, authorizedByIdentityId], references: [id, identityId], onDelete: Restrict)
+  canceller PlatformAdmin? @relation("AdmissionCanceller", fields: [cancelledByAdminId, cancelledByIdentityId], references: [id, identityId], onDelete: Restrict)
+  identity AuthIdentity? @relation("AdmissionIdentity", fields: [identityId], references: [id], onDelete: Restrict)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ownerMembership TenantMembership? @relation("AdmissionOwner", fields: [membershipId, identityId, tenantId], references: [id, identityId, tenantId], onDelete: Restrict)
+  challenges AdmissionChallenge[] @relation("AdmissionChallenges")
+  verifiedChallenge AdmissionChallenge? @relation("AdmissionVerification", fields: [verifiedChallengeId, id], references: [id, admissionId], onDelete: Restrict)
+
+  @@unique([source, sourceReference])
+  @@unique([id, authorizedEmail])
+  @@unique([verifiedChallengeId, id])
+  @@index([authorizedEmail, status])
+  @@index([status, expiresAt])
+  @@map("admissions")
+}
+
+// Expired PENDING rows are explicitly revoked under the admission lock before
+// reissue. SQL's partial unique index permits only one PENDING per purpose.
+model AdmissionChallenge {
+  id String @id @default(uuid())
+  admissionId String @map("admission_id")
+  recipientEmail String @map("recipient_email")
+  purpose AdmissionChallengePurpose
+  generation Int
+  tokenHash String @unique @map("token_hash")
+  status AdmissionChallengeStatus @default(PENDING)
+  issuedAt DateTime @default(now()) @map("issued_at")
+  expiresAt DateTime @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  revokedAt DateTime? @map("revoked_at")
+  attemptCount Int @default(0) @map("attempt_count")
+  maxAttempts Int @default(5) @map("max_attempts")
+  lastAttemptAt DateTime? @map("last_attempt_at")
+  deliveryStatus AdmissionDeliveryStatus @default(PENDING) @map("delivery_status")
+
+  admission Admission @relation("AdmissionChallenges", fields: [admissionId, recipientEmail], references: [id, authorizedEmail], onDelete: Restrict)
+  verifiedAdmission Admission? @relation("AdmissionVerification")
+
+  @@unique([id, admissionId])
+  @@unique([admissionId, purpose, generation])
+  @@index([admissionId, issuedAt])
+  @@map("admission_challenges")
+}
+
 // ACCESS-2: identidade de autenticação global, separada de Pessoa empresarial.
 enum AccessStatus {
   ACTIVE
@@ -130,6 +230,7 @@ model AuthIdentity {
   revokedAccess AccessInvite[] @relation("InviteRevoker")
   importOperations ImportOperation[]
   experimentInvitations ExperimentInvitation[]
+  admissions Admission[] @relation("AdmissionIdentity")
 
   @@map("auth_identities")
 }
@@ -148,6 +249,7 @@ model ExperimentInvitation {
   acknowledgedAt DateTime? @map("acknowledged_at")
   interestAt DateTime? @map("interest_at")
   creator AuthIdentity @relation(fields: [createdByIdentityId], references: [id], onDelete: Restrict)
+  admission Admission?
   @@index([createdAt(sort: Desc)])
   @@map("experiment_invitations")
 }
@@ -173,6 +275,7 @@ model TenantMembership {
   authorizedAdvisoryGrants AdvisoryAccessGrant[]
   approvedSupportGrants SupportGrant[]
   auditEvents AuditEvent[] @relation("AuditMembership")
+  admissions Admission[] @relation("AdmissionOwner")
 
   @@unique([identityId, tenantId])
   @@unique([id, tenantId])
@@ -268,6 +371,8 @@ model PlatformAdmin {
   identity    AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Restrict)
   legacyMaps  LegacyUserAccessMap[]
   auditEvents AuditEvent[] @relation("AuditPlatformAdmin")
+  authorizedAdmissions Admission[] @relation("AdmissionAuthorizer")
+  cancelledAdmissions Admission[] @relation("AdmissionCanceller")
 
   @@unique([id, identityId])
   @@map("platform_admins")
