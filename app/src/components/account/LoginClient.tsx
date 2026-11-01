@@ -1,0 +1,130 @@
+"use client";
+
+import { Suspense, useEffect, useState, useTransition } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import PasswordInput from "@/components/ui/PasswordInput";
+import Link from "next/link";
+import { PlatformIdentityMark, HomologIdentityBadge } from "@/components/identity/EnvironmentIdentity";
+
+function LoginForm({ supportUrl }: { supportUrl: string | null }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/inicio";
+
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [ready, setReady] = useState(false);
+  // Preserve the existing hydration gate: credentials cannot submit before handlers attach.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setReady(true), []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErro("");
+
+    startTransition(async () => {
+      try {
+      const result = await signIn("credentials", {
+        email,
+        password: senha,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setErro("E-mail ou senha inválidos. Tente novamente.");
+      } else {
+        const res = await fetch("/api/tenants", { cache: "no-store" });
+        const choices = res.ok ? await res.json() : null;
+        if (Array.isArray(choices) && choices.length === 0) {
+          const platform = await fetch("/api/platform/tenants", { cache: "no-store" });
+          router.push(platform.ok ? "/plataforma" : res.headers.get("X-Support-Operator") === "true" ? "/suporte" : "/selecionar-tenant");
+        } else {
+          router.push(Array.isArray(choices) && (choices.length !== 1 || ["SUPPORT_GRANT", "ADVISORY"].includes(choices[0]?.kind)) ? "/selecionar-tenant" : callbackUrl);
+        }
+      }
+      } catch { setErro("Não foi possível conectar. Verifique sua conexão e tente novamente."); }
+    });
+  }
+
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <span className="logo-icon"><PlatformIdentityMark size={32} /></span>
+          <h1>
+            Dez <strong>Soluções</strong>
+          </h1>
+          <HomologIdentityBadge /><p>Sistema de Fluxo de Caixa</p>
+        </div>
+
+        {searchParams.get("notice") === "password-changed" && <p role="status">Senha alterada com sucesso. Entre com a nova senha.</p>}
+        {erro && <div className="login-error" role="alert">{erro}</div>}
+
+        <form method="post" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="email">E-mail</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="seu@email.com.br"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoFocus
+              autoComplete="email"
+            />
+          </div>
+          <div className="form-group" style={{ marginBottom: 20 }}>
+            <PasswordInput
+              label="Senha"
+              id="senha"
+              name="password"
+              placeholder="••••••••"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: "100%", justifyContent: "center", padding: "10px" }}
+            disabled={!ready || isPending}
+          >
+            {isPending ? (
+              <>
+                <span className="spinner" />
+                Entrando...
+              </>
+            ) : (
+              "Entrar"
+            )}
+          </button>
+        </form>
+
+        <p style={{ textAlign: "center", marginTop: 18 }}><Link href="/primeiro-acesso">Primeiro acesso</Link></p>
+        <p style={{ textAlign: "center", marginTop: 12, fontSize: 13, color: "var(--text-muted)" }}>
+          {supportUrl ? <a href={supportUrl} target="_blank" rel="noopener noreferrer">Suporte via WhatsApp</a>
+            : <span aria-disabled="true">Suporte via WhatsApp — em preparação</span>}
+        </p>
+
+        <p style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: "var(--text-muted)" }}>
+          Dez Soluções © {new Date().getFullYear()}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function LoginClient({ supportUrl }: { supportUrl: string | null }) {
+  return (
+    <Suspense fallback={<div className="login-page"><div className="login-card"><p style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Carregando...</p></div></div>}>
+      <LoginForm supportUrl={supportUrl} />
+    </Suspense>
+  );
+}

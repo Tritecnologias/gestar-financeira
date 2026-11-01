@@ -16,6 +16,9 @@ type Event = {
 const labels: Record<string, string> = {
   LOGIN_SUCCESS: "Entrada na conta", LOGIN_FAILURE: "Falha ao entrar", LOGOUT: "Saída",
   PASSWORD_CHANGED: "Senha alterada", PASSWORD_CHANGE_DENIED: "Alteração de senha negada",
+  PASSWORD_RESET_ISSUED: "Reset de senha autorizado", PASSWORD_RESET_AUTH_DENIED: "Reset de senha negado",
+  PASSWORD_RESET_EMAIL_SENT: "E-mail de redefinição enviado", PASSWORD_RESET_EMAIL_FAILED: "Falha no e-mail de redefinição",
+  PASSWORD_RESET_REVOKED: "Reset de senha substituído", PASSWORD_RESET_CONSUMED: "Redefinição de senha concluída",
   TENANT_CONTEXT_SELECTED: "Empresa selecionada", TENANT_CONTEXT_SWITCHED: "Troca de empresa",
   IDENTITY_CREATED: "Conta criada", IDENTITY_ACTIVATED: "Conta ativada",
   IDENTITY_DEACTIVATED: "Conta desativada", MEMBERSHIP_CREATED: "Vínculo criado",

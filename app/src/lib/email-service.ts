@@ -9,6 +9,7 @@ export type Mail = { to: string; subject: string; text: string; html: string };
 interface EmailAdapter {
   readonly provider: EmailDeliveryResult["provider"];
   send(message: Mail): Promise<EmailDeliveryStatus>;
+  verify?(): Promise<boolean>;
 }
 
 export type EmailServiceConfig = {
@@ -61,12 +62,27 @@ function smtpAdapter(): EmailAdapter | null {
     requireTLS: secure !== "true", auth: { user, pass: password },
     connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
     disableFileAccess: true, disableUrlAccess: true });
-  return { provider: "smtp", async send(message) {
+  return { provider: "smtp", async verify() {
+    try { return await transport.verify(); } catch { return false; }
+  }, async send(message) {
     const result = await transport.sendMail({ from: { name: fromName, address: fromAddress },
       to: message.to, subject: message.subject, text: message.text, html: message.html });
     if (!result.accepted?.includes(message.to)) throw new Error("Recipient rejected");
     return "SENT";
   } };
+}
+
+/** Only trusted server policies supply this origin; no mock or manual delivery fallback. */
+export function getTransactionalSmtpConfig(origin: string): EmailServiceConfig | null {
+  try {
+    const url = new URL(origin);
+    if (url.origin !== origin || (url.protocol !== "https:" &&
+        !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) return null;
+    // Keep the approved synthetic Admission/invitation channel independent in
+    // LOCAL/HOMOLOG, while using this same SMTP implementation and credentials.
+    const adapter = (process.env.TRANSACTIONAL_EMAIL_PROVIDER ?? process.env.EMAIL_PROVIDER) === "smtp" ? smtpAdapter() : null;
+    return adapter ? { publicUrl: url, adapter, dev: false } : null;
+  } catch { return null; }
 }
 
 // O provider é selecionado uma vez por operação. Mock é permitido somente no DEV isolado.

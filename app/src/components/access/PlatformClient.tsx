@@ -10,6 +10,7 @@ import "./access.css";
 import "./platform-hierarchy.css";
 import { platformHierarchy, platformIndicators, type PlatformTenant as Tenant, type PlatformIdentity as Identity, type PlatformMembership as Membership } from "@/lib/platform-hierarchy";
 import { HomologIdentityBadge } from "@/components/identity/EnvironmentIdentity";
+import PasswordResetDialog from "@/components/account/PasswordResetDialog";
 
 type OwnerInvite = { id: string; name: string; email: string; status: string; expiresAt: string };
 
@@ -21,7 +22,9 @@ async function read<T>(url: string): Promise<T> {
   return body;
 }
 
-export default function PlatformClient({ supportOperator = false, experimentPilot = false }: { supportOperator?: boolean; experimentPilot?: boolean }) {
+export default function PlatformClient({ supportOperator = false, experimentPilot = false, passwordResetAvailable = false }: { supportOperator?: boolean; experimentPilot?: boolean; passwordResetAvailable?: boolean }) {
+  const [resetIdentity, setResetIdentity] = useState<Identity | null>(null);
+  const [resetAvailable, setResetAvailable] = useState(passwordResetAvailable);
 
   const [query, setQuery] = useState("");
   const [showInfos, setShowInfos] = useState(false);
@@ -64,6 +67,12 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
 
   const shown = useMemo(() => platformHierarchy(tenants, identities, memberships, query), [query, tenants, identities, memberships]);
   const indicators = useMemo(() => platformIndicators(tenants, identities, memberships), [tenants, identities, memberships]);
+  function resetButton(identity?: Identity) {
+    return identity && <button type="button" className="platform-action platform-action-neutral platform-reset-action"
+      disabled={!resetAvailable || busy || identity.status !== "ACTIVE"} aria-label={`Resetar senha de ${identity.nome}`}
+      title={!resetAvailable ? "Indisponível: envio de e-mail transacional ainda não habilitado ou disponível." : identity.status !== "ACTIVE" ? "Conta inativa." : "Enviar link ao e-mail cadastrado"}
+      onClick={() => { setResetIdentity(identity); setDeliveryNotice(""); }}>Resetar senha</button>;
+  }
   const allExpanded = shown.groups.length > 0 && shown.groups.every(({ tenant }) =>
     query.trim() ? !searchCollapsed.has(tenant.id) : expanded.has(tenant.id));
   function toggleAllGroups() {
@@ -178,6 +187,8 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
     </div>}
     {error && <p className="access-error" role="alert">{messagePtBr(error)}</p>}
     {deliveryNotice && <p className="access-hint" role="status">{deliveryNotice}</p>}
+    {!resetAvailable && <p className="access-hint" role="status">Reset de senha indisponível: o envio de e-mail transacional ainda não está habilitado ou disponível.</p>}
+    {resetIdentity && <PasswordResetDialog identity={resetIdentity} onClose={() => setResetIdentity(null)} onSent={setDeliveryNotice} onUnavailable={() => setResetAvailable(false)} />}
     {share && <InvitationShareDialog invitation={share} onClose={closeShare} />}
     <p className="platform-scroll-hint">Role a lista para consultar os registros. Em telas menores, deslize também para os lados para ver todas as colunas.</p>
     </div>
@@ -202,7 +213,7 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
             <button type="button" className={`platform-action platform-action-toggle ${t.ativo ? "platform-action-danger" : "platform-action-warning"}`} disabled={busy} onClick={() => toggle(t)}>{t.ativo ? "Inativar" : "Ativar"}</button></div></td></tr>
           {open && <tr className="platform-detail-row"><td colSpan={10}><section id={`platform-members-${t.id}`} aria-label={`Contas vinculadas a ${t.nome}`}>
             <table className="access-table platform-member-table"><caption>Contas, funções e perfis em {t.nome}</caption><thead><tr><th scope="col">Conta do usuário</th><th scope="col">E-mail</th><th scope="col">Situação da conta</th><th scope="col">Função no tenant</th><th scope="col">Perfil de acesso</th><th scope="col">Situação do vínculo</th><th scope="col">Referência</th><th scope="col">Ações administrativas</th></tr></thead><tbody>
-            {members.map(m => { const identity = shown.accountById.get(m.identity.id); return <tr key={m.id}><th scope="row">{m.identity.nome}</th>
+            {members.map(m => { const identity = shown.accountById.get(m.identity.id); return <tr key={m.id}><th scope="row">{m.identity.nome}{resetButton(identity)}</th>
               <td className="platform-email">{m.identity.email}</td>
               <td><span className={`platform-state ${identity?.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(identity?.status ?? "")}</span>{identity?.platformAdmin && <span className="platform-admin-status">PlatformAdmin {statusLabel(identity.platformAdmin.status).toLowerCase()}</span>}</td>
               <td>{roleLabel(m.role)}</td><td>{m.profile?.nome ?? "Sem perfil"}</td><td><span className={`platform-state ${m.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(m.status)}</span></td>
@@ -219,7 +230,7 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
     <section className="platform-global-accounts" aria-labelledby="platform-global-accounts-title"><h2 id="platform-global-accounts-title" className="platform-section-title">Contas de usuários sem vínculo empresarial</h2>
       <p className="access-hint">A administração da plataforma não concede acesso automático aos dados operacionais das empresas.</p>
       <table className="access-table platform-unlinked-table"><caption>Contas de usuários sem vínculo empresarial</caption><thead><tr><th scope="col">Conta do usuário</th><th scope="col">E-mail</th><th scope="col">Situação da conta</th><th scope="col">Administrador da Plataforma</th><th scope="col">Acesso empresarial</th></tr></thead><tbody>
-        {shown.unlinked.map(i => <tr key={i.id}><th scope="row">{i.nome}</th><td className="platform-email">{i.email}</td><td><span className={`platform-state ${i.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(i.status)}</span></td><td>{i.platformAdmin ? <span className={`platform-state ${i.platformAdmin.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(i.platformAdmin.status)}</span> : "Não"}</td><td>Sem vínculo empresarial</td></tr>)}
+        {shown.unlinked.map(i => <tr key={i.id}><th scope="row">{i.nome}{resetButton(i)}</th><td className="platform-email">{i.email}</td><td><span className={`platform-state ${i.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(i.status)}</span></td><td>{i.platformAdmin ? <span className={`platform-state ${i.platformAdmin.status === "ACTIVE" ? "platform-state-active" : "platform-state-inactive"}`}>{statusLabel(i.platformAdmin.status)}</span> : "Não"}</td><td>Sem vínculo empresarial</td></tr>)}
         {!shown.unlinked.length && <tr><td colSpan={5} className="access-empty">{loading ? "Carregando contas de usuários…" : query.trim() ? "Nenhuma conta sem vínculo corresponde à busca." : "Nenhuma conta de usuário sem vínculo empresarial."}</td></tr>}
       </tbody></table>
     </section>

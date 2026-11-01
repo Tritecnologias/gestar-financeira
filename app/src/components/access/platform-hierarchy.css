@@ -82,6 +82,10 @@
 .platform-admin-dialog::backdrop { background:rgba(3,14,27,.68); }
 .platform-admin-dialog .access-modal-actions { flex-wrap:wrap; }.platform-admin-dialog .access-owner-invites { overflow-wrap:anywhere; }
 .platform-hierarchy :focus-visible { outline:3px solid var(--focus,#1689ed); outline-offset:2px; }
+.platform-reset-action { display:block; margin-top:6px; }
+.platform-reset-dialog { margin:auto; width:min(620px,calc(100% - 32px)); }
+.platform-reset-dialog::backdrop { background:rgba(3,14,27,.68); }
+.platform-reset-dialog input::-ms-reveal { display:none; }
 @media(max-width:1550px) { .platform-scroll-hint { display:block; } }
 @media(max-width:1000px) {
   .platform-hierarchy .access-header { flex-direction:column; gap:8px; margin-bottom:10px; }

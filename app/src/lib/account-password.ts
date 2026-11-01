@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { validIdentityPassword, PASSWORD_POLICY_MESSAGE } from "./password-policy";
 import { writeAudit } from "./audit";
@@ -32,10 +32,15 @@ export async function changeOwnPassword(db: PrismaClient, identityId: string, in
       return { ok: false, status: 400, error: "A senha atual está incorreta." };
     }
     const nextHash = await bcrypt.hash(input.newPassword, 12);
-    const changed = await tx.authIdentity.updateMany({ where: { id: identityId, status: "ACTIVE", senhaHash: identity.senhaHash }, data: { senhaHash: nextHash } });
-    if (changed.count !== 1) throw Object.assign(new Error("Sua conta foi alterada. Entre novamente e tente outra vez."), { status: 409 });
-    await writeAudit(tx, { actorIdentityId: identityId, accessMode: "SYSTEM", action: "PASSWORD_CHANGED",
-      resourceType: "AuthIdentity", resourceId: identityId });
+    await commitIdentityPassword(tx, identity, nextHash);
     return { ok: true, status: 200 };
   }, { maxWait: 5000, timeout: 15000 });
+}
+
+/** Caller must first authenticate and lock the identity inside this same transaction. */
+export async function commitIdentityPassword(tx: Prisma.TransactionClient, identity: { id: string; senhaHash: string }, nextHash: string) {
+  const changed = await tx.authIdentity.updateMany({ where: { id: identity.id, status: "ACTIVE", senhaHash: identity.senhaHash }, data: { senhaHash: nextHash } });
+  if (changed.count !== 1) throw Object.assign(new Error("Sua conta foi alterada. Entre novamente e tente outra vez."), { status: 409 });
+  await writeAudit(tx, { actorIdentityId: identity.id, accessMode: "SYSTEM", action: "PASSWORD_CHANGED",
+    resourceType: "AuthIdentity", resourceId: identity.id });
 }

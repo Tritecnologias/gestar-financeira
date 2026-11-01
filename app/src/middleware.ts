@@ -15,7 +15,9 @@ export async function middleware(req: NextRequest) {
   // Each admission handler independently enforces the LOCAL gate; no wildcard API bypass.
   const isAdmission = pathname === "/adesao" || pathname === "/api/admissions/resume" ||
     /^\/api\/admissions\/[0-9a-f-]{36}(?:\/(?:verify|identity|provision))?$/i.test(pathname);
-  const isPublic = isAuthPage || isApiAuth || isStatic || isActivation || isExperiment || isAdmission;
+  // Only the proof-scoped consumer is public; administrative issuance keeps normal authentication.
+  const isPasswordReset = pathname === "/redefinir-senha" || pathname === "/api/account/password-reset";
+  const isPublic = isAuthPage || isApiAuth || isStatic || isActivation || isExperiment || isAdmission || isPasswordReset;
 
   // Rate limiting na rota de login (proteção contra brute-force).
   // ⚠️ Limitação: o contador vive em memória do processo. Funciona bem em

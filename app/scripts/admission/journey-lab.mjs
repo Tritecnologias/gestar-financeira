@@ -4,7 +4,7 @@ import readline from 'node:readline';
 import {join} from 'node:path';
 import {writeFileSync} from 'node:fs';
 export async function startJourneyBridge(worker){
-  if(!/^dez-a2[45]-http-[a-f0-9]{8}$/.test(worker))throw Error('A24_WORKER_REQUIRED');
+  if(!/^dez-a2[457]-http-[a-f0-9]{8}$/.test(worker))throw Error('A2_WORKER_REQUIRED');
   const child=spawn('docker',['exec','-i','-w','/work',worker,'node','tests/admission-browser-relay.cjs'],{windowsHide:true,stdio:['pipe','pipe','ignore']});
   const pending=new Map();let next=0;
   readline.createInterface({input:child.stdout}).on('line',line=>{const m=JSON.parse(line),entry=pending.get(m.id);if(!entry)return;clearTimeout(entry.timer);pending.delete(m.id);entry.response.writeHead(m.status,m.headers);entry.response.end(Buffer.from(m.body,'base64'));});
