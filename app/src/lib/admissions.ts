@@ -7,6 +7,7 @@ import { PASSWORD_POLICY_MESSAGE, validIdentityPassword } from "@/lib/password-p
 import { admissionEmail, admissionFailure, requireAdmissionOrigin, retryableAdmissionTransaction } from "@/lib/admission-policy";
 import { admissionHash, matchesAdmissionToken, newAdmissionToken, type AdmissionProof } from "@/lib/admission-crypto";
 import { deliverAdmissionChallenge } from "@/lib/admission-delivery";
+import { requireAdmissionDatabase } from "@/lib/admission-database";
 import { activateTenantMembership, createPendingTenant, initialAdministrationProfile } from "@/lib/tenant-activation";
 
 type Tx = Prisma.TransactionClient;
@@ -17,7 +18,10 @@ const denied = () => admissionFailure();
 async function transaction<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
   requireAdmissionOrigin();
   for (let attempt = 0; ; attempt++) {
-    try { return await prisma.$transaction(work, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15000 }); }
+    try { return await prisma.$transaction(async tx => {
+      await requireAdmissionDatabase(tx);
+      return work(tx);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15000 }); }
     catch (error) {
       if (attempt >= 3 || !retryableAdmissionTransaction(error)) throw error;
       // Restart every read and authority check; never reuse a partial transaction result.

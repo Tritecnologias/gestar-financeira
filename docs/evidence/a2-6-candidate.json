@@ -1,0 +1,2053 @@
+{
+  "base": "90905683667567f2e8383b38629ff39146f2d25b",
+  "branch": "feat/a2-6-homolog-candidate",
+  "remoteOperations": 0,
+  "syntheticOnly": true,
+  "unit": {
+    "passed": 294,
+    "failed": 0,
+    "excludedExternalDbFiles": [
+      "access2-legacy-login.test.mjs",
+      "access2-membership.test.mjs",
+      "access3-session.test.mjs",
+      "access3b-platform-admin.test.mjs",
+      "tenant-isolation.test.mjs"
+    ]
+  },
+  "regression": {
+    "phase": "A.2.5",
+    "network": "none",
+    "publishedPorts": [],
+    "syntheticOnly": true,
+    "realEmail": false,
+    "foundationDumpSHA256": "0762a9289018da45a8d383bf17e4dfe9879a0be579ea65151871a6d0fcc3d055",
+    "startedAt": "2026-11-01T14:37:16.424Z",
+    "build": "PASSED",
+    "http": {
+      "state": "PASSED",
+      "phase": "A.2.2",
+      "checks": [
+        "LOCAL H8 restored with 43 application tables plus Prisma ledger",
+        "anonymous administrative approval denied",
+        "authenticated identity without PlatformAdmin denied",
+        "administrative approval requires same origin",
+        "support_context cannot authorize",
+        "advisory_context cannot authorize",
+        "no interest cannot be authorized",
+        "existing interest endpoint remains functional and creates no admission",
+        "acceptance binds Special Invitation and approved normalized email",
+        "administrative retries preserve grant, email, expiry and original challenge",
+        "approved recipient cannot be transferred",
+        "concurrent administrative approvals produce one grant and one email",
+        "expired invitation cannot authorize",
+        "revoked invitation cannot authorize",
+        "real recipient refused in LOCAL",
+        "current administrative status revalidated despite existing session",
+        "browser-supplied authority rejected",
+        "unverified browser cannot inspect identity or grant email",
+        "GET and mail scanners never consume challenges",
+        "verification needs same origin",
+        "verification request body is bounded",
+        "explicit POST verifies email and issues HttpOnly restricted cookie",
+        "restricted proof does not become an operational session",
+        "same browser safely repeats completed verification",
+        "consumed token cannot establish another browser proof",
+        "new identity is offered only after email proof",
+        "unverified browser cannot create identity",
+        "new password follows existing policy",
+        "concurrent identity activation creates one identity without a tenant",
+        "lost identity response can recover through normal login",
+        "authorization plus proof plus authenticated identity reaches IDENTITY_VERIFIED",
+        "new identity still has no operational tenant",
+        "multiple tabs read the same authorization and verified identity",
+        "email proof alone does not log in an existing identity",
+        "admission cannot reset an existing password",
+        "only the existing credential completes identity verification",
+        "reused identity retains both existing tenant memberships",
+        "session of another identity is not accepted",
+        "modified restricted cookie is denied",
+        "proof for another authorization is denied",
+        "disabled identity cannot continue",
+        "challenge is bound to its own grant",
+        "five invalid attempts persist and revoke the challenge",
+        "valid token cannot revive an exhausted challenge",
+        "expired challenge is refused and revoked",
+        "concurrent consumption has one winner: 200/409/409",
+        "lost verification response resumes the same grant with a new one-time challenge",
+        "resumption preserves original email verification evidence",
+        "two grants reuse one identity with independently scoped browser proofs",
+        "email-only recovery never guesses between multiple valid grants",
+        "explicit interrupted reference resumes the selected grant only",
+        "immediate resend respects persistent cooldown",
+        "resend revokes previous generation without deleting evidence",
+        "three issues per recipient per 15 minutes persist in database",
+        "absence and throttling have the same public response",
+        "cancellation preserves evidence and invalidates pending challenge",
+        "cancelled authorization cannot be reopened",
+        "existing Special Invitation cancellation also blocks verified resumption",
+        "expired authorization rejects even the correct challenge",
+        "audit outage rolls back the administrative authorization",
+        "audit outage cannot consume a challenge or issue a restricted session",
+        "verification can retry after temporary audit outage",
+        "delivery failure preserves authorized grant with explicit FAILED status",
+        "temporary delivery failure recovers on the same authorization",
+        "admission page is private and noindex with no-referrer",
+        "no new tenant, membership, owner, operational invitation or contractual record",
+        "existing identity password and all prior fields preserved",
+        "A.2.1 schema and migration ledger unchanged",
+        "raw tokens and passwords absent from audit and application logs",
+        "synthetic mail sink stores only encrypted envelopes"
+      ],
+      "tenantsCreated": 0,
+      "realEmail": false,
+      "ledger": "H8",
+      "tables": 44
+    },
+    "experiment": {
+      "state": "EXPERIMENT_HTTP_PASSED",
+      "checks": [
+        "synthetic login admin status=302 location=http://localhost:3020/plataforma cookies=authjs.csrf-token,authjs.callback-url,authjs.session-token",
+        "synthetic login without capability status=302 location=http://localhost:3020/plataforma cookies=authjs.csrf-token,authjs.callback-url,authjs.session-token",
+        "anonymous admin API denied",
+        "authenticated non-admin denied",
+        "cross-origin create denied",
+        "invalid expiration rejected",
+        "admin creates without unnecessary plaintext link",
+        "admin explicitly recovers opaque fragment link",
+        "copy same token without regenerating invitation",
+        "copy endpoint forbids anonymous",
+        "copy endpoint forbids non-admin",
+        "copy requires same origin",
+        "synthetic login without capability status=302 location=http://localhost:3020/plataforma cookies=authjs.csrf-token,authjs.callback-url,authjs.session-token",
+        "same original link after new administrative session",
+        "valid invite first name only",
+        "no guest authentication",
+        "invalid token unavailable",
+        "public mutation needs same origin",
+        "welcome acknowledgment recorded",
+        "interest has clear result",
+        "interest retry idempotent",
+        "admin verifies all progress",
+        "list never returns secret hash ciphertext or full link",
+        "interest does not disable copy while active",
+        "legacy binding rejects another token",
+        "no membership or access granted",
+        "revoke through admin API",
+        "open page cannot record after revocation",
+        "revoked cannot inspect",
+        "cancelled cannot recover original link",
+        "cancelled row copy disabled",
+        "faithful preview without invite",
+        "preview noindex private",
+        "preview CTAs stay in environment",
+        "preview anonymous is never a login session",
+        "response does not leak token"
+      ],
+      "environment": "http://localhost:3020",
+      "scriptedInvitationsForQAOnly": true,
+      "manualAcceptanceLinkNotPrecreated": true
+    },
+    "provisioning": {
+      "state": "PASSED",
+      "phase": "A.2.3",
+      "checks": [
+        "synthetic PDF fixtures preserve all prior receipts",
+        "minimum existing runtime ACL unchanged",
+        "actual SQL rejects runtime email rewriting",
+        "shared tenant primitive preserves manual administrative response",
+        "manual creation does not automatically assign OWNER",
+        "manual duplicate slug still rejected",
+        "anonymous cannot provision",
+        "authenticated matching identity without mail proof denied",
+        "valid proof cannot authorize a different logged-in identity",
+        "cross-origin provisioning denied",
+        "browser cannot choose email",
+        "browser cannot choose identityId",
+        "browser cannot choose tenantId",
+        "browser cannot choose role",
+        "browser cannot choose status",
+        "browser cannot choose authorizedByAdminId",
+        "support_context forbidden",
+        "advisory_context forbidden",
+        "name is bounded",
+        "eight real HTTP requests all converge",
+        "exactly one transaction creates tenant",
+        "replay returns same committed ids and timestamp",
+        "handoff uses current existing tenant-context cookie and onboarding path",
+        "Admission final result exact and owner active",
+        "tenant remains trial with pending PF/PJ and original first name",
+        "profile and compatibility links belong to same identity and tenant",
+        "existing identity credentials and data byte-equivalent",
+        "prior two memberships preserved",
+        "no global or support privileges created",
+        "no implicit terms, contractual responsible or onboarding decision",
+        "OWNER cannot administer platform",
+        "unrelated tenant selection denied",
+        "atomic audit TENANT_CREATED",
+        "atomic audit PERMISSION_PROFILE_CREATED",
+        "atomic audit OWNER_ASSIGNED",
+        "atomic audit MEMBERSHIP_ACTIVATED",
+        "atomic audit ADMISSION_PROVISIONED",
+        "audit ties beneficiary to legitimate authorizer and origin",
+        "OWNER assignment event immutable and attributed",
+        "database composite FK rejects foreign tenant membership",
+        "database unique source rejects duplicate authorization",
+        "paid source remains impossible in this package",
+        "distinct authorization gives same identity a separate tenant",
+        "provisioned state resumes in fresh authenticated browser without mail cookie",
+        "fresh browser repeats same provisioned result",
+        "provisioned state hidden from other identity",
+        "wrong identity cannot replay provisioned result",
+        "completed result survives original expiry and issuer deactivation",
+        "completed authorization cannot be cancelled",
+        "tenantMembership revocation prevents context recovery",
+        "tenant revocation prevents context recovery",
+        "accessProfile revocation prevents context recovery",
+        "reactivation resumes original tenant without recreation",
+        "expired denied",
+        "expired creates no partial records",
+        "cancelled denied",
+        "cancelled creates no partial records",
+        "revoked-source denied",
+        "revoked-source creates no partial records",
+        "expired-source denied",
+        "expired-source creates no partial records",
+        "no-interest denied",
+        "no-interest creates no partial records",
+        "inactive administrative authority prevents first provisioning",
+        "inactive authorizer identity also prevents first provisioning",
+        "restored authority permits same authorization",
+        "wrong-email denied",
+        "wrong-email creates no partial records",
+        "inactive-identity denied",
+        "inactive-identity creates no partial records",
+        "missing-proof denied",
+        "missing-proof creates no partial records",
+        "tampered-proof denied",
+        "tampered-proof creates no partial records",
+        "missing-canonical-proof denied",
+        "missing-canonical-proof creates no partial records",
+        "expired-browser-proof denied",
+        "expired-browser-proof creates no partial records",
+        "expired browser proof retains canonical verification",
+        "late final-state write fault returns retryable failure",
+        "late final-state write rolls back every tenant, link, event and authorization write",
+        "late final-state write recovers using same authorization and proof",
+        "compatibility mapping fault returns retryable failure",
+        "compatibility mapping rolls back every tenant, link, event and authorization write",
+        "compatibility mapping recovers using same authorization and proof",
+        "audit write fault returns retryable failure",
+        "audit write rolls back every tenant, link, event and authorization write",
+        "audit write recovers using same authorization and proof",
+        "cancel/provision race has one legal terminal state",
+        "new identity creation preserves A22 HTTP contract",
+        "new identity provisions through real authenticated session",
+        "operational API gated after provisioning",
+        "handoff first requests user terms",
+        "PF/PJ cannot precede user terms",
+        "responsible cannot precede user terms",
+        "synthetic PDF served with integrity verification",
+        "explicit user term accepted through existing route",
+        "existing handoff next requests PF/PJ",
+        "explicit PF choice succeeds",
+        "contract still blocked before responsible",
+        "explicit self designation succeeds",
+        "operational API remains gated before contract",
+        "safe contractual return preserved",
+        "stale contract cannot be accepted after return",
+        "explicit contract acceptance releases business",
+        "formalized contract cannot reopen",
+        "completed onboarding hands off to inicio",
+        "new tenant backup uses approved H8 candidate",
+        "tenant backup excludes global admission governance",
+        "existing tenant restore succeeds",
+        "existing restore receipt is idempotent",
+        "tenant restore cannot roll back authorization, ownership or formalized evidence",
+        "post-restore provisioning replay cannot duplicate tenant",
+        "forged tenant cookie gives no foreign business access",
+        "ledger unchanged after all provisioning and restore operations",
+        "all runtime column and table privileges restored after fault injection",
+        "preexisting foundation tenants and links unchanged",
+        "raw tokens and passwords absent from logs and audit"
+      ],
+      "checkCount": 118,
+      "syntheticOnly": true,
+      "realEmail": false,
+      "concurrentRequests": 8,
+      "partialRecords": 0,
+      "schemaChanges": 0,
+      "ledgerChanges": 0
+    },
+    "regressionEnvironment": {
+      "network": "same isolated namespace",
+      "database": "gestar_vf_dev",
+      "applicationPort": 3017,
+      "databaseRelayPort": 55432,
+      "hostPublishedPorts": [],
+      "email": "disabled",
+      "admissionGate": "disabled"
+    },
+    "operational": {
+      "state": "MULTICHANNEL_HTTP_PASSED",
+      "environment": "ADMISSION_REGRESSION_LOCAL",
+      "checks": [
+        "synthetic login",
+        "synthetic login",
+        "synthetic login",
+        "synthetic login",
+        "choose own synthetic tenant",
+        "synthetic personal terms unchanged",
+        "OWNER explicitly chooses PF before contract",
+        "synthetic personal terms unchanged",
+        "choose own synthetic tenant",
+        "synthetic personal terms unchanged",
+        "choose own synthetic tenant",
+        "synthetic personal terms unchanged",
+        "anonymous creator denied",
+        "foreign origin denied",
+        "manual create succeeds without SMTP dependency",
+        "public fragment and private one-shot headers",
+        "database stores only SHA256",
+        "no identity or membership before acceptance",
+        "history cannot recover raw link",
+        "reissue succeeds",
+        "previous token invalidated",
+        "concurrent activation single winner",
+        "single OWNER and map after activation",
+        "used token cannot be replayed",
+        "member cannot invite",
+        "ADMIN cannot invite OWNER",
+        "cross-tenant profile rejected",
+        "wrong tenant context rejected",
+        "MEMBER platform denied",
+        "manual create succeeds without SMTP dependency",
+        "public fragment and private one-shot headers",
+        "database stores only SHA256",
+        "owner may issue MEMBER and history redacts link",
+        "wrong tenant cannot revoke invite",
+        "explicit EMAIL unavailable fails closed",
+        "revocation enforced",
+        "manual create succeeds without SMTP dependency",
+        "public fragment and private one-shot headers",
+        "database stores only SHA256",
+        "expired link rejected",
+        "manual create succeeds without SMTP dependency",
+        "public fragment and private one-shot headers",
+        "database stores only SHA256",
+        "existing identity requires correct authentication",
+        "existing identity activated through own session",
+        "existing identity and credential preserved",
+        "manual/reissue and membership actor audit",
+        "no email sent on manual channel",
+        "no raw token in invite/audit storage",
+        "new bootstrap identity has no implicit global access"
+      ],
+      "syntheticTenants": 3,
+      "syntheticTenantIds": [
+        "1adf760b-6f1d-4a82-a13f-df3671731cc7",
+        "a3b97992-ca65-41ac-b5ca-4e621a54d24e",
+        "be3e4217-0c5f-4c83-8f31-b34ddcfeb370"
+      ],
+      "syntheticIdentityIds": [
+        "169d75e7-ffd6-44cb-b7a6-b5ef2109c300",
+        "119163a5-1486-41eb-90ae-f949f9ca07ff",
+        "189e0d05-fcfe-46dc-80cd-2476ccd0c47c",
+        "d4b8b2eb-aa81-4c83-9a47-ac80c128a614",
+        "af5ab955-a312-46c9-b35d-44b8539617a5"
+      ],
+      "tokenCountChecked": 5,
+      "rawSecretsPrinted": false,
+      "smtpInvoked": false,
+      "migrationRequired": false
+    },
+    "contractual": {
+      "state": "CONTRACTUAL_HTTP_PASSED",
+      "environment": "ADMISSION_REGRESSION_LOCAL",
+      "checks": [
+        "exact completed ledger",
+        "restricted runtime has UPDATE but no responsible DELETE or evidence mutation",
+        "login not throttled",
+        "synthetic login",
+        "anonymous onboarding denied",
+        "PA no implicit business or nomination",
+        "official OWNER invitation",
+        "one-shot manual delivery",
+        "official OWNER activation",
+        "login not throttled",
+        "synthetic login",
+        "own context selected",
+        "user terms first",
+        "SELF cannot skip user acceptance",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "terms readable during gate",
+        "explicit synthetic USUARIO acceptance",
+        "OWNER explicitly selects PF before contracting",
+        "explicit SELF chooser",
+        "foreign origin rejected",
+        "forged tenant input rejected",
+        "SELF assigns current active OWNER",
+        "SELF assignment exact",
+        "SELF awaiting real contract receipt",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "own provisional SELF exposes return",
+        "anonymous return denied",
+        "PA cannot reopen a business choice",
+        "cross-origin return denied",
+        "forged tenant return denied",
+        "provisional SELF returns",
+        "return preserves exact provisional row without authority",
+        "stale contract acceptance after return denied",
+        "pending contract no longer actionable",
+        "return creates no acceptance",
+        "return grants no access",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "OTHER invitation created",
+        "one-shot manual delivery",
+        "SELF to OTHER remains pending",
+        "former SELF cannot accept while OTHER pending",
+        "back does not revoke pending OTHER",
+        "existing explicit revoke returns to chooser",
+        "old OTHER link invalidated",
+        "OTHER to SELF allowed before contract",
+        "terms readable during gate",
+        "explicit synthetic CONTRATANTE acceptance",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "formalized contract never exposes return",
+        "formalized contract cannot reopen",
+        "formalized receipts remain intact",
+        "SELF repeated idempotently",
+        "compiled API backup v3 exact ledger",
+        "compiled API preview",
+        "compiled API synthetic restore",
+        "compiled API restore replay",
+        "compiled API keeps live onboarding",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "official OWNER invitation",
+        "one-shot manual delivery",
+        "official OWNER activation",
+        "login not throttled",
+        "synthetic login",
+        "own context selected",
+        "terms readable during gate",
+        "explicit synthetic USUARIO acceptance",
+        "legacy unclassified can continue without forced modality",
+        "terms readable during gate",
+        "explicit synthetic CONTRATANTE acceptance",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "legacy remains unclassified",
+        "legacy cannot be silently classified",
+        "existing PF cannot be reclassified",
+        "official OWNER invitation",
+        "one-shot manual delivery",
+        "official OWNER activation",
+        "login not throttled",
+        "synthetic login",
+        "own context selected",
+        "terms readable during gate",
+        "explicit synthetic USUARIO acceptance",
+        "OWNER explicitly selects PF before contracting",
+        "OTHER invitation created",
+        "one-shot manual delivery",
+        "explicit pending association",
+        "nomination creates no identity or access",
+        "creator waiting not operational",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "GET never recovers invitation link",
+        "pending MEMBER activates during gate",
+        "login not throttled",
+        "synthetic login",
+        "own context selected",
+        "terms readable during gate",
+        "explicit synthetic USUARIO acceptance",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "MEMBER cannot self-assign",
+        "MEMBER cannot nominate",
+        "MEMBER return denied",
+        "MEMBER receives no nominee PII",
+        "nominee activates",
+        "login not throttled",
+        "synthetic login",
+        "own context selected",
+        "nominee OWNER but no premature designation",
+        "terms readable during gate",
+        "explicit synthetic USUARIO acceptance",
+        "nominee auto-designated without chooser",
+        "nominee cannot undo explicit OTHER designation",
+        "creator cannot sign for nominee",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "terms readable during gate",
+        "explicit synthetic CONTRATANTE acceptance",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "restricted MEMBER no administrative access",
+        "existing OWNER official invitation",
+        "one-shot manual delivery",
+        "existing OWNER joins with own session",
+        "own context selected",
+        "terms readable during gate",
+        "OWNER explicitly selects PF before contracting",
+        "retained SELF set before nominee reassignment",
+        "retained SELF reopened before nominee reassignment",
+        "OTHER invitation created",
+        "one-shot manual delivery",
+        "pending OTHER cannot regain retained SELF authority",
+        "existing identity requires own session",
+        "existing identity accepts own nomination",
+        "own context selected",
+        "existing identity not duplicated or credential reset",
+        "accepted global user term resolves at activation",
+        "contract scoped to new tenant",
+        "terms readable during gate",
+        "explicit synthetic CONTRATANTE acceptance",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "own context selected",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "official OWNER invitation",
+        "one-shot manual delivery",
+        "official OWNER activation",
+        "login not throttled",
+        "synthetic login",
+        "own context selected",
+        "terms readable during gate",
+        "explicit synthetic USUARIO acceptance",
+        "OWNER explicitly selects PF before contracting",
+        "OTHER invitation created",
+        "one-shot manual delivery",
+        "nomination revoke succeeds",
+        "revoked token rejected by generic activation 404",
+        "revoked cannot designate",
+        "OTHER invitation created",
+        "one-shot manual delivery",
+        "expired token rejected by generic activation 404",
+        "reissue succeeds",
+        "one-shot manual delivery",
+        "reissue updates explicit association",
+        "old token invalid after reissue",
+        "PA contingency reissue integrated",
+        "one-shot manual delivery",
+        "PA reissue retains explicit intent",
+        "PA contingency revoke integrated",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "existing OWNER official invitation",
+        "one-shot manual delivery",
+        "existing OWNER joins with own session",
+        "own context selected",
+        "existing OWNER official invitation",
+        "one-shot manual delivery",
+        "existing OWNER joins with own session",
+        "own context selected",
+        "terms readable during gate",
+        "OWNER explicitly selects PF before contracting",
+        "terms readable during gate",
+        "concurrent choices one winner and one conflict",
+        "one responsible after race",
+        "different OWNER cannot undo SELF",
+        "return versus acceptance serializes",
+        "race preserves evidence or safely reopens",
+        "race fixture reassigned before FK proof",
+        "database composite FK rejects cross-tenant assignee",
+        "database composite FK rejects cross-tenant invitation",
+        "cross-tenant switch denied",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "revoked responsible blocks next member request",
+        "inactive OWNER context revoked before nomination",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "contract ACTIVE",
+        "business unlocked next request",
+        "inactive tenant context revoked",
+        "PA manual contingency retained",
+        "contingency fabricates no acceptance",
+        "business gate /api/lancamentos",
+        "business gate /api/plano-contas",
+        "business gate /api/tarefas",
+        "business gate /api/fluxo-caixa/resumo",
+        "manual designation is not reopened as provisional SELF",
+        "own context selected",
+        "active nominee context cannot reopen another tenant via payload",
+        "unrelated tenant authority and evidence unchanged",
+        "own context selected",
+        "existing OWNER official invitation",
+        "one-shot manual delivery",
+        "existing OWNER joins with own session",
+        "own context selected",
+        "terms readable during gate",
+        "OWNER explicitly selects PF before contracting",
+        "SELF before administrative contingency",
+        "return before administrative contingency",
+        "PA can explicitly designate retained same OWNER",
+        "administrative designation remains current and cannot reopen",
+        "administrative designation explicitly clears cancellation",
+        "runtime still has no responsible DELETE",
+        "platform statuses explicit",
+        "append-only audit CONTRACTUAL_CHOICE_REOPENED",
+        "append-only audit CONTRACTUAL_ONBOARDING_STARTED",
+        "append-only audit CONTRACTUAL_SELF_SELECTED",
+        "append-only audit CONTRACTUAL_PERSON_NOMINATED",
+        "append-only audit CONTRACTUAL_INVITE_CREATED",
+        "append-only audit CONTRACTUAL_INVITE_REISSUED",
+        "append-only audit CONTRACTUAL_INVITE_REVOKED",
+        "append-only audit CONTRACTUAL_RESPONSIBLE_ASSIGNED",
+        "append-only audit TERM_ACCEPTED",
+        "append-only audit CONTRACTUAL_TENANT_RELEASED",
+        "no raw token persisted",
+        "no email sent in manual flow"
+      ],
+      "syntheticTenants": 7,
+      "syntheticTenantIds": [
+        "cbb39f03-b4f1-4179-a641-6da5078a71a5",
+        "a283113a-7b52-4fb4-8d51-cbe17cad1f9f",
+        "a020e224-be1e-437a-a4e3-8323fa5e9756",
+        "9566adb4-99a3-4ae9-bd08-9e60a34ed219",
+        "9ed15ef8-3569-4902-b230-ee9406839451",
+        "b8e25b39-a065-4cc8-881e-3847f2f037c5",
+        "66abc990-b32f-4f51-8c31-37170c5bcdd3"
+      ],
+      "syntheticIdentityIds": [
+        "0b4a89c5-c4b8-48a8-978e-6cb984e2128f",
+        "777afa81-fdcd-41b8-9405-08527e2a96e6",
+        "dae13374-15e0-4781-804c-6adfdd5111f3",
+        "f5e4f753-6a31-4314-9f2f-81e84cee8589",
+        "ff8ab572-0920-4f9f-8a2f-27cbc84aa675",
+        "86d6f7d7-236c-4cbb-9893-c5c2e33f0a99",
+        "00b4c866-12ba-41c2-b37c-c53c4e790e9a"
+      ],
+      "tokenCountChecked": 16,
+      "rawSecretsPrinted": false,
+      "baselinePreserved": false
+    },
+    "browser": {
+      "state": "PASSED",
+      "checks": [
+        "A25 Special Invitation issued and original link recovered through PlatformAdmin UI",
+        "A25 visitor registers interest through real invitation UI without authentication or operational access",
+        "a25-special-interest layout without horizontal overflow",
+        "interest alone creates no authorization",
+        "administrator authorizes through existing panel",
+        "admin-authorization layout without horizontal overflow",
+        "new-desktop-light-email layout without horizontal overflow",
+        "keyboard confirmation removes token and focuses identity step",
+        "new-desktop-light-identity layout without horizontal overflow",
+        "hold controls: mouse keyboard desktop light, unchanged focus and no submit",
+        "refined-password-desktop-light layout without horizontal overflow",
+        "hold controls: mouse keyboard touch release/cancel mobile light, unchanged focus and no submit",
+        "refined-password-mobile-light layout without horizontal overflow",
+        "hold controls: mouse keyboard desktop dark, unchanged focus and no submit",
+        "refined-password-desktop-dark layout without horizontal overflow",
+        "hold controls: mouse keyboard touch release/cancel mobile dark, unchanged focus and no submit",
+        "refined-password-mobile-dark layout without horizontal overflow",
+        "A25 direct URLs and APIs cannot bypass unidentified requirements",
+        "password mismatch receives accessible feedback",
+        "reload retains verified identity without restarting",
+        "A25 direct URLs and APIs cannot bypass identity without tenant requirements",
+        "new-desktop-light-space layout without horizontal overflow",
+        "new-mobile-light-space layout without horizontal overflow",
+        "double submit sends once and lost response reconciles committed tenant",
+        "new-provisioned-recovery layout without horizontal overflow",
+        "second tab recovers the same completed authorization",
+        "tenant handoff keeps operational gate",
+        "A25 direct URLs and APIs cannot bypass terms requirements",
+        "refined-handoff-desktop-light layout without horizontal overflow",
+        "handoff notice requires server-confirmed admission; stored reference alone cannot claim success",
+        "provisioning confirmation appears inside mandatory user terms without an extra step: desktop-light",
+        "UX04 USUARIO introduction preserved with synthetic document",
+        "UX04 PF/PJ copy preserved",
+        "UX04 responsible copy preserved",
+        "UX04 CONTRATANTE introduction preserved with synthetic document",
+        "new user completes terms PF responsible contract and operational entry via existing screens",
+        "fresh browser original mail resumes through existing login",
+        "existing-mobile-dark-identity layout without horizontal overflow",
+        "existing-desktop-dark-identity layout without horizontal overflow",
+        "existing account failure offers safe support without password reset",
+        "existing-mobile-dark-space layout without horizontal overflow",
+        "existing identity retains password and previous memberships",
+        "refined-handoff-mobile-dark layout without horizontal overflow",
+        "provisioning confirmation appears inside mandatory user terms without an extra step: mobile-dark",
+        "existing-mobile-dark-resume layout without horizontal overflow",
+        "provisioned state resumes without reprovisioning",
+        "UX04 USUARIO introduction preserved with synthetic document",
+        "UX04 CONTRATANTE introduction preserved with synthetic document",
+        "existing user completes PJ and existing contractual screens",
+        "expired challenge explains inability to continue",
+        "resend-mobile-light layout without horizontal overflow",
+        "resend confirms same authorization",
+        "cancelled authorization cannot show identity form",
+        "unauthorized reference reveals no account existence",
+        "expired special invitation remains blocked",
+        "expired-mobile-light layout without horizontal overflow"
+      ],
+      "screenshots": [
+        "a25-special-interest.png",
+        "admin-authorization.png",
+        "new-desktop-light-email.png",
+        "new-desktop-light-identity.png",
+        "refined-password-desktop-light.png",
+        "refined-password-mobile-light.png",
+        "refined-password-desktop-dark.png",
+        "refined-password-mobile-dark.png",
+        "new-desktop-light-space.png",
+        "new-mobile-light-space.png",
+        "new-provisioned-recovery.png",
+        "refined-handoff-desktop-light.png",
+        "existing-mobile-dark-identity.png",
+        "existing-desktop-dark-identity.png",
+        "existing-mobile-dark-space.png",
+        "refined-handoff-mobile-dark.png",
+        "existing-mobile-dark-resume.png",
+        "resend-mobile-light.png",
+        "expired-mobile-light.png"
+      ],
+      "browser": "Microsoft Edge headless (real Chromium)",
+      "browserVersion": "156.0.4314.58",
+      "syntheticOnly": true,
+      "realEmail": false
+    },
+    "loopbackBrowserPort": 3020,
+    "integrated": {
+      "state": "PASSED",
+      "mode": "prepare",
+      "checks": [
+        "Tenant selectors and foreign record IDs cannot read, modify or delete the other tenant data or acceptance evidence",
+        "Submitted tenantId ignored in writes; authenticated context owns each record",
+        "Formalized contracts cannot reopen; forged acceptance authority cannot rewrite receipts",
+        "Tenant backup and receipt remain tenant scoped; own restore preserves admissions, credentials, links and contracts",
+        "Terminated runtime connection after tenant/member writes rolls back every transactional row without schema changes",
+        "Retry after connection failure creates exactly one tenant, OWNER and legacy link",
+        "Unconsumed email challenge and verified pre-provision journey saved for actual recovery",
+        "All captured mail tokens, tested credentials, session proofs and signing keys absent from application logs and audit"
+      ],
+      "syntheticOnly": true,
+      "realEmail": false
+    },
+    "recovery": {
+      "state": "PASSED",
+      "tables": 44,
+      "method": "pg_dump/pg_restore plus exact sorted row digests",
+      "dumpSHA256": "3bbb85b7adbce05a1a9491ebdd00d0e9fb10b826e5807430525b99262651df6f"
+    },
+    "applicationRecovery": {
+      "state": "PASSED",
+      "sourceApplicationStopped": true,
+      "separatePostgresNamespace": true,
+      "remoteConnections": false,
+      "tables": 44,
+      "reusedEnvironmentKeysInMemory": true,
+      "privateVolumes": [
+        "synthetic PDFs",
+        "encrypted synthetic mail",
+        "tenant backup safety files"
+      ],
+      "privateVolumeArchiveSHA256": "f885621ffaa198bfdc299bcd5e2aafe3b3a176b41dc8d5cbd4359498cd470948",
+      "http": {
+        "state": "PASSED",
+        "mode": "recovered",
+        "checks": [
+          "Restored authorization states, identity links and contractual evidence exactly match pre-backup digests",
+          "PF/new and PJ/existing sessions log in and resume original tenants after independent application recovery",
+          "Tenant selectors and foreign record IDs cannot read, modify or delete the other tenant data or acceptance evidence",
+          "Published synthetic PDFs restored with exact hashes and readable through authorized application",
+          "Restore receipts and tenant isolation remain valid after recovery",
+          "Cancelled, expired and consumed challenges remain unusable after recovery",
+          "Previously unconsumed email challenge verifies after recovery; new tenant still requires its contract",
+          "Pre-backup email proof resumes with original keys; concurrent retries produce only one gated tenant",
+          "All captured mail tokens, tested credentials, session proofs and signing keys absent from application logs and audit"
+        ],
+        "syntheticOnly": true,
+        "realEmail": false
+      }
+    },
+    "state": "PASSED",
+    "containersRemoved": true,
+    "finishedAt": "2026-11-01T14:43:47.915Z"
+  },
+  "operational": {
+    "phase": "A.2.6 LOCAL",
+    "startedAt": "2026-11-01T14:43:28.053Z",
+    "syntheticOnly": true,
+    "remoteOperations": 0,
+    "network": "none",
+    "publishedPorts": [],
+    "realEmail": false,
+    "candidateImage": null,
+    "checks": [
+      "genuine H7 with 42 tables, full PostgreSQL role and membership inventory, synthetic contracts and data",
+      "no release intent denied before DDL",
+      "runtime cannot execute migration",
+      "SET ROLE does not substitute session identity",
+      "altered H7 ledger denied",
+      "extra schema in initial search path denied",
+      "elevated runtime membership denied",
+      "gestar_prod_pg18 cannot be authorized by role and intent alone",
+      "unapproved_database cannot be authorized by role and intent alone",
+      "failure after DDL rolls back both tables and all enums",
+      "Prisma partial failure retains failed ledger, rolls back DDL, and blocks automatic retry",
+      "failed rehearsal recovers exact H7 backup without editing history",
+      "H7 to H8: exactly 42 to 44 tables, prior rows/contracts/ACLs unchanged",
+      "application database proof denies missing A2 ACLs",
+      "minimal A2 ACLs replay safely; complete runtime database attestation passes",
+      "Prisma deploy replay is a no-op and ledger/status are exact H8",
+      "ledger writes denied to runtime",
+      "audit changes denied to runtime",
+      "accepted contracts denied to runtime",
+      "admission deletion denied to runtime",
+      "challenge deletion denied to runtime",
+      "immutable token denied to runtime",
+      "immutable email denied to runtime",
+      "DDL denied to runtime",
+      "unique authorization source enforced",
+      "wrong issuer identity rejected by FK",
+      "unexpected privilege expansion disables runtime authorization",
+      "PUBLIC exposure disables runtime authorization",
+      "table owner drift denied without relying on environment flags",
+      "database owner drift denied without relying on environment flags",
+      "schema owner drift denied without relying on environment flags",
+      "superuser runtime drift denied without relying on environment flags",
+      "column grant option drift denied without relying on environment flags",
+      "DR/1 AES-256-GCM backup authenticates encrypted capture and rejects tampering",
+      "independent PostgreSQL restore preserves all 44 tables, ledger, full roles, ACLs and runtime proof"
+    ],
+    "commands": [
+      {
+        "operation": "context",
+        "code": 0
+      },
+      {
+        "operation": "image",
+        "code": 0
+      },
+      {
+        "operation": "image",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "inspect",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 1
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 1
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 1
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "inspect",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "rm",
+        "code": 0
+      },
+      {
+        "operation": "rm",
+        "code": 0
+      }
+    ],
+    "roles": [
+      {
+        "rolname": "pg18_homolog_admin",
+        "rolsuper": true,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": true,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg18_homolog_migrator",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": true,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg18_homolog_runtime",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": true,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_checkpoint",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_create_subscription",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_database_owner",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_execute_server_program",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_maintain",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_monitor",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_read_all_data",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_read_all_settings",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_read_all_stats",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_read_server_files",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_signal_autovacuum_worker",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_signal_backend",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_stat_scan_tables",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_use_reserved_connections",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_write_all_data",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_write_server_files",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "postgres",
+        "rolsuper": true,
+        "rolinherit": true,
+        "rolcreaterole": true,
+        "rolcreatedb": true,
+        "rolcanlogin": true,
+        "rolreplication": true,
+        "rolbypassrls": true,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      }
+    ],
+    "memberships": [
+      {
+        "role": "pg_read_all_settings",
+        "member": "pg_monitor",
+        "admin_option": false
+      },
+      {
+        "role": "pg_read_all_stats",
+        "member": "pg_monitor",
+        "admin_option": false
+      },
+      {
+        "role": "pg_stat_scan_tables",
+        "member": "pg_monitor",
+        "admin_option": false
+      }
+    ],
+    "h7Backup": {
+      "format": "DEZ-HOMOLOG-DR/1 AES-256-GCM authenticated tar",
+      "sha256": "9d68afb1c1514dc953b90ae899f9bffa3727c43707a89c6385a8a538204ac96b",
+      "plaintextSHA256": "060e12b825940fa7bee8ef569c08b8d85ed5c29eb503435202a11004b20ff8ee",
+      "dumpSHA256": "d92da143a63711928cad03a57ca4cd4e04f3d7899ca1de6d3e745e728a5916bf"
+    },
+    "constraints": [
+      {
+        "conname": "admission_challenges_admission_id_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL admission_id"
+      },
+      {
+        "conname": "admission_challenges_admission_id_recipient_email_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (admission_id, recipient_email) REFERENCES admissions(id, authorized_email) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admission_challenges_attempt_count_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL attempt_count"
+      },
+      {
+        "conname": "admission_challenges_attempt_time",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((attempt_count = 0) AND (last_attempt_at IS NULL)) OR ((attempt_count > 0) AND (last_attempt_at IS NOT NULL) AND (last_attempt_at >= issued_at))))"
+      },
+      {
+        "conname": "admission_challenges_attempts",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((max_attempts >= 1) AND (max_attempts <= 10)) AND ((attempt_count >= 0) AND (attempt_count <= max_attempts))))"
+      },
+      {
+        "conname": "admission_challenges_delivery_status_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL delivery_status"
+      },
+      {
+        "conname": "admission_challenges_expires_at_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL expires_at"
+      },
+      {
+        "conname": "admission_challenges_expiry",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK (((expires_at > issued_at) AND (expires_at <= (issued_at +\nCASE\n    WHEN (purpose = 'EMAIL_VERIFICATION'::\"AdmissionChallengePurpose\") THEN '00:15:00'::interval\n    ELSE '00:30:00'::interval\nEND))))"
+      },
+      {
+        "conname": "admission_challenges_generation",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((generation > 0))"
+      },
+      {
+        "conname": "admission_challenges_generation_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL generation"
+      },
+      {
+        "conname": "admission_challenges_hash",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))"
+      },
+      {
+        "conname": "admission_challenges_id_admission_id_key",
+        "contype": "u",
+        "convalidated": true,
+        "definition": "UNIQUE (id, admission_id)"
+      },
+      {
+        "conname": "admission_challenges_id_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL id"
+      },
+      {
+        "conname": "admission_challenges_issued_at_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL issued_at"
+      },
+      {
+        "conname": "admission_challenges_max_attempts_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL max_attempts"
+      },
+      {
+        "conname": "admission_challenges_pkey",
+        "contype": "p",
+        "convalidated": true,
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "conname": "admission_challenges_purpose_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL purpose"
+      },
+      {
+        "conname": "admission_challenges_recipient_email_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL recipient_email"
+      },
+      {
+        "conname": "admission_challenges_state",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((status = 'PENDING'::\"AdmissionChallengeStatus\") AND (consumed_at IS NULL) AND (revoked_at IS NULL)) OR ((status = 'CONSUMED'::\"AdmissionChallengeStatus\") AND (consumed_at IS NOT NULL) AND (consumed_at >= issued_at) AND (consumed_at < expires_at) AND (attempt_count > 0) AND (last_attempt_at = consumed_at) AND (revoked_at IS NULL)) OR ((status = 'REVOKED'::\"AdmissionChallengeStatus\") AND (consumed_at IS NULL) AND (revoked_at IS NOT NULL) AND (revoked_at >= issued_at))))"
+      },
+      {
+        "conname": "admission_challenges_status_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL status"
+      },
+      {
+        "conname": "admission_challenges_token_hash_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL token_hash"
+      },
+      {
+        "conname": "admissions_authorized_at_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL authorized_at"
+      },
+      {
+        "conname": "admissions_authorized_by_admin_id_authorized_by_identity_id_fke",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (authorized_by_admin_id, authorized_by_identity_id) REFERENCES platform_admins(id, identity_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_authorized_email_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL authorized_email"
+      },
+      {
+        "conname": "admissions_cancellation",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((status = 'CANCELLED'::\"AdmissionStatus\") AND (cancelled_at IS NOT NULL) AND (cancelled_at >= authorized_at) AND (cancelled_by_admin_id IS NOT NULL) AND (cancelled_by_identity_id IS NOT NULL) AND (cancellation_reason IS NOT NULL) AND ((length(btrim(cancellation_reason)) >= 3) AND (length(btrim(cancellation_reason)) <= 200))) OR ((status <> 'CANCELLED'::\"AdmissionStatus\") AND (cancelled_at IS NULL) AND (cancelled_by_admin_id IS NULL) AND (cancelled_by_identity_id IS NULL) AND (cancellation_reason IS NULL))))"
+      },
+      {
+        "conname": "admissions_cancelled_by_admin_id_cancelled_by_identity_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (cancelled_by_admin_id, cancelled_by_identity_id) REFERENCES platform_admins(id, identity_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_email_normalized",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK (((authorized_email = lower(btrim(authorized_email))) AND ((length(authorized_email) >= 3) AND (length(authorized_email) <= 254)) AND (authorized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'::text)))"
+      },
+      {
+        "conname": "admissions_experiment_invitation_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (experiment_invitation_id) REFERENCES experiment_invitations(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_expires_at_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL expires_at"
+      },
+      {
+        "conname": "admissions_expiry",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK (((expires_at > authorized_at) AND (expires_at <= (authorized_at + '168:00:00'::interval))))"
+      },
+      {
+        "conname": "admissions_id_authorized_email_key",
+        "contype": "u",
+        "convalidated": true,
+        "definition": "UNIQUE (id, authorized_email)"
+      },
+      {
+        "conname": "admissions_id_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL id"
+      },
+      {
+        "conname": "admissions_identity_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_membership_id_identity_id_tenant_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (membership_id, identity_id, tenant_id) REFERENCES tenant_memberships(id, identity_id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_pkey",
+        "contype": "p",
+        "convalidated": true,
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "conname": "admissions_result",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((status = 'PROVISIONED'::\"AdmissionStatus\") AND (tenant_id IS NOT NULL) AND (identity_id IS NOT NULL) AND (membership_id IS NOT NULL) AND (provisioned_at IS NOT NULL) AND (email_verified_at IS NOT NULL) AND (provisioned_at >= email_verified_at) AND (provisioned_at < expires_at)) OR ((status <> 'PROVISIONED'::\"AdmissionStatus\") AND (tenant_id IS NULL) AND (identity_id IS NULL) AND (membership_id IS NULL) AND (provisioned_at IS NULL))))"
+      },
+      {
+        "conname": "admissions_source_enabled",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK (((source = 'AUTHORIZED_INVITE'::\"AdmissionSource\") AND (experiment_invitation_id IS NOT NULL) AND (source_reference = experiment_invitation_id) AND (authorized_by_admin_id IS NOT NULL) AND (authorized_by_identity_id IS NOT NULL)))"
+      },
+      {
+        "conname": "admissions_source_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL source"
+      },
+      {
+        "conname": "admissions_source_reference_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL source_reference"
+      },
+      {
+        "conname": "admissions_status_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL status"
+      },
+      {
+        "conname": "admissions_tenant_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_verification",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((verified_challenge_id IS NULL) AND (email_verified_at IS NULL)) OR ((verified_challenge_id IS NOT NULL) AND (email_verified_at IS NOT NULL) AND (email_verified_at >= authorized_at) AND (email_verified_at < expires_at))))"
+      },
+      {
+        "conname": "admissions_verified_challenge_id_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (verified_challenge_id, id) REFERENCES admission_challenges(id, admission_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      }
+    ],
+    "recovery": {
+      "state": "PASSED",
+      "tables": 44,
+      "roles": 20,
+      "encryptedSHA256": "89c984461f1d222d97a4285614cd4ba244c45f91bb4092f4f7fa4ccad5159f62",
+      "plaintextSHA256": "0a5e1032d9cbcb19f92fa4430a929815a16cca3dbd2f80df01acf290aa420e48",
+      "separateNetworkNamespace": true,
+      "allRowsAndLedgerEqual": true
+    },
+    "ledger": [
+      {
+        "name": "20261027_pg18_baseline",
+        "sha256": "54c5769aaf48114f52f597d4d79ef8c0057ff02b0a47ec78f466830638ed5ff8"
+      },
+      {
+        "name": "20261027_z_advisory_access",
+        "sha256": "29581fdb114416878cd5799485a16f6fd846ef34f1754a0321f6de91c29e45b2"
+      },
+      {
+        "name": "20261028_contractual_onboarding",
+        "sha256": "c214179b8c41fb447266d75831e9602bced487e2c32ba589f7a679e26b021c60"
+      },
+      {
+        "name": "20261029_experiment_invitations",
+        "sha256": "a1718fa659a22a9a73dbae14deed0073e5d5958d5f485a0dd387268550082d06"
+      },
+      {
+        "name": "20261029_z_experiment_link_recovery",
+        "sha256": "c7d2a402dad95beaa5c77d1a8303c10a088819941af4566b364547106d8ae284"
+      },
+      {
+        "name": "20261030_tenant_modality",
+        "sha256": "570f9d7d3e5df8b155ed6931fbf75658730ff5e030e1faf932f3b5ccf9c04934"
+      },
+      {
+        "name": "20261031_contractual_choice_return",
+        "sha256": "bf1553ef0a2cdaeb4a38f0fb9e1bb8a695dd37d47b306e9c85014e0fcf5e1f28"
+      },
+      {
+        "name": "20261101_admission_foundation",
+        "sha256": "7a825594c7abe3f0b7b87f07588b4e2b29d47d2c3ad02aeedc3a382f5a0d3551"
+      }
+    ],
+    "state": "PASSED",
+    "finishedAt": "2026-11-01T14:44:33.690Z",
+    "containersRemoved": [
+      "dez-a26-recovery-90bb6739",
+      "dez-a26-homolog-90bb6739"
+    ]
+  },
+  "offlineExecutor": {
+    "powershell": "7.6.5",
+    "sshClient": "OpenSSH_for_Windows_9.5p2, LibreSSL 3.8.2",
+    "privateKeyPresent": true,
+    "privateKeyAcl": [
+      {
+        "IdentityReference": {
+          "Value": "AUTORIDADE NT\\SISTEMA"
+        },
+        "FileSystemRights": 2032127,
+        "IsInherited": false
+      },
+      {
+        "IdentityReference": {
+          "Value": "BUILTIN\\Administradores"
+        },
+        "FileSystemRights": 2032127,
+        "IsInherited": false
+      },
+      {
+        "IdentityReference": {
+          "Value": "RMPNOTEBOOK\\ricar"
+        },
+        "FileSystemRights": 1245631,
+        "IsInherited": false
+      }
+    ],
+    "knownHostPinned": true,
+    "custodyPresent": true,
+    "remoteConnectionTested": false,
+    "credentialDecryptionPerformed": false,
+    "requiredLater": [
+      "SSH authentication and sudo/Docker permissions",
+      "fresh host key comparison",
+      "Linux Python cryptography and disk/RAM availability",
+      "fresh full role and membership inventory",
+      "HOMOLOG/PROD isolation and Coolify queues"
+    ]
+  },
+  "finalImageAttestation": "Written after this commit in external a2-6-candidate evidence directory; no image may be approved without its immutable SHA/digest proof.",
+  "evidenceFiles": [
+    {
+      "file": "unit.log",
+      "sha256": "c526354608f756a9942b68c2ba69a5c11db1a2d6d8edc6caee2761c1a537979e"
+    },
+    {
+      "file": "regression-02/RESULT.json",
+      "sha256": "8c7bb627f22b42355549417d55867173eaa409f26b1ee0dc1d8a6006af4b4f31"
+    },
+    {
+      "file": "operational-03/RESULT.json",
+      "sha256": "845d85a24d70f0515ac306f5221e29f00206459cb04b385592a1c48cb5f449a2"
+    },
+    {
+      "file": "executor-offline.json",
+      "sha256": "8e92784258b5376afd8b4c72589013e49100a9f9e66c064b018037242e43ada3"
+    }
+  ]
+}

@@ -1,7 +1,19 @@
-/** A.2.2 is a LOCAL candidate. No flag alone can enable it on a remote database. */
+/** Configuration is only the first gate. HOMOLOG also requires live database attestation in every transaction. */
 export function admissionOrigin(env: Record<string, string | undefined> = process.env): string | null {
   try {
     const database = new URL(env.DATABASE_URL || "");
+    if (env.DEPLOYMENT_PROFILE === "homolog") {
+      if (env.ADMISSION_HOMOLOG_ENABLED !== "true" || env.ADMISSION_LAB_ENABLED === "true" ||
+          env.ACCESS_AUTH_MODE !== "identity" || env.EMAIL_PROVIDER !== "mock" ||
+          env.APP_PUBLIC_URL !== "https://homolog.dezsolucoes.com.br" || env.NEXTAUTH_URL !== env.APP_PUBLIC_URL ||
+          !["postgres:", "postgresql:"].includes(database.protocol) || database.hostname !== "0f5rvkjqjdt9fez1ajiascyk" ||
+          database.port !== "5432" || database.pathname !== "/gestar_homolog_pg18" || database.username !== "pg18_homolog_runtime" ||
+          !database.password || database.hash || !["", "?schema=public"].includes(database.search) ||
+          !/^[a-f0-9]{64}$/.test(env.ADMISSION_SESSION_KEY || "") || !/^[a-f0-9]{64}$/.test(env.ADMISSION_LAB_MAIL_KEY || "") ||
+          env.ADMISSION_SESSION_KEY === env.ADMISSION_LAB_MAIL_KEY ||
+          env.ADMISSION_LAB_MAIL_DIR !== "/var/lib/10s/backups/admission-mail") return null;
+      return env.APP_PUBLIC_URL;
+    }
     if (env.ADMISSION_LAB_ENABLED !== "true" || env.DEPLOYMENT_PROFILE !== "local" ||
         env.ACCESS_AUTH_MODE === "legacy" || env.EMAIL_PROVIDER !== "mock" ||
         env.APP_PUBLIC_URL !== "http://localhost:3020" || env.NEXTAUTH_URL !== env.APP_PUBLIC_URL ||
