@@ -2048,6 +2048,1467 @@
     {
       "file": "executor-offline.json",
       "sha256": "8e92784258b5376afd8b4c72589013e49100a9f9e66c064b018037242e43ada3"
+    },
+    {
+      "file": "image-rehearsal-03/RESULT.json",
+      "sha256": "531c0fa3656e13f3999cb52bafe24449e7110a2d0d8328bb5ea89a42b46a92b9"
+    },
+    {
+      "file": "dr1-interop.json",
+      "sha256": "a6d0bcb09ed99f866460ab3663d59f51fe22aafabb74f90955e6798d21199fe3"
+    },
+    {
+      "file": "build-clean.log",
+      "sha256": "2efcd951e2105def9c9add411ef38af9583cef82c19c7687f2fa1f83f0c6f1f3"
+    },
+    {
+      "file": "build-cache.log",
+      "sha256": "27b434d5c7e44093fa8285732895086967a9a420dcf8ec33e93db9f9634ce39e"
     }
-  ]
+  ],
+  "imageRehearsal": {
+    "phase": "A.2.6 LOCAL",
+    "startedAt": "2026-11-01T14:58:35.639Z",
+    "syntheticOnly": true,
+    "remoteOperations": 0,
+    "network": "none",
+    "publishedPorts": [],
+    "realEmail": false,
+    "candidateImage": "sha256:7e603099646e01839de569cbb6fd179a015d0e632b1327f13a43585906b7e9ab",
+    "checks": [
+      "immutable candidate image present; provenance and all eight packaged migration hashes verified",
+      "genuine H7 with 42 tables, full PostgreSQL role and membership inventory, synthetic contracts and data",
+      "no release intent denied before DDL",
+      "runtime cannot execute migration",
+      "SET ROLE does not substitute session identity",
+      "altered H7 ledger denied",
+      "extra schema in initial search path denied",
+      "elevated runtime membership denied",
+      "gestar_prod_pg18 cannot be authorized by role and intent alone",
+      "unapproved_database cannot be authorized by role and intent alone",
+      "failure after DDL rolls back both tables and all enums",
+      "Prisma partial failure retains failed ledger, rolls back DDL, and blocks automatic retry",
+      "failed rehearsal recovers exact H7 backup without editing history",
+      "H7 to H8: exactly 42 to 44 tables, prior rows/contracts/ACLs unchanged",
+      "application database proof denies missing A2 ACLs",
+      "minimal A2 ACLs replay safely; complete runtime database attestation passes",
+      "Prisma deploy replay is a no-op and ledger/status are exact H8",
+      "ledger writes denied to runtime",
+      "audit changes denied to runtime",
+      "accepted contracts denied to runtime",
+      "admission deletion denied to runtime",
+      "challenge deletion denied to runtime",
+      "immutable token denied to runtime",
+      "immutable email denied to runtime",
+      "DDL denied to runtime",
+      "unique authorization source enforced",
+      "wrong issuer identity rejected by FK",
+      "unexpected privilege expansion disables runtime authorization",
+      "PUBLIC exposure disables runtime authorization",
+      "table owner drift denied without relying on environment flags",
+      "database owner drift denied without relying on environment flags",
+      "schema owner drift denied without relying on environment flags",
+      "superuser runtime drift denied without relying on environment flags",
+      "column grant option drift denied without relying on environment flags",
+      "immutable runtime candidate passes new/existing identity, concurrency, secure cookie and operational gate smoke",
+      "candidate logs contain no synthetic passwords, tokens, cookies or environment keys",
+      "DR/1 AES-256-GCM backup authenticates encrypted capture and rejects tampering",
+      "private PDF and encrypted synthetic mailbox restored with exact hashes, UID/GID and modes",
+      "same H8-compatible image starts on independent recovery and resumes the signed session; documents still block access",
+      "independent PostgreSQL restore preserves all 44 tables, ledger, full roles, ACLs and runtime proof"
+    ],
+    "commands": [
+      {
+        "operation": "context",
+        "code": 0
+      },
+      {
+        "operation": "image",
+        "code": 0
+      },
+      {
+        "operation": "image",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "inspect",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 1
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 1
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 3
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "inspect",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 1
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "logs",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "stop",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 2
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "inspect",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "run",
+        "code": 0
+      },
+      {
+        "operation": "inspect",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 1
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "exec",
+        "code": 0
+      },
+      {
+        "operation": "rm",
+        "code": 0
+      },
+      {
+        "operation": "rm",
+        "code": 0
+      },
+      {
+        "operation": "rm",
+        "code": 0
+      },
+      {
+        "operation": "rm",
+        "code": 0
+      }
+    ],
+    "sourceCommit": "cde40c4a68205d21c99f3eb0bd6b694cbb9dff83",
+    "metadata": {
+      "sourceCommit": "cde40c4a68205d21c99f3eb0bd6b694cbb9dff83",
+      "sourceBranch": "feat/a2-6-homolog-candidate",
+      "applicationVersion": "0.1.0",
+      "nodeVersion": "v20.20.2",
+      "prismaVersion": "7.8.0",
+      "lockfileSha256": "8edd3625efc9585b55b826a459c52140264af87f982c4e7eaa886cbea619c1d0",
+      "deploymentProfile": "homolog",
+      "migrations": [
+        {
+          "name": "20261027_pg18_baseline",
+          "sha256": "54c5769aaf48114f52f597d4d79ef8c0057ff02b0a47ec78f466830638ed5ff8"
+        },
+        {
+          "name": "20261027_z_advisory_access",
+          "sha256": "29581fdb114416878cd5799485a16f6fd846ef34f1754a0321f6de91c29e45b2"
+        },
+        {
+          "name": "20261028_contractual_onboarding",
+          "sha256": "c214179b8c41fb447266d75831e9602bced487e2c32ba589f7a679e26b021c60"
+        },
+        {
+          "name": "20261029_experiment_invitations",
+          "sha256": "a1718fa659a22a9a73dbae14deed0073e5d5958d5f485a0dd387268550082d06"
+        },
+        {
+          "name": "20261029_z_experiment_link_recovery",
+          "sha256": "c7d2a402dad95beaa5c77d1a8303c10a088819941af4566b364547106d8ae284"
+        },
+        {
+          "name": "20261030_tenant_modality",
+          "sha256": "570f9d7d3e5df8b155ed6931fbf75658730ff5e030e1faf932f3b5ccf9c04934"
+        },
+        {
+          "name": "20261031_contractual_choice_return",
+          "sha256": "bf1553ef0a2cdaeb4a38f0fb9e1bb8a695dd37d47b306e9c85014e0fcf5e1f28"
+        },
+        {
+          "name": "20261101_admission_foundation",
+          "sha256": "7a825594c7abe3f0b7b87f07588b4e2b29d47d2c3ad02aeedc3a382f5a0d3551"
+        }
+      ],
+      "excludedHomologAssets": []
+    },
+    "roles": [
+      {
+        "rolname": "pg18_homolog_admin",
+        "rolsuper": true,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": true,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg18_homolog_migrator",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": true,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg18_homolog_runtime",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": true,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_checkpoint",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_create_subscription",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_database_owner",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_execute_server_program",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_maintain",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_monitor",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_read_all_data",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_read_all_settings",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_read_all_stats",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_read_server_files",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_signal_autovacuum_worker",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_signal_backend",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_stat_scan_tables",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_use_reserved_connections",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_write_all_data",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "pg_write_server_files",
+        "rolsuper": false,
+        "rolinherit": true,
+        "rolcreaterole": false,
+        "rolcreatedb": false,
+        "rolcanlogin": false,
+        "rolreplication": false,
+        "rolbypassrls": false,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      },
+      {
+        "rolname": "postgres",
+        "rolsuper": true,
+        "rolinherit": true,
+        "rolcreaterole": true,
+        "rolcreatedb": true,
+        "rolcanlogin": true,
+        "rolreplication": true,
+        "rolbypassrls": true,
+        "rolconnlimit": -1,
+        "rolconfig": null
+      }
+    ],
+    "memberships": [
+      {
+        "role": "pg_read_all_settings",
+        "member": "pg_monitor",
+        "admin_option": false
+      },
+      {
+        "role": "pg_read_all_stats",
+        "member": "pg_monitor",
+        "admin_option": false
+      },
+      {
+        "role": "pg_stat_scan_tables",
+        "member": "pg_monitor",
+        "admin_option": false
+      }
+    ],
+    "h7Backup": {
+      "format": "DEZ-HOMOLOG-DR/1 AES-256-GCM authenticated tar",
+      "sha256": "a3ac5bfb47ef0a2118d44223b905243f076570bfcba26c436cbf12c06a0aa6fc",
+      "plaintextSHA256": "80f2982acd0e2df7fdcad8d8638895b886b751c8efbfe524d09268b75d6a068a",
+      "dumpSHA256": "431c4e307c2509c1b7c9fc395d9909cd52351e61a6df589b968cc9d23c06c3f8"
+    },
+    "constraints": [
+      {
+        "conname": "admission_challenges_admission_id_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL admission_id"
+      },
+      {
+        "conname": "admission_challenges_admission_id_recipient_email_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (admission_id, recipient_email) REFERENCES admissions(id, authorized_email) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admission_challenges_attempt_count_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL attempt_count"
+      },
+      {
+        "conname": "admission_challenges_attempt_time",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((attempt_count = 0) AND (last_attempt_at IS NULL)) OR ((attempt_count > 0) AND (last_attempt_at IS NOT NULL) AND (last_attempt_at >= issued_at))))"
+      },
+      {
+        "conname": "admission_challenges_attempts",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((max_attempts >= 1) AND (max_attempts <= 10)) AND ((attempt_count >= 0) AND (attempt_count <= max_attempts))))"
+      },
+      {
+        "conname": "admission_challenges_delivery_status_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL delivery_status"
+      },
+      {
+        "conname": "admission_challenges_expires_at_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL expires_at"
+      },
+      {
+        "conname": "admission_challenges_expiry",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK (((expires_at > issued_at) AND (expires_at <= (issued_at +\nCASE\n    WHEN (purpose = 'EMAIL_VERIFICATION'::\"AdmissionChallengePurpose\") THEN '00:15:00'::interval\n    ELSE '00:30:00'::interval\nEND))))"
+      },
+      {
+        "conname": "admission_challenges_generation",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((generation > 0))"
+      },
+      {
+        "conname": "admission_challenges_generation_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL generation"
+      },
+      {
+        "conname": "admission_challenges_hash",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))"
+      },
+      {
+        "conname": "admission_challenges_id_admission_id_key",
+        "contype": "u",
+        "convalidated": true,
+        "definition": "UNIQUE (id, admission_id)"
+      },
+      {
+        "conname": "admission_challenges_id_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL id"
+      },
+      {
+        "conname": "admission_challenges_issued_at_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL issued_at"
+      },
+      {
+        "conname": "admission_challenges_max_attempts_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL max_attempts"
+      },
+      {
+        "conname": "admission_challenges_pkey",
+        "contype": "p",
+        "convalidated": true,
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "conname": "admission_challenges_purpose_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL purpose"
+      },
+      {
+        "conname": "admission_challenges_recipient_email_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL recipient_email"
+      },
+      {
+        "conname": "admission_challenges_state",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((status = 'PENDING'::\"AdmissionChallengeStatus\") AND (consumed_at IS NULL) AND (revoked_at IS NULL)) OR ((status = 'CONSUMED'::\"AdmissionChallengeStatus\") AND (consumed_at IS NOT NULL) AND (consumed_at >= issued_at) AND (consumed_at < expires_at) AND (attempt_count > 0) AND (last_attempt_at = consumed_at) AND (revoked_at IS NULL)) OR ((status = 'REVOKED'::\"AdmissionChallengeStatus\") AND (consumed_at IS NULL) AND (revoked_at IS NOT NULL) AND (revoked_at >= issued_at))))"
+      },
+      {
+        "conname": "admission_challenges_status_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL status"
+      },
+      {
+        "conname": "admission_challenges_token_hash_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL token_hash"
+      },
+      {
+        "conname": "admissions_authorized_at_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL authorized_at"
+      },
+      {
+        "conname": "admissions_authorized_by_admin_id_authorized_by_identity_id_fke",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (authorized_by_admin_id, authorized_by_identity_id) REFERENCES platform_admins(id, identity_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_authorized_email_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL authorized_email"
+      },
+      {
+        "conname": "admissions_cancellation",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((status = 'CANCELLED'::\"AdmissionStatus\") AND (cancelled_at IS NOT NULL) AND (cancelled_at >= authorized_at) AND (cancelled_by_admin_id IS NOT NULL) AND (cancelled_by_identity_id IS NOT NULL) AND (cancellation_reason IS NOT NULL) AND ((length(btrim(cancellation_reason)) >= 3) AND (length(btrim(cancellation_reason)) <= 200))) OR ((status <> 'CANCELLED'::\"AdmissionStatus\") AND (cancelled_at IS NULL) AND (cancelled_by_admin_id IS NULL) AND (cancelled_by_identity_id IS NULL) AND (cancellation_reason IS NULL))))"
+      },
+      {
+        "conname": "admissions_cancelled_by_admin_id_cancelled_by_identity_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (cancelled_by_admin_id, cancelled_by_identity_id) REFERENCES platform_admins(id, identity_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_email_normalized",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK (((authorized_email = lower(btrim(authorized_email))) AND ((length(authorized_email) >= 3) AND (length(authorized_email) <= 254)) AND (authorized_email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'::text)))"
+      },
+      {
+        "conname": "admissions_experiment_invitation_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (experiment_invitation_id) REFERENCES experiment_invitations(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_expires_at_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL expires_at"
+      },
+      {
+        "conname": "admissions_expiry",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK (((expires_at > authorized_at) AND (expires_at <= (authorized_at + '168:00:00'::interval))))"
+      },
+      {
+        "conname": "admissions_id_authorized_email_key",
+        "contype": "u",
+        "convalidated": true,
+        "definition": "UNIQUE (id, authorized_email)"
+      },
+      {
+        "conname": "admissions_id_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL id"
+      },
+      {
+        "conname": "admissions_identity_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (identity_id) REFERENCES auth_identities(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_membership_id_identity_id_tenant_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (membership_id, identity_id, tenant_id) REFERENCES tenant_memberships(id, identity_id, tenant_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_pkey",
+        "contype": "p",
+        "convalidated": true,
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "conname": "admissions_result",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((status = 'PROVISIONED'::\"AdmissionStatus\") AND (tenant_id IS NOT NULL) AND (identity_id IS NOT NULL) AND (membership_id IS NOT NULL) AND (provisioned_at IS NOT NULL) AND (email_verified_at IS NOT NULL) AND (provisioned_at >= email_verified_at) AND (provisioned_at < expires_at)) OR ((status <> 'PROVISIONED'::\"AdmissionStatus\") AND (tenant_id IS NULL) AND (identity_id IS NULL) AND (membership_id IS NULL) AND (provisioned_at IS NULL))))"
+      },
+      {
+        "conname": "admissions_source_enabled",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK (((source = 'AUTHORIZED_INVITE'::\"AdmissionSource\") AND (experiment_invitation_id IS NOT NULL) AND (source_reference = experiment_invitation_id) AND (authorized_by_admin_id IS NOT NULL) AND (authorized_by_identity_id IS NOT NULL)))"
+      },
+      {
+        "conname": "admissions_source_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL source"
+      },
+      {
+        "conname": "admissions_source_reference_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL source_reference"
+      },
+      {
+        "conname": "admissions_status_not_null",
+        "contype": "n",
+        "convalidated": true,
+        "definition": "NOT NULL status"
+      },
+      {
+        "conname": "admissions_tenant_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      },
+      {
+        "conname": "admissions_verification",
+        "contype": "c",
+        "convalidated": true,
+        "definition": "CHECK ((((verified_challenge_id IS NULL) AND (email_verified_at IS NULL)) OR ((verified_challenge_id IS NOT NULL) AND (email_verified_at IS NOT NULL) AND (email_verified_at >= authorized_at) AND (email_verified_at < expires_at))))"
+      },
+      {
+        "conname": "admissions_verified_challenge_id_id_fkey",
+        "contype": "f",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (verified_challenge_id, id) REFERENCES admission_challenges(id, admission_id) ON UPDATE CASCADE ON DELETE RESTRICT"
+      }
+    ],
+    "http": {
+      "state": "PASSED",
+      "checks": [
+        "HOMOLOG image authenticates synthetic PlatformAdmin",
+        "HOMOLOG interest without approval cannot provision",
+        "new identity: concurrent approval produces one authorization",
+        "new identity: encrypted synthetic email verified with secure proof cookie",
+        "new identity: consumed challenge rejected in another session",
+        "new identity: concurrent provisioning creates one tenant with complete OWNER links",
+        "new identity: interrupted journey resumes the durable result",
+        "new identity: mandatory documents still block operational API",
+        "new identity: real API fails closed on catalog/ACL drift and recovers after correction",
+        "existing identity: concurrent approval produces one authorization",
+        "existing identity: encrypted synthetic email verified with secure proof cookie",
+        "existing identity: consumed challenge rejected in another session",
+        "existing identity: concurrent provisioning creates one tenant with complete OWNER links",
+        "existing identity: interrupted journey resumes the durable result",
+        "existing identity: mandatory documents still block operational API",
+        "existing identity retains password and all prior memberships",
+        "existing identity: real API fails closed on catalog/ACL drift and recovers after correction"
+      ]
+    },
+    "contingency": {
+      "sameH8Image": true,
+      "originalStopped": true,
+      "restoredSessionResumed": true,
+      "oldBinaryNeverUsed": true
+    },
+    "recovery": {
+      "state": "PASSED",
+      "tables": 44,
+      "roles": 20,
+      "encryptedSHA256": "ed77c7529e6f6087511da38f3c97c6c134f9fb7ed517278f8222e48e57dfd716",
+      "plaintextSHA256": "145fe8e331964dddc3a478a4e80f21f92bfa8b62594165c17e3f6c1cdae35557",
+      "separateNetworkNamespace": true,
+      "allRowsAndLedgerEqual": true
+    },
+    "ledger": [
+      {
+        "name": "20261027_pg18_baseline",
+        "sha256": "54c5769aaf48114f52f597d4d79ef8c0057ff02b0a47ec78f466830638ed5ff8"
+      },
+      {
+        "name": "20261027_z_advisory_access",
+        "sha256": "29581fdb114416878cd5799485a16f6fd846ef34f1754a0321f6de91c29e45b2"
+      },
+      {
+        "name": "20261028_contractual_onboarding",
+        "sha256": "c214179b8c41fb447266d75831e9602bced487e2c32ba589f7a679e26b021c60"
+      },
+      {
+        "name": "20261029_experiment_invitations",
+        "sha256": "a1718fa659a22a9a73dbae14deed0073e5d5958d5f485a0dd387268550082d06"
+      },
+      {
+        "name": "20261029_z_experiment_link_recovery",
+        "sha256": "c7d2a402dad95beaa5c77d1a8303c10a088819941af4566b364547106d8ae284"
+      },
+      {
+        "name": "20261030_tenant_modality",
+        "sha256": "570f9d7d3e5df8b155ed6931fbf75658730ff5e030e1faf932f3b5ccf9c04934"
+      },
+      {
+        "name": "20261031_contractual_choice_return",
+        "sha256": "bf1553ef0a2cdaeb4a38f0fb9e1bb8a695dd37d47b306e9c85014e0fcf5e1f28"
+      },
+      {
+        "name": "20261101_admission_foundation",
+        "sha256": "7a825594c7abe3f0b7b87f07588b4e2b29d47d2c3ad02aeedc3a382f5a0d3551"
+      }
+    ],
+    "state": "PASSED",
+    "finishedAt": "2026-11-01T14:59:59.515Z",
+    "containersRemoved": [
+      "dez-a26-recovery-83e75a71-app",
+      "dez-a26-recovery-83e75a71",
+      "dez-a26-homolog-83e75a71-app",
+      "dez-a26-homolog-83e75a71"
+    ]
+  },
+  "dr1Interoperability": {
+    "state": "DR1_INTEROPERABILITY_PASS",
+    "existingOperationalSource": "C:/Users/ricar/Documents/Codex/ux04-safe-return-homolog/dr-common.py",
+    "sourceSHA256": "36106ff003bb1cd857a4fc75d8b4d2583d3978080a7a0ad6a941d1a8a6b17e93",
+    "pythonToNode": true,
+    "nodeToOriginalPython": true,
+    "utf8": true,
+    "syntheticOnly": true,
+    "keysPersisted": false,
+    "remoteOperations": 0
+  },
+  "knownRehearsalCorrections": [
+    "Renamed SQL-contract module to avoid Next resolution collision with TypeScript wrapper",
+    "Corrected test FK count to approved eight, without schema change",
+    "Corrected new HTTP test expectations: idempotent authorization 200/201 and mandatory-document precondition 428",
+    "Removed experimental offline build option after npm returned without dependencies; standard build uses verified existing dependency cache",
+    "Added explicit LF attributes for new migration and ACL"
+  ],
+  "unchangedApprovedScope": {
+    "journeyScreens": true,
+    "interfaceCopy": true,
+    "prismaModels": true,
+    "originalLocalMigration": true,
+    "productionMigration": true,
+    "originalLocalAcl": true
+  }
 }

@@ -156,7 +156,7 @@ try {
   await run(['exec',pg,'mkdir','-p','/var/lib/postgresql/a26-backup']);
   await run(['exec',pg,'pg_dump','-U','postgres','-d',db,'-Fc','-f','/var/lib/postgresql/a26-backup/database.dump']);
   await run(['exec',pg,'pg_dumpall','-U','postgres','--roles-only','-f','/var/lib/postgresql/a26-backup/roles.sql']);
-  await run(['exec','-i',pg,'sh','-c','cat > /var/lib/postgresql/a26-backup/configuration.private.json'],JSON.stringify({database:db,owner:mg,roles:report.roles,databaseAcl:await value("SELECT datacl::text FROM pg_database WHERE datname=current_database()"),sourceCommit:report.sourceCommit||'local-source-rehearsal',...(application?{env:application.env,client:application.client}:{})}));
+  await run(['exec','-i',pg,'sh','-c','cat > /var/lib/postgresql/a26-backup/configuration.private.json'],JSON.stringify({database:db,owner:mg,roles:report.roles,databaseAcl:await value("SELECT datacl::text FROM pg_database WHERE datname=current_database()"),sourceCommit:report.sourceCommit||'local-source-rehearsal',...(application?{env:application.env,client:application.client,files:application.files}:{})}));
   if(application)await run(['exec','-i',pg,'sh','-c','cat > /var/lib/postgresql/a26-backup/volumes.tar'],application.volumes);
   const tar=(await run(['exec',pg,'tar','-C','/var/lib/postgresql/a26-backup','-cf','-','.'])).bytes;
   const cipher=encrypt(tar);writeFileSync(join(out,'synthetic-h8.aesgcm'),cipher);assert.deepEqual(decrypt(readFileSync(join(out,'synthetic-h8.aesgcm'))),tar);

@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {randomBytes} from 'node:crypto';
 const random=()=>randomBytes(32).toString('hex');
+const fileProof=`const f=require('fs'),p=require('path'),c=require('crypto'),a=[];function walk(d){for(const n of f.readdirSync(d).sort()){const v=p.join(d,n),s=f.statSync(v);if(s.isDirectory())walk(v);else a.push({path:v,sha256:c.createHash('sha256').update(f.readFileSync(v)).digest('hex'),mode:s.mode&511,uid:s.uid,gid:s.gid})}}walk('/var/lib/10s');console.log(JSON.stringify(a))`;
 export async function startCandidate({run,image,pg,name,created,env}){
   await run(['run','-d','--pull=never','--name',name,'--network','container:'+pg,'--restart','no','--label','purpose=dez-a26-local-rehearsal','--memory','1g',
     '--tmpfs','/var/lib/10s/backups:uid=1001,gid=1001,mode=0700','--tmpfs','/var/lib/10s/terms:uid=1001,gid=1001,mode=0700',
@@ -19,6 +20,8 @@ export async function rehearseCandidate({run,image,pg,created,out,app,pass}){
     TERM_STORAGE_DIR:'/var/lib/10s/terms',TENANT_BACKUP_DIR:'/var/lib/10s/backups',TENANT_BACKUP_INSTANCE_ID:'a26-synthetic',TENANT_BACKUP_SIGNING_KEY_ID:'a26',TENANT_BACKUP_SIGNING_KEYS:JSON.stringify({a26:random()}),
     SPECIAL_INVITATIONS_ENABLED:'true',SPECIAL_INVITATION_LINK_KEY_ID:'a26',SPECIAL_INVITATION_LINK_KEYS:JSON.stringify({a26:random()}),HOSTNAME:'127.0.0.1',PORT:'3000'};
   await startCandidate({run,image,pg,name,created,env});
+  const pdfSource=readFileSync(join(app,'tests/synthetic-pdf.cjs'),'utf8');
+  await run(['exec','-i','-w','/app',name,'node'],pdfSource+"\nrequire('fs').writeFileSync('/var/lib/10s/terms/recovery-synthetic.pdf',module.exports(),{mode:0o600});");
   const suite=await run(['exec','-i','-w','/app',name,'node'],readFileSync(join(app,'tests/admission-homolog.http.cjs')),false);
   const log=await run(['logs',name]);
   writeFileSync(join(out,'candidate-http.log'),suite.stdout+suite.stderr);writeFileSync(join(out,'candidate-app.log'),log.stdout+log.stderr);
@@ -29,6 +32,7 @@ export async function rehearseCandidate({run,image,pg,created,out,app,pass}){
   const logs=log.stdout+log.stderr+suite.stdout+suite.stderr;
   for(const value of [...secrets,env.AUTH_SECRET,env.ADMISSION_SESSION_KEY,env.ADMISSION_LAB_MAIL_KEY,...client.cookies.map(([,v])=>v.value)])assert(!value||!logs.includes(value),'SENSITIVE_VALUE_IN_LOG');
   pass('candidate logs contain no synthetic passwords, tokens, cookies or environment keys');
+  const files=JSON.parse((await run(['exec',name,'node','-e',fileProof])).stdout);
   // Freeze application before capturing both DB and private volumes.
   // Freeze the Node process while exec/tar remains available for private tmpfs mounts.
   // No other ingress exists in this network-none namespace.
@@ -36,17 +40,19 @@ export async function rehearseCandidate({run,image,pg,created,out,app,pass}){
   const volumes=(await run(['exec',name,'tar','-C','/var/lib/10s','-cf','-','terms','backups'])).bytes;
   await run(['exec','-u','0',name,'kill','-CONT','1']);
   await run(['stop','-t','10',name]);
-  return {env,client,volumes,checks,originalApplicationStopped:true};
+  return {env,client,volumes,files,checks,originalApplicationStopped:true};
 }
 export async function recoverCandidate({run,image,pg,created,context,pass,out}){
   const name=pg+'-app';await startCandidate({run,image,pg,name,created,env:context.env});
   await run(['exec','-i','-u','0',name,'tar','-C','/var/lib/10s','-xf','-'],context.volumes);
+  assert.deepEqual(JSON.parse((await run(['exec',name,'node','-e',fileProof])).stdout),context.files);
+  pass('private PDF and encrypted synthetic mailbox restored with exact hashes, UID/GID and modes');
   // Keys and signed session are preserved in memory/private encrypted backup, never output.
   const code=`const assert=require('assert/strict'); const c=${JSON.stringify(context.client)};
     (async()=>{const headers={Cookie:c.cookies.map(([k,v])=>k+'='+v.value).join('; ')};
       let r=await fetch('http://127.0.0.1:3000/api/admissions/'+c.id,{headers,redirect:'manual'});
       assert.equal(r.status,200);assert.equal((await r.json()).state,'PROVISIONED');
-      r=await fetch('http://127.0.0.1:3000/api/lancamentos',{headers,redirect:'manual'});assert.equal(r.status,409);
+      r=await fetch('http://127.0.0.1:3000/api/lancamentos',{headers,redirect:'manual'});assert.equal(r.status,428);
       console.log('RECOVERED_IDENTITY_ADMISSION_CONTRACTUAL_GATE_PASS');
     })().catch(()=>{console.error('RECOVERED_APPLICATION_FAILED');process.exitCode=1});`;
   const r=await run(['exec','-i','-w','/app',name,'node'],code);

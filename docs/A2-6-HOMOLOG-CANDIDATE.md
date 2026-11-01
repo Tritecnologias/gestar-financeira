@@ -25,7 +25,7 @@ Branch: `feat/a2-6-homolog-candidate`. Nenhuma operação remota nesta rodada.
    somente o mesmo perfil/histórico, sem converter ou reassinar H7/LOCAL/PROD.
    O preparador existente embute somente as migrations do perfil escolhido.
 5. **Executor:** o `ops/security/build-clean.ps1` existente recebe perfil explícito
-   e opção offline; preserva exigência de Git limpo e fonte por `git archive`.
+   e preserva exigência de Git limpo e fonte por `git archive`.
    Não foi criado executor de publicação. Os novos scripts são laboratórios
    sem rede, SSH ou capacidade de selecionar um alvo remoto.
 
@@ -61,6 +61,21 @@ Testa H7→H8, repetição, falha tardia, ledger falho, recuperação de H7, rol
 owners, FKs, unicidade, ACLs, criptografia AES-256-GCM e recuperação independente.
 Na variante com imagem final, testa a aplicação standalone, nova/existente
 identidade, concorrência, cookies seguros, retomada e fallback na mesma imagem H8.
+
+O ensaio da primeira imagem do candidato passou em **40 verificações operacionais
+e 17 verificações HTTP**: executou migrations pela imagem, aplicação real e
+recuperação independente usando a mesma imagem H8. Banco, ledger, inventário
+completo de 20 roles do cluster sintético, ACLs, sessão assinada e arquivos
+privados foram recuperados. Hashes, UID/GID e modos dos arquivos conferem.
+O formato cifrado também foi cruzado com as funções originais Python do
+procedimento UX04: Python→Node e Node→Python, sem alterar o contrato DR/1.
+
+O primeiro ensaio estritamente offline invalidou o cache do `npm ci`; o npm
+encerrou sem instalar o Prisma e o build parou antes de gerar imagem. Esse modo
+experimental foi retirado do executor. O build padrão reaproveitou a camada
+`npm ci` já existente, com package/lockfile idênticos, e passou Next, TypeScript,
+preparo H8 e política de artefato. A implantação futura deve transportar/carregar
+a imagem pronta pelo hash, sem depender de instalação npm no servidor.
 
 O SSH foi inspecionado somente offline: cliente, existência/ACL da chave e
 known_hosts. Credenciais reais não foram decifradas. Não houve conexão remota.
@@ -117,6 +132,13 @@ disponíveis, DNS/TLS/proxy/Coolify nem inventário atual de roles/ledger/volume
 Esses pontos exigem verificação na futura janela, antes de qualquer alteração.
 Disponibilidade de imagem no Docker **local** não prova disponibilidade no host.
 Não declarar GO operacional irrestrito com base nos testes funcionais.
+
+**Parecer:** GO técnico para submeter o novo candidato ao aceite de uma janela
+controlada de HOMOLOG, após a atestação final de imagem associada ao SHA limpo.
+O GO de execução permanece condicionado à nova autorização e aos gates remotos
+acima. A orquestração Coolify/SSH do host não foi executada nem validada por uma
+simulação que substitua sua configuração real. Os comandos de build, migration,
+ACL, inicialização, captura, restauração e contingência foram ensaiados localmente.
 
 Recuperação autônoma de conta, entrega real de e-mail, preparação dos ambientes e
 homologação final de Ricardo continuam pendentes para publicação pública. Nenhuma

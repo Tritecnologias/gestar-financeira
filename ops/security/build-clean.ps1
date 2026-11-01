@@ -1,4 +1,4 @@
-param([string]$Tag = '10s-phase1a:verified', [ValidateSet('homolog','production')][string]$Profile = 'homolog', [switch]$Offline)
+param([string]$Tag = '10s-phase1a:verified', [ValidateSet('homolog','production')][string]$Profile = 'homolog')
 $ErrorActionPreference = 'Stop'
 $repo = (git rev-parse --show-toplevel)
 if ($LASTEXITCODE -ne 0) { throw 'Not a Git checkout' }
@@ -15,7 +15,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Git archive failed' }
 tar -xf $archive -C $destination
 if ($LASTEXITCODE -ne 0) { throw 'Archive extraction failed' }
 $buildArgs = @('build', '--build-arg', "SOURCE_COMMIT=$revision", '--build-arg', "SOURCE_BRANCH=$branch", '--build-arg', "DEPLOYMENT_PROFILE=$Profile", '-t', $Tag)
-if ($Offline) { $buildArgs += '--network=none' }
 $buildArgs += (Join-Path $destination 'app')
 docker @buildArgs
 if ($LASTEXITCODE -ne 0) { throw 'Docker build failed; diagnostic context preserved' }
