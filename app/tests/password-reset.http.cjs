@@ -1,106 +1,132 @@
-// Real Next + PostgreSQL + TLS SMTP inside the existing network-none A.2 lab only.
+// Real Next/PostgreSQL, no SMTP, network-none disposable LOCAL lab only.
 const assert=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto');
 const {PrismaClient}=require('@prisma/client'),{PrismaPg}=require('@prisma/adapter-pg'),bcrypt=require('bcryptjs');
 let stage='local guard';const checks=[],secrets=[];
 const pass=name=>{checks.push(name);stage=name;};
 async function main(){
  assert.equal(process.env.PASSWORD_RESET_LAB,'1');assert.equal(process.env.DEPLOYMENT_PROFILE,'local');
- assert.equal(process.env.DATABASE_URL,'postgresql://a2_runtime@127.0.0.1:5432/special_invite_lab');assert.equal(process.env.SMTP_HOST,'localhost');
- const db=new PrismaClient({adapter:new PrismaPg({connectionString:'postgresql://postgres@127.0.0.1:5432/special_invite_lab',max:2}),log:[]});
+ assert.equal(process.env.DATABASE_URL,'postgresql://a2_runtime@127.0.0.1:5432/special_invite_lab');
+ assert(!process.env.SMTP_HOST);assert(!process.env.SMTP_PASSWORD);assert.equal(process.env.EMAIL_PROVIDER,'mock');
+ const db=new PrismaClient({adapter:new PrismaPg({connectionString:'postgresql://postgres@127.0.0.1:5432/special_invite_lab',max:3}),log:[]});
  const base='http://localhost:3020',old='Synthetic-reset-old-2026!',fresh='Synthetic-reset-new-2026!',adminPassword='Synthetic-admin-only-2026!';
- secrets.push(old,fresh,adminPassword,process.env.AUTH_SECRET,process.env.CAPTURE_PASSWORD);
- const ids={};let ip=1;const jars=new WeakMap();
+ secrets.push(old,fresh,adminPassword,process.env.AUTH_SECRET);
+ const ids={};let adminRole;let ip=1;const jars=new WeakMap();
  async function req(jar,path,init={},origin=base){if(!jars.has(jar))jars.set(jar,ip++);const r=await fetch(origin+path,{...init,redirect:'manual',headers:{Cookie:[...jar].map(([k,v])=>k+'='+v).join('; '),'x-10s-proxy-token':process.env.TRUSTED_PROXY_TOKEN,'x-real-ip':`198.18.27.${jars.get(jar)}`,...init.headers}});for(const c of r.headers.getSetCookie()){const x=c.split(';')[0],at=x.indexOf('=');jar.set(x.slice(0,at),x.slice(at+1));}return r;}
- async function login(email,password,origin=base){const jar=new Map();let r=await req(jar,'/api/auth/csrf',{},origin);const {csrfToken}=await r.json();await req(jar,'/api/auth/callback/credentials',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Auth-Return-Redirect':'1'},body:new URLSearchParams({email,password,csrfToken,callbackUrl:origin+'/minha-conta'})},origin);r=await req(jar,'/api/auth/session',{},origin);return{jar,user:(await r.json())?.user};}
+ async function login(email,password,origin=base){const jar=new Map();const csrf=await req(jar,'/api/auth/csrf',{},origin);const {csrfToken}=await csrf.json();await req(jar,'/api/auth/callback/credentials',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-Auth-Return-Redirect':'1'},body:new URLSearchParams({email,password,csrfToken,callbackUrl:origin+'/minha-conta'})},origin);return{jar,user:(await (await req(jar,'/api/auth/session',{},origin)).json())?.user};}
  const post=(jar,path,body,extra={},origin=base)=>req(jar,path,{method:'POST',headers:{'Content-Type':'application/json',Origin:base,...extra},body:JSON.stringify(body)},origin);
  const issue=(jar,id,body={confirm:true,adminPassword},headers={},origin=base)=>post(jar,`/api/platform/identities/${id}/password-reset`,body,headers,origin);
- const consume=(token,p=fresh,extra={})=>post(new Map(),'/api/account/password-reset',{token,newPassword:p,confirmation:p,...extra});
- async function capture(email){const r=await fetch('http://127.0.0.1:8025/?email='+encodeURIComponent(email),{headers:{Authorization:'Bearer '+process.env.CAPTURE_PASSWORD}});const {message}=await r.json();if(!message)return null;
-   const plain=message.replace(/=\r?\n/g,'').replace(/=([0-9a-f]{2})/gi,(_,hex)=>String.fromCharCode(parseInt(hex,16)));
-   const match=plain.match(/http:\/\/localhost:3020\/redefinir-senha#token=([0-9a-f-]{36}\.[A-Za-z0-9_-]{43})/);assert(match,'SMTP_PROOF_NOT_FOUND');secrets.push(match[1]);assert(!plain.includes(old)&&!plain.includes(adminPassword)&&!plain.includes(fresh),'PASSWORD_IN_MAIL');return match[1];}
- async function create(name,password=old){const i=await db.authIdentity.create({data:{nome:'RESET LOCAL '+name,email:`reset-${name}@example.invalid`,senhaHash:await bcrypt.hash(password,12)}});ids[name]=i.id;return i;}
- async function issued(name){const r=await issue(admin.jar,ids[name]);assert.equal(r.status,200,'ISSUE_'+name);const result=await r.json();assert.deepEqual(Object.keys(result).sort(),['expiresAt','message']);const token=await capture(`reset-${name}@example.invalid`);assert(token);return token;}
- async function fixtureProof(name,expires){const identity=await db.authIdentity.findUnique({where:{id:ids[name]}}),actor=await db.authIdentity.findUnique({where:{id:ids.admin},include:{platformAdmin:true}});
-   const expiresAt=expires.toISOString(),grant=await db.auditEvent.create({data:{occurredAt:new Date(expires.getTime()-15*60000),actorIdentityId:actor.id,platformAdminId:actor.platformAdmin.id,accessMode:'PLATFORM_ADMIN',action:'PASSWORD_RESET_ISSUED',resourceType:'AuthIdentity',resourceId:identity.id,result:'SUCCESS',metadata:{expiresAt,origin:base}}});
-   await db.auditEvent.create({data:{actorIdentityId:actor.id,platformAdminId:actor.platformAdmin.id,accessMode:'PLATFORM_ADMIN',action:'PASSWORD_RESET_EMAIL_SENT',resourceType:'PasswordResetAuthorization',resourceId:grant.id,result:'SUCCESS'}});
-   const sig=crypto.createHmac('sha256',process.env.AUTH_SECRET).update(JSON.stringify(['dez/admin-password-reset/v1',base,grant.id,identity.id,identity.email,identity.senhaHash,actor.id,actor.senhaHash,expiresAt])).digest('base64url');const token=grant.id+'.'+sig;secrets.push(token);return token;}
+ const change=(jar,password,p=fresh,extra={},origin=base)=>post(jar,'/api/account/password',{currentPassword:password,newPassword:p,confirmation:p,...extra},{},origin);
+ async function create(name,password=old){const i=await db.authIdentity.create({data:{nome:'RESET LOCAL '+name,email:`reset-${name}@example.invalid`,senhaHash:await bcrypt.hash(password,4)}});ids[name]=i.id;return i;}
+ async function issued(name,actor=admin){const r=await issue(actor.jar,ids[name]);assert.equal(r.status,200,'ISSUE_'+name);assert(r.headers.get('cache-control').includes('no-store'));const value=await r.json();assert.deepEqual(Object.keys(value).sort(),['expiresAt','message','temporaryPassword']);assert.match(value.temporaryPassword,/^D9![A-Za-z0-9_-]{32}a$/);assert(!secrets.includes(value.temporaryPassword));secrets.push(value.temporaryPassword);assert(Date.parse(value.expiresAt)>Date.now()+29*60000&&Date.parse(value.expiresAt)<=Date.now()+30*60000);return value.temporaryPassword;}
+ async function fixture(name,expires){const expiresAt=expires.toISOString();return db.auditEvent.create({data:{occurredAt:new Date(expires.getTime()-30*60000),actorIdentityId:ids.admin,platformAdminId:adminRole.id,accessMode:'PLATFORM_ADMIN',action:'PASSWORD_TEMPORARY_ISSUED',resourceType:'AuthIdentity',resourceId:ids[name],result:'SUCCESS',metadata:{expiresAt}}});}
+ const noUser=async jar=>assert(!(await(await req(jar,'/api/auth/session')).json())?.user);
  try{
- stage='fixture setup';const actor=await create('admin',adminPassword);await db.platformAdmin.create({data:{identityId:actor.id,status:'ACTIVE'}});
- assert.equal(process.env.EMAIL_PROVIDER,'mock');assert.equal(process.env.TRANSACTIONAL_EMAIL_PROVIDER,'smtp');
- assert.equal((await fetch(base+'/adesao')).status,200,'EXISTING_ADMISSION_CONFIGURATION');
- pass('transactional SMTP preserves the approved synthetic Admission configuration');
- for(const name of ['member','other','expired','cancelled','changed','inactive','failed','rollback','reauth','browser','browsermobile','ratelimit'])await create(name);
+ stage='fixtures';const actor=await create('admin',adminPassword);adminRole=await db.platformAdmin.create({data:{identityId:actor.id,status:'ACTIVE'}});
+ const roleId=adminRole.id;
+ for(const name of ['aux','browseradmin','limitadmin']){const i=await create(name,adminPassword);await db.platformAdmin.create({data:{identityId:i.id,status:'ACTIVE'}});}
+ for(const name of ['member','other','expired','expiringsession','replacement','rollback','rollbackchange','reauth','browser','browsermobile','race','resetvschange','malformed','inactive','disabled','pendingrecovery','normal','quota'])await create(name);
  await db.authIdentity.update({where:{id:ids.inactive},data:{status:'INACTIVE'}});
- for(let n=1;n<=2;n++){const tenant=await db.tenant.create({data:{nome:'RESET LOCAL TENANT '+n,slug:'reset-local-'+n,email:`tenant${n}@example.invalid`}});const profile=await db.accessProfile.create({data:{tenantId:tenant.id,nome:'Reset owner',permissoes:['acessos.usuarios.view']}});await db.tenantMembership.create({data:{identityId:ids.member,tenantId:tenant.id,role:'OWNER',profileId:profile.id}});}
- const membersBefore=await db.tenantMembership.findMany({where:{identityId:ids.member}});
+ for(let n=1;n<=2;n++){const t=await db.tenant.create({data:{nome:'RESET LOCAL TENANT '+n,slug:'reset-local-'+n,email:`tenant${n}@example.invalid`}});const p=await db.accessProfile.create({data:{tenantId:t.id,nome:'Reset owner',permissoes:['acessos.usuarios.view']}});const m=await db.tenantMembership.create({data:{identityId:ids.member,tenantId:t.id,role:'OWNER',profileId:p.id}});
+  if(n===1){const u=await db.usuario.create({data:{tenantId:t.id,nome:'RESET LOCAL member',email:'reset-member@example.invalid',senhaHash:await bcrypt.hash(old,4),papel:'admin',ativo:true}});await db.legacyUserAccessMap.create({data:{legacyUsuarioId:u.id,identityId:ids.member,tenantId:t.id,membershipId:m.id}});}
+ }
  const protectedTables=['tenants','tenant_memberships','access_profiles','usuarios','legacy_user_access_maps','term_acceptances','tenant_contractual_responsibles','tenant_contractual_onboarding','term_documents','term_versions','access_owner_events','admissions','admission_challenges','_prisma_migrations'];
  async function snapshot(){const result={};for(const table of protectedTables)result[table]=await db.$queryRawUnsafe(`SELECT count(*)::int n,md5(coalesce(string_agg(to_jsonb(t)::text,chr(10) ORDER BY to_jsonb(t)::text),'')) digest FROM public.${table} t`);return result;}
  const before=await snapshot();
- var admin=await login(actor.email,adminPassword);const member=await login('reset-member@example.invalid',old),parallel=await login('reset-member@example.invalid',old);assert(admin.user&&member.user&&parallel.user,'AUTHENTICATION');
- stage='authorization';assert.equal((await issue(new Map(),ids.member)).status,401);assert.equal((await issue(member.jar,ids.member)).status,403);
- assert.equal((await issue(admin.jar,ids.member,{confirm:false,adminPassword})).status,400);
- assert.equal((await issue(admin.jar,ids.member,{confirm:true,adminPassword,email:'other@example.invalid'})).status,400);
+ var admin=await login(actor.email,adminPassword),aux=await login('reset-aux@example.invalid',adminPassword);
+ const member=await login('reset-member@example.invalid',old),parallel=await login('reset-member@example.invalid',old);assert(admin.user&&aux.user&&member.user&&parallel.user);
+ const companies=await(await req(member.jar,'/api/tenants')).json();assert.equal(companies.length,2);
+ const legacyBefore=await login('reset-member@example.invalid',old,'http://localhost:3022');assert(legacyBefore.user,'LEGACY_PRECONDITION');
+ stage='authority';assert.equal((await issue(new Map(),ids.member)).status,401);assert.equal((await issue(member.jar,ids.member)).status,403);
+ for(const body of [{confirm:false,adminPassword},{confirm:true,adminPassword,email:'other@example.invalid'},{confirm:true,adminPassword,temporaryPassword:'Chosen-manually!'}])assert.equal((await issue(admin.jar,ids.member,body)).status,400);
  assert.equal((await issue(admin.jar,ids.member,undefined,{Origin:'https://untrusted.invalid'})).status,403);
- assert.equal((await issue(admin.jar,ids.member,{confirm:true,adminPassword:'not-the-admin-password'})).status,403);
+ assert.equal((await issue(admin.jar,ids.member,{confirm:true,adminPassword:'wrong'})).status,403);
  assert.equal((await issue(admin.jar,ids.inactive)).status,409);
- pass('only active PlatformAdmin with confirmation, own credential and trusted origin can issue; recipient cannot be overridden');
- stage='simultaneous issuance';const requests=await Promise.all([issue(admin.jar,ids.member),issue(admin.jar,ids.member)]);assert.deepEqual(requests.map(r=>r.status).sort(),[200,429]);
- const token=await capture('reset-member@example.invalid');assert(token);for(const response of requests){const value=JSON.stringify(await response.json());assert(!value.includes(token)&&!value.includes('/redefinir-senha#'));}
- const audit=JSON.stringify(await db.auditEvent.findMany({where:{action:{startsWith:'PASSWORD_RESET_'}}}));assert(!audit.includes(token)&&!audit.includes(adminPassword));
- assert.equal((await db.auditEvent.count({where:{action:'PASSWORD_RESET_ISSUED',resourceId:ids.member}})),1);
- pass('duplicate issuance yields one SMTP message and no link in administrator API or audit');
- stage='proof misuse';const mutated=token.slice(0,-1)+(token.endsWith('A')?'B':'A');assert.equal((await consume(mutated)).status,400);
- assert.equal((await consume(token,fresh,{identityId:ids.other})).status,400);assert.equal((await consume(token,'a'.repeat(73))).status,400);
- const page=await fetch(base+'/redefinir-senha');assert.equal(page.status,200);assert.equal(page.headers.get('referrer-policy'),'no-referrer');
- pass('tampering, target injection, bcrypt truncation and GET consumption are rejected');
- stage='simultaneous consumption';const consumes=await Promise.all([consume(token),consume(token)]);assert.deepEqual(consumes.map(r=>r.status).sort(),[200,400]);assert.equal((await consume(token)).status,400);
- assert(!(await login('reset-member@example.invalid',old)).user);assert((await login('reset-member@example.invalid',fresh)).user);
- assert(!(await (await req(parallel.jar,'/api/auth/session')).json())?.user);assert.equal((await req(member.jar,'/api/tenants')).status,401);
- assert.deepEqual(await db.tenantMembership.findMany({where:{identityId:ids.member}}),membersBefore);assert.deepEqual(await snapshot(),before);
- pass('single atomic consumption revokes prior sessions and preserves two tenants, roles, contracts, ledger and all protected records');
- stage='expiry';const expired=await fixtureProof('expired',new Date(Date.now()-1000));assert.equal((await consume(expired)).status,400);
- const cancelled=await fixtureProof('cancelled',new Date(Date.now()+10*60000));await db.auditEvent.create({data:{action:'PASSWORD_RESET_REVOKED',accessMode:'SYSTEM',resourceType:'PasswordResetAuthorization',resourceId:cancelled.split('.')[0],result:'SUCCESS'}});assert.equal((await consume(cancelled)).status,400);
- pass('expired and revoked authorizations are refused');
- stage='binding';let changed=await issued('changed');await db.authIdentity.update({where:{id:ids.changed},data:{email:'changed-recipient@example.invalid'}});assert.equal((await consume(changed)).status,400);await db.authIdentity.update({where:{id:ids.changed},data:{email:'reset-changed@example.invalid'}});
- await db.platformAdmin.update({where:{identityId:ids.admin},data:{status:'INACTIVE'}});assert.equal((await consume(changed)).status,400);await db.platformAdmin.update({where:{identityId:ids.admin},data:{status:'ACTIVE'}});
- const own=await login('reset-changed@example.invalid',old);assert.equal((await post(own.jar,'/api/account/password',{currentPassword:old,newPassword:fresh,confirmation:fresh})).status,200);assert.equal((await consume(changed)).status,400);
- pass('email change, issuer revocation and normal Minha Conta password change invalidate pending proofs');
- stage='SMTP failure';await fetch('http://127.0.0.1:8025/failure?on=1',{method:'POST',headers:{Authorization:'Bearer '+process.env.CAPTURE_PASSWORD}});
- assert.equal((await issue(admin.jar,ids.failed)).status,503);assert.equal(await capture('reset-failed@example.invalid'),null);assert(await bcrypt.compare(old,(await db.authIdentity.findUnique({where:{id:ids.failed}})).senhaHash));
- assert.equal(await db.auditEvent.count({where:{action:'PASSWORD_RESET_EMAIL_FAILED'}}),1);
- await fetch('http://127.0.0.1:8025/failure?on=0',{method:'POST',headers:{Authorization:'Bearer '+process.env.CAPTURE_PASSWORD}});
- pass('SMTP rejection records failure without changing password or claiming success');
- stage='rollback';const rollback=await issued('rollback');await db.$executeRawUnsafe(`CREATE FUNCTION reset_lab_reject() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='PASSWORD_RESET_CONSUMED' THEN RAISE EXCEPTION 'SYNTHETIC_AUDIT_FAILURE'; END IF; RETURN NEW; END $$`);await db.$executeRawUnsafe('CREATE TRIGGER reset_lab_reject BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reset_lab_reject()');
- assert.equal((await consume(rollback)).status,503);assert(await bcrypt.compare(old,(await db.authIdentity.findUnique({where:{id:ids.rollback}})).senhaHash));assert.equal(await db.auditEvent.count({where:{action:'PASSWORD_RESET_CONSUMED',resourceId:rollback.split('.')[0]}}),0);
- await db.$executeRawUnsafe('DROP TRIGGER reset_lab_reject ON audit_events');await db.$executeRawUnsafe('DROP FUNCTION reset_lab_reject()');assert.equal((await consume(rollback)).status,200);
- pass('induced audit failure rolls back password and consumption together');
- stage='reenqueue and limits';const previous=await fixtureProof('ratelimit',new Date(Date.now()+10*60000));const replacement=await issued('ratelimit');assert.equal((await consume(previous)).status,400);assert.equal((await issue(admin.jar,ids.ratelimit)).status,429);
- await fixtureProof('ratelimit',new Date(Date.now()+10*60000));
- // Audit is append-only even for the fixture owner. Cross the real resend boundary
- // instead of editing evidence, so this assertion tests the quota independently.
- const replacementEvent=await db.auditEvent.findUnique({where:{id:replacement.split('.')[0]}});
- console.log('Waiting for the real 60-second resend interval in the isolated lab');
- await new Promise(resolve=>setTimeout(resolve,Math.max(0,replacementEvent.occurredAt.getTime()+60_100-Date.now())));
- assert.equal((await issue(admin.jar,ids.ratelimit)).status,429);
- pass('replacement revokes predecessor; cooldown and persistent per-recipient quota hold');
- stage='admin reauthentication limit';for(let i=0;i<4;i++)assert.equal((await issue(admin.jar,ids.reauth,{confirm:true,adminPassword:'wrong'})).status,403);assert.equal((await issue(admin.jar,ids.reauth)).status,429);
- // A second independent synthetic administrator serves the browser validation.
- const browserAdmin=await create('browseradmin',adminPassword);await db.platformAdmin.create({data:{identityId:browserAdmin.id,status:'ACTIVE'}});
- pass('five failed administrative reauthentications enforce a persistent cooldown');
- stage='disabled runtime';const disabled=await login('reset-browseradmin@example.invalid',adminPassword,'http://localhost:3021');assert(disabled.user);
- assert.equal((await issue(disabled.jar,ids.other,undefined,{},'http://localhost:3021')).status,503);
- const html=await (await req(disabled.jar,'/plataforma',{},'http://localhost:3021')).text();assert(html.includes('Reset de senha indisponível'));
- const loginHtml=await (await fetch(base+'/login')).text();assert(loginHtml.includes('Suporte via WhatsApp'));assert(!loginHtml.includes('https://wa.me/'));assert(!loginHtml.includes('Esqueci minha senha'));
- pass('same compiled application disables reset at runtime without transactional email; WhatsApp has no published contact');
- stage='catalog authority';await db.$executeRawUnsafe('GRANT DELETE ON audit_events TO a2_runtime');const safeAdmin=await login('reset-browseradmin@example.invalid',adminPassword);assert.equal((await issue(safeAdmin.jar,ids.other)).status,503);await db.$executeRawUnsafe('REVOKE DELETE ON audit_events FROM a2_runtime');
- pass('unexpected database privileges fail closed before issuance');
- assert.deepEqual(await snapshot(),before);const tableCount=(await db.$queryRawUnsafe("SELECT count(*)::int n FROM pg_tables WHERE schemaname='public'"))[0].n;assert.equal(tableCount,44);
- const logs=fs.readFileSync('/tmp/a2-app.log','utf8');for(const value of secrets)assert(!logs.includes(value),'SENSITIVE_LOG');
- const allAudit=JSON.stringify(await db.auditEvent.findMany());for(const value of secrets)assert(!allAudit.includes(value),'SENSITIVE_AUDIT');
- pass('44 tables and unchanged migration ledger; no passwords or links in logs/audit');
+ pass('active PlatformAdmin, reauthentication, confirmation, origin and fixed target; no manual password or email input');
+ stage='duplicate reset';const results=await Promise.all([issue(admin.jar,ids.member),issue(admin.jar,ids.member)]);assert.deepEqual(results.map(r=>r.status).sort(),[200,429]);
+ const success=results.find(r=>r.status===200);assert(success.headers.get('cache-control').includes('no-store'));const value=await success.json(),temporary=value.temporaryPassword;secrets.push(temporary);
+ assert.equal(await db.auditEvent.count({where:{action:'PASSWORD_TEMPORARY_ISSUED',resourceId:ids.member}}),1);
+ const stored=await db.authIdentity.findUnique({where:{id:ids.member}});assert(await bcrypt.compare(temporary,stored.senhaHash));assert.equal(bcrypt.getRounds(stored.senhaHash),12);assert(!await bcrypt.compare(old,stored.senhaHash));assert.equal(stored.id,ids.member);
+ await noUser(member.jar);await noUser(parallel.jar);assert(!(await login('reset-member@example.invalid',old)).user);
+ assert(!(await login('reset-member@example.invalid',old,'http://localhost:3022')).user);
+ assert(!(await(await req(legacyBefore.jar,'/api/auth/session',{},'http://localhost:3022')).json())?.user);
+ pass('concurrent reset yields one random credential, bcrypt12, one event; previous password and sessions revoked');
+ stage='restriction';const limited=await login('reset-member@example.invalid',temporary),second=await login('reset-member@example.invalid',temporary);assert(limited.user.passwordChangeRequired);assert(second.user.passwordChangeRequired);
+ const restricted=['/api/tenants','/api/platform/tenants','/api/lancamentos','/api/usuarios','/api/terms/status','/api/access/context'];
+ for(const path of restricted)assert([401,403,428].includes((await req(limited.jar,path)).status),'RESTRICTED_'+path);
+ for(const path of ['/inicio','/plataforma','/selecionar-tenant']){const r=await req(limited.jar,path);assert.equal(r.status,307);assert(r.headers.get('location').endsWith('/minha-conta'));}
+ assert.equal((await req(limited.jar,'/minha-conta')).status,200);
+ // Signed stale claim simulates missing middleware evidence; server must still consult DB.
+ const {decode,encode}=await import('next-auth/jwt');const token=await decode({token:limited.jar.get('authjs.session-token'),secret:process.env.AUTH_SECRET,salt:'authjs.session-token'});
+ const forged=new Map(limited.jar);forged.set('authjs.session-token',await encode({token:{...token,passwordChangeRequired:false},secret:process.env.AUTH_SECRET,salt:'authjs.session-token'}));
+ assert.equal((await req(forged,'/api/tenants')).status,401);assert.equal((await req(forged,'/api/platform/tenants')).status,401);
+ const csrfToken=(await(await req(limited.jar,'/api/auth/csrf')).json()).csrfToken;
+ await post(limited.jar,'/api/auth/session',{csrfToken,data:{passwordChangeRequired:false,user:{passwordChangeRequired:false}}});
+ assert((await(await req(limited.jar,'/api/auth/session')).json()).user.passwordChangeRequired);
+ assert.equal((await issue(forged,ids.other)).status,401);
+ assert.equal((await change(limited.jar,temporary,temporary)).status,400);assert.equal((await change(limited.jar,temporary,'a'.repeat(73))).status,400);
+ assert.equal((await change(limited.jar,temporary,fresh,{identityId:ids.other})).status,400);
+ pass('mandatory first change enforced on URLs and APIs, stale/mutated session claims and target tampering; temporary password cannot become definitive');
+ stage='concurrent completion';const changes=await Promise.all([change(limited.jar,temporary),change(second.jar,temporary)]);assert.deepEqual(changes.map(r=>r.status).sort(),[200,401]);
+ await noUser(limited.jar);await noUser(second.jar);assert(!(await login('reset-member@example.invalid',temporary)).user);
+ const restored=await login('reset-member@example.invalid',fresh);assert(restored.user&&!restored.user.passwordChangeRequired);assert.deepEqual(await(await req(restored.jar,'/api/tenants')).json(),companies);
+ assert(!(await login('reset-member@example.invalid',old,'http://localhost:3022')).user);
+ assert.deepEqual(await snapshot(),before);
+ pass('one definitive change under concurrency, all temporary sessions revoked, credential cannot be reused; identity/two tenants/permissions/contracts unchanged');
+ stage='normal change';const normal=await login('reset-normal@example.invalid',old),normal2=await login('reset-normal@example.invalid',old);
+ assert.equal((await change(normal.jar,'wrong')).status,400);assert.equal((await change(normal.jar,old)).status,200);await noUser(normal2.jar);assert((await login('reset-normal@example.invalid',fresh)).user);
+ pass('Minha Conta regular change still requires current password and invalidates concurrent sessions');
+ stage='expiry';await fixture('expired',new Date(Date.now()-1000));assert(!(await login('reset-expired@example.invalid',old)).user);
+ await fixture('expiringsession',new Date(Date.now()+3500));const expiring=await login('reset-expiringsession@example.invalid',old);assert(expiring.user?.passwordChangeRequired);await new Promise(r=>setTimeout(r,3600));await noUser(expiring.jar);assert.equal((await change(expiring.jar,old)).status,401);
+ const renewed=await issued('expired');assert((await login('reset-expired@example.invalid',renewed)).user?.passwordChangeRequired);
+ pass('expired temporary credentials and already-issued sessions are rejected; administrator can replace expired password');
+ stage='replacement';await fixture('replacement',new Date(Date.now()+10*60000));const prior=await login('reset-replacement@example.invalid',old);assert(prior.user.passwordChangeRequired);
+ const replacement=await issued('replacement');await noUser(prior.jar);assert(!(await login('reset-replacement@example.invalid',old)).user);assert((await login('reset-replacement@example.invalid',replacement)).user.passwordChangeRequired);
+ assert.equal((await issue(admin.jar,ids.replacement)).status,429);
+ pass('replacement closes previous authorization, changes credential and respects cooldown');
+ stage='reset login race';const racing=await Promise.all([issue(aux.jar,ids.race),login('reset-race@example.invalid',old)]);assert.equal(racing[0].status,200);const raceValue=await racing[0].json();secrets.push(raceValue.temporaryPassword);await noUser(racing[1].jar);assert(!(await login('reset-race@example.invalid',old)).user);assert((await login('reset-race@example.invalid',raceValue.temporaryPassword)).user.passwordChangeRequired);
+ pass('concurrent old-password authentication never retains operational access after reset commits');
+ stage='reset change race';await fixture('resetvschange',new Date(Date.now()+10*60000));const raceSession=await login('reset-resetvschange@example.invalid',old);
+ const simultaneous=await Promise.all([issue(aux.jar,ids.resetvschange),change(raceSession.jar,old)]);assert.equal(simultaneous[0].status,200);assert([200,401].includes(simultaneous[1].status));const latest=await simultaneous[0].json();secrets.push(latest.temporaryPassword);await noUser(raceSession.jar);
+ const current=await db.authIdentity.findUnique({where:{id:ids.resetvschange}});assert(await bcrypt.compare(latest.temporaryPassword,current.senhaHash));assert((await login('reset-resetvschange@example.invalid',latest.temporaryPassword)).user.passwordChangeRequired);
+ assert.equal((await change(raceSession.jar,latest.temporaryPassword)).status,401);
+ pass('reset versus definitive change serializes on identity; stale session cannot use newly learned temporary password');
+ stage='rollback issuance';const initial=(await db.authIdentity.findUnique({where:{id:ids.rollback}})).senhaHash;
+ await db.$executeRawUnsafe("CREATE FUNCTION reset_lab_reject() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='PASSWORD_TEMPORARY_ISSUED' THEN RAISE EXCEPTION 'SYNTHETIC_AUDIT_FAILURE'; END IF; RETURN NEW; END $$");
+ await db.$executeRawUnsafe('CREATE TRIGGER reset_lab_reject BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reset_lab_reject()');
+ assert.equal((await issue(aux.jar,ids.rollback)).status,503);assert.equal((await db.authIdentity.findUnique({where:{id:ids.rollback}})).senhaHash,initial);assert.equal(await db.auditEvent.count({where:{action:'PASSWORD_TEMPORARY_ISSUED',resourceId:ids.rollback}}),0);
+ await db.$executeRawUnsafe('DROP TRIGGER reset_lab_reject ON audit_events');await db.$executeRawUnsafe('DROP FUNCTION reset_lab_reject()');
+ stage='rollback completion';const rollback=await issued('rollbackchange',aux),rollbackUser=await login('reset-rollbackchange@example.invalid',rollback);
+ await db.$executeRawUnsafe("CREATE FUNCTION reset_lab_reject() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='PASSWORD_TEMPORARY_COMPLETED' THEN RAISE EXCEPTION 'SYNTHETIC_AUDIT_FAILURE'; END IF; RETURN NEW; END $$");
+ await db.$executeRawUnsafe('CREATE TRIGGER reset_lab_reject BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reset_lab_reject()');
+ assert.equal((await change(rollbackUser.jar,rollback)).status,500);assert(await bcrypt.compare(rollback,(await db.authIdentity.findUnique({where:{id:ids.rollbackchange}})).senhaHash));assert((await login('reset-rollbackchange@example.invalid',rollback)).user.passwordChangeRequired);
+ await db.$executeRawUnsafe('DROP TRIGGER reset_lab_reject ON audit_events');await db.$executeRawUnsafe('DROP FUNCTION reset_lab_reject()');assert.equal((await change(rollbackUser.jar,rollback)).status,200);
+ pass('audit failures roll back both password and restriction atomically on reset and completion');
+ stage='malformed state';await db.auditEvent.create({data:{actorIdentityId:ids.admin,platformAdminId:roleId,accessMode:'PLATFORM_ADMIN',action:'PASSWORD_TEMPORARY_ISSUED',resourceType:'AuthIdentity',resourceId:ids.malformed,result:'SUCCESS',metadata:{expiresAt:'invalid'}}});
+ assert(!(await login('reset-malformed@example.invalid',old)).user);
+ pass('malformed durable state fails closed');
+ stage='disabled runtime';const disabledPassword=await issued('disabled',aux),disabled=await login('reset-disabled@example.invalid',disabledPassword,'http://localhost:3021');assert(disabled.user.passwordChangeRequired);
+ assert([401,428].includes((await req(disabled.jar,'/api/tenants',{},'http://localhost:3021')).status));
+ const disabledAdmin=await login('reset-aux@example.invalid',adminPassword,'http://localhost:3021');assert.equal((await issue(disabledAdmin.jar,ids.other,undefined,{},'http://localhost:3021')).status,503);
+ assert.equal((await change(disabled.jar,disabledPassword,fresh,{},'http://localhost:3021')).status,200);
+ pass('same build with reset issuance disabled still enforces and completes pending change; no SMTP dependency');
+ stage='persistent quotas';const limiter=await login('reset-limitadmin@example.invalid',adminPassword);for(let i=0;i<5;i++)assert.equal((await issue(limiter.jar,ids.reauth,{confirm:true,adminPassword:'wrong'})).status,403);assert.equal((await issue(limiter.jar,ids.reauth)).status,429);
+ for(let i=0;i<3;i++){const grant=await fixture('quota',new Date(Date.now()+20*60000));await db.auditEvent.create({data:{actorIdentityId:ids.admin,accessMode:'SYSTEM',action:'PASSWORD_TEMPORARY_REPLACED',resourceType:'TemporaryPassword',resourceId:grant.id,result:'SUCCESS'}});}
+ assert.equal((await issue(aux.jar,ids.quota)).status,429);
+ pass('persistent administrative reauthentication limit and per-identity issuance quota');
+ stage='catalog';await db.$executeRawUnsafe('GRANT DELETE ON audit_events TO a2_runtime');assert.equal((await issue(aux.jar,ids.other)).status,503);await db.$executeRawUnsafe('REVOKE DELETE ON audit_events FROM a2_runtime');
+ pass('unexpected ACL fails closed before reset; no additional privileges needed');
+ stage='removed public reset';assert([401,404].includes((await post(new Map(),'/api/account/password-reset',{token:'obsolete',newPassword:fresh,confirmation:fresh})).status));
+ const loginHtml=await(await fetch(base+'/login')).text();assert(!loginHtml.includes('Esqueci minha senha'));assert(!loginHtml.includes('https://wa.me/'));
+ assert.equal((await req(admin.jar,'/api/platform/identities/'+ids.member+'/password-reset')).status,405);
+ pass('no public email reset or read-back endpoint; WhatsApp contact remains unpublished');
+ await issued('pendingrecovery',aux);
+ assert.deepEqual(await snapshot(),before);assert.equal((await db.$queryRawUnsafe("SELECT count(*)::int n FROM pg_tables WHERE schemaname='public'"))[0].n,44);
+ const logs=fs.readFileSync('/tmp/a2-app.log','utf8'),audit=JSON.stringify(await db.auditEvent.findMany());
+ for(const value of secrets){assert(!logs.includes(value),'SENSITIVE_LOG');assert(!audit.includes(value),'SENSITIVE_AUDIT');}
+ pass('no plaintext credentials in logs or audit; 44 tables, unchanged ledger and protected data');
  fs.writeFileSync('/tmp/password-reset-browser.json',JSON.stringify({adminEmail:'reset-browseradmin@example.invalid',adminPassword,old,newPassword:fresh,browserId:ids.browser,mobileId:ids.browsermobile}));
- fs.writeFileSync('/tmp/password-reset-result.json',JSON.stringify({state:'PASSED',checks,tableCount,realExternalEmail:false,smtp:'TLS + AUTH local capture',sameBuildRuntimeModes:['enabled local SMTP','disabled/mock'],protectedRecordsUnchanged:true},null,2));
+ fs.writeFileSync('/tmp/password-reset-result.json',JSON.stringify({state:'PASSED',checks,tableCount:44,realExternalEmail:false,smtp:'not configured or used',sameBuildRuntimeModes:['issuance enabled','issuance disabled with enforcement active'],protectedRecordsUnchanged:true},null,2));
  console.log(JSON.stringify({state:'PASSED',checks:checks.length}));
  }finally{await db.$disconnect();}
 }
-main().catch(error=>{console.error(JSON.stringify({state:'FAILED',stage,type:error.name,code:error.code||null}));process.exitCode=1;});
+main().catch(error=>{console.error(JSON.stringify({state:'FAILED',stage,type:error.name,code:error.code||null,location:(error.stack||'').split('\n').find(v=>v.includes('password-reset.http.cjs'))?.trim()}));process.exitCode=1;});

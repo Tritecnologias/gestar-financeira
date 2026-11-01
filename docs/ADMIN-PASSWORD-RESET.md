@@ -1,80 +1,108 @@
-# Reset de senha pelo PlatformAdmin
+# A.2.7 — Recuperação assistida por senha provisória
 
-Implementação LOCAL derivada do SHA homologado `60a69cb69597a40e2bfb3dd782a95b99e717b63f`. Substitui a proposta anterior de compartilhamento manual. Não cria recuperação pública, chatbot, módulo, tabela, migration ou ACL.
+Decisão final de Ricardo: substituir o reset por link/e-mail ainda não publicado pela geração administrativa de senha provisória, com troca obrigatória. Trabalho somente LOCAL. Referência homologada preservada: `60a69cb69597a40e2bfb3dd782a95b99e717b63f`. Branch: `feat/a2-7-temporary-password-reset`, derivada do reset não publicado `a45ac268fe903bc78ed70d22780d03efe5bbbf8e`.
 
-## Funcionamento
+## Operação e reaproveitamento
 
-No catálogo atual, cada identidade ativa, vinculada ou sem empresas, tem **Resetar senha**. A confirmação identifica a conta e seu e-mail cadastrado e pede a senha do próprio PlatformAdmin. O servidor verifica novamente a autoridade; administradores de tenant e suporte não podem emitir.
+O catálogo de identidades da Administração da Plataforma conserva a ação **Resetar senha**. Exige PlatformAdmin ativo, confirmação do titular e reautenticação com a senha definitiva do administrador. Nenhum administrador empresarial ou operador de suporte ganha essa capacidade.
 
-O link é enviado automaticamente pelo adaptador SMTP/Nodemailer existente. Não há opção manual, `devLink`, cópia, consulta posterior ou link na resposta administrativa. A interface recebe apenas resultado e validade. Não é criada senha temporária.
+A aplicação gera 192 bits aleatórios com `crypto.randomBytes(24)`, representados em uma senha de 36 caracteres com maiúscula, minúscula, número e símbolo. O administrador não escolhe a senha. Somente o hash bcrypt com custo 12 é gravado na identidade global pelo escritor protegido de Minha Conta. A credencial anterior deixa de funcionar.
 
-O titular abre `/redefinir-senha#token=…`, escolhe e confirma a senha e depois faz login normalmente. O fragmento sai do histórico e permanece apenas em memória até a conclusão/saída. Recarregar exige reabrir o e-mail. GET não consome a autorização. A página reutiliza `PasswordInput` com olho por pressão e o estilo de Minha Conta.
+A confirmação exibe a senha uma única vez e permite copiar para o compartilhamento manual pelo canal previamente verificado. O conteúdo existe em memória e na resposta HTTPS sem cache; não existe consulta posterior, envio por e-mail ou persistência em storage do navegador. Fechar/navegar descarta a exibição. A cópia para a área de transferência é a ação explícita aprovada para o administrador; a plataforma não controla capturas ou histórico de clipboard do dispositivo.
 
-Minha Conta → Alterar Senha continua exigindo sessão e senha atual. Os dois caminhos compartilham somente a gravação protegida e sua auditoria; não existe parâmetro para ignorar a senha atual. A identidade permanece a mesma, sem alterar tenants, memberships, perfis, OWNER, termos ou contratos. As sessões anteriores deixam de autorizar na próxima validação pelo `credentialStamp` existente.
+**Validade: 30 minutos**, contados na transação de emissão. Não se estende a cada login. Após expirar, nem a senha provisória nem uma sessão emitida com ela autorizam a troca; o titular precisa de novo reset administrativo. Resposta perdida não é repetida automaticamente: o administrador deve gerar outra senha após o intervalo de segurança.
 
-## Proteções
+O login com senha provisória permite apenas Minha Conta → Alterar Senha e encerramento da sessão. O formulário já existente exige a senha provisória atual, uma nova senha diferente e confirmação. Reutiliza PasswordInput com olho por pressão. Após salvar, encerra as sessões provisórias e pede login com a senha definitiva. A troca normal de Minha Conta continua disponível e exige a senha atual.
 
-- Validade de 15 minutos; três emissões por identidade em 15 minutos, intervalo de 60 segundos e dez emissões por administrador no período. Cinco falhas de confirmação da senha administrativa suspendem novas confirmações por 15 minutos.
-- Prova HMAC SHA-256 com finalidade exclusiva, vinculada à origem, autorização, identidade, e-mail, credencial vigente do titular e do emissor e expiração. A chave vem da custódia de autenticação existente; não há hash de senha ou carimbo de sessão no link.
-- Auditoria existente registra emissão, substituição, envio/falha e consumo. Nenhum token, assinatura, senha, corpo do e-mail ou hash vai para essa trilha. O registro não é suficiente para obter um link sem a assinatura secreta.
-- Emissão, reemissão e consumo serializam a identidade; senha e evento de consumo pertencem à mesma transação. Falha de auditoria desfaz a alteração da senha. O estado de consumo não depende de memória do processo.
-- Exige evento positivo de aceitação SMTP. Falha de entrega ou interrupção antes desse registro não libera o comprovante, mesmo que o SMTP tenha eventualmente aceitado a mensagem. Não há repetição automática.
-- Reemissão invalida a anterior. Mudança da senha/e-mail, identidade inativa, emissor desautorizado, cancelamento registrado, expiração e consumo impedem reutilização. A rota administrativa não aceita destinatário, link, senha do titular ou identidade substituta no corpo.
-- Reutiliza validação de origem, corpo limitado, orçamento de requisições e logs restritos. A conexão `accountDatabase` não registra argumentos Prisma. O catálogo real de banco/roles/ACL/ledger é conferido pelo contrato A.2 existente dentro das operações.
-- Novas senhas deste reset respeitam o limite efetivo de 72 bytes UTF-8 do bcrypt, sem truncamento. A política dos demais caminhos e as credenciais legadas não foram alteradas nesta entrega; o achado anterior permanece registrado separadamente.
+## Controles de servidor
 
-## Configuração e disponibilidade
+- A verificação central de sessão consulta a credencial e a pendência durável, independentemente dos flags de emissão, da interface e de alegações enviadas pelo cliente.
+- `auth()`, usado pelos fluxos operacionais existentes, não fornece identidade para sessões restritas. Somente as duas entradas de manutenção de senha usam a sessão restrita. Middleware orienta navegação, mas não constitui o controle definitivo.
+- O HMAC `credentialStamp` existente invalida as sessões após cada troca. Não é exposto no DTO de sessão. Os escritores de senha o revalidam depois de obter lock da identidade, impedindo uso de sessão antiga mesmo que conheça a credencial mais recente.
+- Login e validação do JWT leem credencial/pendência com lock compartilhado; reset e troca usam lock exclusivo. Resets com emissor e titular distintos ordenam os locks.
+- A identidade cuja credencial foi resetada também é recusada no modo legado de rollback. Isso impede reativar o hash histórico de Usuario por configuração. Os demais usuários legados preservam o comportamento anterior.
+- A senha definitiva não pode ser a provisória. Novas gravações em Minha Conta recusam truncamento acima de 72 bytes UTF-8 do bcrypt. A validação de credenciais legadas no login não foi reescrita.
+- Mesma origem, corpo limitado, cabeçalhos sem cache, limite de requisições e trilha administrativa existentes são reaproveitados.
+- Limites persistentes: intervalo mínimo de 60 segundos, até três resets por identidade e dez por administrador em 15 minutos. Cinco falhas de reautenticação administrativa suspendem novas confirmações por 15 minutos.
+- Estado inválido ou ambíguo e falha de banco não liberam acesso. Credencial e eventos de auditoria pertencem à mesma transação: falha desfaz ambos.
 
-Tudo é selecionado em runtime; nenhum contato ou segredo usa `NEXT_PUBLIC_*`. Uma única versão serve aos três perfis. Por padrão, a funcionalidade fica indisponível:
+## Estado durável, schema e ACLs
+
+Não foi necessária alteração estrutural. A auditoria imutável já era utilizada como autorização durável no reset anterior e permite representar esta transição sem outra tabela ou campo:
+
+1. `PASSWORD_TEMPORARY_ISSUED`: identidade alvo, administrador e vencimento; nunca senha, hash ou carimbo.
+2. `PASSWORD_TEMPORARY_REPLACED`: encerra a emissão anterior por seu identificador quando outro reset é aplicado.
+3. `PASSWORD_TEMPORARY_COMPLETED`: encerra a pendência junto com a gravação da senha definitiva.
+4. `PASSWORD_CHANGED` e `PASSWORD_RESET_AUTH_DENIED`: preservam alteração de credencial e falhas de reautenticação.
+
+A consulta considera emissões sem evento terminal correspondente. Não depende de ordenar eventos por relógios ou de estado em memória; mais de uma pendência ou metadados inesperados bloqueiam. Expiração usa o relógio do PostgreSQL. Os índices existentes por ação e data atendem ao volume administrativo previsto.
+
+Nenhuma migration, tabela, coluna ou ACL nova. Mantidos H8 em HOMOLOG, P7 no candidato produtivo e 44 tabelas incluindo ledger. Emissão continua verificando banco, roles, schema, ledger e privilégios pelo contrato A.2. Não foi concedido DELETE. Identidade, Usuario histórico, tenants, memberships, perfis, termos e contratos não são reescritos pelo reset.
+
+## Configuração e portabilidade
+
+Um único código, com configuração em runtime:
 
 ```dotenv
 PASSWORD_RESET_ENABLED=false
-TRANSACTIONAL_EMAIL_READY=false
+ACCESS_AUTH_MODE=identity
 SUPPORT_WHATSAPP_ENABLED=false
-# SUPPORT_WHATSAPP_NUMBER: somente dígitos no formato internacional; não preencher/publicar sem autorização.
 ```
 
-Para habilitar, é necessário configurar o SMTP existente, `TRANSACTIONAL_EMAIL_PROVIDER=smtp`, `ACCESS_AUTH_MODE=identity`, as duas autorizações explícitas de reset/e-mail, origens pública/autenticação iguais e chave de autenticação válida. Na ausência do seletor transacional, vale `EMAIL_PROVIDER`. O painel e a emissão conferem conexão TLS/autenticação SMTP com `verify()`, além da identidade real do banco. Configuração ausente, provider transacional `mock`, SMTP inacessível ou privilégios divergentes deixam o botão desabilitado e a API bloqueada.
+Habilitação exige perfil e destino completos reconhecidos, chave de autenticação e origem consistentes, além da verificação real de catálogo/ACL do A.2. LOCAL aceita somente o laboratório e identidades `@example.invalid`. HOMOLOG mantém uma lista explícita de identidades sintéticas pelo parâmetro já existente `PASSWORD_RESET_TEST_RECIPIENTS` (nome histórico; não provoca envio). PROD usa autorização independente e o destino produtivo exato. Desabilitar emissão **não desabilita** pendências já existentes.
 
-O seletor transacional reutiliza exatamente o mesmo adaptador e as mesmas variáveis SMTP. Ele permite preservar `EMAIL_PROVIDER=mock` da Adesão em LOCAL/HOMOLOG enquanto o reset usa uma captura SMTP local ou caixas de teste explicitamente autorizadas. Não altera o guard nem a entrega da Adesão. Em PROD, ambos podem usar SMTP com a mesma configuração, sem alterar o código.
+SMTP, OAuth2, Azure, remetente e prontidão transacional não participam desse reset. A rota/tela pública de redefinição por link e o seletor SMTP exclusivo dessa recuperação foram removidos. O serviço de e-mail dos outros fluxos permanece preservado; a Adesão continua com seus próprios requisitos de confirmação e entrega.
 
-`TRANSACTIONAL_EMAIL_READY=true` é uma atestação operacional após qualificação de envio/entrega, não uma conclusão automática baseada na presença de credenciais. `verify()` prova conexão e autenticação; `SENT` significa aceitação pelo SMTP, não entrega garantida na caixa de entrada. DNS, reputação, rejeições posteriores e entrega real continuam dependências da implantação transacional prevista. Esta rodada não contrata nem configura provedor externo.
+LOCAL/HOMOLOG/PROD usam as mesmas regras de credencial e sessão. Os contratos H8/P7 e de backup não mudam. Esta rodada não produz nem publica OCI de release, não aplica migrations e não habilita ambientes remotos.
 
-| Perfil | Destino e transporte permitidos |
-| --- | --- |
-| LOCAL | Origem `http://localhost:3020`, banco isolado `special_invite_lab`, role `a2_runtime`, SMTP loopback e destinatários `@example.invalid`. O laboratório usa TLS com certificado próprio confiado somente no processo de teste. |
-| HOMOLOG | Origem, host, banco e runtime já definidos no contrato A.2; SMTP com autorização e lista exata `PASSWORD_RESET_TEST_RECIPIENTS` de até dez caixas controladas. Lista ausente/inválida bloqueia. |
-| PROD | Origem, host, banco e runtime produtivos já definidos no contrato A.2; ativação independente e destinatário exclusivamente obtido da identidade cadastrada. |
+## Validação LOCAL
 
-O catálogo de banco continua exigindo H8/P7 e 44 tabelas, conforme o perfil. Não habilitar o reset sobre um ledger anterior. A funcionalidade não depende de liberar a Adesão ao público. Cada ambiente conserva suas credenciais e autorização própria.
-
-O suporte no login mostra **Suporte via WhatsApp — em preparação** enquanto não publicado. Somente `SUPPORT_WHATSAPP_ENABLED=true` e um número internacional válido produzem um link fixo `https://wa.me/…`. Nenhum contato foi definido ou publicado nesta entrega.
-
-## Testes locais
-
-Reutiliza `scripts/admission/run-http-lab.mjs` com a opção `--password-reset`, o dump sintético verificado da A.2.1, o relay de navegador e a captura SMTP TLS da fase 6. Não é executor de publicação.
+Ponto de entrada reutilizado, sem novo executor:
 
 ```text
-node --test tests/password-reset-policy.test.mjs tests/account-password.test.mjs
-node scripts/admission/run-http-lab.mjs <evidencias-A2.1> <diretorio-novo> --password-reset
+node --test tests/account-password.test.mjs tests/password-reset-policy.test.mjs tests/admission-security.test.mjs tests/admission-homolog.test.mjs
+node scripts/admission/run-http-lab.mjs <diretorio-A2.1> <novo-diretorio-evidencias> --password-reset
 ```
 
-O ensaio requer Docker local, `PYTHON_EXECUTABLE` apontando ao Python com cryptography já usado no ambiente e Playwright/Edge do ambiente de desenvolvimento. Os containers ficam sem rede externa, sem portas Docker publicadas e são removidos ao final. Somente o relay de navegador usa loopback. Não são lidos `.env` reais nem usados dados ou mensagens de clientes.
+O ensaio usa PostgreSQL descartável, dump sintético verificado, aplicação Next em build de produção e Edge real. Containers sem rede externa e sem portas Docker publicadas; relay de navegador somente loopback. Nenhum SMTP é configurado. O mesmo build roda com emissão habilitada/desabilitada e autenticação legada para testar ausência de bypass.
 
-As verificações incluem SMTP TLS/AUTH e falha de envio, autorização administrativa, manipulação de destinatário, concorrência na emissão/consumo, expiração, revogação, mudança de credencial, rollback por falha induzida, sessões antigas, dois tenants preservados, termos/contratos/ledger, configuração desabilitada no mesmo build, logs e UI desktop/mobile/Claro/Escuro com mouse, teclado e toque. O teste de restauração integral anterior não é repetido: não há alteração de schema. Uma recuperação operacional de snapshot deve invalidar autorizações pendentes antes de reabrir o ambiente, inclusive por rotação controlada da chave de autenticação quando aplicável.
+Cobertura: autorização/negação administrativa, senha aleatória e bcrypt, exibição/cópia única, expiração inclusive de sessão aberta, tentativa de reutilização, URL/API direta, alegações de sessão manipuladas, concorrência de reset/login/troca, rollback induzido, Minha Conta, preservação de dados, Adesão, convites operacionais e contratação. Evidências visuais mascaram a senha provisória; logs e auditoria são inspecionados sem exportar credenciais.
 
-## Limites para publicação
+### Resultado final — 01/11/2026
 
-Esta entrega não habilita reset nem e-mails em HOMOLOG/PROD. Exige novo SHA/artefato e aceite incremental antes de publicar; o OCI homologado anterior permanece preservado. O serviço transacional deve ser operacional e explicitamente autorizado antes de mostrar a ação disponível. Nenhum link será fornecido manualmente como alternativa à indisponibilidade.
+Ensaio integrado: `C:\Users\ricar\Documents\Codex\a2-7-temporary-reset\lab-04`, de 23:43:42 a 23:46:23 UTC. `RESULT.json`: **PASSED**, containers removidos, rede externa desabilitada e nenhum e-mail real.
 
-## Resultado da validação LOCAL — 01/11/2026
+| Verificação | Resultado |
+| --- | --- |
+| Unitários de senha, política e segurança/portabilidade da Adesão | 24 aprovados, zero ignorados na execução final |
+| Reset administrativo com banco e API reais | 16 grupos aprovados |
+| Edge desktop/claro e mobile/escuro, copiar/fechar, Tab, mouse e toque | 3 cenários aprovados |
+| Adesão e identidade | 70 verificações aprovadas |
+| Convites Especiais | 36 verificações aprovadas |
+| Provisionamento e segurança contratual | 118 verificações aprovadas |
+| Convites operacionais | 50 verificações aprovadas |
+| Onboarding contratual e retorno seguro | 265 verificações aprovadas |
+| Build Next de produção e TypeScript final | Aprovados |
+| Restauração PostgreSQL | 44 tabelas com contagens e digests idênticos |
 
-O ensaio final `a2-7-admin-reset/lab-05` passou com PostgreSQL 18 descartável, build Next de produção, SMTP TLS/AUTH capturado e Edge real. Foram aprovados 26 testes unitários/regressivos, 14 grupos HTTP/SMTP e três cenários de navegador. O laboratório manteve as 44 tabelas e os digests dos registros protegidos, incluindo dois tenants da mesma identidade, memberships, permissões, termos, contratos e ledger. Os containers foram removidos ao final.
+Dump estritamente sintético: SHA-256 `f19b64d4c6417f913da8182c61818ee1bc3e75f59a4c7af500330f862e93318e`. A recuperação comprovou banco e trilha durável; não foi um exercício remoto de publicação.
 
-As imagens desktop/claro e mobile/escuro foram inspecionadas. Mouse, teclado, Tab e toque não fizeram o olho submeter o formulário. A confirmação administrativa não mostrou link ou senha do titular. A configuração transacional independente preservou a Adesão sintética.
+O lint dos 15 arquivos de aplicação verificados identificou 12 usos de `any` já presentes em auth/tenant na base; nenhum erro novo nesse escopo. Não foram refatorados. Duas asserções de tipo novas foram ajustadas após o build; a comparação por transpile confirmou JavaScript idêntico ao ensaiado e o TypeScript final passou.
 
-Build/TypeScript e lint do código novo passaram. Dois erros de lint `react-hooks/set-state-in-effect` em `PlatformClient` e `AuditClient` já existem no SHA-base e foram confirmados por comparação; não foram refatorados nesta entrega. Os avisos de bibliotecas Auth.js/Edge do build não impediram a compilação nem a autenticação validada no ensaio.
+Ocorrências locais: `lab-01` não iniciou Docker por restrição de permissão; `lab-02` parou em uma expectativa do teste com sessão restrita; `lab-03` passou todo o reset e identificou uma expectativa antiga do teste de ACL da Adesão. O guard portátil já homologado retorna 404 antes de escrever quando falta uma ACL Admission; o roteiro ainda esperava 503. Corrigida a expectativa exata, mantendo as verificações de rollback 503 para falhas de mapping/auditoria. Nenhum serviço funcional da Adesão foi alterado. `lab-04` concluiu todas as etapas.
 
-Durante o desenvolvimento foram corrigidos o endpoint de prontidão do laboratório e duas fixtures de teste (campo obrigatório da auditoria e tentativa de alterar evento imutável). O ensaio final aguardou o intervalo real de reenvio. A verificação da configuração revelou o conflito entre SMTP global e a Adesão sintética; o seletor transacional resolveu-o sem alterar o serviço de Adesão. Não houve tentativa remota.
+Evidências principais: `PASSWORD-RESET-RESULT.json`, `BROWSER-RESULT.json`, `HTTP-RESULT.json`, `PROVISIONING-RESULT.json`, `RESULT.json`, `unit-tests.log`, `LINT-SUMMARY.json`, `recovery-tables.txt` e imagens com a senha mascarada. Manifesto final de arquivos/SHA em `CANDIDATE.json`, fora do repositório.
 
-A portabilidade dos três perfis foi verificada no contrato de configuração; o mesmo build foi executado com reset habilitado e desabilitado em LOCAL. Não foi produzido um novo OCI de release nem executado ensaio remoto nesta rodada. Configuração/entrega real do provedor, novo artefato e homologação autorizada continuam necessários antes de publicação.
+**Parecer: GO para aceite do novo candidato e preparação de homologação autorizada; publicação ainda depende dos gates e autorizações abaixo.**
+
+## Plano mínimo de HOMOLOG e publicação
+
+1. Aceite de Ricardo para o novo SHA; gerar e ensaiar um único OCI promovível, com integridade e configuração independentes, usando o procedimento operacional existente.
+2. Nova autorização específica para HOMOLOG; gates usuais, backup cifrado e recuperação isolada antes da publicação. Sobre HOMOLOG H8, esta mudança não exige migration ou novas ACLs.
+3. Habilitar apenas para identidades sintéticas autorizadas. Ricardo valida reset, compartilhamento manual, troca obrigatória, retorno aos espaços e regressão incremental de Adesão.
+4. Formalizar aceite do novo candidato. Resolver separadamente a entrega real da confirmação de e-mail da Adesão antes de disponibilidade pública. A recuperação assistida não remove essa dependência da Adesão.
+5. Somente com autorização específica de PROD, aplicar o plano já aprovado do A.2, incluindo P6→P7 se a baseline produtiva ainda for P6; esta rodada não executa nem altera essa migration. Promover exatamente o mesmo OCI aceito.
+
+Contingência: desabilitar novas emissões mantendo o binário com o guard de troca obrigatória. **Não voltar a um binário que desconheça a pendência enquanto existirem senhas provisórias.** Recuperar banco e auditoria de forma consistente, verificar pendências e revogar sessões conforme o procedimento existente antes de reabrir. A auditoria com pendências não pode ser expurgada separadamente; qualquer futura política de retenção deve preservar esse estado.
+
+Nenhuma alteração em PROD, HOMOLOG ou master. Não houve e-mail real ou contratação de serviço.

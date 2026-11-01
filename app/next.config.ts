@@ -30,7 +30,6 @@ const nextConfig: NextConfig = {
         ],
       },
       { source: "/ativar-acesso", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
-      { source: "/redefinir-senha", headers: [{ key: "Referrer-Policy", value: "no-referrer" }, { key: "Cache-Control", value: "private, no-store" }, { key: "X-Robots-Tag", value: "noindex, nofollow" }] },
       { source: "/primeiro-acesso", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/experimentacao", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/adesao", headers: [{ key: "Referrer-Policy", value: "no-referrer" }, { key: "Cache-Control", value: "private, no-store" }, { key: "X-Robots-Tag", value: "noindex, nofollow" }] },

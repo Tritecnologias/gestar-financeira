@@ -9,14 +9,16 @@ registerHooks({resolve(s,c,next){
  else if(c.parentURL&&s.startsWith('.')){const u=new URL(s,c.parentURL);if(!/\.[a-z]+$/.test(u.pathname)&&existsSync(fileURLToPath(u)+'.ts'))s=u.href+'.ts';}
  return next(s,c);
 }});
-const {changeOwnPassword,validatePasswordChange}=await import('../src/lib/account-password.ts');
+const {changeOwnPassword: changePassword,validatePasswordChange}=await import('../src/lib/account-password.ts');
 const {credentialStamp,matchesCredentialStamp}=await import('../src/lib/credential-session.ts');
 const {validIdentityPassword}=await import('../src/lib/password-policy.ts');
 const {roleLabel,statusLabel,resourceLabel,messagePtBr}=await import('../src/lib/presentation.ts');
+process.env.AUTH_SECRET='synthetic-unit-session-secret';
+const changeOwnPassword=(db,id,input)=>changePassword(db,id,input,db.stamp);
 const old='synthetic-current-pass',fresh='synthetic-new-pass';
 async function store(){const state={identity:{id:'self',status:'ACTIVE',senhaHash:await bcrypt.hash(old,4)},events:[],other:{id:'other',senhaHash:'untouched'}};
- const tx={ $queryRaw:async()=>[{id:'self'}],authIdentity:{findUnique:async({where})=>where.id===state.identity.id?state.identity:null,updateMany:async({where,data})=>{if(where.id!==state.identity.id||where.senhaHash!==state.identity.senhaHash)return{count:0};state.identity={...state.identity,...data};return{count:1};}},auditEvent:{count:async()=>state.events.filter(e=>e.action==='PASSWORD_CHANGE_DENIED').length,create:async({data})=>{state.events.push(data);return data;}}};
- return {state,db:{$transaction:async(fn)=>{const saved=structuredClone(state);try{return await fn(tx);}catch(e){Object.assign(state,saved);throw e;}}}};
+ const tx={ $queryRaw:async(strings)=>strings.join('').includes('FROM audit_events')?(state.pending||[]):[{id:'self'}],authIdentity:{findUnique:async({where})=>where.id===state.identity.id?state.identity:null,updateMany:async({where,data})=>{if(where.id!==state.identity.id||where.senhaHash!==state.identity.senhaHash)return{count:0};state.identity={...state.identity,...data};return{count:1};}},auditEvent:{count:async()=>state.events.filter(e=>e.action==='PASSWORD_CHANGE_DENIED').length,create:async({data})=>{state.events.push(data);return data;}}};
+ return {state,db:{stamp:credentialStamp('self',state.identity.senhaHash,process.env.AUTH_SECRET),$transaction:async(fn)=>{const saved=structuredClone(state);try{return await fn(tx);}catch(e){Object.assign(state,saved);throw e;}}}};
 }
 test('existing identity policy preserves whitespace and 12–200 length, never coercing values',()=>{
  for(const v of ['',null,12,[],{},'a'.repeat(11),'a'.repeat(201)])assert(!validIdentityPassword(v));
@@ -44,6 +46,34 @@ test('inactive/missing identity cannot change a credential',async()=>{
 test('credential stamps revoke old sessions and are identity/secret-specific without exposing the bcrypt hash',()=>{
  const secret='synthetic-session-secret',hash='$2b$12$synthetic',stamp=credentialStamp('self',hash,secret);
  assert(matchesCredentialStamp(stamp,'self',hash,secret));assert(!matchesCredentialStamp(stamp,'other',hash,secret));assert(!matchesCredentialStamp(stamp,'self','new-hash',secret));assert(!matchesCredentialStamp(stamp,'self',hash,'different-secret'));assert(!matchesCredentialStamp(undefined,'self',hash,secret));assert(!stamp.includes(hash));assert.throws(()=>credentialStamp('self',hash,''));
+});
+
+test('credential writer refuses a stale session even if it supplies the newly reset password',async()=>{
+ const {state,db}=await store();state.identity.senhaHash=await bcrypt.hash(fresh,4);
+ const r=await changeOwnPassword(db,'self',{currentPassword:fresh,newPassword:old,confirmation:old});
+ assert.equal(r.status,401);assert.equal(state.events.length,0);assert(await bcrypt.compare(fresh,state.identity.senhaHash));
+});
+
+test('durable temporary state requires a different password, respects database clock and ends atomically',async()=>{
+ const {state,db}=await store(),now=new Date();
+ state.pending=[{id:'grant',metadata:{expiresAt:new Date(now.getTime()+1800000).toISOString()},occurredAt:now,now}];
+ assert.equal((await changeOwnPassword(db,'self',{currentPassword:old,newPassword:old,confirmation:old})).status,400);
+ state.pending[0].now=new Date(now.getTime()+1800000);
+ assert.equal((await changeOwnPassword(db,'self',{currentPassword:old,newPassword:fresh,confirmation:fresh})).status,401);
+ state.pending[0].now=now;
+ assert((await changeOwnPassword(db,'self',{currentPassword:old,newPassword:fresh,confirmation:fresh})).ok);
+ assert.deepEqual(state.events.map(e=>e.action),['PASSWORD_CHANGED','PASSWORD_TEMPORARY_COMPLETED']);
+ assert.equal(state.events[1].resourceId,'grant');
+});
+
+test('malformed or ambiguous pending reset state fails closed, including invalid metadata and expiry',async()=>{
+ const {temporaryPasswordState}=await import('../src/lib/password-reset-state.ts');
+ const now=new Date(),valid={id:'grant',metadata:{expiresAt:new Date(now.getTime()+1800000).toISOString()},occurredAt:now,now};
+ for(const rows of [[valid,valid],[{...valid,metadata:null}],[{...valid,metadata:[]}],[{...valid,metadata:{expiresAt:12}}],
+  [{...valid,metadata:{expiresAt:'invalid'}}],[{...valid,metadata:{...valid.metadata,ignored:true}}],
+  [{...valid,metadata:{expiresAt:new Date(now.getTime()+3600000).toISOString()}}]])
+  await assert.rejects(temporaryPasswordState({$queryRaw:async()=>rows},'self'),/TEMPORARY_PASSWORD_STATE_INVALID/);
+ assert.equal(await temporaryPasswordState({$queryRaw:async()=>[]},'self'),null);
 });
 test('Portuguese labels do not alter enum values or permission keys',()=>{
  const value={role:'OWNER',status:'ACTIVE',type:'TenantMembership'};assert.equal(roleLabel(value.role),'Proprietário');assert.equal(statusLabel(value.status),'Ativo');assert.equal(resourceLabel(value.type),'Vínculo com a empresa');assert.deepEqual(value,{role:'OWNER',status:'ACTIVE',type:'TenantMembership'});

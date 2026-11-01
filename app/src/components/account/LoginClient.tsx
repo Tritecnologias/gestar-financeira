@@ -36,6 +36,8 @@ function LoginForm({ supportUrl }: { supportUrl: string | null }) {
       if (result?.error) {
         setErro("E-mail ou senha inválidos. Tente novamente.");
       } else {
+        const session = await fetch("/api/auth/session", { cache: "no-store" }).then(r => r.json());
+        if (session?.user?.passwordChangeRequired) { router.push("/minha-conta"); return; }
         const res = await fetch("/api/tenants", { cache: "no-store" });
         const choices = res.ok ? await res.json() : null;
         if (Array.isArray(choices) && choices.length === 0) {

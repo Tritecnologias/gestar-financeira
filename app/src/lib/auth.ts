@@ -6,13 +6,16 @@ import { randomUUID } from "node:crypto";
 import { emailEqualsNormalized, normalizeEmail, unambiguousLegacyAccount } from "@/lib/email";
 import { writeAudit } from "@/lib/audit";
 import { credentialStamp, matchesCredentialStamp } from "@/lib/credential-session";
+import { temporaryPasswordState } from "@/lib/password-reset-state";
+import { getToken } from "next-auth/jwt";
+import { headers } from "next/headers";
 
 const sessionSecret = () => process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "";
 
 // Rollback operacional explícito. O modo padrão usa a identidade ACCESS-2.
 export const legacyAuthEnabled = process.env.ACCESS_AUTH_MODE === "legacy";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const configuredAuth = NextAuth({
   providers: [
     Credentials({
       name: "Credenciais",
@@ -25,14 +28,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             !credentials.email.trim() || !credentials.password) return null;
 
         if (!legacyAuthEnabled) {
-          const identity = await prisma.authIdentity.findUnique({
-            where: { email: normalizeEmail(credentials.email) },
-            select: { id: true, nome: true, email: true, senhaHash: true, status: true },
+          const email = normalizeEmail(credentials.email), password = credentials.password;
+          const checked = await prisma.$transaction(async tx => {
+            await tx.$queryRaw`SELECT id FROM auth_identities WHERE email=${email} FOR SHARE`;
+            const current = await tx.authIdentity.findUnique({ where: { email },
+              select: { id: true, nome: true, email: true, senhaHash: true, status: true } });
+            const valid = !!current && current.status === "ACTIVE" && await bcrypt.compare(password, current.senhaHash) &&
+              !(await temporaryPasswordState(tx, current.id))?.expired;
+            return { identity: current, valid };
           });
-          if (!identity || identity.status !== "ACTIVE" ||
-              !await bcrypt.compare(credentials.password, identity.senhaHash)) {
-            await writeAudit(prisma, { actorIdentityId: identity?.id,
-              accessMode: "SYSTEM", action: identity?.status === "INACTIVE" ? "IDENTITY_DISABLED_ACCESS_ATTEMPT" : "LOGIN_FAILURE",
+          const identity = checked.identity;
+          if (!identity || !checked.valid) {
+            await writeAudit(prisma, { actorIdentityId: identity?.id, accessMode: "SYSTEM",
+              action: identity?.status === "INACTIVE" ? "IDENTITY_DISABLED_ACCESS_ATTEMPT" : "LOGIN_FAILURE",
               resourceType: "AuthIdentity", resourceId: identity?.id, result: "DENIED" }).catch(() => {});
             return null;
           }
@@ -60,7 +68,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         const usuario = unambiguousLegacyAccount(usuarios);
-        if (!usuario) {
+        if (!usuario || await legacyCredentialWasReset(usuario.id)) {
           await writeAudit(prisma, { accessMode: "SYSTEM", action: "LOGIN_FAILURE",
             resourceType: "Usuario", result: "DENIED" }).catch(() => {});
           return null;
@@ -105,9 +113,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Existing JWTs without a stamp require one fresh login after rollout.
         // No profile/tenant context is used to authorize this credential check.
         if (typeof token.id !== "string") return null;
-        const current = await prisma.authIdentity.findUnique({ where: { id: token.id }, select: { status: true, senhaHash: true } });
-        if (!current || current.status !== "ACTIVE" || !matchesCredentialStamp(token.credentialStamp, token.id, current.senhaHash, sessionSecret())) return null;
+        const identityId = token.id;
+        const current = await prisma.$transaction(async tx => {
+          await tx.$queryRaw`SELECT id FROM auth_identities WHERE id=${identityId} FOR SHARE`;
+          const identity = await tx.authIdentity.findUnique({ where: { id: identityId }, select: { status: true, senhaHash: true } });
+          if (!identity || identity.status !== "ACTIVE" || !matchesCredentialStamp(token.credentialStamp, identityId, identity.senhaHash, sessionSecret())) return null;
+          const temporary = await temporaryPasswordState(tx, identityId);
+          if (temporary?.expired) return null;
+          return { required: !!temporary, expiresAt: temporary?.expiresAt ?? null };
+        });
+        if (!current) return null;
+        token.passwordChangeRequired = current.required;
+        token.passwordChangeExpiresAt = current.expiresAt;
       }
+      if (token.authMode === "legacy" && (typeof token.id !== "string" || await legacyCredentialWasReset(token.id))) return null;
       return token;
     },
     async session({ session, token }) {
@@ -118,6 +137,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         (session.user as any).papel = token.papel;
         (session.user as any).tenantId = token.tenantId;
         (session.user as any).tenantNome = token.tenantNome;
+        (session.user as typeof session.user & { passwordChangeRequired: boolean }).passwordChangeRequired = token.passwordChangeRequired === true;
+        (session.user as typeof session.user & { passwordChangeExpiresAt: unknown }).passwordChangeExpiresAt = token.passwordChangeExpiresAt;
       }
       return session;
     },
@@ -151,3 +172,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     maxAge: 24 * 60 * 60, // 24 horas
   },
 });
+
+export const { handlers, signIn, signOut } = configuredAuth;
+/** Only password maintenance accepts restricted sessions. Operational callers
+ * use auth(), which denies them even when middleware is bypassed. */
+export async function passwordChangeAuth() { return configuredAuth.auth(); }
+export async function auth() {
+  const session = await passwordChangeAuth();
+  return (session?.user as { passwordChangeRequired?: boolean } | undefined)?.passwordChangeRequired ? null : session;
+}
+/** Server-only stamp, rechecked under the identity lock by credential writers. */
+export async function sessionCredentialStamp(identityId: string) {
+  const token = await getToken({ req: { headers: await headers() }, secret: sessionSecret(), cookieName: "authjs.session-token" });
+  if (token?.authMode !== "identity" || token.id !== identityId || typeof token.credentialStamp !== "string")
+    throw Object.assign(new Error("Entre novamente."), { status: 401 });
+  return token.credentialStamp;
+}
+async function legacyCredentialWasReset(legacyUsuarioId: string) {
+  const mapping = await prisma.legacyUserAccessMap.findUnique({ where: { legacyUsuarioId }, select: { identityId: true } });
+  return !!mapping && await prisma.auditEvent.count({ where: { resourceType: "AuthIdentity", resourceId: mapping.identityId,
+    action: "PASSWORD_TEMPORARY_ISSUED", result: "SUCCESS" } }) > 0;
+}

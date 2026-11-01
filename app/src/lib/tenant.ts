@@ -1,7 +1,8 @@
 import { authorizedAdvisoryGrant } from "./advisory-authorization";
 import { advisoryRequestAllowed } from "./advisory-policy";
 import { bindAdvisoryRequest } from "./advisory-request";
-import { auth, legacyAuthEnabled } from "@/lib/auth";
+import { auth, legacyAuthEnabled, passwordChangeAuth } from "@/lib/auth";
+import { temporaryPasswordState } from "@/lib/password-reset-state";
 import { prisma, getTenantPrisma } from "@/lib/db";
 import { cookies, headers } from "next/headers";
 import type { UserSession, Papel } from "@/types";
@@ -19,8 +20,8 @@ function accessError(message: string, status: number) {
 }
 
 /** Revalida identidade, memberships e tenants a cada solicitação relevante. */
-export async function getIdentityAccess(authenticatedUser?: { id?: string; authMode?: string; loginNonce?: string }) {
-  const user = authenticatedUser ?? (await auth())?.user as { id?: string; authMode?: string; loginNonce?: string } | undefined;
+export async function getIdentityAccess(authenticatedUser?: { id?: string; authMode?: string; loginNonce?: string }, options: { allowPasswordChange?: boolean } = {}) {
+  const user = authenticatedUser ?? (await (options.allowPasswordChange ? passwordChangeAuth() : auth()))?.user as { id?: string; authMode?: string; loginNonce?: string } | undefined;
   if (!user?.id || user.authMode !== "identity" || !user.loginNonce || legacyAuthEnabled) {
     throw accessError("Não autenticado", 401);
   }
@@ -43,7 +44,10 @@ export async function getIdentityAccess(authenticatedUser?: { id?: string; authM
       resourceId: identity.id, result: "DENIED" }).catch(() => {});
   }
   if (!identity || identity.status !== "ACTIVE") throw accessError("Não autenticado", 401);
-  return { ...identity, loginNonce: user.loginNonce };
+  const temporary = await temporaryPasswordState(prisma, identity.id);
+  if (temporary?.expired) throw accessError("Senha provisória expirada. Solicite um novo reset ao Administrador da Plataforma.", 401);
+  if (temporary && !options.allowPasswordChange) throw accessError("Defina sua senha definitiva antes de continuar.", 428);
+  return { ...identity, loginNonce: user.loginNonce, passwordChangeRequired: !!temporary, passwordChangeExpiresAt: temporary?.expiresAt ?? null };
 }
 
 export async function requirePlatformAdmin() {

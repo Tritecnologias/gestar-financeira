@@ -15,9 +15,7 @@ export async function middleware(req: NextRequest) {
   // Each admission handler independently enforces the LOCAL gate; no wildcard API bypass.
   const isAdmission = pathname === "/adesao" || pathname === "/api/admissions/resume" ||
     /^\/api\/admissions\/[0-9a-f-]{36}(?:\/(?:verify|identity|provision))?$/i.test(pathname);
-  // Only the proof-scoped consumer is public; administrative issuance keeps normal authentication.
-  const isPasswordReset = pathname === "/redefinir-senha" || pathname === "/api/account/password-reset";
-  const isPublic = isAuthPage || isApiAuth || isStatic || isActivation || isExperiment || isAdmission || isPasswordReset;
+  const isPublic = isAuthPage || isApiAuth || isStatic || isActivation || isExperiment || isAdmission;
 
   // Rate limiting na rota de login (proteção contra brute-force).
   // ⚠️ Limitação: o contador vive em memória do processo. Funciona bem em
@@ -51,6 +49,11 @@ export async function middleware(req: NextRequest) {
   }
 
   // Server-only routing evidence for SupportGrant. Overwrite any client value.
+  // UX shortcut only: server auth() independently denies restricted sessions.
+  if (token.passwordChangeRequired === true && pathname !== "/minha-conta" && pathname !== "/api/account/password") {
+    if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Defina sua senha definitiva antes de continuar." }, { status: 428, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.redirect(new URL("/minha-conta", req.url));
+  }
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-10s-request-path", pathname);
   requestHeaders.set("x-10s-request-method", req.method);

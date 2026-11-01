@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {integratedSuite,recoverApplication} from './integrated-lab.mjs';
 import {startJourneyBridge,testJourney} from './journey-lab.mjs';
-import {spawn,spawnSync} from 'node:child_process';
+import {spawn} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdirSync,existsSync,cpSync} from 'node:fs';
 import {resolve,join,isAbsolute,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -15,7 +15,7 @@ assert(process.argv[4]===undefined||['--provision','--journey','--preview','--in
 const reset=process.argv[4]==='--password-reset';
 const integrated=process.argv[4]==='--integrated';
 const journey=integrated||['--journey','--preview'].includes(process.argv[4]);
-const provision=journey||process.argv[4]==='--provision', phase=reset?'A.2.7':integrated?'A.2.5':journey?'A.2.4':provision?'A.2.3':'A.2.2', label=reset?'dez-a27-http':integrated?'dez-a25-http':journey?'dez-a24-http':provision?'dez-a23-http':'dez-a22-http';
+const provision=reset||journey||process.argv[4]==='--provision', phase=reset?'A.2.7':integrated?'A.2.5':journey?'A.2.4':provision?'A.2.3':'A.2.2', label=reset?'dez-a27-http':integrated?'dez-a25-http':journey?'dez-a24-http':provision?'dez-a23-http':'dez-a22-http';
 const foundation=JSON.parse(readFileSync(join(source,'RESULT.json'),'utf8'));
 assert.equal(foundation.state,'PASSED');assert.equal(foundation.phase,'A.2.1');assert.equal(foundation.syntheticOnly,true);assert.equal(foundation.network,'none');assert.equal(foundation.realEmail,false);
 const dump=readFileSync(join(source,'synthetic-a2-h8.dump'));assert.equal(createHash('sha256').update(dump).digest('hex'),foundation.dumpSHA256);
@@ -24,25 +24,7 @@ for(const name of ['src','public','package.json','package-lock.json','tsconfig.j
 mkdirSync(join(staged,'prisma'));cpSync(join(app,'prisma/schema.prisma'),join(staged,'prisma/schema.prisma'));
 mkdirSync(join(staged,'tests'));for(const name of ['admission.http.cjs','experiment.http.cjs',...(provision?['synthetic-pdf.cjs','admission-provisioning.http.cjs','admission-lab-helpers.cjs','invitations-multichannel.http.cjs','contractual-onboarding.http.cjs']:[]),...(integrated?['admission-integrated.http.cjs']:[]),...(journey?['admission-browser-relay.cjs','admission-browser-fixture.cjs']:[])])cpSync(join(app,'tests',name),join(staged,'tests',name));
 const suffix=randomUUID().slice(0,8),pg=(integrated?'dez-a25-pg-':journey?'dez-a24-pg-':provision?'dez-a23-pg-':'dez-a22-pg-')+suffix,worker=label+'-'+suffix;
-if(reset){
-  for(const name of ['password-reset.http.cjs','admission-browser-relay.cjs'])cpSync(join(app,'tests',name),join(staged,'tests',name));
-  mkdirSync(join(staged,'scripts'));cpSync(join(app,'scripts/phase6/smtp-lab.cjs'),join(staged,'scripts/smtp-lab.cjs'));
-  mkdirSync(join(out,'tls'));
-  assert(process.env.PYTHON_EXECUTABLE,'PYTHON_EXECUTABLE_REQUIRED_FOR_LOCAL_TLS_FIXTURE');
-  const cert=spawnSync(process.env.PYTHON_EXECUTABLE,['-c',`from cryptography import x509
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-import sys, ipaddress
-p=Path(sys.argv[1]); k=rsa.generate_private_key(public_exponent=65537,key_size=2048)
-n=x509.Name([x509.NameAttribute(NameOID.COMMON_NAME,'localhost')]); now=datetime.now(timezone.utc)
-c=x509.CertificateBuilder().subject_name(n).issuer_name(n).public_key(k.public_key()).serial_number(x509.random_serial_number()).not_valid_before(now-timedelta(minutes=1)).not_valid_after(now+timedelta(days=2)).add_extension(x509.BasicConstraints(ca=True,path_length=0),critical=True).add_extension(x509.SubjectAlternativeName([x509.DNSName('localhost'),x509.IPAddress(ipaddress.ip_address('127.0.0.1'))]),critical=False).sign(k,hashes.SHA256())
-(p/'key.pem').write_bytes(k.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption()))
-(p/'cert.pem').write_bytes(c.public_bytes(serialization.Encoding.PEM))`,join(out,'tls')],{windowsHide:true,encoding:'utf8'});
-  assert.equal(cert.status,0,'LOCAL_TLS_FIXTURE_FAILED');
-}
+if(reset)for(const name of ['password-reset.http.cjs','admission-browser-relay.cjs'])cpSync(join(app,'tests',name),join(staged,'tests',name));
 const pgImage='sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5',nodeImage='sha256:271e76a186736f3a533931712920c03644bd69684b11d04b1c468d0870ba0d13';
 const report={phase,network:'none',publishedPorts:[],syntheticOnly:true,realEmail:false,foundationDumpSHA256:foundation.dumpSHA256,startedAt:new Date().toISOString()};
 const created=[];let closeBridge;
@@ -71,14 +53,11 @@ try {
     SPECIAL_INVITATIONS_ENABLED:'true',SPECIAL_INVITATION_LINK_KEY_ID:'a22',SPECIAL_INVITATION_LINK_KEYS:JSON.stringify({a22:randomBytes(32).toString('hex')}),NEXT_TELEMETRY_DISABLED:'1'};
   if(provision)Object.assign(env,{TRUSTED_PROXY_TOKEN:randomBytes(32).toString('hex'),TERM_STORAGE_DIR:'/tmp/a23-terms',TENANT_BACKUP_DIR:'/tmp/a23-backups',
     TENANT_BACKUP_INSTANCE_ID:'a23-isolated',TENANT_BACKUP_SIGNING_KEY_ID:'a23',TENANT_BACKUP_SIGNING_KEYS:JSON.stringify({a23:randomBytes(32).toString('hex')})});
-  if(reset){const capture=randomBytes(32).toString('hex');Object.assign(env,{ACCESS_AUTH_MODE:'identity',PASSWORD_RESET_ENABLED:'true',TRANSACTIONAL_EMAIL_READY:'true',TRANSACTIONAL_EMAIL_PROVIDER:'smtp',
-    SMTP_HOST:'localhost',SMTP_PORT:'2465',SMTP_SECURE:'true',SMTP_USER:'fixture',SMTP_PASSWORD:capture,EMAIL_FROM_ADDRESS:'access@example.invalid',
-    PHASE6_LAB:'1',PASSWORD_RESET_LAB:'1',CAPTURE_PASSWORD:capture,NODE_EXTRA_CA_CERTS:'/tls/cert.pem',TRUSTED_PROXY_TOKEN:randomBytes(32).toString('hex'),SUPPORT_WHATSAPP_ENABLED:'false'});}
+  if(reset)Object.assign(env,{ACCESS_AUTH_MODE:'identity',PASSWORD_RESET_ENABLED:'true',PASSWORD_RESET_LAB:'1',TRUSTED_PROXY_TOKEN:randomBytes(32).toString('hex'),SUPPORT_WHATSAPP_ENABLED:'false'});
   const envArgs=Object.entries(env).flatMap(([key,value])=>['-e',key+'='+value]);
   await run(['run','-d','--pull=never','--name',worker,'--network','container:'+pg,'--restart','no','--label','purpose='+label,'--memory','3g',
     '--mount','type=bind,source='+staged+',target=/source,readonly','--mount','type=tmpfs,destination=/work','--mount','type=tmpfs,destination=/tmp',
-    ...(reset?['--mount','type=bind,source='+join(out,'tls')+',target=/tls,readonly']:[]),
-    ...envArgs,'--entrypoint','sh',nodeImage,'-c','cp -a /source/. /work/ && ln -s /app/node_modules /work/node_modules && cd /work && '+(reset?'(node scripts/smtp-lab.cjs > /tmp/a27-smtp.log 2>&1 &) && ':'')+'node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma > /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next build --webpack >> /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next start -p 3020 -H 127.0.0.1 >> /tmp/a2-app.log 2>&1']);created.push(worker);
+    ...envArgs,'--entrypoint','sh',nodeImage,'-c','cp -a /source/. /work/ && ln -s /app/node_modules /work/node_modules && cd /work && '+'node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma > /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next build --webpack >> /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next start -p 3020 -H 127.0.0.1 >> /tmp/a2-app.log 2>&1']);created.push(worker);
   for(const name of created){const inspection=JSON.parse((await run(['inspect',name])).stdout)[0];assert.deepEqual(inspection.HostConfig.PortBindings,{});assert.equal(inspection.HostConfig.RestartPolicy.Name,'no');}
   let ready=false;
   for(let n=0;n<300;n++){
@@ -88,16 +67,25 @@ try {
   if(!ready){const log=await run(['exec',worker,'cat','/tmp/a2-app.log'],undefined,false);if(log.code===0)writeFileSync(join(out,'app.log'),log.stdout);throw new Error('LOCAL_APP_NOT_READY; inspect app.log');}
   report.build='PASSED';console.log('PASS Next build and real application ready inside isolated network namespace');
   if(reset){
-    await run(['exec','-d','-w','/work','-e','PASSWORD_RESET_ENABLED=false','-e','TRANSACTIONAL_EMAIL_PROVIDER=mock',worker,'sh','-c','node node_modules/next/dist/bin/next start -p 3021 -H 127.0.0.1 > /tmp/a27-disabled.log 2>&1']);
+    await run(['exec','-d','-w','/work','-e','PASSWORD_RESET_ENABLED=false',worker,'sh','-c','node node_modules/next/dist/bin/next start -p 3021 -H 127.0.0.1 > /tmp/a27-disabled.log 2>&1']);
+    await run(['exec','-d','-w','/work','-e','ACCESS_AUTH_MODE=legacy',worker,'sh','-c','node node_modules/next/dist/bin/next start -p 3022 -H 127.0.0.1 > /tmp/a27-legacy.log 2>&1']);
+    for(const port of [3021,3022]){
+      let variantReady=false;for(let n=0;n<60;n++){
+        if((await run(['exec',worker,'node','-e',`fetch('http://localhost:${port}/login').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))`],undefined,false)).code===0){variantReady=true;break;}
+        await new Promise(r=>setTimeout(r,500));
+      }assert(variantReady,'RESET_VARIANT_NOT_READY');
+    }
     const test=await run(['exec','-w','/work',worker,'node','tests/password-reset.http.cjs'],undefined,false);
     writeFileSync(join(out,'reset-http.log'),test.stdout+test.stderr);assert.equal(test.code,0,'RESET_HTTP_FAILED; inspect reset-http.log');
-    report.http=JSON.parse((await run(['exec',worker,'cat','/tmp/password-reset-result.json'])).stdout);
-    writeFileSync(join(out,'HTTP-RESULT.json'),JSON.stringify(report.http,null,2));console.log('PASS reset SMTP/HTTP: '+report.http.checks.length+' checks');
+    report.passwordReset=JSON.parse((await run(['exec',worker,'cat','/tmp/password-reset-result.json'])).stdout);
+    writeFileSync(join(out,'PASSWORD-RESET-RESULT.json'),JSON.stringify(report.passwordReset,null,2));console.log('PASS temporary reset HTTP: '+report.passwordReset.checks.length+' checks');
     closeBridge=await startJourneyBridge(worker);
     const module=process.env.PLAYWRIGHT_MODULE||join(process.env.USERPROFILE,'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
     const code=await new Promise((resolve,reject)=>{const c=spawn(process.execPath,[join(app,'tests/password-reset.browser.cjs'),worker,out,module],{windowsHide:true,stdio:['ignore','pipe','pipe']});const parts=[];c.stdout.on('data',b=>parts.push(b));c.stderr.on('data',b=>parts.push(b));c.on('error',reject);c.on('close',code=>{writeFileSync(join(out,'reset-browser.log'),Buffer.concat(parts));resolve(code)});});
     assert.equal(code,0,'RESET_BROWSER_FAILED; inspect reset-browser.log');report.browser=JSON.parse(readFileSync(join(out,'BROWSER-RESULT.json'),'utf8'));
-  } else {
+    closeBridge();closeBridge=undefined;
+  }
+  {
   const test=await run(['exec','-w','/work',worker,'node','tests/admission.http.cjs'],undefined,false);writeFileSync(join(out,'http.log'),test.stdout+test.stderr);console.log(test.stdout);
   const result=await run(['exec',worker,'cat','/tmp/a2-http-result.json'],undefined,false);if(result.code===0){writeFileSync(join(out,'HTTP-RESULT.json'),result.stdout);report.http=JSON.parse(result.stdout);}
   assert.equal(test.code,0,'HTTP_SUITE_FAILED; inspect http.log');

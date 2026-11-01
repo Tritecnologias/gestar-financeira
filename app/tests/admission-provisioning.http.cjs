@@ -200,13 +200,15 @@ async function main(){
   const cookieExpired=await deniedCase('expired-browser-proof',a=>age(a.g,31*60),401);
   pass('expired browser proof retains canonical verification',(await p.admission.findUniqueOrThrow({where:{id:cookieExpired.g.id}})).emailVerifiedAt!==null);
 
-  for(const [label,revoke,grant] of [
-    ['late final-state write','REVOKE UPDATE(status) ON admissions FROM a2_runtime','GRANT UPDATE(status) ON admissions TO a2_runtime'],
-    ['compatibility mapping','REVOKE INSERT ON legacy_user_access_maps FROM a2_runtime','GRANT INSERT ON legacy_user_access_maps TO a2_runtime'],
-    ['audit write','REVOKE INSERT ON audit_events FROM a2_runtime','GRANT INSERT ON audit_events TO a2_runtime'],
+  for(const [label,revoke,grant,expected] of [
+    // The portable A.2.6 catalog guard rejects missing Admission ACLs before any
+    // write (404). Other injected write failures still exercise rollback (503).
+    ['Admission ACL guard','REVOKE UPDATE(status) ON admissions FROM a2_runtime','GRANT UPDATE(status) ON admissions TO a2_runtime',404],
+    ['compatibility mapping','REVOKE INSERT ON legacy_user_access_maps FROM a2_runtime','GRANT INSERT ON legacy_user_access_maps TO a2_runtime',503],
+    ['audit write','REVOKE INSERT ON audit_events FROM a2_runtime','GRANT INSERT ON audit_events TO a2_runtime',503],
   ]){
     const a=await ready('rollback'),before=await digest();await sql(revoke);
-    try{pass(label+' fault returns retryable failure',(await provision(a.g,a.j)).status===503)}finally{await sql(grant)}
+    try{pass(label+' fault returns the exact guarded failure',(await provision(a.g,a.j)).status===expected)}finally{await sql(grant)}
     assert.deepEqual(await digest(),before);pass(label+' rolls back every tenant, link, event and authorization write');
     const recovered=await provision(a.g,a.j);pass(label+' recovers using same authorization and proof',recovered.status===201&&recovered.body.id===a.g.id);
   }

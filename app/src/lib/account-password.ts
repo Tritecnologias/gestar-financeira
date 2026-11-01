@@ -2,6 +2,8 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { validIdentityPassword, PASSWORD_POLICY_MESSAGE } from "./password-policy";
 import { writeAudit } from "./audit";
+import { matchesCredentialStamp } from "./credential-session";
+import { temporaryPasswordState } from "./password-reset-state";
 
 type Change = { currentPassword: string; newPassword: string; confirmation: string };
 export function validatePasswordChange(input: unknown): { value: Change } | { error: string } {
@@ -12,17 +14,22 @@ export function validatePasswordChange(input: unknown): { value: Change } | { er
   }
   if (typeof body.currentPassword !== "string" || !body.currentPassword || body.currentPassword.length > 200) return { error: "Informe sua senha atual." };
   if (!validIdentityPassword(body.newPassword)) return { error: PASSWORD_POLICY_MESSAGE };
+  if (bcrypt.truncates(body.newPassword)) return { error: "A senha é muito longa. Use até 72 bytes UTF-8." };
   if (body.newPassword !== body.confirmation) return { error: "A confirmação deve ser igual à nova senha." };
   return { value: body as Change };
 }
 
 // The actor ID comes exclusively from the validated session, never from input.
-export async function changeOwnPassword(db: PrismaClient, identityId: string, input: Change) {
+export async function changeOwnPassword(db: PrismaClient, identityId: string, input: Change, sessionStamp: string) {
   return db.$transaction(async tx => {
     // Serialize changes and failed-attempt accounting for this identity only.
     await tx.$queryRaw`SELECT id FROM auth_identities WHERE id=${identityId} FOR UPDATE`;
     const identity = await tx.authIdentity.findUnique({ where: { id: identityId }, select: { id: true, status: true, senhaHash: true } });
     if (!identity || identity.status !== "ACTIVE") return { ok: false, status: 401, error: "Entre novamente para alterar sua senha." };
+    if (!matchesCredentialStamp(sessionStamp, identity.id, identity.senhaHash, process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || ""))
+      return { ok: false, status: 401, error: "Entre novamente para alterar sua senha." };
+    const temporary = await temporaryPasswordState(tx, identityId);
+    if (temporary?.expired) return { ok: false, status: 401, error: "Senha provisória expirada. Solicite um novo reset ao Administrador da Plataforma." };
     const recent = await tx.auditEvent.count({ where: { actorIdentityId: identityId, action: "PASSWORD_CHANGE_DENIED",
       occurredAt: { gte: new Date(Date.now() - 15 * 60 * 1000) } } });
     if (recent >= 5) return { ok: false, status: 429, error: "Muitas tentativas. Aguarde 15 minutos antes de tentar novamente." };
@@ -31,8 +38,12 @@ export async function changeOwnPassword(db: PrismaClient, identityId: string, in
         resourceType: "AuthIdentity", resourceId: identityId, result: "DENIED" });
       return { ok: false, status: 400, error: "A senha atual está incorreta." };
     }
+    if (temporary && await bcrypt.compare(input.newPassword, identity.senhaHash))
+      return { ok: false, status: 400, error: "A senha definitiva deve ser diferente da senha provisória." };
     const nextHash = await bcrypt.hash(input.newPassword, 12);
     await commitIdentityPassword(tx, identity, nextHash);
+    if (temporary) await writeAudit(tx, { actorIdentityId: identityId, accessMode: "SYSTEM", action: "PASSWORD_TEMPORARY_COMPLETED",
+      resourceType: "TemporaryPassword", resourceId: temporary.id });
     return { ok: true, status: 200 };
   }, { maxWait: 5000, timeout: 15000 });
 }

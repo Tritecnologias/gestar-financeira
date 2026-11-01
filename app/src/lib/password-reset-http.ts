@@ -20,7 +20,7 @@ export function resetRequest<A extends unknown[]>(flow: string, handle: (req: Re
       return await handle(req, policy, ...args);
     } catch (error) {
       const status = error instanceof PasswordResetError ? error.status : [400, 401, 403, 413, 415].includes((error as { status?: number })?.status || 0) ? (error as { status: number }).status : 503;
-      const response = resetJson({ error: error instanceof PasswordResetError ? error.message : status === 503 ? "Não foi possível concluir agora. Nenhum novo envio foi iniciado automaticamente." : "Solicitação não permitida." }, status);
+      const response = resetJson({ error: error instanceof PasswordResetError ? error.message : status === 503 ? "Não foi possível confirmar o reset. Nenhuma nova tentativa foi iniciada automaticamente." : "Solicitação não permitida." }, status);
       if (status === 429) response.headers.set("Retry-After", "900");
       return response;
     }
@@ -29,6 +29,5 @@ export function resetRequest<A extends unknown[]>(flow: string, handle: (req: Re
 export async function resetBody(req: Request, fields: string[]) {
   const body = await readExperimentBody(req);
   if (Object.keys(body).some(key => !fields.includes(key))) throw new PasswordResetError("Solicitação inválida.");
-  if (typeof body.token === "string" && !budget.token(createHash("sha256").update(body.token).digest("hex"))) throw new PasswordResetError("Muitas tentativas. Aguarde alguns minutos.", 429);
   return body;
 }

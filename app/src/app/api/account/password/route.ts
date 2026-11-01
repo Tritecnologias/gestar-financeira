@@ -3,11 +3,13 @@ import { getIdentityAccess } from "@/lib/tenant";
 import { accountDatabase } from "@/lib/account-db";
 import { changeOwnPassword, validatePasswordChange } from "@/lib/account-password";
 import { withAccessRequest } from "@/lib/access-request-context";
+import { sessionCredentialStamp } from "@/lib/auth";
 
 async function handlePOST(req: NextRequest) {
   const headers = { "Cache-Control": "no-store" };
   try {
-    const identity = await getIdentityAccess();
+    const identity = await getIdentityAccess(undefined, { allowPasswordChange: true });
+    const stamp = await sessionCredentialStamp(identity.id);
     const publicUrl = process.env.APP_PUBLIC_URL || process.env.NEXTAUTH_URL || req.url;
     if (req.headers.get("origin") !== new URL(publicUrl).origin || req.headers.get("sec-fetch-site") === "cross-site") {
       return NextResponse.json({ error: "Solicitação não permitida. Atualize a página e tente novamente." }, { status: 403, headers });
@@ -27,10 +29,10 @@ async function handlePOST(req: NextRequest) {
     catch { return NextResponse.json({ error: "Solicitação inválida." }, { status: 400, headers }); }
     const checked = validatePasswordChange(body);
     if ("error" in checked) return NextResponse.json({ error: checked.error }, { status: 400, headers });
-    const result = await changeOwnPassword(accountDatabase(), identity.id, checked.value);
+    const result = await changeOwnPassword(accountDatabase(), identity.id, checked.value, stamp);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status, headers: { ...headers, ...(result.status === 429 ? { "Retry-After": "900" } : {}) } });
     const response = NextResponse.json({ message: "Senha alterada com sucesso. Entre novamente com a nova senha." }, { headers });
-    for (const cookie of ["authjs.session-token", "tenant_context", "support_context"]) response.cookies.set(cookie, "", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 0 });
+    for (const cookie of ["authjs.session-token", "tenant_context", "support_context", "advisory_context"]) response.cookies.set(cookie, "", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 0 });
     return response;
   } catch (cause) {
     const status = (cause as { status?: number }).status;

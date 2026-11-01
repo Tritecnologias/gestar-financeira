@@ -18,10 +18,10 @@ test('same policy supports local, homolog and production with independent target
   assert(!resetRecipientAllowed('other@example.invalid',passwordResetPolicy(homolog)));
   assert(resetRecipientAllowed('person@example.com',passwordResetPolicy(prod)));
 });
-test('disabled by default, mock, missing readiness and target confusion fail closed',()=>{
+test('disabled by default and target confusion fail closed',()=>{
   assert.equal(passwordResetPolicy({}),null);
-  for(const change of [{PASSWORD_RESET_ENABLED:'false'},{TRANSACTIONAL_EMAIL_READY:'false'},{EMAIL_PROVIDER:'mock'},{TRANSACTIONAL_EMAIL_PROVIDER:'mock'},
-    {AUTH_SECRET:'short'},{ACCESS_AUTH_MODE:'legacy'},{DEPLOYMENT_PROFILE:'preview'},{SMTP_HOST:'smtp.external.invalid'},
+  for(const change of [{PASSWORD_RESET_ENABLED:'false'},
+    {AUTH_SECRET:'short'},{ACCESS_AUTH_MODE:'legacy'},{DEPLOYMENT_PROFILE:'preview'},
     {NEXTAUTH_URL:'https://untrusted.invalid'},{APP_PUBLIC_URL:'http://localhost:3020/other'},{DATABASE_URL:prod.DATABASE_URL},
     {DATABASE_URL:'postgresql://postgres@127.0.0.1:5432/special_invite_lab'}])assert.equal(passwordResetPolicy({...local,...change}),null);
   assert.equal(passwordResetPolicy({...homolog,PASSWORD_RESET_TEST_RECIPIENTS:''}),null);
@@ -29,8 +29,8 @@ test('disabled by default, mock, missing readiness and target confusion fail clo
   assert.equal(passwordResetPolicy({...homolog,PASSWORD_RESET_TEST_RECIPIENTS:'*'}),null);
 });
 
-test('transactional SMTP coexists with approved synthetic Admission in LOCAL and HOMOLOG',()=>{
-  const shared={EMAIL_PROVIDER:'mock',TRANSACTIONAL_EMAIL_PROVIDER:'smtp',ADMISSION_SESSION_KEY:'a'.repeat(64),ADMISSION_LAB_MAIL_KEY:'b'.repeat(64)};
+test('reset does not depend on SMTP or transactional readiness and preserves synthetic Admission',()=>{
+  const shared={EMAIL_PROVIDER:'mock',TRANSACTIONAL_EMAIL_PROVIDER:'disabled',TRANSACTIONAL_EMAIL_READY:'false',SMTP_HOST:'',ADMISSION_SESSION_KEY:'a'.repeat(64),ADMISSION_LAB_MAIL_KEY:'b'.repeat(64)};
   const cases=[{...local,...shared,ADMISSION_LAB_ENABLED:'true',ADMISSION_LAB_MAIL_DIR:'/tmp/a2-mail'},
     {...homolog,...shared,DATABASE_URL:homolog.DATABASE_URL.replace('@',':synthetic-only@'),ADMISSION_HOMOLOG_ENABLED:'true',ADMISSION_LAB_MAIL_DIR:'/var/lib/10s/backups/admission-mail'}];
   for(const env of cases){assert(passwordResetPolicy(env));assert.equal(admissionOrigin(env),env.APP_PUBLIC_URL);}

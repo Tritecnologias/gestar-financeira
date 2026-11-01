@@ -70,7 +70,7 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
   function resetButton(identity?: Identity) {
     return identity && <button type="button" className="platform-action platform-action-neutral platform-reset-action"
       disabled={!resetAvailable || busy || identity.status !== "ACTIVE"} aria-label={`Resetar senha de ${identity.nome}`}
-      title={!resetAvailable ? "Indisponível: envio de e-mail transacional ainda não habilitado ou disponível." : identity.status !== "ACTIVE" ? "Conta inativa." : "Enviar link ao e-mail cadastrado"}
+      title={!resetAvailable ? "Reset de senha indisponível neste ambiente." : identity.status !== "ACTIVE" ? "Conta inativa." : "Gerar senha provisória com troca obrigatória"}
       onClick={() => { setResetIdentity(identity); setDeliveryNotice(""); }}>Resetar senha</button>;
   }
   const allExpanded = shown.groups.length > 0 && shown.groups.every(({ tenant }) =>
@@ -187,7 +187,7 @@ export default function PlatformClient({ supportOperator = false, experimentPilo
     </div>}
     {error && <p className="access-error" role="alert">{messagePtBr(error)}</p>}
     {deliveryNotice && <p className="access-hint" role="status">{deliveryNotice}</p>}
-    {!resetAvailable && <p className="access-hint" role="status">Reset de senha indisponível: o envio de e-mail transacional ainda não está habilitado ou disponível.</p>}
+    {!resetAvailable && <p className="access-hint" role="status">Reset de senha indisponível neste ambiente.</p>}
     {resetIdentity && <PasswordResetDialog identity={resetIdentity} onClose={() => setResetIdentity(null)} onSent={setDeliveryNotice} onUnavailable={() => setResetAvailable(false)} />}
     {share && <InvitationShareDialog invitation={share} onClose={closeShare} />}
     <p className="platform-scroll-hint">Role a lista para consultar os registros. Em telas menores, deslize também para os lados para ver todas as colunas.</p>
