@@ -32,6 +32,7 @@ const nextConfig: NextConfig = {
       { source: "/ativar-acesso", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/primeiro-acesso", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/experimentacao", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      { source: "/adesao", headers: [{ key: "Referrer-Policy", value: "no-referrer" }, { key: "Cache-Control", value: "private, no-store" }, { key: "X-Robots-Tag", value: "noindex, nofollow" }] },
       { source: "/api/experimentacao", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/api/platform/experiment-invitations/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/api/access/invitations/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },

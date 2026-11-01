@@ -1,13 +1,14 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import AdmissionAuthorization from "./AdmissionAuthorization";
 import { selectExperimentInvitations, experimentSituationTone, type ExperimentAdminItem, type InvitationInterest, type InvitationSituation } from "@/lib/experiment-admin-list";
 import "./access.css";
 import "./experiment-invitations.css";
 
 type Item = ExperimentAdminItem;
 const date = (value: string | null) => value ? new Date(value).toLocaleString("pt-BR") : "Ainda não";
-export default function ExperimentInvitationsClient({ homolog = false }: { homolog?: boolean }) {
+export default function ExperimentInvitationsClient({ homolog = false, admissionEnabled = false }: { homolog?: boolean; admissionEnabled?: boolean }) {
   const [rows, setRows] = useState<Item[]>([]), [name, setName] = useState(""), [hours, setHours] = useState("72");
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState(false), [cancelId, setCancelId] = useState("");
   const [bindId, setBindId] = useState(""), [originalLink, setOriginalLink] = useState("");
@@ -79,6 +80,7 @@ export default function ExperimentInvitationsClient({ homolog = false }: { homol
         {displayedRows.length ? displayedRows.map(row => <tr key={row.id}><th scope="row">{row.recipientName}</th><td><span title={row.id}>{row.id.slice(0, 8)}</span></td><td><span className={`experiment-pill experiment-pill-${experimentSituationTone(row)}`}>{row.status === "REVOKED" ? "Cancelado" : row.status === "EXPIRED" ? "Expirado" : "Ativo"}</span></td><td>{date(row.createdAt)}</td><td>{date(row.expiresAt)}</td><td>{date(row.viewedAt)}</td><td>{row.acknowledgedAt ? date(row.acknowledgedAt) : "Pendentes"}</td><td>{row.interestAt ? <><span className="experiment-pill experiment-pill-success">Interesse registrado</span><small>{date(row.interestAt)}</small></> : <span className="experiment-pill experiment-pill-warning">Ainda não manifestado</span>}</td><td className="experiment-actions">
           <button type="button" className="access-button access-button-secondary" aria-label={`Copiar link de ${row.recipientName}`} title={row.canCopyLink ? "Copiar o mesmo link" : row.status !== "ACTIVE" ? "Convite expirado ou cancelado" : "Convite antigo: vinculação opcional do link original necessária para recuperar"} disabled={busy || !row.canCopyLink} onClick={() => void copy(row)}>Copiar link</button>
           {row.status === "ACTIVE" && <button type="button" className="experiment-pill experiment-pill-danger experiment-cancel" disabled={busy} aria-label={`Cancelar convite de ${row.recipientName}`} onClick={() => setCancelId(row.id)}>Cancelar</button>}
+          {admissionEnabled && row.status === "ACTIVE" && row.interestAt && <AdmissionAuthorization invitationId={row.id} />}
           {row.status === "ACTIVE" && !row.linkRecoverable && <><small>Convite anterior sem link recuperável. A vinculação é opcional e não altera o convite.</small><button type="button" className="access-button access-button-secondary" disabled={busy} aria-label={`Vincular link original de ${row.recipientName}`} onClick={() => { setBindId(row.id); setOriginalLink(""); }}>Vincular link original</button></>}
           {bindId === row.id && <form method="post" className="experiment-bind" onSubmit={bind}><label>Link original de {row.recipientName}<input type="password" name="originalInvitationLink" autoComplete="off" maxLength={1024} required value={originalLink} onChange={e => setOriginalLink(e.target.value)} /></label><button className="access-button access-button-primary" disabled={!ready || busy} type="submit">Validar e vincular</button><button className="access-button access-button-secondary" disabled={busy} type="button" onClick={() => { setBindId(""); setOriginalLink(""); }}>Voltar</button></form>}
           {fallback?.id === row.id && <label>Link recuperado para cópia manual<input ref={fallbackRef} readOnly value={fallback.link} onBlur={() => setFallback(null)} /></label>}

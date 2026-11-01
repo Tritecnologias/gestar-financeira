@@ -4,7 +4,7 @@ import { invitationMessage, invitationUrl } from "@/lib/email-template";
 
 export type EmailDeliveryStatus = "SENT" | "SIMULATED" | "FAILED";
 export type EmailDeliveryResult = { status: EmailDeliveryStatus; provider: "smtp" | "mock" };
-type Mail = { to: string; subject: string; text: string; html: string };
+export type Mail = { to: string; subject: string; text: string; html: string };
 
 interface EmailAdapter {
   readonly provider: EmailDeliveryResult["provider"];
@@ -85,6 +85,11 @@ export async function sendInvitationEmail(config: EmailServiceConfig, input: {
 }): Promise<EmailDeliveryResult> {
   const link = invitationUrl(config.publicUrl, input.token);
   const message = { ...invitationMessage(input.tenantName, link, input.expiresAt), to: input.to };
+  return sendEmailMessage(config, message);
+}
+
+/** Shared delivery result handling; adapters are selected by each trusted server policy. */
+export async function sendEmailMessage(config: EmailServiceConfig, message: Mail): Promise<EmailDeliveryResult> {
   try { return { status: await config.adapter.send(message), provider: config.adapter.provider }; }
   catch { return { status: "FAILED", provider: config.adapter.provider }; }
 }

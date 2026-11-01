@@ -12,7 +12,10 @@ export async function middleware(req: NextRequest) {
   const isStatic = pathname.startsWith("/_next") || pathname.startsWith("/favicon");
   // Public preview endpoints never grant authentication; their own runtime gate fails closed outside LOCAL/HOMOLOG.
   const isExperiment = pathname === "/experimentacao" || pathname === "/experimentacao/pilot.js" || pathname === "/experimentacao/pilot.css" || pathname.startsWith("/experimentacao/assets/") || pathname === "/api/experimentacao";
-  const isPublic = isAuthPage || isApiAuth || isStatic || isActivation || isExperiment;
+  // Each admission handler independently enforces the LOCAL gate; no wildcard API bypass.
+  const isAdmission = pathname === "/adesao" || pathname === "/api/admissions/resume" ||
+    /^\/api\/admissions\/[0-9a-f-]{36}(?:\/(?:verify|identity))?$/i.test(pathname);
+  const isPublic = isAuthPage || isApiAuth || isStatic || isActivation || isExperiment || isAdmission;
 
   // Rate limiting na rota de login (proteção contra brute-force).
   // ⚠️ Limitação: o contador vive em memória do processo. Funciona bem em

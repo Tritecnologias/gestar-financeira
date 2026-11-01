@@ -3,9 +3,10 @@ import ExperimentInvitationsClient from "@/components/access/ExperimentInvitatio
 import { experimentOrigin } from "@/lib/experiment-policy";
 import { requirePlatformAdmin } from "@/lib/tenant";
 import { homologIdentity } from "@/lib/environment-identity";
+import { admissionOrigin } from "@/lib/admission-policy";
 export const dynamic = "force-dynamic";
 export default async function Page() {
   if (!experimentOrigin()) notFound();
   try { await requirePlatformAdmin(); } catch { redirect("/login"); }
-  return <ExperimentInvitationsClient homolog={homologIdentity()} />;
+  return <ExperimentInvitationsClient homolog={homologIdentity()} admissionEnabled={!!admissionOrigin()} />;
 }
