@@ -7,6 +7,7 @@ import { PASSWORD_POLICY_MESSAGE, validIdentityPassword } from "@/lib/password-p
 import { admissionEmail, admissionFailure, requireAdmissionOrigin, retryableAdmissionTransaction } from "@/lib/admission-policy";
 import { admissionHash, matchesAdmissionToken, newAdmissionToken, type AdmissionProof } from "@/lib/admission-crypto";
 import { deliverAdmissionChallenge } from "@/lib/admission-delivery";
+import { activateTenantMembership, createPendingTenant, initialAdministrationProfile } from "@/lib/tenant-activation";
 
 type Tx = Prisma.TransactionClient;
 export type AdmissionUser = { id: string; authMode: "identity"; loginNonce: string } | null;
@@ -228,16 +229,22 @@ export async function verifyAdmissionChallenge(id: string, challengeId: string, 
   return result.proof;
 }
 
-/** No tenant, OWNER, terms or enterprise session can be created by this service. */
+/** Inspection never creates a tenant or changes contractual readiness. */
 export async function inspectAdmission(id: string, proof: AdmissionProof | null, user: AdmissionUser) {
   return transaction(async tx => {
-    const { row, instant } = await lockedAdmission(tx, id); await assertProof(tx, row, proof, instant);
+    const { row, origin, instant } = await lockedAdmission(tx, id, false);
+    if (row.status === "PROVISIONED") {
+      await assertProvisionedAccess(tx, row, user);
+      return { ...provisionedView(row, false), email: row.authorizedEmail, emailVerified: true, expiresAt: row.expiresAt, canProvision: false };
+    }
+    if (row.status !== "AUTHORIZED" || row.expiresAt <= instant || !origin.interestAt || origin.revokedAt || origin.expiresAt <= instant) throw denied();
+    await assertProof(tx, row, proof, instant);
     const identity = await tx.authIdentity.findUnique({ where: { email: normalizeEmail(row.authorizedEmail) }, select: { id: true, status: true } });
     if (identity && identity.status !== "ACTIVE") throw admissionFailure("Conta indisponível. Solicite atendimento para recuperar seu acesso.", 403);
     const ready = !!identity && user?.id === identity.id;
     return { id: row.id, email: row.authorizedEmail, emailVerified: true, expiresAt: row.expiresAt,
       state: ready ? "IDENTITY_VERIFIED" : identity ? "LOGIN_REQUIRED" : "CREATE_IDENTITY",
-      ...(ready ? { identityId: identity.id } : {}), nextPhase: "A.2.3", canProvision: false };
+      ...(ready ? { identityId: identity.id } : {}), nextPhase: "A.2.3", canProvision: ready };
   });
 }
 
@@ -260,5 +267,79 @@ export async function createAdmissionIdentity(id: string, proof: AdmissionProof 
     await writeAudit(tx, { actorIdentityId: identity.id, accessMode: "SYSTEM", action: "IDENTITY_ACTIVATED", resourceType: "AuthIdentity", resourceId: identity.id,
       metadata: { admissionId: row.id } });
     return { created: true, email: row.authorizedEmail };
+  });
+}
+
+function provisionedView(row: Admission, created: boolean) {
+  return { id: row.id, state: "PROVISIONED" as const, identityId: row.identityId!, tenantId: row.tenantId!,
+    membershipId: row.membershipId!, provisionedAt: row.provisionedAt!, created, nextPath: "/onboarding" as const };
+}
+
+async function assertProvisionedAccess(tx: Tx, row: Admission, user: AdmissionUser) {
+  if (!user || user.id !== row.identityId) throw admissionFailure("Entre com a identidade destinatária para continuar.", 403);
+  // After completion, the authenticated owner resumes the durable result without a short-lived mail cookie.
+  // Historical expiry/cancellation of the invitation cannot undo a completed tenant; current access still can.
+  if (!row.emailVerifiedAt || !row.verifiedChallengeId || !await tx.admissionChallenge.findFirst({ where: {
+    id: row.verifiedChallengeId, admissionId: row.id, recipientEmail: row.authorizedEmail,
+    purpose: "EMAIL_VERIFICATION", status: "CONSUMED", consumedAt: row.emailVerifiedAt,
+  }, select: { id: true } })) throw denied();
+  const active = await tx.$queryRaw<{ id: string }[]>`SELECT m.id FROM tenant_memberships m
+    JOIN auth_identities i ON i.id=m.identity_id JOIN tenants t ON t.id=m.tenant_id
+    JOIN access_profiles p ON p.id=m.profile_id AND p.tenant_id=t.id
+    JOIN legacy_user_access_maps a ON a.membership_id=m.id AND a.identity_id=i.id AND a.tenant_id=t.id
+    JOIN usuarios u ON u.id=a.legacy_usuario_id AND u.tenant_id=t.id
+    WHERE m.id=${row.membershipId} AND m.identity_id=${user.id} AND m.tenant_id=${row.tenantId}
+      AND m.role='OWNER' AND m.status='ACTIVE' AND i.status='ACTIVE' AND i.email=${row.authorizedEmail}
+      AND t.ativo AND p.ativo AND u.ativo AND u.email=${row.authorizedEmail}
+    FOR SHARE OF m,i,t,p,a,u`;
+  if (active.length !== 1) throw admissionFailure("Acesso indisponível. Solicite revisão administrativa.", 403);
+}
+
+/** Exactly one result per Admission; every write and its audit belongs to the same SERIALIZABLE transaction. */
+export async function provisionAdmission(id: string, proof: AdmissionProof | null, user: AdmissionUser, nameValue: unknown, hadTenantContext = false) {
+  if (!user) throw admissionFailure("Entre com sua identidade para continuar.", 401);
+  const name = typeof nameValue === "string" ? nameValue.trim() : "";
+  if (!name || name.length > 160 || /[\u0000-\u001f\u007f]/.test(name)) throw admissionFailure("Informe o nome da empresa, com até 160 caracteres.", 400);
+  return transaction(async tx => {
+    const reference = await tx.admission.findUnique({ where: { id }, select: { status: true, authorizedByIdentityId: true, authorizedByAdminId: true } });
+    if (!reference || reference.status === "CANCELLED") throw denied();
+    // Same authority-before-invitation lock order as administrative approval/cancellation.
+    if (reference.status === "AUTHORIZED" && (!reference.authorizedByIdentityId ||
+        await admin(tx, reference.authorizedByIdentityId) !== reference.authorizedByAdminId)) throw denied();
+    await tx.$queryRaw`SELECT id FROM auth_identities WHERE id=${user.id} FOR SHARE`;
+    const { row, origin, instant } = await lockedAdmission(tx, id, false);
+    let completed: Admission, created = false;
+    if (row.status === "PROVISIONED") {
+      await assertProvisionedAccess(tx, row, user);
+      completed = row;
+    } else {
+      if (row.status !== "AUTHORIZED" || row.expiresAt <= instant || !origin.interestAt || origin.revokedAt || origin.expiresAt <= instant) throw denied();
+      await assertProof(tx, row, proof, instant);
+      const identity = await tx.authIdentity.findUnique({ where: { id: user.id } });
+      if (!identity || identity.status !== "ACTIVE" || identity.email !== row.authorizedEmail)
+        throw admissionFailure("Entre com a identidade destinatária para continuar.", 403);
+      const actor = { actorIdentityId: row.authorizedByIdentityId!, platformAdminId: row.authorizedByAdminId!,
+        accessMode: "PLATFORM_ADMIN" as const, metadata: { admissionId: row.id, invitationId: origin.id } };
+      const tenant = await createPendingTenant(tx, { nome: name, slug: "adesao-" + row.id, email: row.authorizedEmail, plano: "trial" }, actor);
+      const profile = await initialAdministrationProfile(tx, tenant.id);
+      await writeAudit(tx, { ...actor, tenantId: tenant.id, action: "PERMISSION_PROFILE_CREATED", resourceType: "AccessProfile", resourceId: profile.id });
+      const membership = await activateTenantMembership(tx, { tenantId: tenant.id, identity, role: "OWNER", profileId: profile.id,
+        ownerAssignment: { actorIdentityId: row.authorizedByIdentityId!, reason: "Adesão autorizada com identidade e e-mail comprovados", metadata: actor.metadata } });
+      await writeAudit(tx, { tenantId: tenant.id, actorIdentityId: identity.id, actorMembershipId: membership.id,
+        accessMode: "MEMBERSHIP", action: "MEMBERSHIP_ACTIVATED", resourceType: "TenantMembership", resourceId: membership.id, metadata: { admissionId: id } });
+      const finishedAt = await now(tx);
+      if (finishedAt >= row.expiresAt || finishedAt >= origin.expiresAt || finishedAt.getTime() >= proof!.until) throw denied();
+      completed = await tx.admission.update({ where: { id, status: "AUTHORIZED" }, data: { status: "PROVISIONED", identityId: identity.id,
+        tenantId: tenant.id, membershipId: membership.id, provisionedAt: finishedAt } });
+      await tx.admissionChallenge.updateMany({ where: { admissionId: id, status: "PENDING" }, data: { status: "REVOKED", revokedAt: finishedAt } });
+      await writeAudit(tx, { tenantId: tenant.id, actorIdentityId: identity.id, actorMembershipId: membership.id,
+        accessMode: "MEMBERSHIP", action: "ADMISSION_PROVISIONED", resourceType: "Admission", resourceId: id,
+        metadata: { invitationId: origin.id, authorizedByAdminId: row.authorizedByAdminId!, authorizedByIdentityId: row.authorizedByIdentityId! } });
+      created = true;
+    }
+    await writeAudit(tx, { tenantId: completed.tenantId, actorIdentityId: user.id, actorMembershipId: completed.membershipId,
+      accessMode: "MEMBERSHIP", action: hadTenantContext ? "TENANT_CONTEXT_SWITCHED" : "TENANT_CONTEXT_SELECTED",
+      resourceType: "Tenant", resourceId: completed.tenantId, metadata: { admissionId: id } });
+    return provisionedView(completed, created);
   });
 }

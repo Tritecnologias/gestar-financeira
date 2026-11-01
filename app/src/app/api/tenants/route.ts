@@ -5,7 +5,7 @@ import { legacyAuthEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normalizeEmail } from "@/lib/email";
 import { expireListedSupportGrants } from "@/lib/support-grants";
-import { writeAudit } from "@/lib/audit";
+import { createPendingTenant } from "@/lib/tenant-activation";
 import { authorizedSupportGrant } from "@/lib/support-authorization";
 import { SUPPORT_MODULES } from "@/lib/support-policy";
 
@@ -104,16 +104,8 @@ export async function POST(req: NextRequest) {
   if (existente) return NextResponse.json({ error: "Nome ou identificador já cadastrado" }, { status: 409 });
 
   try {
-    const tenant = await prisma.$transaction(async tx => {
-      const created = await tx.tenant.create({
-        data: { nome: nome.trim(), slug, email: normalizeEmail(email), plano: plano || "trial", escolhaModalidadePendente: true },
-        select: { id: true, nome: true, slug: true, email: true, plano: true },
-      });
-      await writeAudit(tx, { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN",
-        action: "TENANT_CREATED", resourceType: "Tenant", resourceId: created.id,
-        metadata: { tenantName: created.nome, plan: created.plano } });
-      return created;
-    });
+    const tenant = await prisma.$transaction(tx => createPendingTenant(tx,
+      { nome, slug, email, plano: plano || "trial" }, { actorIdentityId: actor.identityId, accessMode: "PLATFORM_ADMIN" }));
 
     return NextResponse.json(tenant, { status: 201 });
   } catch (error) {

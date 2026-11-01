@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/tenant";
 import { normalizeEmail } from "@/lib/email";
-import { ALL_PERMISSIONS } from "@/lib/access-catalog";
+import { initialAdministrationProfile } from "@/lib/tenant-activation";
 import { writeAudit } from "@/lib/audit";
 import { assertInviteRateLimit, expireInvite, inviteExpiresAt, newInviteToken } from "@/lib/access-invites";
 import { sameOrigin } from "@/lib/advisory-management";
@@ -120,11 +120,7 @@ async function handlePOST(req: NextRequest, { params }: Params) {
           action: "INVITE_EXPIRED", resourceType: "AccessInvite", resourceId: item.id });
       }
       await assertInviteRateLimit(tx, tenantId, email);
-      const profile = await tx.accessProfile.upsert({
-        where: { tenantId_nome: { tenantId, nome: "ADMINISTRAÇÃO" } },
-        create: { tenantId, nome: "ADMINISTRAÇÃO", descricao: "Perfil inicial de administração", permissoes: ALL_PERMISSIONS },
-        update: {},
-      });
+      const profile = await initialAdministrationProfile(tx, tenantId);
       if (!profile.ativo) throw Object.assign(new Error("Perfil administrativo inativo."), { status: 409 });
       const created = await tx.accessInvite.create({ data: { tenantId, email, name,
         role: "OWNER", profileId: profile.id, tokenHash: secret.tokenHash,

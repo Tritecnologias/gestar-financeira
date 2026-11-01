@@ -14,7 +14,7 @@ export async function middleware(req: NextRequest) {
   const isExperiment = pathname === "/experimentacao" || pathname === "/experimentacao/pilot.js" || pathname === "/experimentacao/pilot.css" || pathname.startsWith("/experimentacao/assets/") || pathname === "/api/experimentacao";
   // Each admission handler independently enforces the LOCAL gate; no wildcard API bypass.
   const isAdmission = pathname === "/adesao" || pathname === "/api/admissions/resume" ||
-    /^\/api\/admissions\/[0-9a-f-]{36}(?:\/(?:verify|identity))?$/i.test(pathname);
+    /^\/api\/admissions\/[0-9a-f-]{36}(?:\/(?:verify|identity|provision))?$/i.test(pathname);
   const isPublic = isAuthPage || isApiAuth || isStatic || isActivation || isExperiment || isAdmission;
 
   // Rate limiting na rota de login (proteção contra brute-force).

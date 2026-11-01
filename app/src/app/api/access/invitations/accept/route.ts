@@ -8,6 +8,7 @@ import { writeAudit } from "@/lib/audit";
 import { expireInvite, hashInviteToken, INVITE_UNAVAILABLE, validInviteToken } from "@/lib/access-invites";
 import { validIdentityPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import { lockContractualTenant, finalizeContractualNomination } from "@/lib/contractual-onboarding";
+import { activateTenantMembership } from "@/lib/tenant-activation";
 
 async function handlePOST(req: NextRequest) {
   const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
@@ -50,26 +51,9 @@ async function handlePOST(req: NextRequest) {
         await writeAudit(tx, { tenantId: pending.tenantId, actorIdentityId: identity.id, accessMode: "SYSTEM",
           action: "IDENTITY_ACTIVATED", resourceType: "AuthIdentity", resourceId: identity.id });
       }
-      const existing = await tx.tenantMembership.findUnique({ where: { identityId_tenantId: {
-        identityId: identity.id, tenantId: pending.tenantId } }, select: { id: true } });
-      const legacy = await tx.usuario.findFirst({ where: { tenantId: pending.tenantId, email: pending.email }, select: { id: true } });
-      if (existing || legacy) throw Object.assign(new Error("Acesso já existente; solicite revisão ao administrador."), { status: 409 });
-      const membership = await tx.tenantMembership.create({ data: { tenantId: pending.tenantId,
-        identityId: identity.id, role: pending.role, profileId: pending.profileId, status: "ACTIVE" } });
-      const user = await tx.usuario.create({ data: { tenantId: pending.tenantId, nome: identity.nome,
-        email: pending.email, senhaHash: identity.senhaHash,
-        papel: pending.role === "MEMBER" ? "membro" : "admin", ativo: true } });
-      await tx.legacyUserAccessMap.create({ data: { tenantId: pending.tenantId, identityId: identity.id,
-        membershipId: membership.id, legacyUsuarioId: user.id } });
-      if (pending.role === "OWNER") {
-        await tx.accessOwnerEvent.create({ data: { tenantId: pending.tenantId,
-          actorIdentityId: pending.invitedByIdentityId, targetIdentityId: identity.id,
-          targetMembershipId: membership.id, previousRole: null, previousStatus: null } });
-        await writeAudit(tx, { tenantId: pending.tenantId, actorIdentityId: pending.invitedByIdentityId,
-          accessMode: "SYSTEM", action: "OWNER_ASSIGNED", resourceType: "TenantMembership",
-          resourceId: membership.id, reason: "Ativação de convite OWNER autorizado",
-          metadata: { invitationId: pending.id } });
-      }
+      const membership = await activateTenantMembership(tx, { tenantId: pending.tenantId, identity,
+        role: pending.role, profileId: pending.profileId, ownerAssignment: { actorIdentityId: pending.invitedByIdentityId,
+          reason: "Ativação de convite OWNER autorizado", metadata: { invitationId: pending.id } } });
       await tx.accessInvite.update({ where: { id: pending.id }, data: { acceptedByIdentityId: identity.id } });
       await writeAudit(tx, { tenantId: pending.tenantId, actorIdentityId: identity.id,
         actorMembershipId: membership.id, accessMode: "MEMBERSHIP", action: "INVITE_ACCEPTED",

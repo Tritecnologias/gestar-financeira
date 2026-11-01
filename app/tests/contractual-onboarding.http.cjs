@@ -4,19 +4,20 @@ const {randomUUID, randomBytes, createHash} = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const {PrismaClient} = require('@prisma/client');
 const {PrismaPg} = require('@prisma/adapter-pg');
+const {admissionLab,labHeaders} = require('./admission-lab-helpers.cjs');
 
 async function main() {
  let raw=''; for await (const s of process.stdin) raw+=s;
  const cfg=JSON.parse(raw); raw='';
- const url=new URL(process.env.DATABASE_URL), local=cfg.environment==='LOCAL';
- assert(local ? url.hostname==='127.0.0.1' && url.port==='55432' && url.pathname==='/gestar_vf_dev' && cfg.base==='http://localhost:3020' :
-  cfg.environment==='HOMOLOG' && url.hostname==='0f5rvkjqjdt9fez1ajiascyk' && url.pathname==='/gestar_homolog_pg18' && cfg.base==='https://homolog.dezsolucoes.com.br');
+ const url=new URL(process.env.DATABASE_URL), a2lab=admissionLab(cfg), local=cfg.environment==='LOCAL'||a2lab;
+ assert(a2lab || (local ? url.hostname==='127.0.0.1' && url.port==='55432' && url.pathname==='/gestar_vf_dev' && cfg.base==='http://localhost:3020' :
+  cfg.environment==='HOMOLOG' && url.hostname==='0f5rvkjqjdt9fez1ajiascyk' && url.pathname==='/gestar_homolog_pg18' && cfg.base==='https://homolog.dezsolucoes.com.br'));
  const p=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})});
  const base=cfg.base, suffix=randomUUID().slice(0,8), checks=[], ids=[], tids=[], tokens=[];
  let step='guard', pa;
  const check=(name,value)=>{step=name; assert(value); checks.push(name);};
  async function q(j,path,method='GET',body,origin=base,extraHeaders={}) {
-  const r=await fetch(base+path,{method,redirect:'manual',headers:{Origin:origin,...extraHeaders,Cookie:[...j].map(([k,v])=>k+'='+v).join('; '),
+  const r=await fetch(base+path,{method,redirect:'manual',headers:{Origin:origin,...labHeaders(cfg,j,12),...extraHeaders,Cookie:[...j].map(([k,v])=>k+'='+v).join('; '),
    ...(body===undefined?{}:{'Content-Type':body instanceof URLSearchParams?'application/x-www-form-urlencoded':'application/json'})},
    ...(body===undefined?{}:{body:body instanceof URLSearchParams?body:JSON.stringify(body)})});
   for(const c of r.headers.getSetCookie()){const pair=c.split(';')[0],i=pair.indexOf('=');j.set(pair.slice(0,i),pair.slice(i+1));}
@@ -50,7 +51,7 @@ async function main() {
      has_table_privilege(current_user,'term_acceptances','UPDATE') AS receipt_update,
      has_table_privilege(current_user,'audit_events','DELETE') AS audit_delete,
      has_table_privilege(current_user,'audit_events','UPDATE') AS audit_update`;
-   check('restricted runtime has UPDATE but no responsible DELETE or evidence mutation',acl.role==='pg18_prod_runtime'&&acl.update&&!acl.delete&&!acl.receipt_delete&&!acl.receipt_update&&!acl.audit_delete&&!acl.audit_update);
+   check('restricted runtime has UPDATE but no responsible DELETE or evidence mutation',acl.role===(a2lab?'a2_runtime':'pg18_prod_runtime')&&acl.update&&!acl.delete&&!acl.receipt_delete&&!acl.receipt_update&&!acl.audit_delete&&!acl.audit_update);
   }
   if(cfg.baseline){step='existing tenant unchanged';const f=cfg.baseline.fixture,t={id:f.tenantId};const proof={tenant:await p.tenant.findUniqueOrThrow({where:{id:t.id}}),responsible:await p.tenantContractualResponsible.findUniqueOrThrow({where:{tenantId:t.id}}),memberships:await p.tenantMembership.findMany({where:{tenantId:t.id}}),acceptances:await p.termAcceptance.findMany({where:{identityId:f.ownerId}})};
    const oldProof=structuredClone(cfg.baseline.proof),currentProof=JSON.parse(JSON.stringify(proof));for(const key of ['memberships','acceptances']){oldProof[key].sort((a,b)=>a.id.localeCompare(b.id));currentProof[key].sort((a,b)=>a.id.localeCompare(b.id));}

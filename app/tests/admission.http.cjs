@@ -110,7 +110,7 @@ async function main(){
   pass('lost identity response can recover through normal login',(await request(newJar,`/api/admissions/${grant.id}`)).body.state==='LOGIN_REQUIRED');
   const newUser=await login(newJar,grant.email);
   const ready=await request(newJar,`/api/admissions/${grant.id}`);
-  pass('authorization plus proof plus authenticated identity reaches IDENTITY_VERIFIED',ready.body.state==='IDENTITY_VERIFIED'&&ready.body.identityId===newUser.id&&ready.body.canProvision===false);
+  pass('authorization plus proof plus authenticated identity reaches IDENTITY_VERIFIED',ready.body.state==='IDENTITY_VERIFIED'&&ready.body.identityId===newUser.id&&ready.body.canProvision===true);
   pass('new identity still has no operational tenant',(await request(newJar,'/api/empresa')).status===403);
   const secondTab=new Map(newJar);pass('multiple tabs read the same authorization and verified identity',(await request(secondTab,`/api/admissions/${grant.id}`)).body.id===grant.id);
   const existing=await approve('owner@example.invalid'),existingMail=await latestMail(existing.id),existingJar=jar();
