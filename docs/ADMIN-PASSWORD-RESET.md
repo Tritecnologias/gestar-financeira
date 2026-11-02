@@ -2,6 +2,16 @@
 
 Decisão final de Ricardo: substituir o reset por link/e-mail ainda não publicado pela geração administrativa de senha provisória, com troca obrigatória. Trabalho somente LOCAL. Referência homologada preservada: `60a69cb69597a40e2bfb3dd782a95b99e717b63f`. Branch: `feat/a2-7-temporary-password-reset`, derivada do reset não publicado `a45ac268fe903bc78ed70d22780d03efe5bbbf8e`.
 
+## Registro posterior de aceite funcional — 01/11/2026
+
+Ricardo confirmou o funcionamento e o **aceite funcional do ciclo completo em HOMOLOG**
+no SHA `cb136c6dc4c183660bf24fea1937be6bd55d0b46`.
+O refinamento restante é a uniformização dos olhos de senha em **toda Minha Conta → Segurança**,
+na alteração normal e na troca obrigatória. A correção e sua validação são somente LOCAL;
+o novo candidato não está publicado. Registro, testes direcionados e limites em
+[A2-7-ACCOUNT-PASSWORD-UX.md](A2-7-ACCOUNT-PASSWORD-UX.md).
+As seções seguintes conservam o histórico técnico da implementação original.
+
 ## Operação e reaproveitamento
 
 O catálogo de identidades da Administração da Plataforma conserva a ação **Resetar senha**. Exige PlatformAdmin ativo, confirmação do titular e reautenticação com a senha definitiva do administrador. Nenhum administrador empresarial ou operador de suporte ganha essa capacidade.

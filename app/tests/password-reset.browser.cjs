@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict'),{execFileSync}=require('node:child_process'),fs=require('node:fs'),path=require('node:path');
+const {passwordControls}=require('./password-reset-controls.browser.cjs');
 const [worker,out,modulePath]=process.argv.slice(2),{chromium}=require(modulePath),checks=[],base='http://localhost:3020';
 assert(/^dez-a27-http-[a-f0-9]{8}$/.test(worker));let browser,stage='browser setup';
 const cfg=JSON.parse(execFileSync('docker',['exec',worker,'cat','/tmp/password-reset-browser.json'],{encoding:'utf8',windowsHide:true,stdio:['ignore','pipe','pipe']}));
@@ -26,11 +27,7 @@ async function main(){
   assert.equal(await p.getByRole('link',{name:'Minhas empresas',exact:true}).count(),0);
   await p.goto(base+'/inicio');await p.waitForURL('**/minha-conta');assert.equal(await p.evaluate(()=>fetch('/api/tenants').then(r=>r.status)),428);
   await p.getByLabel('Senha provisória',{exact:true}).fill(temporary);await p.getByLabel('Nova senha',{exact:true}).fill(cfg.newPassword);await p.getByLabel('Confirmar nova senha',{exact:true}).fill(cfg.newPassword);
-  const eye=p.locator('[aria-controls="new-password"][data-reveal="hold"]'),input=p.getByLabel('Nova senha',{exact:true});
-  await eye.focus();await p.keyboard.down('Space');await p.waitForFunction(()=>document.querySelector('#new-password').type==='text');await p.keyboard.up('Space');assert.equal(await input.getAttribute('type'),'password');assert.equal(changes,0);
-  if(mobile){const b=await eye.boundingBox(),cdp=await user.newCDPSession(p);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:b.x+b.width/2,y:b.y+b.height/2}]});await p.waitForFunction(()=>document.querySelector('#new-password').type==='text');await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await p.waitForFunction(()=>document.querySelector('#new-password').type==='password');await cdp.detach();}
-  else{await eye.hover();await p.mouse.down();await p.waitForFunction(()=>document.querySelector('#new-password').type==='text');await p.mouse.up();assert.equal(await input.getAttribute('type'),'password');}
-  assert.equal(changes,0);await input.focus();await p.keyboard.press('Tab');assert.equal(await p.locator(':focus').getAttribute('type'),'button');
+  await passwordControls(p,{required:true,mobile});assert.equal(changes,0);
   assert.equal(await p.locator('html').getAttribute('data-theme'),mobile?'dark':'light');assert(await p.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
   await p.screenshot({path:path.join(out,mobile?'mandatory-change-mobile-dark.png':'mandatory-change-desktop-light.png')});
   await p.getByRole('button',{name:'Salvar nova senha',exact:true}).click();await p.getByRole('link',{name:'Entrar com a nova senha',exact:true}).waitFor();assert.equal(changes,1);

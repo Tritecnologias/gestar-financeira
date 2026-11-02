@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict'),path=require('node:path'),crypto=require('node:crypto');
+const {passwordControls}=require('./password-reset-controls.browser.cjs');
 async function main(){let raw='';for await(const s of process.stdin)raw+=s;const cfg=JSON.parse(raw);raw='';
  const base=cfg.base||'http://localhost:3011';assert(['localhost','127.0.0.1'].includes(new URL(base).hostname));
  const {chromium}=require(cfg.playwrightModule||'playwright'),browser=await chromium.launch({channel:'msedge',headless:true});const results=[];
@@ -8,8 +9,9 @@ async function main(){let raw='';for await(const s of process.stdin)raw+=s;const
  const target=await eye.boundingBox();assert(target.width>=40&&target.height>=40);results.push('login_eye_keyboard_value_autocomplete_touch_target');
  await page.getByRole('button',{name:'Entrar',exact:true}).click();await page.waitForURL('**/plataforma');await page.getByRole('tab',{name:'Empresas',exact:true}).waitFor();await page.getByRole('tab',{name:'Contas',exact:true}).click();await page.getByText('Administrador sintético',{exact:true}).waitFor();let text=await page.locator('main').innerText();assert(!/\b(?:PlatformAdmin|Tenant|Membership|ACTIVE|OWNER|MEMBER)\b/.test(text));await page.getByRole('tab',{name:'Vínculos com a Empresa',exact:true}).click();await page.getByText('Membro',{exact:true}).first().waitFor();results.push('platform_portuguese_dynamic_status_and_roles');
  await page.getByRole('link',{name:'Minha conta',exact:true}).click();await page.getByRole('heading',{name:'Minha conta',exact:true}).waitFor();await page.getByRole('button',{name:'Alterar senha',exact:true}).click();
- const fields=['Senha atual','Nova senha','Confirmar nova senha'];for(const label of fields){const input=page.getByLabel(label,{exact:true});assert.equal(await input.getAttribute('type'),'password');await input.fill('synthetic-visibility-only');await page.getByRole('button',{name:'Mostrar '+label.toLocaleLowerCase('pt-BR'),exact:true}).click();assert.equal(await input.getAttribute('type'),'text');assert.equal(await input.inputValue(),'synthetic-visibility-only');for(const other of fields.filter(x=>x!==label))assert.equal(await page.getByLabel(other,{exact:true}).getAttribute('type'),'password');await page.getByRole('button',{name:'Ocultar '+label.toLocaleLowerCase('pt-BR'),exact:true}).click();await input.fill('');}
- results.push('three_independent_password_visibility_controls');
+ const fields=['Senha atual','Nova senha','Confirmar nova senha'];for(const label of fields)await page.getByLabel(label,{exact:true}).fill('synthetic-visibility-only');
+ await passwordControls(page,{required:false,mobile:false});for(const label of fields)await page.getByLabel(label,{exact:true}).fill('');
+ results.push('three_independent_hold_controls_sequential_tab_and_accessible_shortcut');
  await page.getByLabel('Senha atual',{exact:true}).fill(cfg.newPassword);await page.getByLabel('Nova senha',{exact:true}).fill(cfg.password);await page.getByLabel('Confirmar nova senha',{exact:true}).fill('different-confirmation');await page.getByRole('button',{name:'Salvar nova senha',exact:true}).click();await page.getByRole('alert').filter({hasText:'A confirmação deve ser igual à nova senha.'}).waitFor();results.push('confirmation_validation_in_browser');
  for(const label of fields)await page.getByLabel(label,{exact:true}).fill('');
  const state=await ctx.storageState();
