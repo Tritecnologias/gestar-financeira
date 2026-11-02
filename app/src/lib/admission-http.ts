@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
+import { auth, sessionCredentialStamp } from "@/lib/auth";
 import { requirePlatformAdmin } from "@/lib/tenant";
 import { withAccessRequest } from "@/lib/access-request-context";
 import { readExperimentBody } from "@/lib/experiment-request-body";
@@ -56,7 +56,7 @@ export async function admissionUser(): Promise<AdmissionUser> {
   const user = (await auth())?.user as { id?: string; authMode?: string; loginNonce?: string } | undefined;
   if (!user) return null;
   if (user.authMode !== "identity" || !user.id || !user.loginNonce) throw admissionFailure("Entre com sua identidade para continuar.", 401);
-  return { id: user.id, authMode: "identity", loginNonce: user.loginNonce };
+  return { id: user.id, authMode: "identity", loginNonce: user.loginNonce, credentialStamp: await sessionCredentialStamp(user.id) };
 }
 const cookieName = (id: string) => "dez-admission-" + id;
 export async function admissionProof(id: string) {

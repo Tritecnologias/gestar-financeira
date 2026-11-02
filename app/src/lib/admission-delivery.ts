@@ -9,6 +9,7 @@ import { sealAdmissionValue } from "@/lib/admission-crypto";
 export async function deliverAdmissionChallenge(input: {
   admissionId: string; challengeId: string; to: string; token: string; expiresAt: Date;
 }) {
+  if (process.env.EMAIL_PROVIDER !== "smtp" && process.env.EMAIL_PROVIDER !== "mock") throw new Error("ADMISSION_EMAIL_DISABLED");
   const origin = requireAdmissionOrigin(); admissionEmail(input.to);
   const config: EmailServiceConfig | null = process.env.EMAIL_PROVIDER === "smtp"
     ? getEmailServiceConfig(new URL(origin)) : { publicUrl: new URL(origin), dev: true, adapter: {

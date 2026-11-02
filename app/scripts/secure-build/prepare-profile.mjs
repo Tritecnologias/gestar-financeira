@@ -2,7 +2,7 @@ import {readFileSync,writeFileSync,existsSync,rmSync,mkdirSync,cpSync} from 'nod
 import {resolve,join,relative,isAbsolute} from 'node:path';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
-import {PORTABLE_HOMOLOG_MIGRATIONS,PORTABLE_PRODUCTION_MIGRATIONS,PORTABLE_ADMISSION_MIGRATION,PRE_EXPERIMENT_MIGRATIONS} from '../../src/lib/backup/schema-contract.mjs';
+import {PRIVATE_HOMOLOG_MIGRATIONS,PRIVATE_PRODUCTION_MIGRATIONS,PORTABLE_ADMISSION_MIGRATION,PRIVATE_INVITATION_MIGRATION,PRE_EXPERIMENT_MIGRATIONS} from '../../src/lib/backup/schema-contract.mjs';
 
 // One build contains every approved lineage. Runtime selects the Prisma path;
 // SQL independently proves the connection, roles, ACLs and ledger.
@@ -12,9 +12,9 @@ export function prepareProfile(root,profile='portable',source=process.cwd()) {
   if(root===source||!existsSync(join(root,'server.js'))||!existsSync(join(root,'build-metadata.json')))throw Error('SEPARATE_RUNTIME_ARTIFACT_REQUIRED');
   const target=join(root,'prisma','migrations'),inside=relative(root,target);
   if(isAbsolute(inside)||inside.startsWith('..'))throw Error('ARTIFACT_PATH');
-  const profiles={local:PORTABLE_HOMOLOG_MIGRATIONS,homolog:PORTABLE_HOMOLOG_MIGRATIONS,production:PORTABLE_PRODUCTION_MIGRATIONS};
+  const profiles={local:PRIVATE_HOMOLOG_MIGRATIONS,homolog:PRIVATE_HOMOLOG_MIGRATIONS,production:PRIVATE_PRODUCTION_MIGRATIONS};
   const prepared=Object.entries(profiles).map(([name,list])=>({name,list,files:list.map(m=>{
-    const folder=m.name===PORTABLE_ADMISSION_MIGRATION.name?'portable-migrations':
+    const folder=[PORTABLE_ADMISSION_MIGRATION.name,PRIVATE_INVITATION_MIGRATION.name].includes(m.name)?'portable-migrations':
       name==='production'&&!PRE_EXPERIMENT_MIGRATIONS.some(x=>x.name===m.name)?'production-migrations':'migrations';
     const bytes=readFileSync(join(source,'prisma',folder,m.name,'migration.sql'));
     if(createHash('sha256').update(bytes).digest('hex')!==m.sha256)throw Error('MIGRATION_CHECKSUM:'+m.name);

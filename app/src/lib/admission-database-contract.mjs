@@ -1,8 +1,8 @@
-import {PORTABLE_HOMOLOG_MIGRATIONS, PORTABLE_PRODUCTION_MIGRATIONS, REQUIRED_MIGRATIONS} from './backup/schema-contract.mjs';
+import {PRIVATE_HOMOLOG_MIGRATIONS, PRIVATE_PRODUCTION_MIGRATIONS, PRIVATE_LOCAL_MIGRATIONS} from './backup/schema-contract.mjs';
 const targets=Object.freeze({
-  local:{database:'special_invite_lab',migrator:'a2_migrator',runtime:'a2_runtime',owners:['a2_migrator'],ledgers:[PORTABLE_HOMOLOG_MIGRATIONS,REQUIRED_MIGRATIONS]},
-  homolog:{database:'gestar_homolog_pg18',migrator:'pg18_homolog_migrator',runtime:'pg18_homolog_runtime',owners:['pg18_homolog_admin','pg18_homolog_migrator'],ledgers:[PORTABLE_HOMOLOG_MIGRATIONS]},
-  production:{database:'gestar_prod_pg18',migrator:'pg18_prod_migrator',runtime:'pg18_prod_runtime',owners:['postgres','pg18_prod_migrator'],ledgers:[PORTABLE_PRODUCTION_MIGRATIONS]},
+  local:{database:'special_invite_lab',migrator:'a2_migrator',runtime:'a2_runtime',owners:['a2_migrator'],ledgers:[PRIVATE_HOMOLOG_MIGRATIONS,PRIVATE_LOCAL_MIGRATIONS]},
+  homolog:{database:'gestar_homolog_pg18',migrator:'pg18_homolog_migrator',runtime:'pg18_homolog_runtime',owners:['pg18_homolog_admin','pg18_homolog_migrator'],ledgers:[PRIVATE_HOMOLOG_MIGRATIONS]},
+  production:{database:'gestar_prod_pg18',migrator:'pg18_prod_migrator',runtime:'pg18_prod_runtime',owners:['postgres','pg18_prod_migrator'],ledgers:[PRIVATE_PRODUCTION_MIGRATIONS]},
 });
 
 // No caller-controlled SQL. pg_catalog proof is independent of flags, URL and database name.
@@ -46,7 +46,7 @@ export function admissionDatabaseGuardSql(profile) {
   AND NOT EXISTS(SELECT 1 FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid
     WHERE c.relnamespace='public'::regnamespace AND c.relname IN ('admissions','admission_challenges') AND a.attnum>0 AND NOT a.attisdropped
       AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE') IS DISTINCT FROM
-        (CASE c.relname WHEN 'admissions' THEN a.attname=ANY(ARRAY['status','verified_challenge_id','email_verified_at','identity_id','tenant_id','membership_id','provisioned_at','cancelled_at','cancelled_by_admin_id','cancelled_by_identity_id','cancellation_reason'])
+        (CASE c.relname WHEN 'admissions' THEN a.attname=ANY(ARRAY['status','verified_challenge_id','email_verified_at','invitation_redeemed_at','identity_id','tenant_id','membership_id','provisioned_at','cancelled_at','cancelled_by_admin_id','cancelled_by_identity_id','cancellation_reason'])
           ELSE a.attname=ANY(ARRAY['status','consumed_at','revoked_at','attempt_count','last_attempt_at','delivery_status']) END))
   AND NOT EXISTS(SELECT 1 FROM pg_attribute col JOIN pg_class c ON c.oid=col.attrelid CROSS JOIN LATERAL aclexplode(col.attacl) a
     WHERE c.relnamespace='public'::regnamespace AND c.relname IN ('admissions','admission_challenges')
@@ -56,5 +56,5 @@ export function admissionDatabaseGuardSql(profile) {
 ) IS TRUE AS allowed`;
 
 }
-// Compatibility name for operational callers; uses the new portable H8 proof.
+// Compatibility name for operational callers; uses the portable H9 proof.
 export const HOMOLOG_DATABASE_GUARD_SQL = admissionDatabaseGuardSql('homolog');

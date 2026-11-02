@@ -29,8 +29,9 @@ export async function POST(req: Request) {
       return true;
     });
     if (!changed) throw Object.assign(new Error("Convite indisponível, expirado ou revogado."), { status: 404 });
-    const admission = admissionOrigin() ? await prisma.admission.findUnique({ where: { experimentInvitationId: row.id }, select: { status: true, expiresAt: true } }) : null;
-    const canStartAdmission = !!admission && (admission.status === "PROVISIONED" || admission.status === "AUTHORIZED" && admission.expiresAt > new Date());
+    const admission = admissionOrigin() ? await prisma.admission.findUnique({ where: { experimentInvitationId: row.id }, select: { status: true, expiresAt: true,
+      challenges: { where: { purpose: "INVITATION_CREDENTIAL" }, select: { id: true }, take: 1 } } }) : null;
+    const canStartAdmission = !!admission?.challenges.length && (admission.status === "PROVISIONED" || admission.status === "AUTHORIZED" && admission.expiresAt > new Date());
     return NextResponse.json({ firstName: row.recipientName.split(/\s+/)[0], acknowledged: !!row.acknowledgedAt || body.action === "acknowledge", interested: !!row.interestAt || body.action === "interest", canStartAdmission,
       ...(body.action === "interest" ? { message: canStartAdmission ? "Interesse registrado. Sua adesão já está autorizada; confirme seu e-mail para continuar. Registrar interesse ainda não libera acesso." : "Interesse registrado. Ricardo poderá acompanhar sua manifestação no painel de Convites Especiais. Aguarde a autorização e as orientações para confirmar seu e-mail e iniciar a adesão. Registrar interesse ainda não libera acesso." } : {}) }, { headers: EXPERIMENT_HEADERS });
   } catch (error) { const e = experimentError(error); return NextResponse.json({ error: e.message }, { status: e.status, headers: { ...EXPERIMENT_HEADERS, ...(e.status === 429 ? { "Retry-After": "300" } : {}) } }); }

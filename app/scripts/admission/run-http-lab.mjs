@@ -7,27 +7,31 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync,cpSync} from 'node:fs';
 import {resolve,join,isAbsolute,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID,randomBytes,createHash} from 'node:crypto';
+import {privateInvitationMigrationLab,privateInvitationOciLab} from '../../tests/private-invitation-migration.lab.mjs';
 
 const app=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 assert(process.argv[2]&&isAbsolute(process.argv[2])&&process.argv[3]&&isAbsolute(process.argv[3]),'Usage: node run-http-lab.mjs <A2.1-evidence-directory> <new-evidence-directory>');
 const source=resolve(process.argv[2]),out=resolve(process.argv[3]);assert(!existsSync(out),'NEW_EVIDENCE_DIRECTORY_REQUIRED');
-assert(process.argv[4]===undefined||['--provision','--journey','--preview','--integrated','--password-reset','--special-invitation'].includes(process.argv[4]),'UNKNOWN_PHASE');
+assert(process.argv[4]===undefined||['--provision','--journey','--preview','--integrated','--password-reset','--special-invitation','--private-portability'].includes(process.argv[4]),'UNKNOWN_PHASE');
 // Reuse the existing disposable fixture and browser workflow, without migration,
 // backup capture, recovery rehearsal or operational deployment in this scope.
+const portability=process.argv[4]==='--private-portability';
 const special=process.argv[4]==='--special-invitation';
 const reset=process.argv[4]==='--password-reset';
 const integrated=process.argv[4]==='--integrated';
 const journey=special||integrated||['--journey','--preview'].includes(process.argv[4]);
-const provision=reset||journey||process.argv[4]==='--provision', phase=reset?'A.2.7':integrated?'A.2.5':journey?'A.2.4':provision?'A.2.3':'A.2.2', label=reset?'dez-a27-http':integrated?'dez-a25-http':journey?'dez-a24-http':provision?'dez-a23-http':'dez-a22-http';
+const provision=portability||reset||journey||process.argv[4]==='--provision', phase=reset?'A.2.7':integrated?'A.2.5':journey?'A.2.4':provision?'A.2.3':'A.2.2', label=reset?'dez-a27-http':integrated?'dez-a25-http':journey?'dez-a24-http':provision?'dez-a23-http':'dez-a22-http';
 const foundation=JSON.parse(readFileSync(join(source,'RESULT.json'),'utf8'));
 assert.equal(foundation.state,'PASSED');assert.equal(foundation.phase,'A.2.1');assert.equal(foundation.syntheticOnly,true);assert.equal(foundation.network,'none');assert.equal(foundation.realEmail,false);
 const dump=readFileSync(join(source,'synthetic-a2-h8.dump'));assert.equal(createHash('sha256').update(dump).digest('hex'),foundation.dumpSHA256);
 mkdirSync(out,{recursive:true});const staged=join(out,'source');mkdirSync(staged);
-for(const name of ['src','public','package.json','package-lock.json','tsconfig.json','next.config.ts','next-env.d.ts'])cpSync(join(app,name),join(staged,name),{recursive:true});
+for(const name of ['src','public','package.json','package-lock.json','tsconfig.json','next.config.ts'])cpSync(join(app,name),join(staged,name),{recursive:true});
+if(existsSync(join(app,'next-env.d.ts')))cpSync(join(app,'next-env.d.ts'),join(staged,'next-env.d.ts'));
 mkdirSync(join(staged,'prisma'));cpSync(join(app,'prisma/schema.prisma'),join(staged,'prisma/schema.prisma'));
 mkdirSync(join(staged,'tests'));for(const name of ['admission.http.cjs','experiment.http.cjs',...(provision?['synthetic-pdf.cjs','admission-provisioning.http.cjs','admission-lab-helpers.cjs','invitations-multichannel.http.cjs','contractual-onboarding.http.cjs']:[]),...(integrated?['admission-integrated.http.cjs']:[]),...(journey?['admission-browser-relay.cjs','admission-browser-fixture.cjs']:[])])cpSync(join(app,'tests',name),join(staged,'tests',name));
 const suffix=randomUUID().slice(0,8),pg=(integrated?'dez-a25-pg-':journey?'dez-a24-pg-':provision?'dez-a23-pg-':'dez-a22-pg-')+suffix,worker=label+'-'+suffix;
 if(reset)for(const name of ['password-reset.http.cjs','admission-browser-relay.cjs'])cpSync(join(app,'tests',name),join(staged,'tests',name));
+if(portability)cpSync(join(app,'tests/private-invitation-portability.http.cjs'),join(staged,'tests/private-invitation-portability.http.cjs'));
 if(special)for(const name of ['experiment-production-gate.http.cjs','special-admission.http.cjs'])cpSync(join(app,'tests',name),join(staged,'tests',name));
 const pgImage='sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5',nodeImage='sha256:271e76a186736f3a533931712920c03644bd69684b11d04b1c468d0870ba0d13';
 const report={phase,network:'none',publishedPorts:[],syntheticOnly:true,realEmail:false,foundationDumpSHA256:foundation.dumpSHA256,startedAt:new Date().toISOString()};
@@ -49,7 +53,8 @@ try {
   await sql("CREATE ROLE a2_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; CREATE ROLE a2_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT; CREATE ROLE a2_observer LOGIN; CREATE ROLE pg18_prod_migrator LOGIN; CREATE ROLE pg18_prod_runtime LOGIN; CREATE DATABASE special_invite_lab OWNER a2_migrator;");
   await run(['exec','-i',pg,'pg_restore','-U','postgres','-d','special_invite_lab','--exit-on-error'],dump);
   if(provision)await run(['exec','-i',pg,'psql','-XqAt','-v','ON_ERROR_STOP=1','-U','postgres','-d','special_invite_lab'],readFileSync(join(app,'scripts/admission/operational-lab-acl.sql')));
-  console.log('PASS isolated synthetic H8 restored, no migration or remote database accessed');
+  report.migration=await privateInvitationMigrationLab({run,pg,app,out,dump});
+  console.log('PASS isolated H8 to H9 and P7 to P8 migrations, rollback, ACLs and recovery');
   const secret=randomBytes(32).toString('hex');
   const env={DATABASE_URL:'postgresql://a2_runtime@127.0.0.1:5432/special_invite_lab',APP_PUBLIC_URL:'http://localhost:3020',NEXTAUTH_URL:'http://localhost:3020',
     AUTH_SECRET:secret,NEXTAUTH_SECRET:secret,AUTH_TRUST_HOST:'true',DEPLOYMENT_PROFILE:'local',ADMISSION_LAB_ENABLED:'true',EMAIL_PROVIDER:'mock',
@@ -61,10 +66,18 @@ try {
   const envArgs=Object.entries(env).flatMap(([key,value])=>['-e',key+'='+value]);
   await run(['run','-d','--pull=never','--name',worker,'--network','container:'+pg,'--restart','no','--label','purpose='+label,'--memory','3g',
     '--mount','type=bind,source='+staged+',target=/source,readonly','--mount','type=tmpfs,destination=/work','--mount','type=tmpfs,destination=/tmp',
-    ...envArgs,'--entrypoint','sh',nodeImage,'-c','cp -a /source/. /work/ && ln -s /app/node_modules /work/node_modules && cd /work && '+'node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma > /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next build --webpack >> /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next start -p 3020 -H 127.0.0.1 >> /tmp/a2-app.log 2>&1']);created.push(worker);
+    ...envArgs,'--entrypoint','sh',nodeImage,'-c',portability?'cp -a /source/. /work/ && ln -s /app/node_modules /work/node_modules && exec node -e \"setInterval(()=>{},10000)\"':"trap 'cat /tmp/a2-app.log >&2' EXIT; cp -a /source/. /work/ && ln -s /app/node_modules /work/node_modules && cd /work && "+'node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma > /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next build --webpack >> /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next start -p 3020 -H 127.0.0.1 >> /tmp/a2-app.log 2>&1']);created.push(worker);
   for(const name of created){const inspection=JSON.parse((await run(['inspect',name])).stdout)[0];assert.deepEqual(inspection.HostConfig.PortBindings,{});assert.equal(inspection.HostConfig.RestartPolicy.Name,'no');}
+  if(portability){
+    report.portability=await privateInvitationOciLab({run,pg,worker,out,image:process.argv[5],created,label,suffix});
+    report.state='PASSED';
+  }else{
   let ready=false;
   for(let n=0;n<300;n++){
+    if((await run(['inspect',worker,'--format','{{.State.Running}}'])).stdout.trim()!=='true'){
+      const log=await run(['logs',worker],undefined,false);writeFileSync(join(out,'app.log'),log.stdout+log.stderr);
+      throw new Error('LOCAL_BUILD_EXITED; inspect app.log');
+    }
     const r=await run(['exec',worker,'node','-e',"fetch('http://localhost:3020/"+(reset?'login':'adesao')+"').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"],undefined,false);
     if(r.code===0){ready=true;break;}if(n%10===0)console.log('Waiting for isolated Next application');await new Promise(r=>setTimeout(r,1000));
   }
@@ -164,14 +177,15 @@ try {
     report.recovery={state:'PASSED',tables:44,method:'pg_dump/pg_restore plus exact sorted row digests',dumpSHA256:createHash('sha256').update(full).digest('hex')};
     console.log('PASS full H8 dump and recovery: all 44 table digests match');
     if(integrated){report.applicationRecovery=await recoverApplication({run,worker,pgImage,nodeImage,staged,out,envArgs,full,snapshot,before,created,label,suffix,closeBridge});closeBridge=undefined;console.log('PASS independent application recovery and interrupted journeys');}
-    }else{report.scope='Special Invitation real journey';report.backupCapture=false;report.migrationsExecuted=false;}
+    }else{report.scope='Private individual Special Invitation';report.backupCapture='synthetic isolated clones only';report.migrationsExecuted='LOCAL H8-H9 and P7-P8 only';}
   }
   }
   if(!integrated){const log=await run(['exec',worker,'cat','/tmp/a2-app.log']);writeFileSync(join(out,'app.log'),log.stdout);}
   report.state='PASSED';
   if(process.argv[4]==='--preview'){writeFileSync(join(out,'PREVIEW-READY.json'),JSON.stringify(report,null,2));console.log('LOCAL preview ready: '+join(out,'PREVIEW.md')+'; create STOP-LOCAL in this directory to close it. Automatic cleanup after two hours.');const deadline=Date.now()+7200000;while(Date.now()<deadline&&!existsSync(join(out,'STOP-LOCAL')))await new Promise(r=>setTimeout(r,1000));}
+  }
 } catch(error){report.state='FAILED';report.error=String(error.message).slice(0,400);console.error(report.error);
-  if(created.includes(worker)){const log=await run(['exec',worker,'cat','/tmp/a2-app.log'],undefined,false);writeFileSync(join(out,'app.log'),log.stdout);
+  if(created.includes(worker)){const log=await run(['exec',worker,'cat','/tmp/a2-app.log'],undefined,false);if(log.code===0)writeFileSync(join(out,'app.log'),log.stdout);
     if(provision){const regressionLog=await run(['exec',worker,'cat','/tmp/a23-regression-app.log'],undefined,false);if(regressionLog.code===0)writeFileSync(join(out,'regression-app.log'),regressionLog.stdout);}}
 } finally {
   closeBridge?.();

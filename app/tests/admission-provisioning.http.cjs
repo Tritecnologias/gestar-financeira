@@ -7,7 +7,7 @@ const {PrismaClient} = require('@prisma/client');
 const {PrismaPg} = require('@prisma/adapter-pg');
 const bcrypt = require('bcryptjs');
 const {admissionLab,labHeaders} = require('./admission-lab-helpers.cjs');
-const cfg={environment:'ADMISSION_LOCAL',base:'http://localhost:3020',password:'Synthetic-only-A23-password!',expectedMigrationCount:8};
+const cfg={environment:'ADMISSION_LOCAL',base:'http://localhost:3020',password:'Synthetic-only-A23-password!',expectedMigrationCount:9};
 assert(admissionLab(cfg));
 const p=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})});
 const fixture=new Pool({connectionString:'postgresql://postgres@127.0.0.1:5432/special_invite_lab'});
@@ -243,7 +243,7 @@ async function main(){
   pass('formalized contract cannot reopen',(await q(newJar,'/api/onboarding/contractual','POST',{action:'back'})).status===409);
   pass('completed onboarding hands off to inicio',(await q(newJar,'/onboarding')).headers.get('location')==='/inicio');
   if(!process.argv.includes('--special-invitation')){
-  const backup=await q(newJar,'/api/backups');pass('new tenant backup uses approved H8 candidate',backup.status===200&&backup.body.format==='10s-tenant-backup/3'&&backup.body.migrations.length===8);
+  const backup=await q(newJar,'/api/backups');pass('new tenant backup uses approved H9 candidate',backup.status===200&&backup.body.format==='10s-tenant-backup/3'&&backup.body.migrations.length===9);
   pass('tenant backup excludes global admission governance',!Object.keys(backup.body.sections).some(k=>k.includes('admission'))&&!Object.keys(backup.body.references).some(k=>k.includes('admission')));
   const preserve=await digest(['admissions','admission_challenges','tenant_memberships','legacy_user_access_maps','term_acceptances','tenant_contractual_responsibles','tenant_contractual_onboarding']);
   const preview=await q(newJar,'/api/backups','POST',backup.body);assert.equal(preview.status,200);

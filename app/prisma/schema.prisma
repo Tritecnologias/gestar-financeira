@@ -105,6 +105,7 @@ enum AdmissionStatus {
 enum AdmissionChallengePurpose {
   EMAIL_VERIFICATION
   RESUME
+  INVITATION_CREDENTIAL
 }
 
 enum AdmissionChallengeStatus {
@@ -135,6 +136,7 @@ model Admission {
   status AdmissionStatus @default(AUTHORIZED)
   verifiedChallengeId String? @unique @map("verified_challenge_id")
   emailVerifiedAt DateTime? @map("email_verified_at")
+  invitationRedeemedAt DateTime? @map("invitation_redeemed_at")
   identityId String? @map("identity_id")
   tenantId String? @unique @map("tenant_id")
   membershipId String? @map("membership_id")

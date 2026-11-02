@@ -6,7 +6,7 @@ import Link from "next/link";
 import "./activation.css";
 import "./admission.css";
 
-type State = { id: string; email: string; state: "CREATE_IDENTITY" | "LOGIN_REQUIRED" | "IDENTITY_VERIFIED" | "PROVISIONED"; tenantId?: string };
+type State = { id: string; email: string; proofMethod: "PRIVATE_INVITATION" | "EMAIL"; state: "CREATE_IDENTITY" | "LOGIN_REQUIRED" | "IDENTITY_VERIFIED" | "PROVISIONED"; tenantId?: string };
 const validId = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 const retryMessage = "Não foi possível concluir agora. Consulte seu progresso antes de tentar novamente.";
 async function post(path: string, body: unknown) {
@@ -41,7 +41,7 @@ export default function AdmissionClient() {
       const revision = ++generation.current;
       if (target !== reference.current) { link.current = null; setState(null); setEmail(""); setPassword(""); setConfirmation(""); setName(""); }
       setError(""); setNotice("");
-      if (fragment.get("from") === "convite") setNotice("Sua adesão já está autorizada. Confira a mensagem de confirmação no e-mail cadastrado no convite. Se já solicitou o link, aguarde sua chegada antes de reenviar.");
+      if (fragment.get("from") === "convite") setNotice("Continue com o e-mail autorizado no convite. Não é necessário receber outro link.");
       if (!validId(target)) { reference.current = ""; link.current = null; setId(""); setState(null); setLoading(false); setHasLink(false); if (requested) setError("O link está incompleto. Abra o link original recebido por e-mail."); return; }
       reference.current = target; setId(target); setLoading(true);
       try { sessionStorage.setItem("dez-admission-id", target); } catch { /* No token is stored. */ }
@@ -92,29 +92,29 @@ export default function AdmissionClient() {
     try { await post(`/api/admissions/${id}/provision`, { nome: name.trim() }); if (current()) window.location.assign("/onboarding"); }
     catch (e) { if (current()) await refresh(id).catch(() => {}); throw e; }
   }); }
-  const titles = ["Confirme seu e-mail", "Confirme sua identidade", state?.state === "PROVISIONED" ? "Seu espaço está pronto" : "Prepare seu espaço"];
+  const titles = [hasLink ? "Confirme seu e-mail" : "Retome seu convite", "Confirme sua identidade", state?.state === "PROVISIONED" ? "Seu espaço está pronto" : "Prepare seu espaço"];
   return <main className="activation-page admission-page"><section className="activation-card admission-card" aria-busy={busy || loading}>
     <header><span className="activation-eyebrow">DEZ SOLUÇÕES · ADESÃO</span><h1>Seu próximo passo começa aqui</h1><p>Continue com segurança para organizar sua gestão.</p></header>
-    <ol className="admission-steps" aria-label="Etapas da adesão">{["E-mail", "Identidade", "Seu espaço"].map((label, n) => <li key={label} aria-current={step === n ? "step" : undefined}><span aria-hidden="true">{n < step ? "✓" : n + 1}</span>{label}{n < step && <span className="admission-sr">: concluído</span>}</li>)}</ol>
+    <ol className="admission-steps" aria-label="Etapas da adesão">{[state?.proofMethod === "EMAIL" || hasLink ? "E-mail" : "Convite", "Identidade", "Seu espaço"].map((label, n) => <li key={label} aria-current={step === n ? "step" : undefined}><span aria-hidden="true">{n < step ? "✓" : n + 1}</span>{label}{n < step && <span className="admission-sr">: concluído</span>}</li>)}</ol>
     {error && <p ref={alert} tabIndex={-1} className="activation-error" role="alert">{error}</p>}
     {notice && <p className="admission-notice" role="status">{notice}</p>}
     {loading ? <p role="status">Consultando sua adesão…</p> : <>
       <h2 ref={heading} tabIndex={-1}>{titles[step]}</h2>
       {step === 0 && <>
-        <p>Use o e-mail autorizado para esta adesão. A confirmação protege o acesso ao seu espaço.</p>
+        <p>{hasLink ? "Use o e-mail autorizado para esta adesão. A confirmação protege o acesso ao seu espaço." : "Abra seu Convite Especial privado e escolha iniciar a adesão. Se já iniciou, retome no mesmo navegador ou entre com a identidade autorizada. Se não criou sua senha e perdeu o acesso, fale com quem enviou o convite."}</p>
         {hasLink && <button disabled={busy} onClick={() => void confirmEmail()}>{busy ? "Confirmando…" : "Confirmar meu e-mail"}</button>}
-        <form method="post" className="activation-fields" onSubmit={event => { event.preventDefault(); void action(async current => {
+        {hasLink && <form method="post" className="activation-fields" onSubmit={event => { event.preventDefault(); void action(async current => {
           const result = await post("/api/admissions/resume", { email, ...(id ? { admissionId: id } : {}) });
           if (current()) { link.current = null; setHasLink(false); setNotice(result.message); setCooldown(60); }
         }); }}>
           <label htmlFor="admission-email">E-mail autorizado<input id="admission-email" type="email" required autoComplete="email" maxLength={254} disabled={busy} value={email} onChange={event => setEmail(event.target.value)} /></label>
           <button className={hasLink ? "admission-secondary" : ""} disabled={busy || cooldown > 0} type="submit">{cooldown ? `Aguarde ${cooldown}s para reenviar` : "Receber novo link"}</button>
-        </form>
-        <p className="activation-muted">O convite individual já inclui a autorização de adesão. Se recebeu mais de uma autorização, abra o e-mail da adesão que deseja retomar.</p>
-        <p className="activation-muted">Já criou seu espaço? <Link href="/login?callbackUrl=%2Fadesao">Entrar com minha conta</Link></p>
+        </form>}
+        <p className="activation-muted">O convite individual já inclui a autorização de adesão e é de uso exclusivo do destinatário.</p>
+        <p className="activation-muted">Já possui uma identidade? <Link href="/login?callbackUrl=%2Fadesao">Entrar com minha conta</Link></p>
         {id && !hasLink && <button className="admission-secondary" disabled={busy} onClick={() => void action(async () => { await refresh(id); })}>Consultar progresso</button>}
       </>}
-      {state && step > 0 && <p className="admission-verified">E-mail confirmado: <strong>{state.email}</strong></p>}
+      {state && step > 0 && <p className="admission-verified">{state.proofMethod === "PRIVATE_INVITATION" ? "E-mail autorizado" : "E-mail confirmado"}: <strong>{state.email}</strong></p>}
       {state && step === 1 && <form method="post" className="activation-fields" onSubmit={identify}>
         <p>{state.state === "CREATE_IDENTITY" ? "Crie uma senha com pelo menos 12 caracteres para proteger sua conta." : "Use sua senha atual. Seus acessos a outras empresas serão preservados."}</p>
         {signedIn && <button type="button" className="admission-secondary" disabled={busy} onClick={() => void action(async current => { await signOut({ redirect: false }); if (current()) { setSignedIn(false); await refresh(id); } })}>Sair da conta atual</button>}

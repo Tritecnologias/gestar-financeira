@@ -9,7 +9,7 @@ export function admissionOrigin(env: Record<string, string | undefined> = proces
         : { flag: "ADMISSION_PRODUCTION_ENABLED", other: "ADMISSION_HOMOLOG_ENABLED", origin: "https://app.dezsolucoes.com.br", host: "ik7d1n0035vis9y5rprjpgmn", database: "gestar_prod_pg18", role: "pg18_prod_runtime" };
       const mock = env.EMAIL_PROVIDER === "mock";
       if (env[target.flag] !== "true" || env[target.other] === "true" || env.ADMISSION_LAB_ENABLED === "true" ||
-          env.ACCESS_AUTH_MODE !== "identity" || (!mock && !(profile === "production" && env.EMAIL_PROVIDER === "smtp")) ||
+          env.ACCESS_AUTH_MODE !== "identity" || (!mock && env.EMAIL_PROVIDER !== "disabled" && !(profile === "production" && env.EMAIL_PROVIDER === "smtp")) ||
           env.APP_PUBLIC_URL !== target.origin || env.NEXTAUTH_URL !== env.APP_PUBLIC_URL ||
           !["postgres:", "postgresql:"].includes(database.protocol) || database.hostname !== target.host ||
           database.port !== "5432" || database.pathname !== "/" + target.database || database.username !== target.role ||
@@ -22,15 +22,15 @@ export function admissionOrigin(env: Record<string, string | undefined> = proces
     }
     if (env.ADMISSION_LAB_ENABLED !== "true" || profile !== "local" ||
         env.ADMISSION_HOMOLOG_ENABLED === "true" || env.ADMISSION_PRODUCTION_ENABLED === "true" ||
-        env.ACCESS_AUTH_MODE === "legacy" || env.EMAIL_PROVIDER !== "mock" ||
+        env.ACCESS_AUTH_MODE === "legacy" || !["mock", "disabled"].includes(env.EMAIL_PROVIDER || "") ||
         env.APP_PUBLIC_URL !== "http://localhost:3020" || env.NEXTAUTH_URL !== env.APP_PUBLIC_URL ||
         !["127.0.0.1", "localhost"].includes(database.hostname) || database.port !== "5432" ||
         database.pathname !== "/special_invite_lab" || database.username !== "a2_runtime" ||
         !["postgres:", "postgresql:"].includes(database.protocol) || database.hash || database.search ||
         !/^[a-f0-9]{64}$/.test(env.ADMISSION_SESSION_KEY || "") ||
-        !/^[a-f0-9]{64}$/.test(env.ADMISSION_LAB_MAIL_KEY || "") ||
-        env.ADMISSION_SESSION_KEY === env.ADMISSION_LAB_MAIL_KEY ||
-        env.ADMISSION_LAB_MAIL_DIR !== "/tmp/a2-mail") return null;
+        (env.EMAIL_PROVIDER === "mock" && (!/^[a-f0-9]{64}$/.test(env.ADMISSION_LAB_MAIL_KEY || "") ||
+          env.ADMISSION_SESSION_KEY === env.ADMISSION_LAB_MAIL_KEY ||
+          env.ADMISSION_LAB_MAIL_DIR !== "/tmp/a2-mail"))) return null;
     return env.APP_PUBLIC_URL;
   } catch { return null; }
 }
@@ -39,7 +39,7 @@ export const ADMISSION_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0", "Pragma": "no-cache",
   "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow", "Vary": "Cookie, Origin",
 };
-export const ADMISSION_UNAVAILABLE = "Adesão indisponível. Solicite um novo link para o e-mail autorizado.";
+export const ADMISSION_UNAVAILABLE = "Adesão indisponível. Retome no navegador em que iniciou ou fale com quem enviou o convite.";
 export const RESUME_MESSAGE = "Se houver uma autorização válida para esse e-mail, você receberá um link para continuar.";
 export const validAdmissionId = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 export function admissionFailure(message = ADMISSION_UNAVAILABLE, status = 409) { return Object.assign(new Error(message), { status }); }
@@ -63,5 +63,15 @@ export function admissionEmail(value: unknown, env: Record<string, string | unde
       throw admissionFailure("Informe um e-mail válido.", 400);
   } else if (email.length > 254 || !/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@example\.invalid$/.test(email))
     throw admissionFailure("Use um e-mail sintético @example.invalid neste laboratório.", 400);
+  return email;
+}
+
+/** Private credentials authorize an email identifier, not mailbox possession.
+ * No delivery adapter participates. Non-production remains synthetic-only. */
+export function invitationEmail(value: unknown, env: Record<string, string | undefined> = process.env) {
+  if (env.DEPLOYMENT_PROFILE !== "production" || !admissionOrigin(env)) return admissionEmail(value, env);
+  const email = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (email.length > 254 || !/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(email))
+    throw admissionFailure("Informe um e-mail válido.", 400);
   return email;
 }

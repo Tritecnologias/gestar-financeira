@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
-import {admissionOrigin,admissionEmail,retryableAdmissionTransaction} from '../src/lib/admission-policy.ts';
+import {admissionOrigin,admissionEmail,invitationEmail,retryableAdmissionTransaction} from '../src/lib/admission-policy.ts';
 import {admissionHash,newAdmissionToken,matchesAdmissionToken,sealAdmissionProof,openAdmissionProof,sealAdmissionValue,openAdmissionValue} from '../src/lib/admission-crypto.ts';
 
 const config={ADMISSION_LAB_ENABLED:'true',DEPLOYMENT_PROFILE:'local',EMAIL_PROVIDER:'mock',APP_PUBLIC_URL:'http://localhost:3020',NEXTAUTH_URL:'http://localhost:3020',
@@ -41,4 +41,23 @@ test('synthetic mail ciphertext cannot be used as a browser proof and contains n
   const value=sealAdmissionValue(mail,key,'dez/admission/synthetic-mail/v1');assert(!value.includes(token));assert(!value.includes(mail.to));
   assert.deepEqual(openAdmissionValue(value,key,'dez/admission/synthetic-mail/v1'),mail);
   assert.equal(openAdmissionValue(value,key,'dez/admission/restricted-session/v1'),null);
+});
+test('private invitation accepts a real identifier only in explicitly authorized production, independently of SMTP',()=>{
+  const prod={...config,DEPLOYMENT_PROFILE:'production',ADMISSION_LAB_ENABLED:'false',ADMISSION_PRODUCTION_ENABLED:'true',ACCESS_AUTH_MODE:'identity',
+    APP_PUBLIC_URL:'https://app.dezsolucoes.com.br',NEXTAUTH_URL:'https://app.dezsolucoes.com.br',
+    DATABASE_URL:'postgresql://pg18_prod_runtime:synthetic@ik7d1n0035vis9y5rprjpgmn:5432/gestar_prod_pg18',ADMISSION_LAB_MAIL_DIR:'/var/lib/10s/backups/admission-mail'};
+  assert.equal(invitationEmail(' Authorized@Example.COM ',prod),'authorized@example.com');
+  const disabled={...prod,EMAIL_PROVIDER:'disabled',ADMISSION_LAB_MAIL_KEY:undefined,ADMISSION_LAB_MAIL_DIR:undefined};
+  assert.equal(admissionOrigin(disabled),prod.APP_PUBLIC_URL);
+  assert.equal(invitationEmail('authorized@example.com',disabled),'authorized@example.com');
+  assert.equal(admissionOrigin({...config,EMAIL_PROVIDER:'disabled',ADMISSION_LAB_MAIL_KEY:undefined,ADMISSION_LAB_MAIL_DIR:undefined}),config.APP_PUBLIC_URL);
+  assert.throws(()=>admissionEmail('authorized@example.com',prod)); // legacy transport stays blocked
+  for(const env of [config,{...prod,ADMISSION_PRODUCTION_ENABLED:'false'},{...prod,DATABASE_URL:config.DATABASE_URL}])
+    assert.throws(()=>invitationEmail('authorized@example.com',env));
+  for(const v of ['a@example.com\r\nBcc:b@example.com','a@example.com,b@example.com',null,{}])assert.throws(()=>invitationEmail(v,prod));
+});
+test('private browser proof carries a distinct authenticated method and rejects unknown kinds',()=>{
+  const key=randomBytes(32).toString('hex'),id=randomUUID(),proof={admissionId:id,verificationId:randomUUID(),accessId:randomUUID(),until:Date.now()+60000,kind:'INVITATION'};
+  assert.deepEqual(openAdmissionProof(sealAdmissionProof(proof,key),key,id),proof);
+  assert.equal(openAdmissionProof(sealAdmissionProof({...proof,kind:'MAILBOX_BYPASS'},key),key,id),null);
 });

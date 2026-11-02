@@ -7,14 +7,15 @@ import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { normalizeEmail } from "@/lib/email";
 import { PASSWORD_POLICY_MESSAGE, validIdentityPassword } from "@/lib/password-policy";
-import { admissionEmail, admissionFailure, requireAdmissionOrigin, retryableAdmissionTransaction, validAdmissionId } from "@/lib/admission-policy";
+import { admissionEmail, invitationEmail, admissionFailure, requireAdmissionOrigin, retryableAdmissionTransaction, validAdmissionId } from "@/lib/admission-policy";
 import { admissionHash, matchesAdmissionToken, newAdmissionToken, type AdmissionProof } from "@/lib/admission-crypto";
 import { deliverAdmissionChallenge } from "@/lib/admission-delivery";
 import { requireAdmissionDatabase } from "@/lib/admission-database";
 import { activateTenantMembership, createPendingTenant, initialAdministrationProfile } from "@/lib/tenant-activation";
+import { matchesCredentialStamp } from "@/lib/credential-session";
 
 type Tx = Prisma.TransactionClient;
-export type AdmissionUser = { id: string; authMode: "identity"; loginNonce: string } | null;
+export type AdmissionUser = { id: string; authMode: "identity"; loginNonce: string; credentialStamp: string } | null;
 const minutes = (n: number) => n * 60000;
 const denied = () => admissionFailure();
 
@@ -71,6 +72,9 @@ async function emailLock(tx: Tx, email: string) {
 async function prepareChallenge(tx: Tx, row: Admission): Promise<PreparedMail | null> {
   const instant = await now(tx);
   if (row.status !== "AUTHORIZED" || row.expiresAt <= instant) throw denied();
+  if (process.env.EMAIL_PROVIDER === "disabled") return null;
+  // Never replace a private credential with a mailbox challenge or send mail for it.
+  if (await tx.admissionChallenge.count({ where: { admissionId: row.id, purpose: "INVITATION_CREDENTIAL" } })) return null;
   const recent = await tx.admissionChallenge.findMany({ where: {
     OR: [{ admissionId: row.id }, { recipientEmail: row.authorizedEmail }],
     issuedAt: { gt: new Date(instant.getTime() - minutes(15)) },
@@ -111,7 +115,7 @@ export async function issueAuthorizedSpecialInvitation(actorIdentityId: string, 
     throw admissionFailure("Requisição de emissão inválida.", 400);
   let input: ReturnType<typeof experimentInput>;
   try { input = experimentInput(body); } catch (e) { throw admissionFailure((e as Error).message, 400); }
-  const email = admissionEmail(body.email), id = body.requestId, token = newAdmissionToken(), tokenHash = admissionHash(token);
+  const email = invitationEmail(body.email), id = body.requestId, token = newAdmissionToken(), tokenHash = admissionHash(token);
   const encryptedToken = sealExperimentToken(token, id, tokenHash);
   return transaction(async tx => {
     const adminId = await admin(tx, actorIdentityId);
@@ -122,6 +126,8 @@ export async function issueAuthorizedSpecialInvitation(actorIdentityId: string, 
           previous.admission?.authorizedEmail !== email || previous.expiresAt.getTime() - previous.createdAt.getTime() !== input.hours * 3600000 ||
           previous.revokedAt || previous.expiresAt <= await now(tx) || previous.admission.status === "CANCELLED")
         throw admissionFailure("Esta referência de emissão já foi utilizada. Confira o convite existente.", 409);
+      if (!await tx.admissionChallenge.findFirst({ where: { admissionId: previous.admission.id, purpose: "INVITATION_CREDENTIAL", tokenHash: previous.tokenHash } }))
+        throw denied();
       return { id, expiresAt: previous.expiresAt, admissionId: previous.admission.id, created: false };
     }
     await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${"experiment-create:" + actorIdentityId},0))`;
@@ -133,17 +139,18 @@ export async function issueAuthorizedSpecialInvitation(actorIdentityId: string, 
     const admission = await tx.admission.create({ data: { id: randomUUID(), source: "AUTHORIZED_INVITE", sourceReference: id,
       experimentInvitationId: id, authorizedEmail: email, authorizedByAdminId: adminId, authorizedByIdentityId: actorIdentityId,
       authorizedAt: instant, expiresAt } });
+    await tx.admissionChallenge.create({ data: { admissionId: admission.id, recipientEmail: email,
+      purpose: "INVITATION_CREDENTIAL", generation: 1, tokenHash, issuedAt: instant, expiresAt } });
     const actor = { actorIdentityId, platformAdminId: adminId, accessMode: "PLATFORM_ADMIN" as const };
     await writeAudit(tx, { ...actor, action: "EXPERIMENT_INVITATION_CREATED", resourceType: "ExperimentInvitation", resourceId: id });
     await writeAudit(tx, { ...actor, action: "ADMISSION_AUTHORIZED", resourceType: "Admission", resourceId: admission.id,
-      metadata: { invitationId: id, event: "SPECIAL_INVITATION_ISSUED" } });
+      metadata: { invitationId: id, event: "SPECIAL_INVITATION_ISSUED", proofMethod: "PRIVATE_INVITATION", mailboxVerified: false } });
     return { id, expiresAt, admissionId: admission.id, created: true };
   });
 }
 
-/** A valid Special link starts the already-authorized journey, but proves no email
- * ownership. Only the separate challenge delivered to the bound address can do so.
- */
+/** Resolve the reference only. Redemption is an explicit POST on the restricted
+ * cookie path, never a GET, landing-page inspection or welcome acknowledgment. */
 export async function startSpecialAdmission(token: unknown) {
   if (typeof token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(token)) throw denied();
   const result = await transaction(async tx => {
@@ -154,10 +161,12 @@ export async function startSpecialAdmission(token: unknown) {
     await emailLock(tx, reference.authorizedEmail);
     const { row } = await lockedAdmission(tx, reference.id, reference.status !== "PROVISIONED");
     if (!["AUTHORIZED", "PROVISIONED"].includes(row.status)) throw denied();
-    return { id: row.id, mail: row.status === "AUTHORIZED" ? await prepareChallenge(tx, row) : null };
+    const credential = await tx.admissionChallenge.findFirst({ where: { admissionId: row.id, purpose: "INVITATION_CREDENTIAL" } });
+    // Previously distributed public/interest links never gain bearer authority implicitly.
+    if (!credential) throw denied();
+    return { id: row.id };
   });
-  const delivery = await deliver(result.mail);
-  return { id: result.id, delivery };
+  return result;
 }
 
 // Compatibility for previously registered interests; not used by new issuance.
@@ -240,16 +249,74 @@ export async function requestAdmissionLink(emailValue: unknown, id?: string) {
   if (mail) await deliver(mail);
 }
 
-async function assertProof(tx: Tx, row: Admission, proof: AdmissionProof | null, instant: Date) {
-  if (!proof || proof.admissionId !== row.id || proof.until <= instant.getTime() || !row.emailVerifiedAt ||
-      proof.verificationId !== row.verifiedChallengeId) throw admissionFailure("Confirme o e-mail para continuar.", 401);
-  const verified = await tx.admissionChallenge.findFirst({ where: { id: proof.verificationId, admissionId: row.id,
-    purpose: "EMAIL_VERIFICATION", recipientEmail: row.authorizedEmail, status: "CONSUMED", consumedAt: row.emailVerifiedAt } });
+async function authenticatedIdentity(tx: Tx, user: AdmissionUser) {
+  if (!user) return null;
+  await tx.$queryRaw`SELECT id FROM auth_identities WHERE id=${user.id} FOR SHARE`;
+  const identity = await tx.authIdentity.findUnique({ where: { id: user.id } });
+  if (!identity || identity.status !== "ACTIVE" ||
+      !matchesCredentialStamp(user.credentialStamp, identity.id, identity.senhaHash, process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || ""))
+    throw admissionFailure("Entre novamente com sua senha definitiva para continuar.", 401);
+  // admissionUser uses auth(), which rejects restricted temporary-password sessions.
+  // Rechecking its credential stamp under this lock also closes the reset race;
+  // every reset changes the hash. No second audit-ledger scan in a SERIALIZABLE tx.
+  return identity;
+}
+
+async function verificationEvidence(tx: Tx, row: Admission) {
+  const consumedAt = row.invitationRedeemedAt || row.emailVerifiedAt;
+  if (!row.verifiedChallengeId || !consumedAt || (!!row.invitationRedeemedAt === !!row.emailVerifiedAt)) return null;
+  return tx.admissionChallenge.findFirst({ where: { id: row.verifiedChallengeId, admissionId: row.id,
+    purpose: row.invitationRedeemedAt ? "INVITATION_CREDENTIAL" : "EMAIL_VERIFICATION",
+    recipientEmail: row.authorizedEmail, status: "CONSUMED", consumedAt } });
+}
+
+async function assertProof(tx: Tx, row: Admission, proof: AdmissionProof | null, instant: Date, user: AdmissionUser = null) {
+  const verified = await verificationEvidence(tx, row), identity = await authenticatedIdentity(tx, user);
+  if (!verified) throw admissionFailure("Abra seu convite autorizado para continuar.", 401);
+  // A completed redemption plus the recipient's own credentials is safe resumption;
+  // knowing the email, admission ID or old link alone never qualifies.
+  if (row.invitationRedeemedAt && identity?.email === row.authorizedEmail) return row.expiresAt.getTime();
+  if (!proof || proof.admissionId !== row.id || proof.until <= instant.getTime() || proof.verificationId !== row.verifiedChallengeId ||
+      (proof.kind === "INVITATION") !== !!row.invitationRedeemedAt) throw admissionFailure("Retome no navegador em que iniciou ou entre com sua conta.", 401);
   const access = await tx.admissionChallenge.findFirst({ where: { id: proof.accessId, admissionId: row.id,
     recipientEmail: row.authorizedEmail, status: "CONSUMED" } });
-  if (!verified || !access || !access.consumedAt || (access.purpose === "EMAIL_VERIFICATION" && access.id !== verified.id) ||
+  if (!access || !access.consumedAt || (access.purpose !== "RESUME" && access.id !== verified.id) ||
+      (row.invitationRedeemedAt && access.id !== verified.id) ||
       proof.until > Math.min(row.expiresAt.getTime(), access.consumedAt.getTime() + minutes(30)))
-    throw admissionFailure("Confirme o e-mail para continuar.", 401);
+    throw admissionFailure("Retome no navegador em que iniciou ou entre com sua conta.", 401);
+  return proof.until;
+}
+
+/** A private link is a single-use credential, explicitly NOT mailbox verification.
+ * All consumption, binding and audit commit together, under the existing locks. */
+export async function redeemSpecialAdmission(id: string, token: unknown, currentProof: AdmissionProof | null, user: AdmissionUser) {
+  return transaction(async tx => {
+    const reference = await tx.admission.findUnique({ where: { id } });
+    if (!reference) throw denied();
+    if (reference.status === "AUTHORIZED" && (!reference.authorizedByIdentityId ||
+        await admin(tx, reference.authorizedByIdentityId) !== reference.authorizedByAdminId)) throw denied();
+    const { row, origin, instant } = await lockedAdmission(tx, id, reference.status !== "PROVISIONED");
+    if (!matchesAdmissionToken(token, origin.tokenHash)) throw denied();
+    const challenge = await tx.admissionChallenge.findFirst({ where: { admissionId: id, purpose: "INVITATION_CREDENTIAL",
+      recipientEmail: row.authorizedEmail, tokenHash: origin.tokenHash } });
+    if (!challenge) throw denied();
+    if (row.status === "PROVISIONED") { await assertProvisionedAccess(tx, row, user); return null; }
+    if (challenge.status === "CONSUMED") {
+      await assertProof(tx, row, currentProof, instant, user);
+      return currentProof?.kind === "INVITATION" && currentProof.verificationId === challenge.id && currentProof.accessId === challenge.id &&
+        currentProof.until > instant.getTime() && currentProof.until <= Math.min(row.expiresAt.getTime(), challenge.consumedAt!.getTime() + minutes(30)) ? currentProof : null;
+    }
+    if (challenge.status !== "PENDING" || challenge.expiresAt <= instant || challenge.attemptCount >= challenge.maxAttempts || row.verifiedChallengeId) throw denied();
+    await tx.admissionChallenge.update({ where: { id: challenge.id, status: "PENDING" }, data: {
+      status: "CONSUMED", consumedAt: instant, lastAttemptAt: instant, attemptCount: challenge.attemptCount + 1 } });
+    const changed = await tx.admission.updateMany({ where: { id, status: "AUTHORIZED", verifiedChallengeId: null }, data: {
+      verifiedChallengeId: challenge.id, invitationRedeemedAt: instant } });
+    if (changed.count !== 1) throw denied();
+    await writeAudit(tx, { accessMode: "SYSTEM", action: "ADMISSION_INVITATION_REDEEMED", resourceType: "Admission", resourceId: id,
+      metadata: { invitationId: origin.id, challengeId: challenge.id, proofMethod: "PRIVATE_INVITATION", mailboxVerified: false } });
+    return { admissionId: id, verificationId: challenge.id, accessId: challenge.id,
+      until: Math.min(row.expiresAt.getTime(), instant.getTime() + minutes(30)), kind: "INVITATION" as const };
+  });
 }
 
 export async function verifyAdmissionChallenge(id: string, challengeId: string, token: unknown, currentProof: AdmissionProof | null) {
@@ -257,7 +324,7 @@ export async function verifyAdmissionChallenge(id: string, challengeId: string, 
     const { row, instant } = await lockedAdmission(tx, id);
     await tx.$queryRaw`SELECT id FROM admission_challenges WHERE id=${challengeId} AND admission_id=${id} FOR UPDATE`;
     const challenge = await tx.admissionChallenge.findFirst({ where: { id: challengeId, admissionId: id, recipientEmail: row.authorizedEmail } });
-    if (!challenge) return { rejected: true as const };
+    if (!challenge || challenge.purpose === "INVITATION_CREDENTIAL" || row.invitationRedeemedAt) return { rejected: true as const };
     if (challenge.status === "CONSUMED" && currentProof?.accessId === challenge.id) {
       await assertProof(tx, row, currentProof, instant);
       return { proof: currentProof }; // Only the already-established browser proof permits a harmless replay.
@@ -301,14 +368,15 @@ export async function inspectAdmission(id: string, proof: AdmissionProof | null,
     const { row, origin, instant } = await lockedAdmission(tx, id, false);
     if (row.status === "PROVISIONED") {
       await assertProvisionedAccess(tx, row, user);
-      return { ...provisionedView(row, false), email: row.authorizedEmail, emailVerified: true, expiresAt: row.expiresAt, canProvision: false };
+      return { ...provisionedView(row, false), email: row.authorizedEmail, emailVerified: !!row.emailVerifiedAt, proofMethod: row.invitationRedeemedAt ? "PRIVATE_INVITATION" : "EMAIL", expiresAt: row.expiresAt, canProvision: false };
     }
     if (row.status !== "AUTHORIZED" || row.expiresAt <= instant || origin.revokedAt || origin.expiresAt <= instant) throw denied();
-    await assertProof(tx, row, proof, instant);
+    if (!row.authorizedByIdentityId || await admin(tx, row.authorizedByIdentityId) !== row.authorizedByAdminId) throw denied();
+    await assertProof(tx, row, proof, instant, user);
     const identity = await tx.authIdentity.findUnique({ where: { email: normalizeEmail(row.authorizedEmail) }, select: { id: true, status: true } });
     if (identity && identity.status !== "ACTIVE") throw admissionFailure("Conta indisponível. Solicite atendimento para recuperar seu acesso.", 403);
     const ready = !!identity && user?.id === identity.id;
-    return { id: row.id, email: row.authorizedEmail, emailVerified: true, expiresAt: row.expiresAt,
+    return { id: row.id, email: row.authorizedEmail, emailVerified: !!row.emailVerifiedAt, proofMethod: row.invitationRedeemedAt ? "PRIVATE_INVITATION" : "EMAIL", expiresAt: row.expiresAt,
       state: ready ? "IDENTITY_VERIFIED" : identity ? "LOGIN_REQUIRED" : "CREATE_IDENTITY",
       ...(ready ? { identityId: identity.id } : {}), nextPhase: "A.2.3", canProvision: ready };
   });
@@ -345,10 +413,8 @@ async function assertProvisionedAccess(tx: Tx, row: Admission, user: AdmissionUs
   if (!user || user.id !== row.identityId) throw admissionFailure("Entre com a identidade destinatária para continuar.", 403);
   // After completion, the authenticated owner resumes the durable result without a short-lived mail cookie.
   // Historical expiry/cancellation of the invitation cannot undo a completed tenant; current access still can.
-  if (!row.emailVerifiedAt || !row.verifiedChallengeId || !await tx.admissionChallenge.findFirst({ where: {
-    id: row.verifiedChallengeId, admissionId: row.id, recipientEmail: row.authorizedEmail,
-    purpose: "EMAIL_VERIFICATION", status: "CONSUMED", consumedAt: row.emailVerifiedAt,
-  }, select: { id: true } })) throw denied();
+  await authenticatedIdentity(tx, user);
+  if (!await verificationEvidence(tx, row)) throw denied();
   const active = await tx.$queryRaw<{ id: string }[]>`SELECT m.id FROM tenant_memberships m
     JOIN auth_identities i ON i.id=m.identity_id JOIN tenants t ON t.id=m.tenant_id
     JOIN access_profiles p ON p.id=m.profile_id AND p.tenant_id=t.id
@@ -380,7 +446,7 @@ export async function provisionAdmission(id: string, proof: AdmissionProof | nul
       completed = row;
     } else {
       if (row.status !== "AUTHORIZED" || row.expiresAt <= instant || origin.revokedAt || origin.expiresAt <= instant) throw denied();
-      await assertProof(tx, row, proof, instant);
+      const proofUntil = await assertProof(tx, row, proof, instant, user);
       const identity = await tx.authIdentity.findUnique({ where: { id: user.id } });
       if (!identity || identity.status !== "ACTIVE" || identity.email !== row.authorizedEmail)
         throw admissionFailure("Entre com a identidade destinatária para continuar.", 403);
@@ -390,11 +456,11 @@ export async function provisionAdmission(id: string, proof: AdmissionProof | nul
       const profile = await initialAdministrationProfile(tx, tenant.id);
       await writeAudit(tx, { ...actor, tenantId: tenant.id, action: "PERMISSION_PROFILE_CREATED", resourceType: "AccessProfile", resourceId: profile.id });
       const membership = await activateTenantMembership(tx, { tenantId: tenant.id, identity, role: "OWNER", profileId: profile.id,
-        ownerAssignment: { actorIdentityId: row.authorizedByIdentityId!, reason: "Adesão autorizada com identidade e e-mail comprovados", metadata: actor.metadata } });
+        ownerAssignment: { actorIdentityId: row.authorizedByIdentityId!, reason: row.invitationRedeemedAt ? "Adesão por convite privado autorizado e identidade autenticada" : "Adesão autorizada com identidade e e-mail comprovados", metadata: actor.metadata } });
       await writeAudit(tx, { tenantId: tenant.id, actorIdentityId: identity.id, actorMembershipId: membership.id,
         accessMode: "MEMBERSHIP", action: "MEMBERSHIP_ACTIVATED", resourceType: "TenantMembership", resourceId: membership.id, metadata: { admissionId: id } });
       const finishedAt = await now(tx);
-      if (finishedAt >= row.expiresAt || finishedAt >= origin.expiresAt || finishedAt.getTime() >= proof!.until) throw denied();
+      if (finishedAt >= row.expiresAt || finishedAt >= origin.expiresAt || finishedAt.getTime() >= proofUntil) throw denied();
       completed = await tx.admission.update({ where: { id, status: "AUTHORIZED" }, data: { status: "PROVISIONED", identityId: identity.id,
         tenantId: tenant.id, membershipId: membership.id, provisionedAt: finishedAt } });
       await tx.admissionChallenge.updateMany({ where: { admissionId: id, status: "PENDING" }, data: { status: "REVOKED", revokedAt: finishedAt } });

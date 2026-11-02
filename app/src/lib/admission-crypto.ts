@@ -25,11 +25,12 @@ export function openAdmissionValue(value: string, key: string, domain: string): 
   } catch { return null; }
 }
 
-export type AdmissionProof = { admissionId: string; verificationId: string; accessId: string; until: number };
+export type AdmissionProof = { admissionId: string; verificationId: string; accessId: string; until: number; kind?: "EMAIL" | "INVITATION" };
 const sessionDomain = "dez/admission/restricted-session/v1";
 export const sealAdmissionProof = (proof: AdmissionProof, key: string) => sealAdmissionValue(proof, key, sessionDomain);
 export function openAdmissionProof(value: string, key: string, admissionId: string, now = Date.now()): AdmissionProof | null {
   const proof = openAdmissionValue(value, key, sessionDomain) as AdmissionProof | null;
   return proof && proof.admissionId === admissionId && typeof proof.verificationId === "string" &&
-    typeof proof.accessId === "string" && Number.isSafeInteger(proof.until) && proof.until > now ? proof : null;
+    typeof proof.accessId === "string" && [undefined, "EMAIL", "INVITATION"].includes(proof.kind) &&
+    Number.isSafeInteger(proof.until) && proof.until > now ? proof : null;
 }

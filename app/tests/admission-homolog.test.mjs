@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {admissionOrigin,admissionEmail} from '../src/lib/admission-policy.ts';
 import {admissionDatabaseGuardSql} from '../src/lib/admission-database-contract.mjs';
-import {PORTABLE_ADMISSION_MIGRATION as migration,PORTABLE_HOMOLOG_MIGRATIONS as h8,PORTABLE_PRODUCTION_MIGRATIONS as p7,HOMOLOG_MIGRATIONS,REQUIRED_MIGRATIONS,PRODUCTION_MIGRATIONS,PRE_ADMISSION_HOMOLOG_MIGRATIONS,assertBackupMigrations,compatibleBackupMigrations} from '../src/lib/backup/schema-contract.mjs';
+import {PORTABLE_ADMISSION_MIGRATION as migration,PRIVATE_HOMOLOG_MIGRATIONS as h8,PRIVATE_PRODUCTION_MIGRATIONS as p7,HOMOLOG_MIGRATIONS,REQUIRED_MIGRATIONS,PRODUCTION_MIGRATIONS,PRE_ADMISSION_HOMOLOG_MIGRATIONS,assertBackupMigrations,compatibleBackupMigrations} from '../src/lib/backup/schema-contract.mjs';
 import {prepareProfile} from '../scripts/secure-build/prepare-profile.mjs';
 const hash=b=>createHash('sha256').update(b).digest('hex'), rows=a=>a.map(m=>({migration_name:m.name,checksum:m.sha256}));
 const config={DEPLOYMENT_PROFILE:'homolog',ADMISSION_HOMOLOG_ENABLED:'true',ACCESS_AUTH_MODE:'identity',EMAIL_PROVIDER:'mock',

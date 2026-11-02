@@ -25,7 +25,7 @@
     const response = await fetch('/api/experimentacao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: sentToken, action: name }), credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer' });
     const body = await response.json();
     if (sentToken !== token) throw new Error('O convite foi alterado. Confira as boas-vindas atuais.');
-    if (!response.ok) { const error = new Error(response.status === 404 ? 'Convite indisponível, expirado ou cancelado. Você pode continuar conhecendo a DEZ.' : response.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' : 'Não foi possível registrar. Tente novamente.'); error.unavailable = response.status === 404; throw error; }
+      if (!response.ok) { const error = new Error(response.status === 404 ? 'Convite indisponível, expirado ou cancelado. Você pode continuar conhecendo a DEZ.' : response.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' : name === 'startAdmission' ? 'Não foi possível iniciar esta adesão. Retome no navegador em que iniciou ou fale com quem enviou o convite.' : 'Não foi possível registrar. Tente novamente.'); error.unavailable = response.status === 404; throw error; }
     return body;
   }
   const dialog = document.createElement('dialog'); dialog.className = 'dez-pilot-dialog';
@@ -58,8 +58,13 @@
     try {
       const body = await action('startAdmission');
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.id)) throw new Error('Não foi possível iniciar. Tente novamente.');
-      if (body.delivery === 'FAILED') throw new Error('Não foi possível enviar a confirmação ao e-mail autorizado. Aguarde um minuto para tentar novamente ou fale com quem enviou o convite.');
-      // Only a reference crosses this navigation; email proof remains server-enforced.
+      const redeemed = await fetch('/api/admissions/' + body.id + '/verify', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invitationToken: token }),
+        credentials: 'same-origin', cache: 'no-store', referrerPolicy: 'no-referrer' });
+      // A consumed credential can only resume with its restricted cookie or the
+      // recipient's own login. The destination exposes neither email nor account.
+      if (!redeemed.ok && redeemed.status !== 401 && redeemed.status !== 403) throw new Error('Convite indisponível ou já utilizado. Retome no navegador em que iniciou ou fale com quem enviou o convite.');
+      // Only a reference crosses navigation; the credential remains out of the URL.
       location.assign('/adesao#id=' + body.id + '&from=convite');
     } catch (e) { failure(e); starting = false; start.disabled = false; }
   });
@@ -68,7 +73,7 @@
     dialog.querySelector('h2').textContent = `${body.firstName}, queremos convidar você para uma experiência especial.`;
     resume.hidden = !pending; resume.textContent = 'Retomar boas-vindas'; interest.hidden = interested || !!body.canStartAdmission; start.hidden = !body.canStartAdmission;
     if (!pending && dialog.open) close();
-    result.textContent = body.canStartAdmission ? 'Sua adesão já está autorizada. Inicie para receber a confirmação no e-mail autorizado e continuar com segurança.' : interested ? 'Seu interesse já está registrado e disponível para Ricardo no painel. Aguarde a autorização e as orientações para confirmar seu e-mail e iniciar a adesão.' : pending ? 'Boas-vindas pendentes. Fechar a janela não confirma nem recusa o convite. Você pode retomá-la abaixo.' : 'Boas-vindas confirmadas. Conheça a DEZ e manifeste seu interesse quando desejar.';
+      result.textContent = body.canStartAdmission ? 'Sua adesão já está autorizada. Use este convite privado para confirmar sua identidade e continuar. Não compartilhe o link.' : interested ? 'Seu interesse já está registrado e disponível para Ricardo no painel. Aguarde a autorização e as orientações para iniciar a adesão.' : pending ? 'Boas-vindas pendentes. Fechar a janela não confirma nem recusa o convite. Você pode retomá-la abaixo.' : 'Boas-vindas confirmadas. Conheça a DEZ e manifeste seu interesse quando desejar.';
     // Interest is independent of the initial welcome acknowledgment.
     if (autoOpen && pending && !dialog.open) { dialog.showModal(); accept.focus(); }
     else if (autoOpen && !pending) focusInvitation();

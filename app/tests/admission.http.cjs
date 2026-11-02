@@ -76,7 +76,7 @@ async function main(){
   const snapshot=async()=>{const value={};for(const table of protectedTables)value[table]=(await one(`SELECT md5(coalesce(string_agg(to_jsonb(t)::text,chr(10) ORDER BY to_jsonb(t)::text),'')) hash FROM ${table} t`)).hash;return value;};
   const original=await snapshot();
   const ledger=await one('SELECT count(*)::int n,md5(string_agg(to_jsonb(t)::text,chr(10) ORDER BY id)) hash FROM _prisma_migrations t');
-  assert.equal(ledger.n,8);pass('LOCAL H8 restored with 43 application tables plus Prisma ledger',Number((await one("SELECT count(*) n FROM pg_tables WHERE schemaname='public'")).n)===44);
+  assert.equal(ledger.n,9);pass('LOCAL H9 migrated with 43 application tables plus Prisma ledger',Number((await one("SELECT count(*) n FROM pg_tables WHERE schemaname='public'")).n)===44);
   adminId=await identity('a22-admin@example.invalid');await identity('a22-observer@example.invalid');memberId='owner-i';
   // Initialize a usable credential ONLY for the known synthetic A.2.1 owner fixture, before baseline capture.
   const ownerFixture=await query("UPDATE auth_identities SET senha_hash=$1 WHERE id='owner-i' AND email='owner@example.invalid' AND senha_hash='unused-synthetic-verifier'",[await bcrypt.hash(password,12)]);
@@ -204,7 +204,7 @@ async function main(){
   const log=await readFile('/tmp/a2-app.log','utf8');for(const secret of secrets){assert(!audit.includes(secret),'audit contains no raw challenge or password');assert(!log.includes(secret),'server log contains no raw challenge or password');}
   pass('raw tokens and passwords absent from audit and application logs');
   pass('synthetic mail sink stores only encrypted envelopes',(await readdir('/tmp/a2-mail')).every(name=>name.endsWith('.mail')));
-  await writeFile('/tmp/a2-http-result.json',JSON.stringify({state:'PASSED',phase:'A.2.2',checks,tenantsCreated:0,realEmail:false,ledger:'H8',tables:44},null,2));
+  await writeFile('/tmp/a2-http-result.json',JSON.stringify({state:'PASSED',phase:'A.2.2',checks,tenantsCreated:0,realEmail:false,ledger:'H9',tables:44},null,2));
   console.log(JSON.stringify({state:'A2_2_HTTP_PASSED',checks:checks.length}));
 }
 main().catch(async error=>{await writeFile('/tmp/a2-http-result.json',JSON.stringify({state:'FAILED',checks,error:String(error.message).slice(0,250)}));console.error('A2_2_HTTP_FAILED '+String(error.message).slice(0,250));process.exitCode=1;}).finally(()=>pool.end());

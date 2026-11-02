@@ -18,7 +18,10 @@ async function interest(context,invitation,pass,shot){
   const page=await context.newPage();await page.goto(base+'/primeiro-acesso');
   await page.getByLabel('Link do convite',{exact:true}).fill(invitation.link);
   await page.getByRole('button',{name:'Continuar com meu convite',exact:true}).click();
-  await page.getByRole('button',{name:'Quero conhecer a DEZ Soluções',exact:true}).click();
+  const acknowledged=page.waitForResponse(r=>r.url()===base+'/api/experimentacao'&&r.request().postDataJSON()?.action==='acknowledge');
+  await page.getByRole('button',{name:'Quero conhecer a DEZ Soluções',exact:true}).click();assert.equal((await acknowledged).status(),200);
+  await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.waitForFunction(()=>document.activeElement?.id==='convite-especial');
   assert.equal(await page.locator('#convite-especial').evaluate(e=>e===document.activeElement),true);
   assert.equal(await page.locator('main #convite-especial').count(),1);
   assert.equal(await page.locator('#perguntas-frequentes details').count(),6);
@@ -38,11 +41,14 @@ async function interest(context,invitation,pass,shot){
   assert.equal(await page.getByRole('button',{name:'Quero experimentar a plataforma',exact:true}).count(),0);
   const started=page.waitForResponse(r=>r.url()===base+'/api/experimentacao'&&r.request().postDataJSON()?.action==='startAdmission');
   await page.getByRole('button',{name:'Iniciar minha adesão',exact:true}).click();const response=await started;assert.equal(response.status(),200);
-  await page.waitForURL(u=>u.pathname==='/adesao');await page.getByRole('heading',{name:'Confirme seu e-mail',exact:true}).waitFor();
+  await page.waitForURL(u=>u.pathname==='/adesao');await page.getByRole('heading',{name:'Confirme sua identidade',exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('dez-admission-id')),invitation.admissionId);
   assert.equal(new URL(page.url()).hash,'');assert.equal((await context.request.get(base+'/api/lancamentos')).status(),401);
-  pass('Special link starts same Admission without interest prerequisite or second approval; no session or email proof granted');
-  await shot(page,'special-email-confirmation');await page.close();
+  pass('Private link redeems once and opens identity without email, interest prerequisite or second approval');
+  assert.equal(await page.getByRole('button',{name:'Confirmar meu e-mail',exact:true}).count(),0);
+  assert.equal(await page.getByRole('textbox',{name:'E-mail autorizado',exact:true}).count(),0);
+  assert(await page.getByText(invitation.email,{exact:true}).count());
+  await shot(page,'special-private-redemption');await page.close();
 }
 async function bypass(context,stage,pass){
   const page=await context.newPage();
