@@ -23,6 +23,7 @@ async function main(cfg){
     assert.equal(issued.status,201,JSON.stringify(issued.body));const id=issued.body.admissionId;
     const copied=await q(admin,'/api/platform/experiment-invitations/'+issued.body.id+'/link','POST',{action:'copy'});assert.equal(copied.status,200);
     const token=new URLSearchParams(new URL(copied.body.link).hash.slice(1)).get('convite');assert(token);secrets.push(token);
+    const interest=await q(guest,'/api/experimentacao','POST',{action:'interest',token});assert.equal(interest.status,200);assert(interest.body.message.includes('convite privado'));assert(!/confirm.*e-mail/i.test(interest.body.message));
     assert.equal((await q(guest,'/api/experimentacao','POST',{action:'startAdmission',token})).body.id,id);
     const verified=await q(guest,'/api/admissions/'+id+'/verify','POST',{invitationToken:token});assert.equal(verified.status,200);assert.equal(verified.body.emailVerified,false);
     const view=await q(guest,'/api/admissions/'+id);assert.equal(view.body.proofMethod,'PRIVATE_INVITATION');assert.equal(view.body.email,email);

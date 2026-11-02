@@ -133,6 +133,14 @@ Edge/Chromium, dados/documentos sintéticos. Inclui jornadas PF/PJ completas,
 mouse/teclado/toque, Claro/Escuro, múltiplas abas, perda de resposta, auditoria,
 isolamento, concorrência e regressão dos serviços homologados.
 
+Resultado: 352 verificações integradas e 22 testes unitários direcionados
+aprovados. A imagem preliminar do mesmo código funcional também passou em 21
+verificações incrementais, distribuídas pelos três perfis, com e-mail
+desabilitado, reset de 30 minutos, invalidação de sessão e retomada após troca
+definitiva. O artefato final repete somente essa conferência incremental, após
+registrar a espera de prontidão do controlador e alinhar a mensagem residual da
+API de interesse ao convite privado. Não se repetem as jornadas PF/PJ extensas.
+
 Migrations nas três configurações: rejeição de destino/intenção/role errados,
 falha parcial com rollback, repetição rejeitada, ACL mínima, preservação dos
 registros e restauração real dos 44 conjuntos de dados e ledger exato.

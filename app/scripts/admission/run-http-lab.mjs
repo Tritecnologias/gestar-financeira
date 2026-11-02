@@ -69,6 +69,10 @@ try {
     ...envArgs,'--entrypoint','sh',nodeImage,'-c',portability?'cp -a /source/. /work/ && ln -s /app/node_modules /work/node_modules && exec node -e \"setInterval(()=>{},10000)\"':"trap 'cat /tmp/a2-app.log >&2' EXIT; cp -a /source/. /work/ && ln -s /app/node_modules /work/node_modules && cd /work && "+'node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma > /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next build --webpack >> /tmp/a2-app.log 2>&1 && node node_modules/next/dist/bin/next start -p 3020 -H 127.0.0.1 >> /tmp/a2-app.log 2>&1']);created.push(worker);
   for(const name of created){const inspection=JSON.parse((await run(['inspect',name])).stdout)[0];assert.deepEqual(inspection.HostConfig.PortBindings,{});assert.equal(inspection.HostConfig.RestartPolicy.Name,'no');}
   if(portability){
+    let stagedReady=false;for(let n=0;n<100;n++){
+      if((await run(['exec',worker,'sh','-c','test -f /work/tests/private-invitation-portability.http.cjs && test -L /work/node_modules'],undefined,false)).code===0){stagedReady=true;break;}
+      await new Promise(r=>setTimeout(r,250));
+    }assert(stagedReady,'PORTABILITY_CONTROLLER_READY');
     report.portability=await privateInvitationOciLab({run,pg,worker,out,image:process.argv[5],created,label,suffix});
     report.state='PASSED';
   }else{
