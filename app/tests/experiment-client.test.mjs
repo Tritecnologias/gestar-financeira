@@ -3,12 +3,19 @@ import test from 'node:test';import assert from 'node:assert/strict';import vm f
 const code=readFileSync(new URL('../public/experimentacao/pilot.js',import.meta.url),'utf8');
 const flush=()=>new Promise(setImmediate);
 function fixture({acknowledged=false,interested=false,hash='#convite='+'x'.repeat(43),valid=true}={}){
- const nodes=[],requests=[],events={},status={acknowledged,interested,valid},skip={focus(){}};
- function element(tag){const e={tag,events:{},children:{},hidden:false,disabled:false,textContent:'',open:false,setAttribute(){},querySelector(s){return this.children[s]??=(element(s));},addEventListener(n,f){this.events[n]=f;},showModal(){this.open=true;},close(){this.open=false;},focus(){},remove(){this.removed=true;}};nodes.push(e);return e;}
+ const nodes=[],requests=[],events={},status={acknowledged,interested,valid},skip={focus(){throw Error('Skip link is not invitation navigation');}},layout={};
+ function element(tag){const e={tag,events:{},children:{},hidden:false,disabled:false,textContent:'',open:false,setAttribute(){},querySelector(s){return this.children[s]??=(element(s));},addEventListener(n,f){this.events[n]=f;},showModal(){this.open=true;},close(){this.open=false;},focus(){layout.focused=this;},scrollIntoView(){layout.scrolled=this;},remove(){this.removed=true;}};nodes.push(e);return e;}
  const location={hash,pathname:'/experimentacao',search:''};
- vm.runInNewContext(code,{URLSearchParams,location,history:{replaceState(){location.hash='';}},document:{createElement:element,querySelector(){return skip;},body:{append(){}}},addEventListener(n,f){events[n]=f;},fetch:async(url,options)=>{const b=JSON.parse(options.body);requests.push(b.action);if(status.valid){if(b.action==='acknowledge')status.acknowledged=true;if(b.action==='interest')status.interested=true;}return{ok:status.valid,status:status.valid?200:404,json:async()=>({firstName:'Bruno',acknowledged:status.acknowledged,interested:status.interested,message:'Interesse registrado'})};}});
- return{nodes,requests,events,status,location,get dialog(){return nodes.find(n=>n.tag==='dialog');},get panel(){return nodes.find(n=>n.tag==='section');}};
+ vm.runInNewContext(code,{URLSearchParams,location,history:{replaceState(){location.hash='';}},document:{createElement:element,getElementById(){return{before(e){layout.beforeJourney=e;}};},querySelector(selector){return selector==='.skip-link'?skip:{append(e){layout.navigation=e;}};},body:{append(){}}},addEventListener(n,f){events[n]=f;},fetch:async(url,options)=>{const b=JSON.parse(options.body);requests.push(b.action);if(status.valid){if(b.action==='acknowledge')status.acknowledged=true;if(b.action==='interest')status.interested=true;}return{ok:status.valid,status:status.valid?200:404,json:async()=>({firstName:'Bruno',acknowledged:status.acknowledged,interested:status.interested,message:'Interesse registrado'})};}});
+ return{nodes,requests,events,status,location,layout,get dialog(){return nodes.find(n=>n.tag==='dialog');},get panel(){return nodes.find(n=>n.tag==='section');}};
 }
+
+test('welcome returns focus and scroll to invitation; independent navigation never acknowledges interest',async()=>{
+ const f=fixture();await flush();assert.equal(f.panel,f.layout.beforeJourney);assert.equal(f.panel.id,'convite-especial');
+ f.dialog.children['.dez-pilot-close'].events.click();assert.equal(f.layout.focused,f.panel);assert.equal(f.layout.scrolled,f.panel);
+ let prevented=false;f.layout.navigation.events.click({preventDefault(){prevented=true;}});assert(prevented);assert.equal(f.layout.focused,f.panel);assert.deepEqual(f.requests,['inspect']);
+ for(const state of [{acknowledged:true},{acknowledged:true,interested:true},{valid:false}]){const resumed=fixture(state);await flush();assert.equal(resumed.layout.focused,resumed.panel);assert.equal(resumed.layout.scrolled,resumed.panel);}
+});
 test('each new opening of unconfirmed active original link opens welcome, including after interest',async()=>{
  for(const interested of [false,true])for(let i=0;i<2;i++){const f=fixture({interested});await flush();assert(f.dialog.open);assert(!f.panel.children['.dez-pilot-resume'].hidden);}
 });

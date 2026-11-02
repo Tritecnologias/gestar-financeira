@@ -27,6 +27,6 @@ export async function POST(req: Request) {
     });
     if (!changed) throw Object.assign(new Error("Convite indisponível, expirado ou revogado."), { status: 404 });
     return NextResponse.json({ firstName: row.recipientName.split(/\s+/)[0], acknowledged: !!row.acknowledgedAt || body.action === "acknowledge", interested: !!row.interestAt || body.action === "interest",
-      ...(body.action === "interest" ? { message: "Interesse registrado. Ricardo poderá acompanhar sua manifestação no painel de Convites Especiais. O acesso à plataforma depende de um convite de acesso separado." } : {}) }, { headers: EXPERIMENT_HEADERS });
+      ...(body.action === "interest" ? { message: "Interesse registrado. Ricardo poderá acompanhar sua manifestação no painel de Convites Especiais. Aguarde a autorização e as orientações para confirmar seu e-mail e iniciar a adesão. Registrar interesse ainda não libera acesso." } : {}) }, { headers: EXPERIMENT_HEADERS });
   } catch (error) { const e = experimentError(error); return NextResponse.json({ error: e.message }, { status: e.status, headers: { ...EXPERIMENT_HEADERS, ...(e.status === 429 ? { "Retry-After": "300" } : {}) } }); }
 }

@@ -1,9 +1,10 @@
 {
-  "sourceCommit": "ed17a4407949479ca1d8407feeef8704bd9e0451",
+  "sourceCommit": "75826cecfe25cfe579b80c0bb2c22f6ed176c729",
   "hashes": {
-    "index.html": "901f63f15b434a5fd61317b297496040f79987f25f50a47f400b44f7c74e7641",
-    "styles.css": "0883bcf5617309fbd1502eb77bd492899fdd5e7b78a02a7237c9ae8b3bfc5e47",
+    "index.html": "eef051a1ff0a6a7c8b7e1895a49fdc8c2d2a31b802806c581db93d52ad812442",
+    "styles.css": "9cb9eb93dd151c50c9afee284fd158e7dcb0086d8c9a7a90cbe01c6057e3487c",
     "brand-approved.png": "5d7a630d7997af3a9f279ee8909588703b521b76cf3b71aaf481adfc9d828caf",
+    "brand-header-640.png": "89b12821adc808168d4255c9d1a26b603caadbff2987e2574be2eb523614d190",
     "favicon.svg": "a7e9b576bf1bbb55579004b97aa8177896335f2c27eba5d2070fb7470a9b32ae",
     "icons/dez-symbol-16.png": "224014098b38df1fb68fcadd53f2709a94cb45a47c398a9a70ed4a9094873166",
     "icons/dez-symbol-32.png": "a8a6332e657f3230013dd63cf68a290c9d79a886a64dff7f14753a1ce3c0b5f8",

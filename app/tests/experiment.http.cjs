@@ -28,7 +28,7 @@ async function main(){let raw='';for await(const b of process.stdin)raw+=b;const
  ok('invalid token unavailable',(await guest('inspect','x'.repeat(43))).status===404);
  ok('public mutation needs same origin',(await q(anon,'/api/experimentacao','POST',{action:'interest',token},'https://evil.invalid')).status===403);
  ok('welcome acknowledgment recorded',(await guest('acknowledge')).body.acknowledged===true);
- const interested=await guest('interest');ok('interest has clear result',interested.status===200&&interested.body.interested&&interested.body.message.includes('convite de acesso separado'));
+ const interested=await guest('interest');ok('interest has clear result without granting access',interested.status===200&&interested.body.interested&&interested.body.message.includes('Aguarde a autorização')&&interested.body.message.includes('ainda não libera acesso'));
  ok('interest retry idempotent',(await guest('interest')).body.interested===true);
  const list=await q(j,'/api/platform/experiment-invitations');const row=list.body.find(x=>x.id===id);
  ok('admin verifies all progress',!!row?.viewedAt&&!!row?.acknowledgedAt&&!!row?.interestAt);
@@ -66,9 +66,9 @@ async function main(){let raw='';for await(const b of process.stdin)raw+=b;const
    ok('expired row copy disabled',!(await q(j,'/api/platform/experiment-invitations')).body.find(x=>x.id===expired.body.id).canCopyLink);
   }finally{await pool.end();}
  }
- const preview=await q(anon,'/experimentacao');ok('faithful preview without invite',preview.status===200&&preview.body.includes('A tecnologia entra depois do entendimento do negócio')&&preview.body.includes('brand-approved.png'));
+ const preview=await q(anon,'/experimentacao');ok('faithful current landing preview without invite',preview.status===200&&preview.body.includes('Cada jornada começa de um jeito.')&&preview.body.includes('brand-header-640.png')&&(preview.body.match(/<details/g)||[]).length===6);
  ok('preview noindex private',preview.headers.get('x-robots-tag')==='noindex, nofollow'&&preview.headers.get('cache-control').includes('no-store'));
- ok('preview CTAs stay in environment',!preview.body.includes('href="https://app.dezsolucoes.com.br"')&&preview.body.includes(c.base+'/primeiro-acesso'));
+ ok('preview CTAs send existing accounts to login in the same environment',!preview.body.includes('href="https://app.dezsolucoes.com.br"')&&preview.body.includes(c.base+'/login'));
  ok('preview anonymous is never a login session',(await q(anon,'/api/platform/experiment-invitations')).status===401);
  ok('response does not leak token',!JSON.stringify(inspect.body).includes(token));
  console.log(JSON.stringify({state:'EXPERIMENT_HTTP_PASSED',checks,environment:c.base,scriptedInvitationsForQAOnly:true,manualAcceptanceLinkNotPrecreated:true}));

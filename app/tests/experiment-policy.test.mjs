@@ -28,7 +28,7 @@ test('only exact ledger3 to exact ledger4 migration compatibility is allowed; un
 });
 test('official preview assets match pinned provenance; business restore excludes global pilot',()=>{
  const manifest=JSON.parse(readFileSync(new URL('../public/experimentacao/assets/provenance.json',import.meta.url),'utf8'));
- assert.equal(manifest.sourceCommit,'ed17a4407949479ca1d8407feeef8704bd9e0451');
+ assert.equal(manifest.sourceCommit,'75826cecfe25cfe579b80c0bb2c22f6ed176c729');
  for(const [name,hash] of Object.entries(manifest.hashes)){
   const bytes=name==='index.html'?Buffer.from(JSON.parse(readFileSync(new URL('../src/lib/official-landing.ts',import.meta.url),'utf8').match(/export const officialLanding = (.*);/)[1])):readFileSync(new URL('../public/experimentacao/assets/'+name,import.meta.url));
   assert.equal(createHash('sha256').update(bytes).digest('hex'),hash,name);

@@ -11,10 +11,13 @@ import {randomUUID,randomBytes,createHash} from 'node:crypto';
 const app=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 assert(process.argv[2]&&isAbsolute(process.argv[2])&&process.argv[3]&&isAbsolute(process.argv[3]),'Usage: node run-http-lab.mjs <A2.1-evidence-directory> <new-evidence-directory>');
 const source=resolve(process.argv[2]),out=resolve(process.argv[3]);assert(!existsSync(out),'NEW_EVIDENCE_DIRECTORY_REQUIRED');
-assert(process.argv[4]===undefined||['--provision','--journey','--preview','--integrated','--password-reset'].includes(process.argv[4]),'UNKNOWN_PHASE');
+assert(process.argv[4]===undefined||['--provision','--journey','--preview','--integrated','--password-reset','--special-invitation'].includes(process.argv[4]),'UNKNOWN_PHASE');
+// Reuse the existing disposable fixture and browser workflow, without migration,
+// backup capture, recovery rehearsal or operational deployment in this scope.
+const special=process.argv[4]==='--special-invitation';
 const reset=process.argv[4]==='--password-reset';
 const integrated=process.argv[4]==='--integrated';
-const journey=integrated||['--journey','--preview'].includes(process.argv[4]);
+const journey=special||integrated||['--journey','--preview'].includes(process.argv[4]);
 const provision=reset||journey||process.argv[4]==='--provision', phase=reset?'A.2.7':integrated?'A.2.5':journey?'A.2.4':provision?'A.2.3':'A.2.2', label=reset?'dez-a27-http':integrated?'dez-a25-http':journey?'dez-a24-http':provision?'dez-a23-http':'dez-a22-http';
 const foundation=JSON.parse(readFileSync(join(source,'RESULT.json'),'utf8'));
 assert.equal(foundation.state,'PASSED');assert.equal(foundation.phase,'A.2.1');assert.equal(foundation.syntheticOnly,true);assert.equal(foundation.network,'none');assert.equal(foundation.realEmail,false);
@@ -25,6 +28,7 @@ mkdirSync(join(staged,'prisma'));cpSync(join(app,'prisma/schema.prisma'),join(st
 mkdirSync(join(staged,'tests'));for(const name of ['admission.http.cjs','experiment.http.cjs',...(provision?['synthetic-pdf.cjs','admission-provisioning.http.cjs','admission-lab-helpers.cjs','invitations-multichannel.http.cjs','contractual-onboarding.http.cjs']:[]),...(integrated?['admission-integrated.http.cjs']:[]),...(journey?['admission-browser-relay.cjs','admission-browser-fixture.cjs']:[])])cpSync(join(app,'tests',name),join(staged,'tests',name));
 const suffix=randomUUID().slice(0,8),pg=(integrated?'dez-a25-pg-':journey?'dez-a24-pg-':provision?'dez-a23-pg-':'dez-a22-pg-')+suffix,worker=label+'-'+suffix;
 if(reset)for(const name of ['password-reset.http.cjs','admission-browser-relay.cjs'])cpSync(join(app,'tests',name),join(staged,'tests',name));
+if(special)cpSync(join(app,'tests/experiment-production-gate.http.cjs'),join(staged,'tests/experiment-production-gate.http.cjs'));
 const pgImage='sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5',nodeImage='sha256:271e76a186736f3a533931712920c03644bd69684b11d04b1c468d0870ba0d13';
 const report={phase,network:'none',publishedPorts:[],syntheticOnly:true,realEmail:false,foundationDumpSHA256:foundation.dumpSHA256,startedAt:new Date().toISOString()};
 const created=[];let closeBridge;
@@ -93,13 +97,14 @@ try {
   writeFileSync(join(out,'special-invitations.log'),regression.stdout+regression.stderr);assert.equal(regression.code,0,'SPECIAL_INVITATION_REGRESSION_FAILED');report.experiment=JSON.parse(regression.stdout.trim().split('\n').at(-1));
   console.log('PASS existing Special Invitation HTTP regression');
   if(provision){
-    const suite=await run(['exec','-w','/work',worker,'node','tests/admission-provisioning.http.cjs'],undefined,false);
+    const suite=await run(['exec','-w','/work',worker,'node','tests/admission-provisioning.http.cjs',...(special?['--special-invitation']:[])],undefined,false);
     writeFileSync(join(out,'provisioning.log'),suite.stdout+suite.stderr);console.log(suite.stdout);
     const result=await run(['exec',worker,'cat','/tmp/a23-http-result.json'],undefined,false);
     if(result.code===0){writeFileSync(join(out,'PROVISIONING-RESULT.json'),result.stdout);report.provisioning=JSON.parse(result.stdout);}
     assert.equal(suite.code,0,'PROVISIONING_SUITE_FAILED; inspect provisioning.log');
     // Existing operational invitations deliberately allow DEV only on this exact legacy
     // loopback DSN. Exercise that unchanged policy in a second isolated application.
+    if(!special){
     const regressionDump=(await run(['exec',pg,'pg_dump','-U','postgres','-d','special_invite_lab','-Fc'])).bytes;
     await sql('CREATE DATABASE gestar_vf_dev OWNER a2_migrator;');
     await run(['exec','-i',pg,'pg_restore','-U','postgres','-d','gestar_vf_dev','--exit-on-error'],regressionDump);
@@ -123,8 +128,23 @@ try {
       assert(report[key]);console.log('PASS '+key+' HTTP regression: '+report[key].checks.length+' checks');
     }
     writeFileSync(join(out,'regression-app.log'),(await run(['exec',worker,'cat','/tmp/a23-regression-app.log'])).stdout);
-    if(journey){closeBridge=await startJourneyBridge(worker);await testJourney(app,worker,out,integrated);report.browser=JSON.parse(readFileSync(join(out,'BROWSER-RESULT.json'),'utf8'));report.loopbackBrowserPort=3020;console.log('PASS real browser journey: '+report.browser.checks.length+' checks');}
+    }
+    if(special){
+      // The same compiled files, in the same network-none namespace. No production
+      // connection is possible and disabled Admission rejects before any DB access.
+      const productionEnv={DEPLOYMENT_PROFILE:'production',ACCESS_AUTH_MODE:'identity',ADMISSION_LAB_ENABLED:'false',ADMISSION_PRODUCTION_ENABLED:'false',ADMISSION_HOMOLOG_ENABLED:'false',
+        APP_PUBLIC_URL:'https://app.dezsolucoes.com.br',NEXTAUTH_URL:'https://app.dezsolucoes.com.br',SPECIAL_INVITATIONS_PRODUCTION_APPROVED:'true',
+        DATABASE_URL:'postgresql://pg18_prod_runtime:synthetic@ik7d1n0035vis9y5rprjpgmn:5432/gestar_prod_pg18',ADMISSION_LAB_MAIL_DIR:'/var/lib/10s/backups/admission-mail'};
+      const productionArgs=Object.entries(productionEnv).flatMap(([key,value])=>['-e',key+'='+value]);
+      await run(['exec','-d','-w','/work',...productionArgs,worker,'sh','-c','node node_modules/next/dist/bin/next start -p 3021 -H 127.0.0.1 > /tmp/production-gate.log 2>&1']);
+      let started=false;for(let n=0;n<60;n++){if((await run(['exec',worker,'node','-e',"fetch('http://127.0.0.1:3021/primeiro-acesso').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"],undefined,false)).code===0){started=true;break;}await new Promise(r=>setTimeout(r,250));}assert(started,'PRODUCTION_GATE_LOCAL_SERVER');
+      const check=await run(['exec','-w','/work',...productionArgs,worker,'node','tests/experiment-production-gate.http.cjs'],undefined,false);
+      writeFileSync(join(out,'production-gate.log'),check.stdout+check.stderr);assert.equal(check.code,0,'PRODUCTION_DISABLED_GATE');report.productionGate=JSON.parse(check.stdout.trim());
+      console.log('PASS same build with production configuration rejects disabled Admission');
+    }
+    if(journey){closeBridge=await startJourneyBridge(worker);await testJourney(app,worker,out,integrated||special);report.browser=JSON.parse(readFileSync(join(out,'BROWSER-RESULT.json'),'utf8'));report.loopbackBrowserPort=3020;console.log('PASS real browser journey: '+report.browser.checks.length+' checks');}
     if(integrated)report.integrated=await integratedSuite(run,worker,out,'prepare');
+    if(!special){
     const full=(await run(['exec',pg,'pg_dump','-U','postgres','-d','special_invite_lab','-Fc'])).bytes;
     writeFileSync(join(out,'synthetic-a23-h8.dump'),full);
     await sql('CREATE DATABASE a23_recovery OWNER a2_migrator;');
@@ -138,6 +158,7 @@ try {
     report.recovery={state:'PASSED',tables:44,method:'pg_dump/pg_restore plus exact sorted row digests',dumpSHA256:createHash('sha256').update(full).digest('hex')};
     console.log('PASS full H8 dump and recovery: all 44 table digests match');
     if(integrated){report.applicationRecovery=await recoverApplication({run,worker,pgImage,nodeImage,staged,out,envArgs,full,snapshot,before,created,label,suffix,closeBridge});closeBridge=undefined;console.log('PASS independent application recovery and interrupted journeys');}
+    }else{report.scope='Special Invitation real journey';report.backupCapture=false;report.migrationsExecuted=false;}
   }
   }
   if(!integrated){const log=await run(['exec',worker,'cat','/tmp/a2-app.log']);writeFileSync(join(out,'app.log'),log.stdout);}

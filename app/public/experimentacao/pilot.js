@@ -4,11 +4,18 @@
   let token = hash.get('convite') || '';
   if (!token) return; // The faithful preview has no pilot UI without a token.
   history.replaceState(null, '', location.pathname + location.search);
-  const panel = document.createElement('section'); panel.className = 'dez-pilot-panel';
+  const panel = document.createElement('section'); panel.className = 'dez-pilot-panel'; panel.id = 'convite-especial'; panel.tabIndex = -1;
   panel.setAttribute('aria-label', 'Convite especial de experimentação');
   panel.innerHTML = '<strong></strong><p class="dez-pilot-result" role="status" aria-live="polite"></p><button class="dez-pilot-resume" type="button" hidden>Retomar boas-vindas</button> <button class="dez-pilot-interest" type="button" hidden>Quero experimentar a plataforma</button><p class="dez-pilot-note">Este convite não cria conta ou acesso e não substitui os termos. Nenhum e-mail será enviado.</p>';
   panel.querySelector('strong').textContent = document.currentScript?.getAttribute('data-environment') === 'homolog' ? 'HOMOLOG · Convite especial' : 'DEZ Soluções · Convite especial';
-  document.body.append(panel);
+  // The invitation belongs in the journey, not after the footer. Keep the skip link
+  // exclusively for its accessibility purpose.
+  const journey = document.getElementById('como-comecar');
+  if (journey) journey.before(panel); else document.querySelector('main').append(panel);
+  const invitationLink = document.createElement('a'); invitationLink.className = 'text-link'; invitationLink.href = '#convite-especial'; invitationLink.textContent = 'Ir para o convite';
+  document.querySelector('.hero-actions').append(invitationLink);
+  function focusInvitation() { panel.focus({ preventScroll: true }); panel.scrollIntoView({ block: 'start', behavior: 'instant' }); }
+  invitationLink.addEventListener('click', e => { e.preventDefault(); focusInvitation(); });
   const result = panel.querySelector('.dez-pilot-result'), interest = panel.querySelector('.dez-pilot-interest'), resume = panel.querySelector('.dez-pilot-resume');
   let pending = true, available = false, interested = false;
   async function action(name) {
@@ -27,7 +34,7 @@
   function close() {
     dialog.close();
     // Closing or Escape is purely visual: never acknowledge, refuse or record interest.
-    const skip = document.querySelector('.skip-link'); if (skip) skip.focus({ preventScroll: true });
+    focusInvitation();
   }
   dialog.querySelector('.dez-pilot-close').addEventListener('click', close);
   dialog.addEventListener('cancel', e => { e.preventDefault(); close(); });
@@ -48,16 +55,17 @@
     dialog.querySelector('h2').textContent = `${body.firstName}, queremos convidar você para uma experiência especial.`;
     resume.hidden = !pending; resume.textContent = 'Retomar boas-vindas'; interest.hidden = interested;
     if (!pending && dialog.open) close();
-    result.textContent = interested ? 'Seu interesse já está registrado e disponível para Ricardo no painel.' : pending ? 'Boas-vindas pendentes. Fechar a janela não confirma nem recusa o convite. Você pode retomá-la abaixo.' : 'Boas-vindas confirmadas. Conheça a DEZ e manifeste seu interesse quando desejar.';
+    result.textContent = interested ? 'Seu interesse já está registrado e disponível para Ricardo no painel. Aguarde a autorização e as orientações para confirmar seu e-mail e iniciar a adesão.' : pending ? 'Boas-vindas pendentes. Fechar a janela não confirma nem recusa o convite. Você pode retomá-la abaixo.' : 'Boas-vindas confirmadas. Conheça a DEZ e manifeste seu interesse quando desejar.';
     // Interest is independent of the initial welcome acknowledgment.
     if (autoOpen && pending && !dialog.open) { dialog.showModal(); accept.focus(); }
+    else if (autoOpen && !pending) focusInvitation();
   }
   function failure(error) {
     result.textContent = error.message;
     if (error.unavailable) { available = false; pending = false; resume.hidden = true; interest.hidden = true; if (dialog.open) dialog.close(); token = ''; }
     else if (!available) { resume.hidden = false; resume.textContent = 'Tentar novamente'; }
   }
-  async function inspect() { try { render(await action('inspect'), true); } catch (e) { failure(e); } }
+  async function inspect() { try { render(await action('inspect'), true); } catch (e) { failure(e); if (!dialog.open) focusInvitation(); } }
   resume.addEventListener('click', () => { void inspect(); });
   addEventListener('pageshow', event => { if (event.persisted && token) void inspect(); });
   addEventListener('hashchange', () => {

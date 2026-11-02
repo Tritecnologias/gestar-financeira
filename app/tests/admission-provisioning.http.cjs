@@ -241,6 +241,7 @@ async function main(){
   pass('explicit contract acceptance releases business',(await q(newJar,'/api/terms/accept','POST',{versionId:contract.versionId,agreed:true})).status===200&&(await q(newJar,'/api/lancamentos')).status===200);
   pass('formalized contract cannot reopen',(await q(newJar,'/api/onboarding/contractual','POST',{action:'back'})).status===409);
   pass('completed onboarding hands off to inicio',(await q(newJar,'/onboarding')).headers.get('location')==='/inicio');
+  if(!process.argv.includes('--special-invitation')){
   const backup=await q(newJar,'/api/backups');pass('new tenant backup uses approved H8 candidate',backup.status===200&&backup.body.format==='10s-tenant-backup/3'&&backup.body.migrations.length===8);
   pass('tenant backup excludes global admission governance',!Object.keys(backup.body.sections).some(k=>k.includes('admission'))&&!Object.keys(backup.body.references).some(k=>k.includes('admission')));
   const preserve=await digest(['admissions','admission_challenges','tenant_memberships','legacy_user_access_maps','term_acceptances','tenant_contractual_responsibles','tenant_contractual_onboarding']);
@@ -251,6 +252,7 @@ async function main(){
   assert.deepEqual(await digest(['admissions','admission_challenges','tenant_memberships','legacy_user_access_maps','term_acceptances','tenant_contractual_responsibles','tenant_contractual_onboarding']),preserve);
   pass('tenant restore cannot roll back authorization, ownership or formalized evidence');
   pass('post-restore provisioning replay cannot duplicate tenant',(await provision(newGrant,newJar)).body.tenantId===newResult.body.tenantId);
+  }
   const forged=clone(newJar);forged.set('tenant_context',{value:`${newUser.id}:${newUser.loginNonce}:${tenant.id}`,path:'/'});
   pass('forged tenant cookie gives no foreign business access',[403,409].includes((await q(forged,'/api/lancamentos')).status));
   assert.deepEqual(await digest(['_prisma_migrations']),ledger);pass('ledger unchanged after all provisioning and restore operations');

@@ -4,10 +4,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 const repo = process.argv[2];
-const sha = 'ed17a4407949479ca1d8407feeef8704bd9e0451';
+const sha = '75826cecfe25cfe579b80c0bb2c22f6ed176c729';
 if (!repo || execFileSync('git', ['rev-parse','HEAD'], {cwd:repo,encoding:'utf8'}).trim() !== sha) throw Error('APPROVED_LANDING_SHA_REQUIRED');
 const root = resolve(import.meta.dirname,'../..');
-const paths = ['index.html','styles.css','brand-approved.png','favicon.svg',...[16,32,48,192,512].map(s=>`icons/dez-symbol-${s}.png`)];
+const paths = ['index.html','styles.css','brand-approved.png','brand-header-640.png','favicon.svg',...[16,32,48,192,512].map(s=>`icons/dez-symbol-${s}.png`)];
 const hashes = {};
 for (const file of paths) {
   const bytes = execFileSync('git',['show',`${sha}:${file}`],{cwd:repo,maxBuffer:10*1024*1024});
