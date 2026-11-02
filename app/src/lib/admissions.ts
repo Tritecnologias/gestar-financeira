@@ -1,10 +1,13 @@
 import { Prisma, type Admission } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import { experimentInput } from "@/lib/experiment-policy";
+import { sealExperimentToken } from "@/lib/experiment-link-crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { normalizeEmail } from "@/lib/email";
 import { PASSWORD_POLICY_MESSAGE, validIdentityPassword } from "@/lib/password-policy";
-import { admissionEmail, admissionFailure, requireAdmissionOrigin, retryableAdmissionTransaction } from "@/lib/admission-policy";
+import { admissionEmail, admissionFailure, requireAdmissionOrigin, retryableAdmissionTransaction, validAdmissionId } from "@/lib/admission-policy";
 import { admissionHash, matchesAdmissionToken, newAdmissionToken, type AdmissionProof } from "@/lib/admission-crypto";
 import { deliverAdmissionChallenge } from "@/lib/admission-delivery";
 import { requireAdmissionDatabase } from "@/lib/admission-database";
@@ -42,7 +45,7 @@ async function invitation(tx: Tx, id: string, active = true) {
   await tx.$queryRaw`SELECT id FROM experiment_invitations WHERE id=${id} FOR UPDATE`;
   const row = await tx.experimentInvitation.findUnique({ where: { id } });
   const instant = await now(tx);
-  if (!row || (active && (!row.interestAt || row.revokedAt || row.expiresAt <= instant))) throw denied();
+  if (!row || (active && (row.revokedAt || row.expiresAt <= instant))) throw denied();
   return row;
 }
 async function lockedAdmission(tx: Tx, id: string, active = true) {
@@ -100,6 +103,64 @@ async function deliver(prepared: PreparedMail | null) {
   return delivery.status;
 }
 
+/** The administrative issuance IS the authorization. No interest, identity, tenant
+ * or email verification is fabricated here. The existing proof/identity journey follows.
+ */
+export async function issueAuthorizedSpecialInvitation(actorIdentityId: string, body: Record<string, unknown>) {
+  if (Object.keys(body).some(key => !["recipientName", "email", "hours", "requestId"].includes(key)) || !validAdmissionId(body.requestId))
+    throw admissionFailure("Requisição de emissão inválida.", 400);
+  let input: ReturnType<typeof experimentInput>;
+  try { input = experimentInput(body); } catch (e) { throw admissionFailure((e as Error).message, 400); }
+  const email = admissionEmail(body.email), id = body.requestId, token = newAdmissionToken(), tokenHash = admissionHash(token);
+  const encryptedToken = sealExperimentToken(token, id, tokenHash);
+  return transaction(async tx => {
+    const adminId = await admin(tx, actorIdentityId);
+    await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${"experiment-issue:" + id},0))`;
+    const previous = await tx.experimentInvitation.findUnique({ where: { id }, include: { admission: true } });
+    if (previous) {
+      if (previous.createdByIdentityId !== actorIdentityId || previous.recipientName !== input.recipientName ||
+          previous.admission?.authorizedEmail !== email || previous.expiresAt.getTime() - previous.createdAt.getTime() !== input.hours * 3600000 ||
+          previous.revokedAt || previous.expiresAt <= await now(tx) || previous.admission.status === "CANCELLED")
+        throw admissionFailure("Esta referência de emissão já foi utilizada. Confira o convite existente.", 409);
+      return { id, expiresAt: previous.expiresAt, admissionId: previous.admission.id, created: false };
+    }
+    await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${"experiment-create:" + actorIdentityId},0))`;
+    const instant = await now(tx), expiresAt = new Date(instant.getTime() + input.hours * 3600000);
+    if (await tx.experimentInvitation.count({ where: { createdByIdentityId: actorIdentityId, createdAt: { gte: new Date(instant.getTime() - minutes(15)) } } }) >= 20)
+      throw admissionFailure("Limite de convites atingido. Aguarde 15 minutos.", 429);
+    await tx.experimentInvitation.create({ data: { id, recipientName: input.recipientName, tokenHash, encryptedToken,
+      createdByIdentityId: actorIdentityId, createdAt: instant, expiresAt } });
+    const admission = await tx.admission.create({ data: { id: randomUUID(), source: "AUTHORIZED_INVITE", sourceReference: id,
+      experimentInvitationId: id, authorizedEmail: email, authorizedByAdminId: adminId, authorizedByIdentityId: actorIdentityId,
+      authorizedAt: instant, expiresAt } });
+    const actor = { actorIdentityId, platformAdminId: adminId, accessMode: "PLATFORM_ADMIN" as const };
+    await writeAudit(tx, { ...actor, action: "EXPERIMENT_INVITATION_CREATED", resourceType: "ExperimentInvitation", resourceId: id });
+    await writeAudit(tx, { ...actor, action: "ADMISSION_AUTHORIZED", resourceType: "Admission", resourceId: admission.id,
+      metadata: { invitationId: id, event: "SPECIAL_INVITATION_ISSUED" } });
+    return { id, expiresAt, admissionId: admission.id, created: true };
+  });
+}
+
+/** A valid Special link starts the already-authorized journey, but proves no email
+ * ownership. Only the separate challenge delivered to the bound address can do so.
+ */
+export async function startSpecialAdmission(token: unknown) {
+  if (typeof token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(token)) throw denied();
+  const result = await transaction(async tx => {
+    const source = await tx.experimentInvitation.findUnique({ where: { tokenHash: admissionHash(token) }, select: { id: true } });
+    const reference = source && await tx.admission.findUnique({ where: { experimentInvitationId: source.id } });
+    if (!reference || !reference.authorizedByIdentityId) throw denied();
+    if (reference.status === "AUTHORIZED" && await admin(tx, reference.authorizedByIdentityId) !== reference.authorizedByAdminId) throw denied();
+    await emailLock(tx, reference.authorizedEmail);
+    const { row } = await lockedAdmission(tx, reference.id, reference.status !== "PROVISIONED");
+    if (!["AUTHORIZED", "PROVISIONED"].includes(row.status)) throw denied();
+    return { id: row.id, mail: row.status === "AUTHORIZED" ? await prepareChallenge(tx, row) : null };
+  });
+  const delivery = await deliver(result.mail);
+  return { id: result.id, delivery };
+}
+
+// Compatibility for previously registered interests; not used by new issuance.
 export async function authorizeAdmission(invitationId: string, actorIdentityId: string, emailValue: unknown, hoursValue: unknown) {
   const email = admissionEmail(emailValue), hours = hoursValue === undefined ? 72 : hoursValue;
   if (typeof hours !== "number" || !Number.isInteger(hours) || hours < 1 || hours > 168) throw admissionFailure("Validade de 1 a 168 horas necessária.", 400);
@@ -107,6 +168,7 @@ export async function authorizeAdmission(invitationId: string, actorIdentityId: 
     const adminId = await admin(tx, actorIdentityId);
     await emailLock(tx, email);
     const origin = await invitation(tx, invitationId), instant = await now(tx);
+    if (!origin.interestAt) throw denied();
     const existing = await tx.admission.findUnique({ where: { experimentInvitationId: invitationId } });
     if (existing) {
       if (existing.authorizedEmail !== email || existing.status !== "AUTHORIZED" || existing.expiresAt <= instant) throw denied();
@@ -162,7 +224,7 @@ export async function requestAdmissionLink(emailValue: unknown, id?: string) {
       await emailLock(tx, email);
       const instant = await now(tx);
       const candidates = await tx.admission.findMany({ where: { authorizedEmail: email, status: "AUTHORIZED", expiresAt: { gt: instant },
-        experimentInvitation: { revokedAt: null, expiresAt: { gt: instant }, interestAt: { not: null } }, ...(id ? { id } : {}) },
+        experimentInvitation: { revokedAt: null, expiresAt: { gt: instant } }, ...(id ? { id } : {}) },
         select: { id: true }, take: 2 });
       // Never silently choose among distinct authorizations belonging to the same identity.
       // An interrupted page and every original email carry their non-secret stable reference.
@@ -241,7 +303,7 @@ export async function inspectAdmission(id: string, proof: AdmissionProof | null,
       await assertProvisionedAccess(tx, row, user);
       return { ...provisionedView(row, false), email: row.authorizedEmail, emailVerified: true, expiresAt: row.expiresAt, canProvision: false };
     }
-    if (row.status !== "AUTHORIZED" || row.expiresAt <= instant || !origin.interestAt || origin.revokedAt || origin.expiresAt <= instant) throw denied();
+    if (row.status !== "AUTHORIZED" || row.expiresAt <= instant || origin.revokedAt || origin.expiresAt <= instant) throw denied();
     await assertProof(tx, row, proof, instant);
     const identity = await tx.authIdentity.findUnique({ where: { email: normalizeEmail(row.authorizedEmail) }, select: { id: true, status: true } });
     if (identity && identity.status !== "ACTIVE") throw admissionFailure("Conta indisponível. Solicite atendimento para recuperar seu acesso.", 403);
@@ -317,7 +379,7 @@ export async function provisionAdmission(id: string, proof: AdmissionProof | nul
       await assertProvisionedAccess(tx, row, user);
       completed = row;
     } else {
-      if (row.status !== "AUTHORIZED" || row.expiresAt <= instant || !origin.interestAt || origin.revokedAt || origin.expiresAt <= instant) throw denied();
+      if (row.status !== "AUTHORIZED" || row.expiresAt <= instant || origin.revokedAt || origin.expiresAt <= instant) throw denied();
       await assertProof(tx, row, proof, instant);
       const identity = await tx.authIdentity.findUnique({ where: { id: user.id } });
       if (!identity || identity.status !== "ACTIVE" || identity.email !== row.authorizedEmail)

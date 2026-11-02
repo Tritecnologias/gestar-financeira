@@ -184,7 +184,8 @@ async function main(){
   await deniedCase('cancelled',async a=>{assert.equal((await q(adminJar,`/api/platform/experiment-invitations/${a.g.invitationId}/admission`,'DELETE',{reason:'CANCELAMENTO SINTETICO'})).status,200)});
   await deniedCase('revoked-source',a=>p.experimentInvitation.update({where:{id:a.g.invitationId},data:{revokedAt:new Date()}}));
   await deniedCase('expired-source',a=>p.experimentInvitation.update({where:{id:a.g.invitationId},data:{createdAt:new Date(Date.now()-3600000),expiresAt:new Date(Date.now()-1000)}}));
-  await deniedCase('no-interest',a=>p.experimentInvitation.update({where:{id:a.g.invitationId},data:{interestAt:null}}));
+  const noInterest=await ready('authorized-without-interest');await p.experimentInvitation.update({where:{id:noInterest.g.invitationId},data:{interestAt:null}});
+  pass('legitimate authorization does not require an interest timestamp',(await provision(noInterest.g,noInterest.j)).status===201);
   const inactiveAdmin=await ready('inactive-admin');await p.platformAdmin.update({where:{id:adminAuthority.id},data:{status:'INACTIVE'}});
   const authorityBefore=await digest();pass('inactive administrative authority prevents first provisioning',(await provision(inactiveAdmin.g,inactiveAdmin.j)).status===403);assert.deepEqual(await digest(),authorityBefore);
   await p.platformAdmin.update({where:{id:adminAuthority.id},data:{status:'ACTIVE'}});

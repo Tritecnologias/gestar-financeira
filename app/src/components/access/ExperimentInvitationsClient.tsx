@@ -1,7 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import AdmissionAuthorization from "./AdmissionAuthorization";
 import { selectExperimentInvitations, experimentSituationTone, type ExperimentAdminItem, type InvitationInterest, type InvitationSituation } from "@/lib/experiment-admin-list";
 import "./access.css";
 import "./experiment-invitations.css";
@@ -10,6 +9,8 @@ type Item = ExperimentAdminItem;
 const date = (value: string | null) => value ? new Date(value).toLocaleString("pt-BR") : "Ainda não";
 export default function ExperimentInvitationsClient({ homolog = false, admissionEnabled = false }: { homolog?: boolean; admissionEnabled?: boolean }) {
   const [rows, setRows] = useState<Item[]>([]), [name, setName] = useState(""), [hours, setHours] = useState("72");
+  const [email, setEmail] = useState("");
+  const issueReference = useRef<string | null>(null);
   const [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState(false), [cancelId, setCancelId] = useState("");
   const [bindId, setBindId] = useState(""), [originalLink, setOriginalLink] = useState("");
   const [fallback, setFallback] = useState<{ id: string; link: string } | null>(null);
@@ -42,8 +43,9 @@ export default function ExperimentInvitationsClient({ homolog = false, admission
   async function create(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(""); setNotice(""); setFallback(null);
     try {
-      const r = await fetch("/api/platform/experiment-invitations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipientName: name, hours: Number(hours) }) }); const b = await r.json();
-      if (!r.ok) throw new Error(b.error || "Não foi possível criar."); setName(""); await load(); setNotice("Convite criado. Use Copiar link na linha da tabela; o mesmo link ficará disponível enquanto o convite estiver válido.");
+      issueReference.current ??= crypto.randomUUID();
+      const r = await fetch("/api/platform/experiment-invitations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recipientName: name, email, hours: Number(hours), requestId: issueReference.current }) }); const b = await r.json();
+      if (!r.ok) throw new Error(b.error || "Não foi possível criar."); issueReference.current = null; setName(""); setEmail(""); await load(); setNotice("Convite criado com adesão autorizada. Use Copiar link para encaminhá-lo ao destinatário. Não será necessária outra aprovação.");
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
   async function copy(row: Item) {
@@ -69,9 +71,9 @@ export default function ExperimentInvitationsClient({ homolog = false, admission
   }
   const displayedRows = selectExperimentInvitations(rows, query, situation, interest, clock);
   return <main className="access-page access-platform experiment-admin"><div className="experiment-admin-top"><header className="access-header"><div><h1>Convites Especiais</h1><p>{homolog ? "Convites de experimentação · HOMOLOG" : "Convites de experimentação"}</p></div><Link href="/plataforma" className="access-button access-button-secondary">Administração da Plataforma</Link></header>
-    <p className="experiment-intro">Convide uma pessoa para conhecer a DEZ. Este convite não cria conta, empresa ou acesso à plataforma e não representa aceite contratual. Nenhum e-mail será enviado.</p>
+    <p className="experiment-intro">Ao emitir este convite individual, você autoriza a adesão do destinatário. Ele deverá confirmar o e-mail autorizado, identificar-se e cumprir as etapas contratuais. A emissão não cria conta ou espaço e não representa aceite contratual.</p>
     {error && <p role="alert" className="access-error">{error}</p>}<p role="status" aria-live="polite">{notice}</p>
-    <section className="experiment-panel"><h2>Criar convite especial</h2><form method="post" onSubmit={create} className="experiment-form"><label>Nome do destinatário<input name="recipientName" required maxLength={160} value={name} onChange={e => setName(e.target.value)} autoComplete="off" /></label><label>Validade em horas<input name="hours" type="number" min="1" max="168" required value={hours} onChange={e => setHours(e.target.value)} /></label><button type="submit" className="access-button access-button-primary" disabled={!ready || busy}>{!ready || busy ? "Aguarde…" : "Criar convite"}</button></form></section>
+    <section className="experiment-panel"><h2>Criar convite especial</h2><form method="post" onSubmit={create} className="experiment-form"><label>Nome do destinatário<input name="recipientName" required maxLength={160} value={name} onChange={e => { setName(e.target.value); issueReference.current = null; }} autoComplete="off" /></label><label>E-mail autorizado<input name="email" type="email" required maxLength={254} value={email} onChange={e => { setEmail(e.target.value); issueReference.current = null; }} autoComplete="off" /></label><label>Validade em horas<input name="hours" type="number" min="1" max="168" required value={hours} onChange={e => { setHours(e.target.value); issueReference.current = null; }} /></label><button type="submit" className="access-button access-button-primary" disabled={!ready || busy || !admissionEnabled}>{!ready || busy ? "Aguarde…" : "Criar convite"}</button></form>{!admissionEnabled && <p>A emissão de convites com adesão está indisponível neste ambiente. Os convites existentes continuam disponíveis para consulta.</p>}</section>
     </div>
     <section className="experiment-panel experiment-list-panel"><div className="experiment-list-controls"><div className="experiment-list-heading"><h2>Convites e manifestações de interesse</h2><button className="access-button access-button-secondary" disabled={busy} onClick={() => void load().catch(e => setError(e.message))}>Atualizar lista</button></div>
       <div className="experiment-filters"><label>Buscar por nome ou referência<input type="search" autoComplete="off" value={query} onChange={e => setQuery(e.target.value)} /></label><label>Situação do convite<select value={situation} onChange={e => setSituation(e.target.value as InvitationSituation)}><option value="ALL">Todos</option><option value="ACTIVE">Ativos</option><option value="REVOKED">Cancelados</option><option value="EXPIRED">Expirados</option></select></label><label>Manifestação de interesse<select value={interest} onChange={e => setInterest(e.target.value as InvitationInterest)}><option value="ALL">Todos</option><option value="REGISTERED">Interesse registrado</option><option value="WAITING">Aguardando interesse</option></select></label></div>
@@ -80,7 +82,7 @@ export default function ExperimentInvitationsClient({ homolog = false, admission
         {displayedRows.length ? displayedRows.map(row => <tr key={row.id}><th scope="row">{row.recipientName}</th><td><span title={row.id}>{row.id.slice(0, 8)}</span></td><td><span className={`experiment-pill experiment-pill-${experimentSituationTone(row)}`}>{row.status === "REVOKED" ? "Cancelado" : row.status === "EXPIRED" ? "Expirado" : "Ativo"}</span></td><td>{date(row.createdAt)}</td><td>{date(row.expiresAt)}</td><td>{date(row.viewedAt)}</td><td>{row.acknowledgedAt ? date(row.acknowledgedAt) : "Pendentes"}</td><td>{row.interestAt ? <><span className="experiment-pill experiment-pill-success">Interesse registrado</span><small>{date(row.interestAt)}</small></> : <span className="experiment-pill experiment-pill-warning">Ainda não manifestado</span>}</td><td className="experiment-actions">
           <button type="button" className="access-button access-button-secondary" aria-label={`Copiar link de ${row.recipientName}`} title={row.canCopyLink ? "Copiar o mesmo link" : row.status !== "ACTIVE" ? "Convite expirado ou cancelado" : "Convite antigo: vinculação opcional do link original necessária para recuperar"} disabled={busy || !row.canCopyLink} onClick={() => void copy(row)}>Copiar link</button>
           {row.status === "ACTIVE" && <button type="button" className="experiment-pill experiment-pill-danger experiment-cancel" disabled={busy} aria-label={`Cancelar convite de ${row.recipientName}`} onClick={() => setCancelId(row.id)}>Cancelar</button>}
-          {admissionEnabled && row.status === "ACTIVE" && row.interestAt && <AdmissionAuthorization invitationId={row.id} />}
+          {row.admission ? <small>Adesão autorizada · {row.admission.authorizedEmail}{row.admission.status === "PROVISIONED" ? " · Espaço criado" : row.admission.status === "CANCELLED" ? " · Cancelada" : ""}</small> : <small>Convite anterior sem autorização de adesão vinculada.</small>}
           {row.status === "ACTIVE" && !row.linkRecoverable && <><small>Convite anterior sem link recuperável. A vinculação é opcional e não altera o convite.</small><button type="button" className="access-button access-button-secondary" disabled={busy} aria-label={`Vincular link original de ${row.recipientName}`} onClick={() => { setBindId(row.id); setOriginalLink(""); }}>Vincular link original</button></>}
           {bindId === row.id && <form method="post" className="experiment-bind" onSubmit={bind}><label>Link original de {row.recipientName}<input type="password" name="originalInvitationLink" autoComplete="off" maxLength={1024} required value={originalLink} onChange={e => setOriginalLink(e.target.value)} /></label><button className="access-button access-button-primary" disabled={!ready || busy} type="submit">Validar e vincular</button><button className="access-button access-button-secondary" disabled={busy} type="button" onClick={() => { setBindId(""); setOriginalLink(""); }}>Voltar</button></form>}
           {fallback?.id === row.id && <label>Link recuperado para cópia manual<input ref={fallbackRef} readOnly value={fallback.link} onBlur={() => setFallback(null)} /></label>}

@@ -1,17 +1,18 @@
 const assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
 const base='http://localhost:3020';
-async function emit(page,pass){
-  const label='A25 SINTETICO '+randomUUID(),email='a25-'+randomUUID()+'@example.invalid';
+async function emit(page,pass,recipient){
+  const label='A25 SINTETICO '+randomUUID(),email=recipient||'a25-'+randomUUID()+'@example.invalid';
   await page.goto(base+'/plataforma/convites-especiais');
   await page.getByLabel('Nome do destinatário',{exact:true}).fill(label);
+  await page.getByLabel('E-mail autorizado',{exact:true}).fill(email);
   const issued=page.waitForResponse(r=>r.url()===base+'/api/platform/experiment-invitations'&&r.request().method()==='POST');
   await page.getByRole('button',{name:'Criar convite',exact:true}).click();const response=await issued;assert.equal(response.status(),201);
   const data=await response.json();await page.getByRole('searchbox').fill(label);
   const copied=page.waitForResponse(r=>r.url().endsWith('/'+data.id+'/link')&&r.request().method()==='POST');
   await page.getByRole('button',{name:'Copiar link de '+label,exact:true}).click();const linkResponse=await copied;assert.equal(linkResponse.status(),200);
   const {link}=await linkResponse.json();assert.equal(new URL(link).origin,base);
-  pass('A25 Special Invitation issued and original link recovered through PlatformAdmin UI');
-  return{id:data.id,label,email,link,token:new URLSearchParams(new URL(link).hash.slice(1)).get('convite')};
+  pass('Individual Special Invitation authorized at issuance through PlatformAdmin UI');
+  return{id:data.id,admissionId:data.admissionId,label,email,link,token:new URLSearchParams(new URL(link).hash.slice(1)).get('convite')};
 }
 async function interest(context,invitation,pass,shot){
   const page=await context.newPage();await page.goto(base+'/primeiro-acesso');
@@ -34,11 +35,14 @@ async function interest(context,invitation,pass,shot){
   assert.equal(await page.locator('#perguntas-frequentes details[open]').count(),1);
   await page.getByRole('link',{name:'Ir para o convite',exact:true}).click();
   pass('Special Invitation routes from First Access; correct section focus, live landing FAQ and login destinations on desktop/mobile');
-  const registered=page.waitForResponse(r=>r.url()===base+'/api/experimentacao'&&r.request().postDataJSON()?.action==='interest');
-  await page.getByRole('button',{name:'Quero experimentar a plataforma',exact:true}).click();assert.equal((await registered).status(),200);
+  assert.equal(await page.getByRole('button',{name:'Quero experimentar a plataforma',exact:true}).count(),0);
+  const started=page.waitForResponse(r=>r.url()===base+'/api/experimentacao'&&r.request().postDataJSON()?.action==='startAdmission');
+  await page.getByRole('button',{name:'Iniciar minha adesão',exact:true}).click();const response=await started;assert.equal(response.status(),200);
+  await page.waitForURL(u=>u.pathname==='/adesao');await page.getByRole('heading',{name:'Confirme seu e-mail',exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('dez-admission-id')),invitation.admissionId);
   assert.equal(new URL(page.url()).hash,'');assert.equal((await context.request.get(base+'/api/lancamentos')).status(),401);
-  pass('A25 visitor registers interest through real invitation UI without authentication or operational access');
-  await shot(page,'a25-special-interest');await page.close();
+  pass('Special link starts same Admission without interest prerequisite or second approval; no session or email proof granted');
+  await shot(page,'special-email-confirmation');await page.close();
 }
 async function bypass(context,stage,pass){
   const page=await context.newPage();

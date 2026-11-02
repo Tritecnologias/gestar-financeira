@@ -2,6 +2,7 @@ export type ExperimentAdminItem = {
   id: string; recipientName: string; status: string; createdAt: string; expiresAt: string;
   revokedAt: string | null; viewedAt: string | null; acknowledgedAt: string | null;
   interestAt: string | null; linkRecoverable: boolean; canCopyLink: boolean;
+  admission?: { id: string; authorizedEmail: string; status: string; emailVerifiedAt: string | null } | null;
 };
 export type InvitationSituation = "ALL" | "ACTIVE" | "REVOKED" | "EXPIRED";
 export type InvitationInterest = "ALL" | "REGISTERED" | "WAITING";
@@ -20,7 +21,7 @@ export function selectExperimentInvitations(rows: ExperimentAdminItem[], query: 
     status: row.status !== "REVOKED" && Date.parse(row.expiresAt) <= now ? "EXPIRED" : row.status,
     canCopyLink: row.canCopyLink && row.status === "ACTIVE" && Date.parse(row.expiresAt) > now,
   })).filter(row =>
-    (!search || normalize(row.recipientName).includes(search) || normalize(row.id).includes(search)) &&
+    (!search || normalize(row.recipientName).includes(search) || normalize(row.id).includes(search) || normalize(row.admission?.authorizedEmail || "").includes(search)) &&
     (situation === "ALL" || row.status === situation) &&
     (interest === "ALL" || (interest === "REGISTERED" ? !!row.interestAt : !row.interestAt))
   // Stable partition: preserve the server's newest-first order inside each group.

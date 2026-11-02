@@ -6,7 +6,7 @@
   history.replaceState(null, '', location.pathname + location.search);
   const panel = document.createElement('section'); panel.className = 'dez-pilot-panel'; panel.id = 'convite-especial'; panel.tabIndex = -1;
   panel.setAttribute('aria-label', 'Convite especial de experimentação');
-  panel.innerHTML = '<strong></strong><p class="dez-pilot-result" role="status" aria-live="polite"></p><button class="dez-pilot-resume" type="button" hidden>Retomar boas-vindas</button> <button class="dez-pilot-interest" type="button" hidden>Quero experimentar a plataforma</button><p class="dez-pilot-note">Este convite não cria conta ou acesso e não substitui os termos. Nenhum e-mail será enviado.</p>';
+  panel.innerHTML = '<strong></strong><p class="dez-pilot-result" role="status" aria-live="polite"></p><button class="dez-pilot-resume" type="button" hidden>Retomar boas-vindas</button> <button class="dez-pilot-interest" type="button" hidden>Quero experimentar a plataforma</button> <button class="dez-pilot-start" type="button" hidden>Iniciar minha adesão</button><p class="dez-pilot-note">O convite não substitui a confirmação de identidade nem os termos obrigatórios.</p>';
   panel.querySelector('strong').textContent = document.currentScript?.getAttribute('data-environment') === 'homolog' ? 'HOMOLOG · Convite especial' : 'DEZ Soluções · Convite especial';
   // The invitation belongs in the journey, not after the footer. Keep the skip link
   // exclusively for its accessibility purpose.
@@ -17,6 +17,8 @@
   function focusInvitation() { panel.focus({ preventScroll: true }); panel.scrollIntoView({ block: 'start', behavior: 'instant' }); }
   invitationLink.addEventListener('click', e => { e.preventDefault(); focusInvitation(); });
   const result = panel.querySelector('.dez-pilot-result'), interest = panel.querySelector('.dez-pilot-interest'), resume = panel.querySelector('.dez-pilot-resume');
+  const start = panel.querySelector('.dez-pilot-start');
+  let starting = false;
   let pending = true, available = false, interested = false;
   async function action(name) {
     const sentToken = token;
@@ -50,19 +52,30 @@
     catch (e) { failure(e); }
     finally { interest.disabled = false; }
   });
+  start.addEventListener('click', async () => {
+    if (starting) return;
+    starting = true; start.disabled = true;
+    try {
+      const body = await action('startAdmission');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.id)) throw new Error('Não foi possível iniciar. Tente novamente.');
+      if (body.delivery === 'FAILED') throw new Error('Não foi possível enviar a confirmação ao e-mail autorizado. Aguarde um minuto para tentar novamente ou fale com quem enviou o convite.');
+      // Only a reference crosses this navigation; email proof remains server-enforced.
+      location.assign('/adesao#id=' + body.id + '&from=convite');
+    } catch (e) { failure(e); starting = false; start.disabled = false; }
+  });
   function render(body, autoOpen) {
     available = true; pending = !body.acknowledged; interested = !!body.interested;
     dialog.querySelector('h2').textContent = `${body.firstName}, queremos convidar você para uma experiência especial.`;
-    resume.hidden = !pending; resume.textContent = 'Retomar boas-vindas'; interest.hidden = interested;
+    resume.hidden = !pending; resume.textContent = 'Retomar boas-vindas'; interest.hidden = interested || !!body.canStartAdmission; start.hidden = !body.canStartAdmission;
     if (!pending && dialog.open) close();
-    result.textContent = interested ? 'Seu interesse já está registrado e disponível para Ricardo no painel. Aguarde a autorização e as orientações para confirmar seu e-mail e iniciar a adesão.' : pending ? 'Boas-vindas pendentes. Fechar a janela não confirma nem recusa o convite. Você pode retomá-la abaixo.' : 'Boas-vindas confirmadas. Conheça a DEZ e manifeste seu interesse quando desejar.';
+    result.textContent = body.canStartAdmission ? 'Sua adesão já está autorizada. Inicie para receber a confirmação no e-mail autorizado e continuar com segurança.' : interested ? 'Seu interesse já está registrado e disponível para Ricardo no painel. Aguarde a autorização e as orientações para confirmar seu e-mail e iniciar a adesão.' : pending ? 'Boas-vindas pendentes. Fechar a janela não confirma nem recusa o convite. Você pode retomá-la abaixo.' : 'Boas-vindas confirmadas. Conheça a DEZ e manifeste seu interesse quando desejar.';
     // Interest is independent of the initial welcome acknowledgment.
     if (autoOpen && pending && !dialog.open) { dialog.showModal(); accept.focus(); }
     else if (autoOpen && !pending) focusInvitation();
   }
   function failure(error) {
     result.textContent = error.message;
-    if (error.unavailable) { available = false; pending = false; resume.hidden = true; interest.hidden = true; if (dialog.open) dialog.close(); token = ''; }
+    if (error.unavailable) { available = false; pending = false; resume.hidden = true; interest.hidden = true; start.hidden = true; if (dialog.open) dialog.close(); token = ''; }
     else if (!available) { resume.hidden = false; resume.textContent = 'Tentar novamente'; }
   }
   async function inspect() { try { render(await action('inspect'), true); } catch (e) { failure(e); if (!dialog.open) focusInvitation(); } }

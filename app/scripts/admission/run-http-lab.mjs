@@ -28,7 +28,7 @@ mkdirSync(join(staged,'prisma'));cpSync(join(app,'prisma/schema.prisma'),join(st
 mkdirSync(join(staged,'tests'));for(const name of ['admission.http.cjs','experiment.http.cjs',...(provision?['synthetic-pdf.cjs','admission-provisioning.http.cjs','admission-lab-helpers.cjs','invitations-multichannel.http.cjs','contractual-onboarding.http.cjs']:[]),...(integrated?['admission-integrated.http.cjs']:[]),...(journey?['admission-browser-relay.cjs','admission-browser-fixture.cjs']:[])])cpSync(join(app,'tests',name),join(staged,'tests',name));
 const suffix=randomUUID().slice(0,8),pg=(integrated?'dez-a25-pg-':journey?'dez-a24-pg-':provision?'dez-a23-pg-':'dez-a22-pg-')+suffix,worker=label+'-'+suffix;
 if(reset)for(const name of ['password-reset.http.cjs','admission-browser-relay.cjs'])cpSync(join(app,'tests',name),join(staged,'tests',name));
-if(special)cpSync(join(app,'tests/experiment-production-gate.http.cjs'),join(staged,'tests/experiment-production-gate.http.cjs'));
+if(special)for(const name of ['experiment-production-gate.http.cjs','special-admission.http.cjs'])cpSync(join(app,'tests',name),join(staged,'tests',name));
 const pgImage='sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5',nodeImage='sha256:271e76a186736f3a533931712920c03644bd69684b11d04b1c468d0870ba0d13';
 const report={phase,network:'none',publishedPorts:[],syntheticOnly:true,realEmail:false,foundationDumpSHA256:foundation.dumpSHA256,startedAt:new Date().toISOString()};
 const created=[];let closeBridge;
@@ -130,6 +130,12 @@ try {
     writeFileSync(join(out,'regression-app.log'),(await run(['exec',worker,'cat','/tmp/a23-regression-app.log'])).stdout);
     }
     if(special){
+      const preauthorized=await run(['exec','-w','/work',worker,'node','tests/special-admission.http.cjs'],undefined,false);
+      writeFileSync(join(out,'special-admission.log'),preauthorized.stdout+preauthorized.stderr);
+      report.specialAdmission=JSON.parse((await run(['exec',worker,'cat','/tmp/special-admission-result.json'])).stdout);
+      writeFileSync(join(out,'SPECIAL-ADMISSION-RESULT.json'),JSON.stringify(report.specialAdmission,null,2));
+      assert.equal(preauthorized.code,0,'SPECIAL_ADMISSION_FAILED; inspect special-admission.log');
+      console.log('PASS preauthorized special admission: '+report.specialAdmission.checks.length+' checks');
       // The same compiled files, in the same network-none namespace. No production
       // connection is possible and disabled Admission rejects before any DB access.
       const productionEnv={DEPLOYMENT_PROFILE:'production',ACCESS_AUTH_MODE:'identity',ADMISSION_LAB_ENABLED:'false',ADMISSION_PRODUCTION_ENABLED:'false',ADMISSION_HOMOLOG_ENABLED:'false',

@@ -41,6 +41,7 @@ export default function AdmissionClient() {
       const revision = ++generation.current;
       if (target !== reference.current) { link.current = null; setState(null); setEmail(""); setPassword(""); setConfirmation(""); setName(""); }
       setError(""); setNotice("");
+      if (fragment.get("from") === "convite") setNotice("Sua adesão já está autorizada. Confira a mensagem de confirmação no e-mail cadastrado no convite. Se já solicitou o link, aguarde sua chegada antes de reenviar.");
       if (!validId(target)) { reference.current = ""; link.current = null; setId(""); setState(null); setLoading(false); setHasLink(false); if (requested) setError("O link está incompleto. Abra o link original recebido por e-mail."); return; }
       reference.current = target; setId(target); setLoading(true);
       try { sessionStorage.setItem("dez-admission-id", target); } catch { /* No token is stored. */ }
@@ -100,7 +101,7 @@ export default function AdmissionClient() {
     {loading ? <p role="status">Consultando sua adesão…</p> : <>
       <h2 ref={heading} tabIndex={-1}>{titles[step]}</h2>
       {step === 0 && <>
-        <p>Use o e-mail autorizado por quem analisou seu interesse. A confirmação protege o acesso ao seu espaço.</p>
+        <p>Use o e-mail autorizado para esta adesão. A confirmação protege o acesso ao seu espaço.</p>
         {hasLink && <button disabled={busy} onClick={() => void confirmEmail()}>{busy ? "Confirmando…" : "Confirmar meu e-mail"}</button>}
         <form method="post" className="activation-fields" onSubmit={event => { event.preventDefault(); void action(async current => {
           const result = await post("/api/admissions/resume", { email, ...(id ? { admissionId: id } : {}) });
@@ -109,7 +110,7 @@ export default function AdmissionClient() {
           <label htmlFor="admission-email">E-mail autorizado<input id="admission-email" type="email" required autoComplete="email" maxLength={254} disabled={busy} value={email} onChange={event => setEmail(event.target.value)} /></label>
           <button className={hasLink ? "admission-secondary" : ""} disabled={busy || cooldown > 0} type="submit">{cooldown ? `Aguarde ${cooldown}s para reenviar` : "Receber novo link"}</button>
         </form>
-        <p className="activation-muted">O interesse precisa ser aprovado antes de iniciar a adesão. Se recebeu mais de uma autorização, abra o e-mail da adesão que deseja retomar.</p>
+        <p className="activation-muted">O convite individual já inclui a autorização de adesão. Se recebeu mais de uma autorização, abra o e-mail da adesão que deseja retomar.</p>
         <p className="activation-muted">Já criou seu espaço? <Link href="/login?callbackUrl=%2Fadesao">Entrar com minha conta</Link></p>
         {id && !hasLink && <button className="admission-secondary" disabled={busy} onClick={() => void action(async () => { await refresh(id); })}>Consultar progresso</button>}
       </>}

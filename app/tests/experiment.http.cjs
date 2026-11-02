@@ -1,5 +1,5 @@
 // Synthetic-only protocol tests. UI acceptance is separately required; never hand off a scripted invitation.
-const assert=require('node:assert/strict');
+const assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
 async function main(){let raw='';for await(const b of process.stdin)raw+=b;const c=JSON.parse(raw);raw='';
  assert(['http://localhost:3020','https://homolog.dezsolucoes.com.br'].includes(c.base));
  assert(c.adminEmail.endsWith('@example.invalid')&&c.memberEmail.endsWith('@example.invalid'));
@@ -12,7 +12,7 @@ async function main(){let raw='';for await(const b of process.stdin)raw+=b;const
  ok('authenticated non-admin denied',(await q(m,'/api/platform/experiment-invitations')).status===403);
  ok('cross-origin create denied',(await q(j,'/api/platform/experiment-invitations','POST',{recipientName:'PILOTO QA'},'https://evil.invalid')).status===403);
  ok('invalid expiration rejected',(await q(j,'/api/platform/experiment-invitations','POST',{recipientName:'PILOTO QA',hours:0})).status===400);
- const create=await q(j,'/api/platform/experiment-invitations','POST',{recipientName:'PILOTO QA Bruno Lourenço',hours:1});ok('admin creates without unnecessary plaintext link',create.status===201&&!create.body.link);
+ const create=await q(j,'/api/platform/experiment-invitations','POST',{recipientName:'PILOTO QA Bruno Lourenço',hours:1,email:'special-'+randomUUID()+'@example.invalid',requestId:randomUUID()});ok('admin creates without unnecessary plaintext link',create.status===201&&!create.body.link);
  const id=create.body.id,path='/api/platform/experiment-invitations/'+id+'/link';
  const copied=await q(j,path,'POST',{action:'copy'});ok('admin explicitly recovers opaque fragment link',copied.status===200&&copied.body.link.startsWith(c.base+'/experimentacao#convite='));
  const token=new URL(copied.body.link).hash.slice('#convite='.length);
@@ -28,7 +28,7 @@ async function main(){let raw='';for await(const b of process.stdin)raw+=b;const
  ok('invalid token unavailable',(await guest('inspect','x'.repeat(43))).status===404);
  ok('public mutation needs same origin',(await q(anon,'/api/experimentacao','POST',{action:'interest',token},'https://evil.invalid')).status===403);
  ok('welcome acknowledgment recorded',(await guest('acknowledge')).body.acknowledged===true);
- const interested=await guest('interest');ok('interest has clear result without granting access',interested.status===200&&interested.body.interested&&interested.body.message.includes('Aguarde a autorização')&&interested.body.message.includes('ainda não libera acesso'));
+ const interested=await guest('interest');ok('interest has clear result without granting access',interested.status===200&&interested.body.interested&&interested.body.message.includes('já está autorizada')&&interested.body.message.includes('ainda não libera acesso'));
  ok('interest retry idempotent',(await guest('interest')).body.interested===true);
  const list=await q(j,'/api/platform/experiment-invitations');const row=list.body.find(x=>x.id===id);
  ok('admin verifies all progress',!!row?.viewedAt&&!!row?.acknowledgedAt&&!!row?.interestAt);
@@ -48,7 +48,7 @@ async function main(){let raw='';for await(const b of process.stdin)raw+=b;const
   try{
    const before=(await pool.query('SELECT token_hash,encrypted_token FROM experiment_invitations WHERE id=$1',[id])).rows[0];
    ok('only encrypted token stored at rest',!!before.encrypted_token&&!before.encrypted_token.includes(token)&&before.token_hash!==token);
-   const legacy=await q(j,'/api/platform/experiment-invitations','POST',{recipientName:'PILOTO QA LEGADO',hours:1});ok('legacy fixture created through API',legacy.status===201);
+   const legacy=await q(j,'/api/platform/experiment-invitations','POST',{recipientName:'PILOTO QA LEGADO',hours:1,email:'special-'+randomUUID()+'@example.invalid',requestId:randomUUID()});ok('legacy fixture created through API',legacy.status===201);
    const lp='/api/platform/experiment-invitations/'+legacy.body.id+'/link',original=(await q(j,lp,'POST',{action:'copy'})).body.link;
    const oldHash=(await pool.query('SELECT token_hash FROM experiment_invitations WHERE id=$1',[legacy.body.id])).rows[0].token_hash;
    const cleared=await pool.query("UPDATE experiment_invitations SET encrypted_token=NULL WHERE id=$1 AND recipient_name='PILOTO QA LEGADO' AND created_by_identity_id=(SELECT id FROM auth_identities WHERE email=$2)",[legacy.body.id,c.adminEmail]);ok('simulate legacy only in synthetic owned row',cleared.rowCount===1);
@@ -58,7 +58,7 @@ async function main(){let raw='';for await(const b of process.stdin)raw+=b;const
    ok('binding preserves original hash',(await pool.query('SELECT token_hash FROM experiment_invitations WHERE id=$1',[legacy.body.id])).rows[0].token_hash===oldHash);
    ok('bound legacy recovers exact original link',(await q(fresh,lp,'POST',{action:'copy'})).body.link===original);
    await q(j,'/api/platform/experiment-invitations/'+legacy.body.id,'DELETE');
-   const expired=await q(j,'/api/platform/experiment-invitations','POST',{recipientName:'PILOTO QA EXPIRADO',hours:1}),ep='/api/platform/experiment-invitations/'+expired.body.id+'/link';ok('expiration fixture created',expired.status===201);
+   const expired=await q(j,'/api/platform/experiment-invitations','POST',{recipientName:'PILOTO QA EXPIRADO',hours:1,email:'special-'+randomUUID()+'@example.invalid',requestId:randomUUID()}),ep='/api/platform/experiment-invitations/'+expired.body.id+'/link';ok('expiration fixture created',expired.status===201);
    const el=(await q(j,ep,'POST',{action:'copy'})).body.link,et=new URL(el).hash.slice('#convite='.length);
    const changed=await pool.query("UPDATE experiment_invitations SET created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' WHERE id=$1 AND recipient_name='PILOTO QA EXPIRADO' AND created_by_identity_id=(SELECT id FROM auth_identities WHERE email=$2)",[expired.body.id,c.adminEmail]);ok('expire only owned synthetic fixture',changed.rowCount===1);
    ok('expired copy blocked by server',(await q(j,ep,'POST',{action:'copy'})).status===410);
